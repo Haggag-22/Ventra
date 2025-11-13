@@ -5,8 +5,8 @@ import json
 from pathlib import Path
 
 # Collectors
-from collector.cloudtrail.cloudtrail_history import run_cloudtrail_history
-from collector.cloudtrail.cloudtrail_s3 import run_cloudtrail_s3
+from ventra.collector.cloudtrail.cloudtrail_history import run_cloudtrail_history
+from ventra.collector.cloudtrail.cloudtrail_s3 import run_cloudtrail_s3
 
 
 # =============================================================================

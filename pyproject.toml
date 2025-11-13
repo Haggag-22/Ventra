@@ -1,0 +1,27 @@
+[project]
+name = "ventra"
+version = "0.1.0"
+description = "Ventra: Cloud DFIR and Detection Engineering Toolkit"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+  { name = "Omar" }
+]
+
+requires-python = ">=3.10"
+
+dependencies = [
+    "boto3",
+    "rich",
+    "click",
+    "pyyaml",
+    "requests"
+]
+
+# This creates the CLI command: `ventra`
+[project.scripts]
+ventra = "ventra.cli:main"
+
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"

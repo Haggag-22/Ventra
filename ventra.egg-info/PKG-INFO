@@ -1,0 +1,13 @@
+Metadata-Version: 2.4
+Name: ventra
+Version: 0.1.0
+Summary: Ventra: Cloud DFIR and Detection Engineering Toolkit
+Author: Omar
+License: MIT
+Requires-Python: >=3.10
+Description-Content-Type: text/markdown
+Requires-Dist: boto3
+Requires-Dist: rich
+Requires-Dist: click
+Requires-Dist: pyyaml
+Requires-Dist: requests
