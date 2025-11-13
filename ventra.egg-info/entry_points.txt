@@ -1,2 +1,0 @@
-[console_scripts]
-ventra = ventra.cli:main

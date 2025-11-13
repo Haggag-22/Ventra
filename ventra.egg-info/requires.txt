@@ -1,5 +1,0 @@
-boto3
-rich
-click
-pyyaml
-requests
