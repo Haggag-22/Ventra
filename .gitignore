@@ -2,3 +2,4 @@ evidence/
 creds.txt
 *.json
 *.gz
+__pycache__/
