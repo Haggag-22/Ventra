@@ -17,7 +17,7 @@ def run_cloudtrail_history(args):
     """
     Phase 1 Collector:
     Collect raw CloudTrail LookupEvents (API) in a SINGLE JSON file.
-    No timeline. No CSV. No transformation.
+    No timeline. No CSV. No transformation. Test
     """
 
     print("[+] CloudTrail History Collector (RAW Mode)")

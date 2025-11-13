@@ -1,0 +1,9 @@
+boto3
+botocore
+rich
+click
+pyyaml
+requests
+urllib3
+jmespath
+s3transfer
