@@ -2,16 +2,21 @@ import boto3
 import json
 import os
 from datetime import datetime, timedelta, timezone
+from ventra.auth.store import get_active_profile
 
-
-def _get_cloudtrail_client(args):
+#### Gets Logs from Cloudtail dashboard
+def _get_cloudtrail_client():
     """
-    CloudTrail client automatically respects environment variables,
-    AWS profiles, or temp creds set by Ventra's auth module.
+    CloudTrail client using Ventra's internal credentials.
     """
-    session = boto3.Session()
-    return session.client("cloudtrail", region_name=args.region)
+    profile_name, creds = get_active_profile()
 
+    session = boto3.Session(
+        aws_access_key_id=creds["access_key"],
+        aws_secret_access_key=creds["secret_key"],
+        region_name=creds["region"],
+    )
+    return session.client("cloudtrail")
 
 def run_cloudtrail_history(args):
     """
@@ -28,7 +33,7 @@ def run_cloudtrail_history(args):
     start_time = end_time - timedelta(hours=args.hours)
 
     # Client
-    ct = _get_cloudtrail_client(args)
+    ct = _get_cloudtrail_client()
 
     print("[+] Fetching CloudTrail LookupEvents...")
 

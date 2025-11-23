@@ -3,6 +3,13 @@ import argparse
 import os
 import json
 from pathlib import Path
+import click
+from ventra.auth.whoami import aws_whoami
+from ventra.auth.store import save_ventra_profile
+from botocore.exceptions import ClientError
+import boto3
+
+
 
 # Collectors
 from ventra.collector.cloudtrail.cloudtrail_history import run_cloudtrail_history
@@ -35,15 +42,55 @@ def save_auth(profile=None, access_key=None, secret_key=None, region="us-east-1"
 # ROUTING
 # =============================================================================
 def route(args):
-
+    
+    
     # --- AUTH ---
     if args.command == "auth":
-        save_auth(
+        if not args.profile or not args.access_key or not args.secret_key:
+            print("❌ Missing required auth arguments. Need --profile, --access-key, --secret-key")
+            return
+
+        # Validate creds using STS before saving
+        try:
+            session = boto3.Session(
+                aws_access_key_id=args.access_key,
+                aws_secret_access_key=args.secret_key,
+                region_name=args.region,
+            )
+            sts = session.client("sts")
+            identity = sts.get_caller_identity()
+            print(f"[✓] Valid credentials for ARN: {identity['Arn']}")
+        except ClientError as e:
+            print(f"❌ Invalid AWS credentials: {e}")
+            return
+
+        # Save internally in ~/.ventra/credentials.json
+        save_ventra_profile(
             profile=args.profile,
             access_key=args.access_key,
             secret_key=args.secret_key,
             region=args.region,
         )
+        return
+
+    # --- WHOAMI ---
+    if args.command == "whoami":
+        info = aws_whoami()
+
+        print("\n[✓] Active AWS Identity (Ventra internal creds)\n")
+
+        if info.get("Profile"):
+            print(f"Profile : {info['Profile']}")
+        else:
+            print("Profile : None")
+
+        if "error" in info:
+            print(f"❌ Error  : {info['error']}\n")
+            return
+
+        print(f"Account : {info['Account']}")
+        print(f"ARN     : {info['Arn']}")
+        print(f"User ID : {info['UserId']}\n")
         return
 
     # --- COLLECT ---
@@ -100,6 +147,13 @@ Examples:
     )
 
     sub = parser.add_subparsers(dest="command", required=True)
+    
+    # =========================================================================
+    # WHOAMI
+    # =========================================================================
+    whoami = sub.add_parser("whoami", help="Show active AWS identity/profile")
+    whoami.add_argument("--profile", type=str, help="AWS profile to use")
+    whoami.add_argument("--region", type=str, default="us-east-1")
 
     # =========================================================================
     # AUTH
