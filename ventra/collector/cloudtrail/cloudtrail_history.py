@@ -61,12 +61,17 @@ def run_cloudtrail_history(args):
 
     print(f"[+] Collected {len(raw_events)} raw CloudTrail events")
 
-    # Output directory
-    out_dir = os.path.join(args.output, "cloudtrail", "history")
-    os.makedirs(out_dir, exist_ok=True)
+    # Output directory - use case directory if available, otherwise fallback
+    if hasattr(args, "case_dir") and args.case_dir:
+        output_dir = args.case_dir
+    else:
+        output_dir = args.output or "/Users/omar/Desktop/Ventra/output"
+    
+    # Save directly in case directory (no subdirectories)
+    os.makedirs(output_dir, exist_ok=True)
 
     # Single raw file
-    out_file = os.path.join(out_dir, "cloudtrail_history_raw.json")
+    out_file = os.path.join(output_dir, "cloudtrail_history_raw.json")
 
     with open(out_file, "w", encoding="utf-8") as f:
         json.dump(raw_events, f, indent=2)

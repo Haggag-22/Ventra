@@ -21,3 +21,5 @@ venv/
 
 # MacOS
 .DS_Store
+
+output
