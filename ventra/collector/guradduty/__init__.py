@@ -1,0 +1,1 @@
+# GuardDuty Collector Module

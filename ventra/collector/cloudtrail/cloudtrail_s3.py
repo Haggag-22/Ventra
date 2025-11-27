@@ -97,7 +97,7 @@ def run_cloudtrail_s3(args):
     else:
         print(f"    Prefix:     (auto-discovering from bucket root)")
     print(f"    Region:     {args.region}")
-    
+
     # Normalize prefix path
     s3_prefix = _normalize_prefix(prefix)
     
@@ -105,7 +105,7 @@ def run_cloudtrail_s3(args):
         print(f"[+] Searching S3: s3://{args.bucket}/{s3_prefix}")
     else:
         print(f"[+] Searching S3: s3://{args.bucket}/ (all .json.gz files)")
-    
+
     # Get S3 client
     try:
         s3 = _get_s3_client()
@@ -116,7 +116,7 @@ def run_cloudtrail_s3(args):
     # Step 1: Collect all object keys first (fast listing)
     print("[+] Listing S3 objects...")
     object_keys = []
-    
+
     try:
         paginator = s3.get_paginator('list_objects_v2')
         pages = paginator.paginate(Bucket=args.bucket, Prefix=s3_prefix)
@@ -137,12 +137,12 @@ def run_cloudtrail_s3(args):
     except Exception as e:
         print(f"❌ Error: {e}")
         return
-    
+
     total_files = len(object_keys)
     if total_files == 0:
         print("[!] No CloudTrail log files found.")
         return
-    
+
     print(f"[+] Found {total_files} log files to process")
     print(f"[+] Starting parallel download and processing...")
     
@@ -161,8 +161,8 @@ def run_cloudtrail_s3(args):
         future_to_key = {
             executor.submit(_download_and_parse, s3, args.bucket, key): key
             for key in object_keys
-        }
-        
+            }
+
         # Process completed downloads as they finish
         for future in as_completed(future_to_key):
             key = future_to_key[future]

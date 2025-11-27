@@ -1,0 +1,2 @@
+# Security Hub Collector Module
+

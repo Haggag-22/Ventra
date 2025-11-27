@@ -1,0 +1,2 @@
+# AWS Config Collector Module
+

@@ -15,7 +15,8 @@ dependencies = [
     "rich",
     "click",
     "pyyaml",
-    "requests"
+    "requests",
+    "paramiko"
 ]
 
 # This creates the CLI command: `ventra`

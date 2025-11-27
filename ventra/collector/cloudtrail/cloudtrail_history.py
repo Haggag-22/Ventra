@@ -65,7 +65,7 @@ def run_cloudtrail_history(args):
     if hasattr(args, "case_dir") and args.case_dir:
         output_dir = args.case_dir
     else:
-        output_dir = args.output or "/Users/omar/Desktop/Ventra/output"
+        output_dir = args.output or os.path.join(os.path.expanduser("~"), "Desktop", "Ventra", "output")
     
     # Save directly in case directory (no subdirectories)
     os.makedirs(output_dir, exist_ok=True)
