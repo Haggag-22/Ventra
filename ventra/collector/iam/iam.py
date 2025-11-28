@@ -156,9 +156,10 @@ def collect_all_policies(iam_client, output_base):
     except ClientError as e:
         print(f"    ❌ Error listing policies: {e}")
     
-    iam_dir = os.path.join(output_base, "iam")
-    os.makedirs(iam_dir, exist_ok=True)
-    _save_json_file(iam_dir, "all_policies.json", all_policies)
+    if output_base:
+        iam_dir = os.path.join(output_base, "iam")
+        os.makedirs(iam_dir, exist_ok=True)
+        _save_json_file(iam_dir, "all_policies.json", all_policies)
     return all_policies
 
 
@@ -182,9 +183,10 @@ def collect_service_linked_roles(iam_client, output_base):
     except ClientError as e:
         print(f"    ❌ Error listing service-linked roles: {e}")
     
-    iam_dir = os.path.join(output_base, "iam")
-    os.makedirs(iam_dir, exist_ok=True)
-    _save_json_file(iam_dir, "service_linked_roles.json", service_linked_roles)
+    if output_base:
+        iam_dir = os.path.join(output_base, "iam")
+        os.makedirs(iam_dir, exist_ok=True)
+        _save_json_file(iam_dir, "service_linked_roles.json", service_linked_roles)
     return service_linked_roles
 
 
@@ -215,7 +217,7 @@ def collect_account_password_policy(iam_client, output_base):
         else:
             print(f"    ❌ Error getting password policy: {e}")
     
-    if password_policy:
+    if password_policy and output_base:
         iam_dir = os.path.join(output_base, "iam")
         os.makedirs(iam_dir, exist_ok=True)
         _save_json_file(iam_dir, "account_password_policy.json", password_policy)
@@ -233,7 +235,7 @@ def collect_account_summary(iam_client, output_base):
     except ClientError as e:
         print(f"    ❌ Error getting account summary: {e}")
     
-    if account_summary:
+    if account_summary and output_base:
         iam_dir = os.path.join(output_base, "iam")
         os.makedirs(iam_dir, exist_ok=True)
         _save_json_file(iam_dir, "account_summary.json", account_summary)
@@ -258,25 +260,43 @@ def collect_credential_report(iam_client, output_base):
         import time
         time.sleep(2)
         
-        report_response = iam_client.get_credential_report()
-        report_content = base64.b64decode(report_response.get("Content", b"")).decode("utf-8")
-        
-        # Parse CSV report into structured data
-        lines = report_content.strip().split("\n")
-        if len(lines) > 1:
-            headers = lines[0].split(",")
-            credential_report = []
-            for line in lines[1:]:
-                values = line.split(",")
-                if len(values) == len(headers):
-                    report_entry = dict(zip(headers, values))
-                    credential_report.append(report_entry)
-        
-        print(f"    ✓ Collected credential report ({len(credential_report) if credential_report else 0} entries)")
-    except ClientError as e:
-        print(f"    ⚠ Error getting credential report: {e}")
+        try:
+            report_response = iam_client.get_credential_report()
+            content = report_response.get("Content")
+            
+            if content:
+                # Handle base64 decoding with padding fixes
+                try:
+                    # Add padding if needed
+                    content_str = content if isinstance(content, str) else content.decode('utf-8')
+                    # Fix padding
+                    missing_padding = len(content_str) % 4
+                    if missing_padding:
+                        content_str += '=' * (4 - missing_padding)
+                    report_content = base64.b64decode(content_str).decode("utf-8")
+                    
+                    # Parse CSV report into structured data
+                    lines = report_content.strip().split("\n")
+                    if len(lines) > 1:
+                        headers = lines[0].split(",")
+                        credential_report = []
+                        for line in lines[1:]:
+                            values = line.split(",")
+                            if len(values) == len(headers):
+                                report_entry = dict(zip(headers, values))
+                                credential_report.append(report_entry)
+                    
+                    print(f"    ✓ Collected credential report ({len(credential_report) if credential_report else 0} entries)")
+                except (ValueError, UnicodeDecodeError, Exception) as e:
+                    print(f"    ⚠ Error decoding credential report: {e}")
+            else:
+                print(f"    ⚠ Credential report content is empty")
+        except ClientError as e:
+            print(f"    ⚠ Error getting credential report: {e}")
+    except Exception as e:
+        print(f"    ⚠ Error collecting credential report: {e}")
     
-    if credential_report:
+    if credential_report and output_base:
         iam_dir = os.path.join(output_base, "iam")
         os.makedirs(iam_dir, exist_ok=True)
         _save_json_file(iam_dir, "credential_report.json", credential_report)
@@ -301,11 +321,12 @@ def generate_master_index(output_base, all_users, all_roles, all_groups, all_pol
         "Policies": [{"PolicyName": p.get("PolicyName"), "Arn": p.get("Arn")} for p in all_policies],
     }
     
-    iam_dir = os.path.join(output_base, "iam")
-    os.makedirs(iam_dir, exist_ok=True)
-    filepath = _save_json_file(iam_dir, "master_index.json", index)
-    if filepath:
-        print(f"    ✓ Saved master index → {filepath}")
+    if output_base:
+        iam_dir = os.path.join(output_base, "iam")
+        os.makedirs(iam_dir, exist_ok=True)
+        filepath = _save_json_file(iam_dir, "master_index.json", index)
+        if filepath:
+            print(f"    ✓ Saved master index → {filepath}")
     return index
 
 
@@ -331,14 +352,54 @@ def run_iam_all(args):
         print("[+] Phase 1: Collecting account-wide IAM information")
         print("=" * 60 + "\n")
         
-        all_users = collect_all_users(iam_client, None)
-        all_roles = collect_all_roles(iam_client, None)
-        all_groups = collect_all_groups(iam_client, None)
-        all_policies = collect_all_policies(iam_client, None)
-        service_linked_roles = collect_service_linked_roles(iam_client, None)
-        password_policy = collect_account_password_policy(iam_client, None)
-        account_summary = collect_account_summary(iam_client, None)
-        credential_report = collect_credential_report(iam_client, None)
+        # Collect all data with error handling - continue even if one fails
+        try:
+            all_users = collect_all_users(iam_client, None)
+        except Exception as e:
+            print(f"    ⚠ Error collecting users: {e} (continuing)")
+            all_users = []
+        
+        try:
+            all_roles = collect_all_roles(iam_client, None)
+        except Exception as e:
+            print(f"    ⚠ Error collecting roles: {e} (continuing)")
+            all_roles = []
+        
+        try:
+            all_groups = collect_all_groups(iam_client, None)
+        except Exception as e:
+            print(f"    ⚠ Error collecting groups: {e} (continuing)")
+            all_groups = []
+        
+        try:
+            all_policies = collect_all_policies(iam_client, None)
+        except Exception as e:
+            print(f"    ⚠ Error collecting policies: {e} (continuing)")
+            all_policies = []
+        
+        try:
+            service_linked_roles = collect_service_linked_roles(iam_client, None)
+        except Exception as e:
+            print(f"    ⚠ Error collecting service-linked roles: {e} (continuing)")
+            service_linked_roles = []
+        
+        try:
+            password_policy = collect_account_password_policy(iam_client, None)
+        except Exception as e:
+            print(f"    ⚠ Error collecting password policy: {e} (continuing)")
+            password_policy = None
+        
+        try:
+            account_summary = collect_account_summary(iam_client, None)
+        except Exception as e:
+            print(f"    ⚠ Error collecting account summary: {e} (continuing)")
+            account_summary = None
+        
+        try:
+            credential_report = collect_credential_report(iam_client, None)
+        except Exception as e:
+            print(f"    ⚠ Error collecting credential report: {e} (continuing)")
+            credential_report = None
         
         # Add to combined structure
         all_data["all_users"] = all_users
@@ -351,8 +412,12 @@ def run_iam_all(args):
         all_data["credential_report"] = credential_report
         
         # Generate master index
-        master_index = generate_master_index(None, all_users, all_roles, all_groups, all_policies)
-        all_data["master_index"] = master_index
+        try:
+            master_index = generate_master_index(None, all_users, all_roles, all_groups, all_policies)
+            all_data["master_index"] = master_index
+        except Exception as e:
+            print(f"    ⚠ Error generating master index: {e} (continuing)")
+            all_data["master_index"] = {"error": str(e)}
         
         # Collect detailed information for each entity
         print("\n" + "=" * 60)
@@ -366,33 +431,31 @@ def run_iam_all(args):
             for idx, user in enumerate(all_users, 1):
                 username = user.get("UserName")
                 print(f"[{idx}/{len(all_users)}] Processing user: {username}")
-                user_args = type('Args', (), {
-                    'name': username,
-                    'region': args.region,
-                    'case_dir': args.case_dir if hasattr(args, 'case_dir') else None,
-                    'output': getattr(args, 'output', None),
-                })()
-                # Collect user data but don't save individual files
-                from ventra.collector.iam.users import (
-                    collect_user_identity, collect_user_inline_policies,
-                    collect_user_attached_policies, collect_user_groups,
-                    collect_user_access_keys, collect_user_mfa_devices,
-                    collect_user_signing_certificates, collect_user_ssh_public_keys,
-                    collect_user_service_specific_credentials, collect_user_login_profile
-                )
-                user_detail = {
-                    "user": collect_user_identity(iam_client, username, None),
-                    "inline_policies": collect_user_inline_policies(iam_client, username, None),
-                    "attached_policies": collect_user_attached_policies(iam_client, username, None),
-                    "groups": collect_user_groups(iam_client, username, None),
-                    "access_keys": collect_user_access_keys(iam_client, username, None),
-                    "mfa_devices": collect_user_mfa_devices(iam_client, username, None),
-                    "signing_certificates": collect_user_signing_certificates(iam_client, username, None),
-                    "ssh_public_keys": collect_user_ssh_public_keys(iam_client, username, None),
-                    "service_specific_credentials": collect_user_service_specific_credentials(iam_client, username, None),
-                    "login_profile": collect_user_login_profile(iam_client, username, None),
-                }
-                all_data["users_detail"][username] = user_detail
+                try:
+                    # Collect user data but don't save individual files
+                    from ventra.collector.iam.users import (
+                        collect_user_identity, collect_user_inline_policies,
+                        collect_user_attached_policies, collect_user_groups,
+                        collect_user_access_keys, collect_user_mfa_devices,
+                        collect_user_signing_certificates, collect_user_ssh_public_keys,
+                        collect_user_service_specific_credentials, collect_user_login_profile
+                    )
+                    user_detail = {
+                        "user": collect_user_identity(iam_client, username, None),
+                        "inline_policies": collect_user_inline_policies(iam_client, username, None),
+                        "attached_policies": collect_user_attached_policies(iam_client, username, None),
+                        "groups": collect_user_groups(iam_client, username, None),
+                        "access_keys": collect_user_access_keys(iam_client, username, None),
+                        "mfa_devices": collect_user_mfa_devices(iam_client, username, None),
+                        "signing_certificates": collect_user_signing_certificates(iam_client, username, None),
+                        "ssh_public_keys": collect_user_ssh_public_keys(iam_client, username, None),
+                        "service_specific_credentials": collect_user_service_specific_credentials(iam_client, username, None),
+                        "login_profile": collect_user_login_profile(iam_client, username, None),
+                    }
+                    all_data["users_detail"][username] = user_detail
+                except Exception as e:
+                    print(f"      ⚠ Error collecting details for user {username}: {e} (continuing)")
+                    all_data["users_detail"][username] = {"error": str(e)}
         
         # Collect all roles
         all_data["roles_detail"] = {}
@@ -401,17 +464,21 @@ def run_iam_all(args):
             for idx, role in enumerate(all_roles, 1):
                 role_name = role.get("RoleName")
                 print(f"[{idx}/{len(all_roles)}] Processing role: {role_name}")
-                from ventra.collector.iam.roles import (
-                    collect_role_metadata, collect_role_inline_policies,
-                    collect_role_attached_policies, collect_role_trust_policy
-                )
-                role_detail = {
-                    "role": collect_role_metadata(iam_client, role_name, None),
-                    "inline_policies": collect_role_inline_policies(iam_client, role_name, None),
-                    "attached_policies": collect_role_attached_policies(iam_client, role_name, None),
-                    "trust_policy": collect_role_trust_policy(iam_client, role_name, None),
-                }
-                all_data["roles_detail"][role_name] = role_detail
+                try:
+                    from ventra.collector.iam.roles import (
+                        collect_role_metadata, collect_role_inline_policies,
+                        collect_role_attached_policies, collect_role_trust_policy
+                    )
+                    role_detail = {
+                        "role": collect_role_metadata(iam_client, role_name, None),
+                        "inline_policies": collect_role_inline_policies(iam_client, role_name, None),
+                        "attached_policies": collect_role_attached_policies(iam_client, role_name, None),
+                        "trust_policy": collect_role_trust_policy(iam_client, role_name, None),
+                    }
+                    all_data["roles_detail"][role_name] = role_detail
+                except Exception as e:
+                    print(f"      ⚠ Error collecting details for role {role_name}: {e} (continuing)")
+                    all_data["roles_detail"][role_name] = {"error": str(e)}
         
         # Collect all groups
         all_data["groups_detail"] = {}
@@ -420,16 +487,20 @@ def run_iam_all(args):
             for idx, group in enumerate(all_groups, 1):
                 group_name = group.get("GroupName")
                 print(f"[{idx}/{len(all_groups)}] Processing group: {group_name}")
-                from ventra.collector.iam.groups import (
-                    collect_group_metadata, collect_group_inline_policies,
-                    collect_group_attached_policies
-                )
-                group_detail = {
-                    "group": collect_group_metadata(iam_client, group_name, None),
-                    "inline_policies": collect_group_inline_policies(iam_client, group_name, None),
-                    "attached_policies": collect_group_attached_policies(iam_client, group_name, None),
-                }
-                all_data["groups_detail"][group_name] = group_detail
+                try:
+                    from ventra.collector.iam.groups import (
+                        collect_group_metadata, collect_group_inline_policies,
+                        collect_group_attached_policies
+                    )
+                    group_detail = {
+                        "group": collect_group_metadata(iam_client, group_name, None),
+                        "inline_policies": collect_group_inline_policies(iam_client, group_name, None),
+                        "attached_policies": collect_group_attached_policies(iam_client, group_name, None),
+                    }
+                    all_data["groups_detail"][group_name] = group_detail
+                except Exception as e:
+                    print(f"      ⚠ Error collecting details for group {group_name}: {e} (continuing)")
+                    all_data["groups_detail"][group_name] = {"error": str(e)}
         
         # Collect all policies
         all_data["policies_detail"] = {}
@@ -439,14 +510,18 @@ def run_iam_all(args):
                 policy_arn = policy.get("Arn")
                 policy_name = policy_arn.split("/")[-1] if "/" in policy_arn else policy_arn.split(":")[-1]
                 print(f"[{idx}/{len(all_policies)}] Processing policy: {policy_arn}")
-                from ventra.collector.iam.policies import (
-                    collect_policy_metadata, collect_policy_versions
-                )
-                policy_detail = {
-                    "policy": collect_policy_metadata(iam_client, policy_arn, None),
-                    "policy_versions": collect_policy_versions(iam_client, policy_arn, None),
-                }
-                all_data["policies_detail"][policy_name] = policy_detail
+                try:
+                    from ventra.collector.iam.policies import (
+                        collect_policy_metadata, collect_policy_versions
+                    )
+                    policy_detail = {
+                        "policy": collect_policy_metadata(iam_client, policy_arn, None),
+                        "policy_versions": collect_policy_versions(iam_client, policy_arn, None),
+                    }
+                    all_data["policies_detail"][policy_name] = policy_detail
+                except Exception as e:
+                    print(f"      ⚠ Error collecting details for policy {policy_arn}: {e} (continuing)")
+                    all_data["policies_detail"][policy_name] = {"error": str(e)}
         
         # Save single combined file
         filename = "iam_all.json"

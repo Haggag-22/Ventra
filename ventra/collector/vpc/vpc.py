@@ -893,32 +893,161 @@ def collect_vpc_flow_logs(args):
 
 
 def collect_vpc_all(args):
-    """Collect all VPC information by calling all collectors in sequence."""
-    print("[+] VPC All Collectors")
-    print("    Running all VPC collectors in sequence...\n")
+    """Collect all VPC information into a single combined file."""
+    print("[+] VPC All Collector")
+    print(f"    Region:     {args.region}")
+    vpc_id = getattr(args, "vpc_id", None)
+    if vpc_id:
+        print(f"    VPC ID:     {vpc_id}")
+    print()
     
-    collectors = [
-        ("VPC Info", collect_vpc_info),
-        ("Subnets", collect_vpc_subnets),
-        ("Routes", collect_vpc_routes),
-        ("Security Groups", collect_vpc_security_groups),
-        ("Network ACLs", collect_vpc_nacls),
-        ("Endpoints", collect_vpc_endpoints),
-        ("Internet Gateways", collect_vpc_internet_gateways),
-        ("NAT Gateways", collect_vpc_nat_gateways),
-        ("Flow Logs", collect_vpc_flow_logs),
-    ]
+    try:
+        ec2_client = _get_ec2_client(args.region)
+        logs_client = _get_cloudwatch_logs_client(args.region)
+    except Exception as e:
+        print(f"❌ Error getting clients: {e}")
+        return
     
-    for name, collector_func in collectors:
-        print(f"\n{'=' * 60}")
-        print(f"[+] Running {name} Collector")
-        print('=' * 60)
+    output_dir = _resolve_output_dir(args)
+    print(f"    Output:     {output_dir}\n")
+    
+    try:
+        all_data = {
+            "VPCs": [],
+            "Subnets": [],
+            "RouteTables": [],
+            "SecurityGroups": [],
+            "NetworkACLs": [],
+            "Endpoints": [],
+            "InternetGateways": [],
+            "NATGateways": [],
+            "FlowLogs": [],
+        }
+        
+        # Collect all VPC components with error handling - continue on errors
+        filters = []
+        if vpc_id:
+            filters.append({"Name": "vpc-id", "Values": [vpc_id]})
+        
+        # 1. VPCs
+        print("[+] Collecting VPCs...")
         try:
-            collector_func(args)
+            response = ec2_client.describe_vpcs(Filters=filters if filters else None)
+            for vpc in response.get("Vpcs", []):
+                vpc_info = {
+                    "VpcId": vpc.get("VpcId"),
+                    "CidrBlock": vpc.get("CidrBlock"),
+                    "CidrBlockAssociationSet": vpc.get("CidrBlockAssociationSet", []),
+                    "DhcpOptionsId": vpc.get("DhcpOptionsId"),
+                    "State": vpc.get("State"),
+                    "Tags": vpc.get("Tags", []),
+                    "InstanceTenancy": vpc.get("InstanceTenancy"),
+                    "Ipv6CidrBlockAssociationSet": vpc.get("Ipv6CidrBlockAssociationSet", []),
+                    "IsDefault": vpc.get("IsDefault", False),
+                }
+                try:
+                    dhcp_options = ec2_client.describe_dhcp_options(DhcpOptionsIds=[vpc.get("DhcpOptionsId")])
+                    if dhcp_options.get("DhcpOptions"):
+                        vpc_info["DhcpOptions"] = dhcp_options["DhcpOptions"][0]
+                except Exception:
+                    pass
+                all_data["VPCs"].append(vpc_info)
+            print(f"    ✓ Found {len(all_data['VPCs'])} VPC(s)")
         except Exception as e:
-            print(f"❌ Error in {name} collector: {e}")
-    
-    print(f"\n{'=' * 60}")
-    print("[✓] All VPC collectors completed")
-    print('=' * 60 + "\n")
+            print(f"    ⚠ Error collecting VPCs: {e} (continuing)")
+        
+        # 2. Subnets
+        print("[+] Collecting subnets...")
+        try:
+            response = ec2_client.describe_subnets(Filters=filters if filters else None)
+            all_data["Subnets"] = response.get("Subnets", [])
+            print(f"    ✓ Found {len(all_data['Subnets'])} subnet(s)")
+        except Exception as e:
+            print(f"    ⚠ Error collecting subnets: {e} (continuing)")
+        
+        # 3. Route tables
+        print("[+] Collecting route tables...")
+        try:
+            response = ec2_client.describe_route_tables(Filters=filters if filters else None)
+            all_data["RouteTables"] = response.get("RouteTables", [])
+            print(f"    ✓ Found {len(all_data['RouteTables'])} route table(s)")
+        except Exception as e:
+            print(f"    ⚠ Error collecting route tables: {e} (continuing)")
+        
+        # 4. Security groups
+        print("[+] Collecting security groups...")
+        try:
+            response = ec2_client.describe_security_groups(Filters=filters if filters else None)
+            all_data["SecurityGroups"] = response.get("SecurityGroups", [])
+            print(f"    ✓ Found {len(all_data['SecurityGroups'])} security group(s)")
+        except Exception as e:
+            print(f"    ⚠ Error collecting security groups: {e} (continuing)")
+        
+        # 5. Network ACLs
+        print("[+] Collecting network ACLs...")
+        try:
+            response = ec2_client.describe_network_acls(Filters=filters if filters else None)
+            all_data["NetworkACLs"] = response.get("NetworkAcls", [])
+            print(f"    ✓ Found {len(all_data['NetworkACLs'])} network ACL(s)")
+        except Exception as e:
+            print(f"    ⚠ Error collecting network ACLs: {e} (continuing)")
+        
+        # 6. VPC endpoints
+        print("[+] Collecting VPC endpoints...")
+        try:
+            response = ec2_client.describe_vpc_endpoints(Filters=filters if filters else None)
+            all_data["Endpoints"] = response.get("VpcEndpoints", [])
+            print(f"    ✓ Found {len(all_data['Endpoints'])} endpoint(s)")
+        except Exception as e:
+            print(f"    ⚠ Error collecting endpoints: {e} (continuing)")
+        
+        # 7. Internet gateways
+        print("[+] Collecting internet gateways...")
+        try:
+            response = ec2_client.describe_internet_gateways(Filters=filters if filters else None)
+            all_data["InternetGateways"] = response.get("InternetGateways", [])
+            print(f"    ✓ Found {len(all_data['InternetGateways'])} internet gateway/gateways")
+        except Exception as e:
+            print(f"    ⚠ Error collecting internet gateways: {e} (continuing)")
+        
+        # 8. NAT gateways
+        print("[+] Collecting NAT gateways...")
+        try:
+            response = ec2_client.describe_nat_gateways(Filters=[{"Name": "vpc-id", "Values": [vpc_id]}] if vpc_id else [])
+            all_data["NATGateways"] = response.get("NatGateways", [])
+            print(f"    ✓ Found {len(all_data['NATGateways'])} NAT gateway(s)")
+        except Exception as e:
+            print(f"    ⚠ Error collecting NAT gateways: {e} (continuing)")
+        
+        # 9. Flow logs
+        print("[+] Collecting flow logs...")
+        try:
+            flow_filters = filters if filters else None
+            response = ec2_client.describe_flow_logs(Filters=flow_filters)
+            all_data["FlowLogs"] = response.get("FlowLogs", [])
+            print(f"    ✓ Found {len(all_data['FlowLogs'])} flow log(s)")
+        except Exception as e:
+            print(f"    ⚠ Error collecting flow logs: {e} (continuing)")
+        
+        # Summary
+        all_data["summary"] = {
+            "total_vpcs": len(all_data["VPCs"]),
+            "total_subnets": len(all_data["Subnets"]),
+            "total_route_tables": len(all_data["RouteTables"]),
+            "total_security_groups": len(all_data["SecurityGroups"]),
+            "total_network_acls": len(all_data["NetworkACLs"]),
+            "total_endpoints": len(all_data["Endpoints"]),
+            "total_internet_gateways": len(all_data["InternetGateways"]),
+            "total_nat_gateways": len(all_data["NATGateways"]),
+            "total_flow_logs": len(all_data["FlowLogs"]),
+        }
+        
+        # Save combined file
+        filename = "vpc_all.json" if not vpc_id else f"vpc_{vpc_id}_all.json"
+        filepath = _save_json_file(output_dir, filename, all_data)
+        if filepath:
+            print(f"\n[✓] Saved all VPC data → {filepath}\n")
+        
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}")
 

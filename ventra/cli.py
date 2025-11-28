@@ -111,6 +111,54 @@ def route(args):
             return
 
     # -------------------------------------------------------------------------
+    # NORMALIZE
+    # -------------------------------------------------------------------------
+    if args.command == "normalize":
+        from ventra.case.store import get_case_dir
+        from ventra.normalization import run_from_args
+        
+        # Resolve case directory
+        case_identifier = args.case
+        case_dir = get_case_dir(case_identifier)
+        
+        if not case_dir:
+            print(f"❌ Case not found: {case_identifier}")
+            print("    Use 'ventra case list' to see available cases")
+            return
+        
+        # Set case_dir on args for run_from_args
+        args.case_dir = case_dir
+        
+        # Optionally resolve account_id and region from whoami if not provided
+        if not args.account_id or not args.region:
+            try:
+                info = aws_whoami(args.profile)
+                if "error" not in info:
+                    if not args.account_id:
+                        args.account_id = info.get("Account")
+                    if not args.region:
+                        args.region = info.get("Region")
+            except Exception:
+                pass  # Continue without account_id/region if whoami fails
+        
+        # Run normalization pipeline
+        try:
+            summaries = run_from_args(args)
+            
+            # Print summary
+            print("\n" + "=" * 60)
+            print("  Normalization Summary")
+            print("=" * 60)
+            for summary in summaries:
+                status = "✓" if summary.error_count == 0 else "⚠"
+                print(f"  {status} {summary.name}: {summary.record_count} records, {summary.error_count} errors")
+                print(f"    → {summary.output_path}")
+            print("=" * 60 + "\n")
+        except Exception as e:
+            print(f"❌ Normalization error: {e}")
+        return
+
+    # -------------------------------------------------------------------------
     # COLLECT
     # -------------------------------------------------------------------------
     if args.command == "collect":
@@ -163,6 +211,10 @@ def route(args):
             if args.ec2_cmd == "snapshots":
                 from ventra.collector.ec2.ec2_snapshots import run_ec2_snapshots
                 return run_ec2_snapshots(args)
+            
+            if args.ec2_cmd == "all":
+                from ventra.collector.ec2.ec2_all import run_ec2_all
+                return run_ec2_all(args)
         
         if args.collect_target == "vpc":
             from ventra.collector.vpc.vpc import (
@@ -303,6 +355,7 @@ def route(args):
             lambda_env_vars = importlib.import_module("ventra.collector.lambda.lambda_env_vars")
             lambda_policy = importlib.import_module("ventra.collector.lambda.lambda_policy")
             lambda_code = importlib.import_module("ventra.collector.lambda.lambda_code")
+            lambda_all = importlib.import_module("ventra.collector.lambda.lambda_all")
             
             if args.lambda_cmd == "functions":
                 return lambda_functions.run_lambda_functions(args)
@@ -314,11 +367,14 @@ def route(args):
                 return lambda_policy.run_lambda_policy(args)
             if args.lambda_cmd == "code":
                 return lambda_code.run_lambda_code(args)
+            if args.lambda_cmd == "all":
+                return lambda_all.run_lambda_all(args)
         
         if args.collect_target == "dynamodb":
             from ventra.collector.dynamodb.dynamodb_tables import run_dynamodb_tables
             from ventra.collector.dynamodb.dynamodb_backups import run_dynamodb_backups
             from ventra.collector.dynamodb.dynamodb_streams import run_dynamodb_streams
+            from ventra.collector.dynamodb.dynamodb_all import run_dynamodb_all
             
             if args.dynamodb_cmd == "tables":
                 return run_dynamodb_tables(args)
@@ -326,29 +382,38 @@ def route(args):
                 return run_dynamodb_backups(args)
             if args.dynamodb_cmd == "streams":
                 return run_dynamodb_streams(args)
+            if args.dynamodb_cmd == "all":
+                return run_dynamodb_all(args)
         
         if args.collect_target == "sns":
             from ventra.collector.sns.sns_topics import run_sns_topics
             from ventra.collector.sns.sns_subscriptions import run_sns_subscriptions
+            from ventra.collector.sns.sns_all import run_sns_all
             
             if args.sns_cmd == "topics":
                 return run_sns_topics(args)
             if args.sns_cmd == "subscriptions":
                 return run_sns_subscriptions(args)
+            if args.sns_cmd == "all":
+                return run_sns_all(args)
         
         if args.collect_target == "sqs":
             from ventra.collector.sqs.sqs_queues import run_sqs_queues
             from ventra.collector.sqs.sqs_messages import run_sqs_messages
+            from ventra.collector.sqs.sqs_all import run_sqs_all
             
             if args.sqs_cmd == "queues":
                 return run_sqs_queues(args)
             if args.sqs_cmd == "messages":
                 return run_sqs_messages(args)
+            if args.sqs_cmd == "all":
+                return run_sqs_all(args)
         
         if args.collect_target == "apigw":
             from ventra.collector.apigw.apigw_rest_apis import run_apigw_rest_apis
             from ventra.collector.apigw.apigw_routes import run_apigw_routes
             from ventra.collector.apigw.apigw_integrations import run_apigw_integrations
+            from ventra.collector.apigw.apigw_all import run_apigw_all
             
             if args.apigw_cmd == "rest-apis":
                 return run_apigw_rest_apis(args)
@@ -356,11 +421,14 @@ def route(args):
                 return run_apigw_routes(args)
             if args.apigw_cmd == "integrations":
                 return run_apigw_integrations(args)
+            if args.apigw_cmd == "all":
+                return run_apigw_all(args)
         
         if args.collect_target == "elb":
             from ventra.collector.elb.elb_listeners import run_elb_listeners
             from ventra.collector.elb.elb_target_groups import run_elb_target_groups
             from ventra.collector.elb.elb_access_logs import run_elb_access_logs
+            from ventra.collector.elb.elb_all import run_elb_all
             
             if args.elb_cmd == "listeners":
                 return run_elb_listeners(args)
@@ -368,11 +436,14 @@ def route(args):
                 return run_elb_target_groups(args)
             if args.elb_cmd == "access-logs":
                 return run_elb_access_logs(args)
+            if args.elb_cmd == "all":
+                return run_elb_all(args)
         
         if args.collect_target == "route53":
             from ventra.collector.route53.route53_hosted_zones import run_route53_hosted_zones
             from ventra.collector.route53.route53_records import run_route53_records
             from ventra.collector.route53.route53_query_logs import run_route53_query_logs
+            from ventra.collector.route53.route53_all import run_route53_all
             
             if args.route53_cmd == "hosted-zones":
                 return run_route53_hosted_zones(args)
@@ -380,6 +451,8 @@ def route(args):
                 return run_route53_records(args)
             if args.route53_cmd == "query-logs":
                 return run_route53_query_logs(args)
+            if args.route53_cmd == "all":
+                return run_route53_all(args)
         
         if args.collect_target == "eks":
             from ventra.collector.eks.eks_clusters import run_eks_clusters
@@ -475,6 +548,17 @@ def build_cli():
     case_list = case_sub.add_parser("list", help="List all cases")
 
     # =========================================================================
+    # NORMALIZE
+    # =========================================================================
+    normalize = sub.add_parser("normalize", help="Normalize collected data into standardized schema")
+    normalize.add_argument("--case", type=str, required=True, help="Case name (e.g., 'ec2-compromise' or 'ec2')")
+    normalize.add_argument("--normalizers", type=str, nargs="+", help="Specific normalizers to run (e.g., 'cloudtrail'). If omitted, runs all available normalizers")
+    normalize.add_argument("--output-subdir", type=str, default="normalized", help="Output subdirectory within case directory (default: 'normalized')")
+    normalize.add_argument("--profile", type=str, help="Ventra internal profile")
+    normalize.add_argument("--account-id", type=str, help="AWS account ID (optional, will be extracted from data if available)")
+    normalize.add_argument("--region", type=str, help="AWS region (optional, will be extracted from data if available)")
+
+    # =========================================================================
     # COLLECT
     # =========================================================================
     collect = sub.add_parser("collect", help="Run Ventra collectors")
@@ -548,6 +632,11 @@ def build_cli():
     ec2_snapshots.add_argument("--snapshot", type=str, help="Specific snapshot ID to collect metadata for (e.g., 'snap-1234567890abcdef0')")
     ec2_snapshots.add_argument("--snapshots", type=str, help="Comma-separated snapshot IDs to collect metadata for (e.g., 'snap-123,snap-456')")
     ec2_snapshots.add_argument("--output", type=str, help="Override output directory (defaults to case directory)")
+    
+    ec2_all = ec2_sub.add_parser("all", help="Collect all EC2 instance data (metadata, volumes, snapshots) into one file")
+    ec2_all.add_argument("--case", type=str, required=True, help="Case name")
+    ec2_all.add_argument("--instance", type=str, required=True, help="EC2 instance ID")
+    ec2_all.add_argument("--output", type=str, help="Override output directory")
 
     # VPC
     vpc = collect_sub.add_parser("vpc", help="VPC network infrastructure collectors")
@@ -816,6 +905,11 @@ def build_cli():
     lambda_code.add_argument("--case", type=str, required=True, help="Case name")
     lambda_code.add_argument("--name", type=str, required=True, help="Function name")
     lambda_code.add_argument("--output", type=str, help="Override output directory")
+    
+    lambda_all = lambda_sub.add_parser("all", help="Collect all Lambda function data (config, env vars, policy, code metadata)")
+    lambda_all.add_argument("--case", type=str, required=True, help="Case name")
+    lambda_all.add_argument("--name", type=str, required=True, help="Function name or ARN")
+    lambda_all.add_argument("--output", type=str, help="Override output directory")
 
     # DynamoDB
     dynamodb = collect_sub.add_parser("dynamodb", help="DynamoDB collectors")
@@ -832,6 +926,12 @@ def build_cli():
     ddb_streams = dynamodb_sub.add_parser("streams", help="Collect DynamoDB streams")
     ddb_streams.add_argument("--case", type=str, required=True, help="Case name")
     ddb_streams.add_argument("--output", type=str, help="Override output directory")
+    
+    ddb_all = dynamodb_sub.add_parser("all", help="Collect all DynamoDB data for a table (table info, attributes, items, backups, streams, and exports)")
+    ddb_all.add_argument("--case", type=str, required=True, help="Case name")
+    ddb_all.add_argument("--table", type=str, required=True, help="Table name or ARN")
+    ddb_all.add_argument("--limit", type=int, help="Limit number of table items to scan (optional, scans all items if not provided)")
+    ddb_all.add_argument("--output", type=str, help="Override output directory")
 
     # SNS
     sns = collect_sub.add_parser("sns", help="SNS collectors")
@@ -844,6 +944,10 @@ def build_cli():
     sns_subscriptions = sns_sub.add_parser("subscriptions", help="Collect SNS subscriptions")
     sns_subscriptions.add_argument("--case", type=str, required=True, help="Case name")
     sns_subscriptions.add_argument("--output", type=str, help="Override output directory")
+    
+    sns_all = sns_sub.add_parser("all", help="Collect all SNS data (topics and subscriptions) into one file")
+    sns_all.add_argument("--case", type=str, required=True, help="Case name")
+    sns_all.add_argument("--output", type=str, help="Override output directory")
 
     # SQS
     sqs = collect_sub.add_parser("sqs", help="SQS collectors")
@@ -858,6 +962,10 @@ def build_cli():
     sqs_messages.add_argument("--queue", type=str, help="Specific queue URL (optional, samples all if not provided)")
     sqs_messages.add_argument("--sample", action="store_true", default=True, help="Sample mode (default: True)")
     sqs_messages.add_argument("--output", type=str, help="Override output directory")
+    
+    sqs_all = sqs_sub.add_parser("all", help="Collect all SQS data (queues and sample messages) into one file")
+    sqs_all.add_argument("--case", type=str, required=True, help="Case name")
+    sqs_all.add_argument("--output", type=str, help="Override output directory")
 
     # API Gateway
     apigw = collect_sub.add_parser("apigw", help="API Gateway collectors")
@@ -876,6 +984,11 @@ def build_cli():
     apigw_integrations.add_argument("--case", type=str, required=True, help="Case name")
     apigw_integrations.add_argument("--api-id", type=str, help="Specific API ID (optional, collects all if not provided)")
     apigw_integrations.add_argument("--output", type=str, help="Override output directory")
+    
+    apigw_all = apigw_sub.add_parser("all", help="Collect all API Gateway data (REST APIs, routes, and integrations)")
+    apigw_all.add_argument("--case", type=str, required=True, help="Case name")
+    apigw_all.add_argument("--api-id", type=str, help="Specific API ID (optional, collects all APIs if not provided)")
+    apigw_all.add_argument("--output", type=str, help="Override output directory")
 
     # ELB
     elb = collect_sub.add_parser("elb", help="ELB collectors")
@@ -892,6 +1005,10 @@ def build_cli():
     elb_access_logs = elb_sub.add_parser("access-logs", help="Collect access log configurations")
     elb_access_logs.add_argument("--case", type=str, required=True, help="Case name")
     elb_access_logs.add_argument("--output", type=str, help="Override output directory")
+    
+    elb_all = elb_sub.add_parser("all", help="Collect all ELB data (listeners, target groups, access logs)")
+    elb_all.add_argument("--case", type=str, required=True, help="Case name")
+    elb_all.add_argument("--output", type=str, help="Override output directory")
 
     # Route53
     route53 = collect_sub.add_parser("route53", help="Route53 collectors")
@@ -909,6 +1026,11 @@ def build_cli():
     r53_query_logs = route53_sub.add_parser("query-logs", help="Collect query logging configurations")
     r53_query_logs.add_argument("--case", type=str, required=True, help="Case name")
     r53_query_logs.add_argument("--output", type=str, help="Override output directory")
+    
+    r53_all = route53_sub.add_parser("all", help="Collect all Route53 data for a hosted zone (zone info, records, query logs) into one file")
+    r53_all.add_argument("--case", type=str, required=True, help="Case name")
+    r53_all.add_argument("--zone", type=str, required=True, help="Zone ID or domain name")
+    r53_all.add_argument("--output", type=str, help="Override output directory")
 
     # EKS
     eks = collect_sub.add_parser("eks", help="EKS collectors")
