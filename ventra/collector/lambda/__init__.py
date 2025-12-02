@@ -1,2 +1,0 @@
-# Lambda Collector Module
-

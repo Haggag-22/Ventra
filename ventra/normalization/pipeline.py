@@ -5,7 +5,7 @@ Discovers and runs normalizers on collector data in a case directory.
 """
 
 from pathlib import Path
-from typing import List, Optional, Sequence
+from typing import List, Optional, Sequence, Union
 from datetime import datetime
 
 from .core.context import NormalizationContext
@@ -14,6 +14,19 @@ from .normalizers.cloudtrail import CloudTrailNormalizer
 from .normalizers.ec2 import EC2Normalizer
 from .normalizers.iam import IAMNormalizer
 from .normalizers.dynamodb import DynamoDBNormalizer
+from .normalizers.s3 import S3Normalizer
+from .normalizers.eks import EKSNormalizer
+from .normalizers.lambda_func import LambdaNormalizer
+from .normalizers.vpc import VPCNormalizer
+from .normalizers.guardduty import GuardDutyNormalizer
+from .normalizers.kms import KMSNormalizer
+from .normalizers.sns import SNSNormalizer
+from .normalizers.sqs import SQSNormalizer
+from .normalizers.eventbridge import EventBridgeNormalizer
+from .normalizers.elb import ELBNormalizer
+from .normalizers.securityhub import SecurityHubNormalizer
+from .normalizers.apigw import APIGWNormalizer
+from .normalizers.cloudwatch import CloudWatchNormalizer
 
 
 # Registry of available normalizers
@@ -22,11 +35,24 @@ _NORMALIZERS = {
     "ec2": EC2Normalizer,
     "iam": IAMNormalizer,
     "dynamodb": DynamoDBNormalizer,
+    "s3": S3Normalizer,
+    "eks": EKSNormalizer,
+    "lambda": LambdaNormalizer,
+    "vpc": VPCNormalizer,
+    "guardduty": GuardDutyNormalizer,
+    "kms": KMSNormalizer,
+    "sns": SNSNormalizer,
+    "sqs": SQSNormalizer,
+    "eventbridge": EventBridgeNormalizer,
+    "elb": ELBNormalizer,
+    "securityhub": SecurityHubNormalizer,
+    "apigw": APIGWNormalizer,
+    "cloudwatch": CloudWatchNormalizer,
 }
 
 
 def run_pipeline(
-    case_dir: str | Path,
+    case_dir: Union[str, Path],
     *,
     targets: Optional[Sequence[str]] = None,
     output_subdir: str = "normalized",

@@ -1,2 +1,0 @@
-# ELB Collector Module
-

@@ -1,2 +1,0 @@
-# CloudWatch Collector Module
-

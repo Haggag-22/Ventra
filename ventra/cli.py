@@ -3,14 +3,23 @@
 import argparse
 import boto3
 from botocore.exceptions import ClientError
+from rich.console import Console
+from rich.panel import Panel
+from rich.text import Text
+from rich import box
+from rich.progress import Progress, SpinnerColumn, TextColumn, BarColumn
+from rich.markdown import Markdown
+from rich.syntax import Syntax
 
 from ventra.auth.whoami import aws_whoami
 from ventra.auth.store import save_ventra_profile
-from ventra.collector.cloudtrail.cloudtrail_history import run_cloudtrail_history
-from ventra.collector.cloudtrail.cloudtrail_s3 import run_cloudtrail_s3
-from ventra.collector.cloudtrail.cloudtrail_lake import run_cloudtrail_lake
-from ventra.collector.ec2.ec2_metadata_passive import run_ec2_meta_external
+from ventra.collector.events.cloudtrail_history import run_cloudtrail_history
+from ventra.collector.events.cloudtrail_s3 import run_cloudtrail_s3
+from ventra.collector.events.cloudtrail_lake import run_cloudtrail_lake
+from ventra.collector.resources.ec2.ec2_metadata_passive import run_ec2_meta_external
 from ventra.case.store import create_case, list_cases, get_or_create_case
+
+console = Console(highlight=True, force_terminal=True)
 
 
 # =============================================================================
@@ -44,19 +53,48 @@ def route(args):
     # AUTH
     # -------------------------------------------------------------------------
     if args.command == "auth":
+        console.print(Panel.fit(
+            "[bold green]🔐 Configuring AWS Profile[/bold green]",
+            border_style="green",
+            box=box.ROUNDED
+        ))
+        console.print()
+        
         # Validate credentials
-        try:
-            session = boto3.Session(
-                aws_access_key_id=args.access_key,
-                aws_secret_access_key=args.secret_key,
-                region_name=args.region,
-            )
-            sts = session.client("sts")
-            identity = sts.get_caller_identity()
-            print(f"[✓] Valid credentials for ARN: {identity['Arn']}")
-        except ClientError as e:
-            print(f"❌ Invalid AWS credentials: {e}")
-            return
+        with console.status("[bold cyan]Validating credentials...[/bold cyan]", spinner="dots"):
+            try:
+                session = boto3.Session(
+                    aws_access_key_id=args.access_key,
+                    aws_secret_access_key=args.secret_key,
+                    region_name=args.region,
+                )
+                sts = session.client("sts")
+                identity = sts.get_caller_identity()
+                
+                account_id = identity.get('Account', 'N/A')
+                arn = identity.get('Arn', 'N/A')
+                user_id = identity.get('UserId', 'N/A')
+                
+                console.print(f"[green]✓[/green] [bold]Credentials validated successfully![/bold]")
+                console.print()
+                
+                from rich.table import Table
+                auth_table = Table(show_header=False, box=box.ROUNDED, border_style="green")
+                auth_table.add_column("Field", style="cyan", width=15)
+                auth_table.add_column("Value", style="yellow")
+                
+                auth_table.add_row("Account ID", f"[bold]{account_id}[/bold]")
+                auth_table.add_row("User ID", user_id)
+                auth_table.add_row("ARN", arn)
+                auth_table.add_row("Region", f"[bold]{args.region}[/bold]")
+                
+                console.print(auth_table)
+                console.print()
+                
+            except ClientError as e:
+                console.print(f"[red]❌[/red] [bold red]Invalid AWS credentials[/bold red]")
+                console.print(f"[dim]{e}[/dim]")
+                return
 
         save_ventra_profile(
             profile=args.profile,
@@ -64,27 +102,54 @@ def route(args):
             secret_key=args.secret_key,
             region=args.region,
         )
+        
+        console.print(Panel.fit(
+            f"[green]✓[/green] Profile [bold cyan]'{args.profile}'[/bold cyan] saved successfully",
+            border_style="green",
+            box=box.ROUNDED
+        ))
         return
 
     # -------------------------------------------------------------------------
     # WHOAMI
     # -------------------------------------------------------------------------
     if args.command == "whoami":
-        info = aws_whoami(args.profile)
+        console.print(Panel.fit(
+            "[bold cyan]🔍 AWS Identity Check[/bold cyan]",
+            border_style="cyan",
+            box=box.ROUNDED
+        ))
+        console.print()
+        
+        with console.status("[bold cyan]Fetching identity...[/bold cyan]", spinner="dots"):
+            info = aws_whoami(args.profile)
 
         if "error" in info:
-            print(f"\n❌ Error: {info['error']}\n")
+            console.print(Panel.fit(
+                f"[red]❌ Error:[/red] {info['error']}",
+                border_style="red",
+                box=box.ROUNDED
+            ))
             return
 
-        print("\n" + "=" * 60)
-        print("  AWS Identity (Ventra Profile)")
-        print("=" * 60)
-        print(f"  Profile  : {info.get('Profile', 'N/A')}")
-        print(f"  Account  : {info.get('Account', 'N/A')}")
-        print(f"  Region   : {info.get('Region', 'N/A')}")
-        print(f"  User ID  : {info.get('UserId', 'N/A')}")
-        print(f"  ARN      : {info.get('Arn', 'N/A')}")
-        print("=" * 60 + "\n")
+        from rich.table import Table
+        table = Table(
+            title="[bold cyan]👤 AWS Identity[/bold cyan]",
+            box=box.ROUNDED,
+            show_header=False,
+            border_style="cyan"
+        )
+        table.add_column("Field", style="cyan", width=15, no_wrap=True)
+        table.add_column("Value", style="yellow")
+        
+        table.add_row("📋 Profile", f"[bold]{info.get('Profile', 'N/A')}[/bold]")
+        table.add_row("🏢 Account", f"[bold green]{info.get('Account', 'N/A')}[/bold green]")
+        table.add_row("🌍 Region", f"[bold]{info.get('Region', 'N/A')}[/bold]")
+        table.add_row("🆔 User ID", info.get('UserId', 'N/A'))
+        table.add_row("🔗 ARN", f"[dim]{info.get('Arn', 'N/A')}[/dim]")
+        
+        console.print(table)
+        console.print()
         return
 
     # -------------------------------------------------------------------------
@@ -92,22 +157,80 @@ def route(args):
     # -------------------------------------------------------------------------
     if args.command == "case":
         if args.case_cmd == "new":
-            case_name, case_dir = create_case(args.name)
-            print(f"[✓] Created case: {case_name} ({args.name})")
+            console.print(Panel.fit(
+                "[bold yellow]📁 Creating New Case[/bold yellow]",
+                border_style="yellow",
+                box=box.ROUNDED
+            ))
+            console.print()
+            
+            with console.status("[bold yellow]Creating case...[/bold yellow]", spinner="dots"):
+                case_name, case_dir = create_case(args.name)
+            
+            console.print(Panel.fit(
+                f"[green]✓[/green] Case [bold cyan]{case_name}[/bold cyan] created successfully!\n"
+                f"[dim]Directory: {case_dir}[/dim]",
+                border_style="green",
+                box=box.ROUNDED
+            ))
             return
         
         if args.case_cmd == "list":
+            console.print(Panel.fit(
+                "[bold yellow]📋 Listing Cases[/bold yellow]",
+                border_style="yellow",
+                box=box.ROUNDED
+            ))
+            console.print()
+            
             cases = list_cases()
             if not cases:
-                print("[!] No cases found.")
+                console.print(Panel.fit(
+                    "[yellow]⚠ No cases found[/yellow]",
+                    border_style="yellow",
+                    box=box.ROUNDED
+                ))
                 return
             
-            print("\n" + "=" * 60)
-            print("  Cases")
-            print("=" * 60)
-            for case in cases:
-                print(f"  {case['name']}")
-            print("=" * 60 + "\n")
+            from rich.table import Table
+            table = Table(
+                title="[bold yellow]📁 Cases[/bold yellow]",
+                box=box.ROUNDED,
+                border_style="yellow",
+                show_lines=True
+            )
+            table.add_column("#", style="dim", width=4, justify="right")
+            table.add_column("Case Name", style="cyan", width=30)
+            table.add_column("Directory", style="dim")
+            
+            for idx, (case_name, case_dir) in enumerate(cases.items(), 1):
+                table.add_row(str(idx), case_name, case_dir)
+            
+            console.print(table)
+            console.print()
+            return
+
+    # -------------------------------------------------------------------------
+    # STATUS
+    # -------------------------------------------------------------------------
+    if args.command == "status":
+        if args.status_cmd == "collectors":
+            from ventra.status.collectors import check_collector_status, format_status_table
+            
+            console.print(Panel.fit(
+                "[bold magenta]📊 Collector Status Check[/bold magenta]",
+                border_style="magenta",
+                box=box.ROUNDED
+            ))
+            console.print()
+            
+            with console.status("[bold magenta]Analyzing collectors...[/bold magenta]", spinner="dots"):
+                case_names = getattr(args, "cases", None)
+                status = check_collector_status(case_names)
+            
+            table = format_status_table(status, case_names)
+            console.print(table)
+            console.print()
             return
 
     # -------------------------------------------------------------------------
@@ -117,13 +240,24 @@ def route(args):
         from ventra.case.store import get_case_dir
         from ventra.normalization import run_from_args
         
+        console.print(Panel.fit(
+            "[bold blue]🔄 Normalizing Collected Data[/bold blue]",
+            border_style="blue",
+            box=box.ROUNDED
+        ))
+        console.print()
+        
         # Resolve case directory
         case_identifier = args.case
         case_dir = get_case_dir(case_identifier)
         
         if not case_dir:
-            print(f"❌ Case not found: {case_identifier}")
-            print("    Use 'ventra case list' to see available cases")
+            console.print(Panel.fit(
+                f"[red]❌ Case not found:[/red] [bold]{case_identifier}[/bold]\n"
+                "[dim]Use 'ventra case list' to see available cases[/dim]",
+                border_style="red",
+                box=box.ROUNDED
+            ))
             return
         
         # Set case_dir on args for run_from_args
@@ -145,18 +279,74 @@ def route(args):
         try:
             summaries = run_from_args(args)
             
-            # Print summary
-            print("\n" + "=" * 60)
-            print("  Normalization Summary")
-            print("=" * 60)
+            # Print summary with Rich
+            console.print()
+            from rich.table import Table
+            summary_table = Table(
+                title="[bold blue]📊 Normalization Summary[/bold blue]",
+                box=box.ROUNDED,
+                border_style="blue",
+                show_lines=True
+            )
+            summary_table.add_column("Status", style="bold", width=8, justify="center")
+            summary_table.add_column("Normalizer", style="cyan", width=25)
+            summary_table.add_column("Records", style="yellow", justify="right", width=12)
+            summary_table.add_column("Errors", style="red", justify="right", width=10)
+            summary_table.add_column("Output", style="dim")
+            
+            total_records = 0
+            total_errors = 0
+            
             for summary in summaries:
-                status = "✓" if summary.error_count == 0 else "⚠"
-                print(f"  {status} {summary.name}: {summary.record_count} records, {summary.error_count} errors")
-                print(f"    → {summary.output_path}")
-            print("=" * 60 + "\n")
+                status_icon = "[green]✓[/green]" if summary.error_count == 0 else "[yellow]⚠[/yellow]"
+                error_style = "" if summary.error_count == 0 else "[bold red]"
+                total_records += summary.record_count
+                total_errors += summary.error_count
+                
+                summary_table.add_row(
+                    status_icon,
+                    summary.name,
+                    f"[bold]{summary.record_count:,}[/bold]",
+                    f"{error_style}{summary.error_count}[/{error_style}]" if error_style else str(summary.error_count),
+                    summary.output_path
+                )
+            
+            # Add totals row
+            summary_table.add_row(
+                "[bold cyan]TOTAL[/bold cyan]",
+                "",
+                f"[bold green]{total_records:,}[/bold green]",
+                f"[bold red]{total_errors}[/bold red]" if total_errors > 0 else "[green]0[/green]",
+                "",
+                style="bold"
+            )
+            
+            console.print(summary_table)
+            console.print()
         except Exception as e:
-            print(f"❌ Normalization error: {e}")
+            console.print(Panel.fit(
+                f"[red]❌ Normalization error:[/red] [bold]{e}[/bold]",
+                border_style="red",
+                box=box.ROUNDED
+            ))
         return
+
+    # -------------------------------------------------------------------------
+    # ANALYZE
+    # -------------------------------------------------------------------------
+    if args.command == "analyze":
+        from ventra.analysis.commands.report import run_report_command
+        
+        console.print(Panel.fit(
+            "[bold green]🔍 Analyzing Normalized Data[/bold green]",
+            border_style="green",
+            box=box.ROUNDED
+        ))
+        console.print()
+        
+        if args.analyze_cmd == "report":
+            run_report_command(args)
+            return
 
     # -------------------------------------------------------------------------
     # COLLECT
@@ -172,91 +362,145 @@ def route(args):
         args.case_dir = case_dir
         args.case_name = case_name
 
-        if args.collect_target == "cloudtrail":
-
-            if args.cloudtrail_cmd == "history":
-                return run_cloudtrail_history(args)
-
-            if args.cloudtrail_cmd == "s3":
-                return run_cloudtrail_s3(args)
-
-            if args.cloudtrail_cmd == "lake":
-                return run_cloudtrail_lake(args)
-
-            if args.cloudtrail_cmd == "all":
-                print("[+] Running CloudTrail history + s3 collectors...")
-                run_cloudtrail_history(args)
-                run_cloudtrail_s3(args)
-                print("[✓] Completed combined collectors.")
-                return
-
-        if args.collect_target == "ec2":
-            if args.ec2_cmd == "metadata-passive":
-                # Parse comma-separated instance IDs
-                if isinstance(args.instance, str):
-                    args.instance = [i.strip() for i in args.instance.split(",") if i.strip()]
-                return run_ec2_meta_external(args)
+        # Route based on domain (events or resources)
+        if args.collect_domain == "events":
+            # Domain A: Events
+            console.print(Panel.fit(
+                "[bold cyan]📡 Collecting Events (Domain A)[/bold cyan]",
+                border_style="cyan",
+                box=box.ROUNDED
+            ))
+            console.print(f"[cyan]Case:[/cyan] [bold]{case_name}[/bold] | [cyan]Region:[/cyan] [bold]{args.region}[/bold]")
+            console.print()
             
-            if args.ec2_cmd == "metadata-active":
-                # Parse comma-separated instance IDs
-                if isinstance(args.instance, str):
-                    args.instance = [i.strip() for i in args.instance.split(",") if i.strip()]
-                from ventra.collector.ec2.ec2_metadata_active import run_ec2_metadata_active
-                return run_ec2_metadata_active(args)
+            if args.collect_target == "cloudtrail":
+                if args.cloudtrail_cmd == "history":
+                    return run_cloudtrail_history(args)
+
+                if args.cloudtrail_cmd == "s3":
+                    return run_cloudtrail_s3(args)
+
+                if args.cloudtrail_cmd == "lake":
+                    return run_cloudtrail_lake(args)
+
+                if args.cloudtrail_cmd == "all":
+                    console.print("[bold cyan]🔄 Running CloudTrail history + s3 collectors...[/bold cyan]")
+                    run_cloudtrail_history(args)
+                    run_cloudtrail_s3(args)
+                    console.print("[green]✓[/green] [bold green]Completed combined collectors[/bold green]")
+                    return
             
-            if args.ec2_cmd == "volumes":
-                from ventra.collector.ec2.ec2_volumes import run_ec2_volumes
-                return run_ec2_volumes(args)
+            # GuardDuty (Events)
+            if args.collect_target == "guardduty":
+                from ventra.collector.events.guardduty_findings import run_guardduty_findings
+                from ventra.collector.events.guardduty_malware import run_guardduty_malware
+                
+                if args.guardduty_cmd == "findings":
+                    return run_guardduty_findings(args)
+                if args.guardduty_cmd == "malware":
+                    return run_guardduty_malware(args)
             
-            if args.ec2_cmd == "snapshots":
-                from ventra.collector.ec2.ec2_snapshots import run_ec2_snapshots
-                return run_ec2_snapshots(args)
+            # SecurityHub (Events)
+            if args.collect_target == "securityhub":
+                from ventra.collector.events.securityhub_findings import run_securityhub_findings
+                return run_securityhub_findings(args)
             
-            if args.ec2_cmd == "all":
-                from ventra.collector.ec2.ec2_all import run_ec2_all
-                return run_ec2_all(args)
-        
-        if args.collect_target == "vpc":
-            from ventra.collector.vpc.vpc import (
-                collect_vpc_info,
-                collect_vpc_subnets,
-                collect_vpc_routes,
-                collect_vpc_security_groups,
-                collect_vpc_nacls,
-                collect_vpc_endpoints,
-                collect_vpc_internet_gateways,
-                collect_vpc_nat_gateways,
-                collect_vpc_flow_logs,
-                collect_vpc_all,
-            )
+            # CloudWatch Logs (Events)
+            if args.collect_target == "cloudwatch":
+                from ventra.collector.events.cloudwatch_log_group import run_cloudwatch_log_group
+                return run_cloudwatch_log_group(args)
             
-            if args.vpc_cmd == "info":
-                return collect_vpc_info(args)
-            if args.vpc_cmd == "subnets":
-                return collect_vpc_subnets(args)
-            if args.vpc_cmd == "routes":
-                return collect_vpc_routes(args)
-            if args.vpc_cmd == "sg":
-                return collect_vpc_security_groups(args)
-            if args.vpc_cmd == "nacl":
-                return collect_vpc_nacls(args)
-            if args.vpc_cmd == "endpoints":
-                return collect_vpc_endpoints(args)
-            if args.vpc_cmd == "igw":
-                return collect_vpc_internet_gateways(args)
-            if args.vpc_cmd == "nat":
-                return collect_vpc_nat_gateways(args)
-            if args.vpc_cmd == "flowlogs":
-                return collect_vpc_flow_logs(args)
-            if args.vpc_cmd == "all":
-                return collect_vpc_all(args)
-        
-        if args.collect_target == "iam":
-            from ventra.collector.iam.iam import run_iam_all
-            from ventra.collector.iam.users import run_iam_user
-            from ventra.collector.iam.roles import run_iam_role
-            from ventra.collector.iam.groups import run_iam_group
-            from ventra.collector.iam.policies import run_iam_policy
+            # VPC Flow Logs (Events)
+            if args.collect_target == "vpc":
+                from ventra.collector.events.vpc_flow_logs import run_vpc_flow_logs
+                
+                if args.vpc_cmd == "flowlogs":
+                    return run_vpc_flow_logs(args)
+            
+            # ELB Access Logs (Events)
+            if args.collect_target == "elb":
+                from ventra.collector.events.elb_access_logs import run_elb_access_logs
+                from ventra.collector.events.alb_access_logs import run_alb_access_logs
+                from ventra.collector.events.nlb_access_logs import run_nlb_access_logs
+                
+                if args.elb_cmd == "access-logs":
+                    return run_elb_access_logs(args)
+                if args.elb_cmd == "alb":
+                    return run_alb_access_logs(args)
+                if args.elb_cmd == "nlb":
+                    return run_nlb_access_logs(args)
+            
+            # S3 Access Logs (Events)
+            if args.collect_target == "s3":
+                from ventra.collector.events.s3_access_logs import run_s3_access_logs
+                
+                if args.s3_cmd == "access":
+                    return run_s3_access_logs(args)
+            
+            # Route53 Resolver Query Logs (Events)
+            if args.collect_target == "route53":
+                from ventra.collector.events.route53_resolver_query_logs import run_route53_resolver_query_logs
+                
+                if args.route53_cmd == "query-logs":
+                    return run_route53_resolver_query_logs(args)
+            
+            # WAF Logs (Events)
+            if args.collect_target == "waf":
+                from ventra.collector.events.waf_logs import run_waf_logs
+                return run_waf_logs(args)
+            
+            # CloudFront Access Logs (Events - Optional)
+            if args.collect_target == "cloudfront":
+                from ventra.collector.events.cloudfront_access_logs import run_cloudfront_access_logs
+                return run_cloudfront_access_logs(args)
+            
+            # Detective Findings (Events - Optional)
+            if args.collect_target == "detective":
+                from ventra.collector.events.detective_findings import run_detective_findings
+                return run_detective_findings(args)
+
+        elif args.collect_domain == "resources":
+            # Domain B: Resources
+            console.print(Panel.fit(
+                "[bold yellow]📦 Collecting Resources (Domain B)[/bold yellow]",
+                border_style="yellow",
+                box=box.ROUNDED
+            ))
+            console.print()
+            
+            if args.collect_target == "ec2":
+                if args.ec2_cmd == "metadata-passive":
+                    # Parse comma-separated instance IDs
+                    if isinstance(args.instance, str):
+                        args.instance = [i.strip() for i in args.instance.split(",") if i.strip()]
+                    return run_ec2_meta_external(args)
+                
+                if args.ec2_cmd == "metadata-active":
+                    # Parse comma-separated instance IDs
+                    if isinstance(args.instance, str):
+                        args.instance = [i.strip() for i in args.instance.split(",") if i.strip()]
+                    from ventra.collector.resources.ec2.ec2_metadata_active import run_ec2_metadata_active
+                    return run_ec2_metadata_active(args)
+                
+                if args.ec2_cmd == "volumes":
+                    from ventra.collector.resources.ec2.ec2_volumes import run_ec2_volumes
+                    return run_ec2_volumes(args)
+                
+                if args.ec2_cmd == "snapshots":
+                    from ventra.collector.resources.ec2.ec2_snapshots import run_ec2_snapshots
+                    return run_ec2_snapshots(args)
+                
+                if args.ec2_cmd == "all":
+                    from ventra.collector.resources.ec2.ec2_all import run_ec2_all
+                    return run_ec2_all(args)
+            
+            # IAM (Resources)
+            if args.collect_target == "iam":
+                from ventra.collector.resources.iam.iam import run_iam_all
+                from ventra.collector.resources.iam.users import run_iam_user
+                from ventra.collector.resources.iam.roles import run_iam_role
+                from ventra.collector.resources.iam.groups import run_iam_group
+                from ventra.collector.resources.iam.policies import run_iam_policy
             
             if args.iam_cmd == "all":
                 return run_iam_all(args)
@@ -269,241 +513,285 @@ def route(args):
             if args.iam_cmd == "policy":
                 return run_iam_policy(args)
         
-        if args.collect_target == "s3":
-            from ventra.collector.s3.s3_bucket_info import run_s3_bucket_info
-            from ventra.collector.s3.s3_access import run_s3_access
-            from ventra.collector.s3.s3_objects import run_s3_objects
-            from ventra.collector.s3.s3_versions import run_s3_versions
-            from ventra.collector.s3.s3_all import run_s3_all
+            # Lambda (Resources)
+            if args.collect_target == "lambda":
+                import importlib
+                lambda_functions = importlib.import_module("ventra.collector.resources.lambda.lambda_functions")
+                lambda_config = importlib.import_module("ventra.collector.resources.lambda.lambda_config")
+                lambda_env_vars = importlib.import_module("ventra.collector.resources.lambda.lambda_env_vars")
+                lambda_policy = importlib.import_module("ventra.collector.resources.lambda.lambda_policy")
+                lambda_code = importlib.import_module("ventra.collector.resources.lambda.lambda_code")
+                lambda_all = importlib.import_module("ventra.collector.resources.lambda.lambda_all")
+                
+                if args.lambda_cmd == "functions":
+                    return lambda_functions.run_lambda_functions(args)
+                if args.lambda_cmd == "config":
+                    return lambda_config.run_lambda_config(args)
+                if args.lambda_cmd == "env-vars":
+                    return lambda_env_vars.run_lambda_env_vars(args)
+                if args.lambda_cmd == "policy":
+                    return lambda_policy.run_lambda_policy(args)
+                if args.lambda_cmd == "code":
+                    return lambda_code.run_lambda_code(args)
+                if args.lambda_cmd == "all":
+                    return lambda_all.run_lambda_all(args)
             
-            if args.s3_cmd == "bucket-info":
-                return run_s3_bucket_info(args)
-            if args.s3_cmd == "access":
-                return run_s3_access(args)
-            if args.s3_cmd == "objects":
-                return run_s3_objects(args)
-            if args.s3_cmd == "versions":
-                return run_s3_versions(args)
-            if args.s3_cmd == "all":
-                return run_s3_all(args)
-        
-        if args.collect_target == "guradduty":
-            from ventra.collector.guradduty.guradduty_detectors import run_guradduty_detectors
-            from ventra.collector.guradduty.guradduty_findings import run_guradduty_findings
-            from ventra.collector.guradduty.guradduty_details import run_guradduty_details
-            from ventra.collector.guradduty.guradduty_malware import run_guradduty_malware
-            from ventra.collector.guradduty.guradduty_all import run_guradduty_all
+            # KMS (Resources)
+            if args.collect_target == "kms":
+                from ventra.collector.resources.kms.kms import run_kms
+                return run_kms(args)
             
-            if args.guradduty_cmd == "detectors":
-                return run_guradduty_detectors(args)
-            if args.guradduty_cmd == "findings":
-                return run_guradduty_findings(args)
-            if args.guradduty_cmd == "details":
-                return run_guradduty_details(args)
-            if args.guradduty_cmd == "malware":
-                return run_guradduty_malware(args)
-            if args.guradduty_cmd == "all":
-                return run_guradduty_all(args)
-        
-        if args.collect_target == "cloudwatch":
-            from ventra.collector.cloudwatch.cloudwatch_log_groups import run_cloudwatch_log_groups
-            from ventra.collector.cloudwatch.cloudwatch_logs import run_cloudwatch_logs
-            from ventra.collector.cloudwatch.cloudwatch_metrics import run_cloudwatch_metrics
-            from ventra.collector.cloudwatch.cloudwatch_alarms import run_cloudwatch_alarms
-            from ventra.collector.cloudwatch.cloudwatch_events import run_cloudwatch_events
-            from ventra.collector.cloudwatch.cloudwatch_dashboards import run_cloudwatch_dashboards
-            from ventra.collector.cloudwatch.cloudwatch_all import run_cloudwatch_all
+            # DynamoDB (Resources)
+            if args.collect_target == "dynamodb":
+                from ventra.collector.resources.dynamodb.dynamodb_tables import run_dynamodb_tables
+                from ventra.collector.resources.dynamodb.dynamodb_backups import run_dynamodb_backups
+                from ventra.collector.resources.dynamodb.dynamodb_streams import run_dynamodb_streams
+                from ventra.collector.resources.dynamodb.dynamodb_all import run_dynamodb_all
             
-            if args.cloudwatch_cmd == "log-groups":
-                return run_cloudwatch_log_groups(args)
-            if args.cloudwatch_cmd == "logs":
-                return run_cloudwatch_logs(args)
-            if args.cloudwatch_cmd == "metrics":
-                return run_cloudwatch_metrics(args)
-            if args.cloudwatch_cmd == "alarms":
-                return run_cloudwatch_alarms(args)
-            if args.cloudwatch_cmd == "events":
-                return run_cloudwatch_events(args)
-            if args.cloudwatch_cmd == "dashboards":
-                return run_cloudwatch_dashboards(args)
-            if args.cloudwatch_cmd == "all":
-                return run_cloudwatch_all(args)
-        
-        if args.collect_target == "kms":
-            from ventra.collector.kms.kms import run_kms
-            return run_kms(args)
-        
-        if args.collect_target == "eventbridge":
-            from ventra.collector.eventbridge.eventbridge_rules import run_eventbridge_rules
-            from ventra.collector.eventbridge.eventbridge_targets import run_eventbridge_targets
-            from ventra.collector.eventbridge.eventbridge_buses import run_eventbridge_buses
-            from ventra.collector.eventbridge.eventbridge_all import run_eventbridge_all
+                if args.dynamodb_cmd == "tables":
+                    return run_dynamodb_tables(args)
+                if args.dynamodb_cmd == "backups":
+                    return run_dynamodb_backups(args)
+                if args.dynamodb_cmd == "streams":
+                    return run_dynamodb_streams(args)
+                if args.dynamodb_cmd == "all":
+                    return run_dynamodb_all(args)
             
-            if args.eventbridge_cmd == "rules":
-                return run_eventbridge_rules(args)
-            if args.eventbridge_cmd == "targets":
-                return run_eventbridge_targets(args)
-            if args.eventbridge_cmd == "buses":
-                return run_eventbridge_buses(args)
-            if args.eventbridge_cmd == "all":
-                return run_eventbridge_all(args)
-        
-        if args.collect_target == "lambda":
-            import importlib
-            lambda_functions = importlib.import_module("ventra.collector.lambda.lambda_functions")
-            lambda_config = importlib.import_module("ventra.collector.lambda.lambda_config")
-            lambda_env_vars = importlib.import_module("ventra.collector.lambda.lambda_env_vars")
-            lambda_policy = importlib.import_module("ventra.collector.lambda.lambda_policy")
-            lambda_code = importlib.import_module("ventra.collector.lambda.lambda_code")
-            lambda_all = importlib.import_module("ventra.collector.lambda.lambda_all")
+            # SNS (Resources)
+            if args.collect_target == "sns":
+                from ventra.collector.resources.sns.sns_topics import run_sns_topics
+                from ventra.collector.resources.sns.sns_subscriptions import run_sns_subscriptions
+                from ventra.collector.resources.sns.sns_all import run_sns_all
+                
+                if args.sns_cmd == "topics":
+                    return run_sns_topics(args)
+                if args.sns_cmd == "subscriptions":
+                    return run_sns_subscriptions(args)
+                if args.sns_cmd == "all":
+                    return run_sns_all(args)
             
-            if args.lambda_cmd == "functions":
-                return lambda_functions.run_lambda_functions(args)
-            if args.lambda_cmd == "config":
-                return lambda_config.run_lambda_config(args)
-            if args.lambda_cmd == "env-vars":
-                return lambda_env_vars.run_lambda_env_vars(args)
-            if args.lambda_cmd == "policy":
-                return lambda_policy.run_lambda_policy(args)
-            if args.lambda_cmd == "code":
-                return lambda_code.run_lambda_code(args)
-            if args.lambda_cmd == "all":
-                return lambda_all.run_lambda_all(args)
-        
-        if args.collect_target == "dynamodb":
-            from ventra.collector.dynamodb.dynamodb_tables import run_dynamodb_tables
-            from ventra.collector.dynamodb.dynamodb_backups import run_dynamodb_backups
-            from ventra.collector.dynamodb.dynamodb_streams import run_dynamodb_streams
-            from ventra.collector.dynamodb.dynamodb_all import run_dynamodb_all
+            # SQS (Resources)
+            if args.collect_target == "sqs":
+                from ventra.collector.resources.sqs.sqs_queues import run_sqs_queues
+                from ventra.collector.resources.sqs.sqs_messages import run_sqs_messages
+                from ventra.collector.resources.sqs.sqs_all import run_sqs_all
+                
+                if args.sqs_cmd == "queues":
+                    return run_sqs_queues(args)
+                if args.sqs_cmd == "messages":
+                    return run_sqs_messages(args)
+                if args.sqs_cmd == "all":
+                    return run_sqs_all(args)
             
-            if args.dynamodb_cmd == "tables":
-                return run_dynamodb_tables(args)
-            if args.dynamodb_cmd == "backups":
-                return run_dynamodb_backups(args)
-            if args.dynamodb_cmd == "streams":
-                return run_dynamodb_streams(args)
-            if args.dynamodb_cmd == "all":
-                return run_dynamodb_all(args)
+            # API Gateway (Resources)
+            if args.collect_target == "apigw":
+                from ventra.collector.resources.apigw.apigw_rest_apis import run_apigw_rest_apis
+                from ventra.collector.resources.apigw.apigw_routes import run_apigw_routes
+                from ventra.collector.resources.apigw.apigw_integrations import run_apigw_integrations
+                from ventra.collector.resources.apigw.apigw_all import run_apigw_all
+                
+                if args.apigw_cmd == "rest-apis":
+                    return run_apigw_rest_apis(args)
+                if args.apigw_cmd == "routes":
+                    return run_apigw_routes(args)
+                if args.apigw_cmd == "integrations":
+                    return run_apigw_integrations(args)
+                if args.apigw_cmd == "all":
+                    return run_apigw_all(args)
         
-        if args.collect_target == "sns":
-            from ventra.collector.sns.sns_topics import run_sns_topics
-            from ventra.collector.sns.sns_subscriptions import run_sns_subscriptions
-            from ventra.collector.sns.sns_all import run_sns_all
+            # EKS (Resources)
+            if args.collect_target == "eks":
+                from ventra.collector.resources.eks.eks_clusters import run_eks_clusters
+                from ventra.collector.resources.eks.eks_nodegroups import run_eks_nodegroups
+                from ventra.collector.resources.eks.eks_addons import run_eks_addons
+                from ventra.collector.resources.eks.eks_security import run_eks_security
+                from ventra.collector.resources.eks.eks_networking import run_eks_networking
+                from ventra.collector.resources.eks.eks_oidc import run_eks_oidc
+                from ventra.collector.resources.eks.eks_logs_config import run_eks_logs_config
+                from ventra.collector.resources.eks.eks_fargate import run_eks_fargate
+                from ventra.collector.resources.eks.eks_controlplane_logs import run_eks_controlplane_logs
+                from ventra.collector.resources.eks.eks_all import run_eks_all
+                
+                if args.eks_cmd == "clusters":
+                    return run_eks_clusters(args)
+                if args.eks_cmd == "nodegroups":
+                    return run_eks_nodegroups(args)
+                if args.eks_cmd == "addons":
+                    return run_eks_addons(args)
+                if args.eks_cmd == "security":
+                    return run_eks_security(args)
+                if args.eks_cmd == "networking":
+                    return run_eks_networking(args)
+                if args.eks_cmd == "oidc":
+                    return run_eks_oidc(args)
+                if args.eks_cmd == "logs-config":
+                    return run_eks_logs_config(args)
+                if args.eks_cmd == "fargate":
+                    return run_eks_fargate(args)
+                if args.eks_cmd == "controlplane-logs":
+                    return run_eks_controlplane_logs(args)
+                if args.eks_cmd == "all":
+                    return run_eks_all(args)
             
-            if args.sns_cmd == "topics":
-                return run_sns_topics(args)
-            if args.sns_cmd == "subscriptions":
-                return run_sns_subscriptions(args)
-            if args.sns_cmd == "all":
-                return run_sns_all(args)
-        
-        if args.collect_target == "sqs":
-            from ventra.collector.sqs.sqs_queues import run_sqs_queues
-            from ventra.collector.sqs.sqs_messages import run_sqs_messages
-            from ventra.collector.sqs.sqs_all import run_sqs_all
+            # VPC (Resources - info, subnets, routes, etc.)
+            if args.collect_target == "vpc":
+                from ventra.collector.resources.vpc.vpc import (
+                    collect_vpc_info,
+                    collect_vpc_subnets,
+                    collect_vpc_routes,
+                    collect_vpc_security_groups,
+                    collect_vpc_nacls,
+                    collect_vpc_endpoints,
+                    collect_vpc_internet_gateways,
+                    collect_vpc_nat_gateways,
+                    collect_vpc_all,
+                )
+                
+                if args.vpc_cmd == "info":
+                    return collect_vpc_info(args)
+                if args.vpc_cmd == "subnets":
+                    return collect_vpc_subnets(args)
+                if args.vpc_cmd == "routes":
+                    return collect_vpc_routes(args)
+                if args.vpc_cmd == "sg":
+                    return collect_vpc_security_groups(args)
+                if args.vpc_cmd == "nacl":
+                    return collect_vpc_nacls(args)
+                if args.vpc_cmd == "endpoints":
+                    return collect_vpc_endpoints(args)
+                if args.vpc_cmd == "igw":
+                    return collect_vpc_internet_gateways(args)
+                if args.vpc_cmd == "nat":
+                    return collect_vpc_nat_gateways(args)
+                if args.vpc_cmd == "all":
+                    return collect_vpc_all(args)
             
-            if args.sqs_cmd == "queues":
-                return run_sqs_queues(args)
-            if args.sqs_cmd == "messages":
-                return run_sqs_messages(args)
-            if args.sqs_cmd == "all":
-                return run_sqs_all(args)
-        
-        if args.collect_target == "apigw":
-            from ventra.collector.apigw.apigw_rest_apis import run_apigw_rest_apis
-            from ventra.collector.apigw.apigw_routes import run_apigw_routes
-            from ventra.collector.apigw.apigw_integrations import run_apigw_integrations
-            from ventra.collector.apigw.apigw_all import run_apigw_all
+            # CloudWatch (Resources - alarms, dashboards)
+            if args.collect_target == "cloudwatch":
+                from ventra.collector.resources.cloudwatch.cloudwatch_alarms import run_cloudwatch_alarms
+                from ventra.collector.resources.cloudwatch.cloudwatch_dashboards import run_cloudwatch_dashboards
+                
+                if args.cloudwatch_cmd == "alarms":
+                    return run_cloudwatch_alarms(args)
+                if args.cloudwatch_cmd == "dashboards":
+                    return run_cloudwatch_dashboards(args)
             
-            if args.apigw_cmd == "rest-apis":
-                return run_apigw_rest_apis(args)
-            if args.apigw_cmd == "routes":
-                return run_apigw_routes(args)
-            if args.apigw_cmd == "integrations":
-                return run_apigw_integrations(args)
-            if args.apigw_cmd == "all":
-                return run_apigw_all(args)
-        
-        if args.collect_target == "elb":
-            from ventra.collector.elb.elb_listeners import run_elb_listeners
-            from ventra.collector.elb.elb_target_groups import run_elb_target_groups
-            from ventra.collector.elb.elb_access_logs import run_elb_access_logs
-            from ventra.collector.elb.elb_all import run_elb_all
+            # S3 (Resources - buckets, objects, versions)
+            if args.collect_target == "s3":
+                from ventra.collector.resources.s3.s3_bucket_info import run_s3_bucket_info
+                from ventra.collector.resources.s3.s3_objects import run_s3_objects
+                from ventra.collector.resources.s3.s3_versions import run_s3_versions
+                from ventra.collector.resources.s3.s3_all import run_s3_all
+                
+                if args.s3_cmd == "bucket-info":
+                    return run_s3_bucket_info(args)
+                if args.s3_cmd == "objects":
+                    return run_s3_objects(args)
+                if args.s3_cmd == "versions":
+                    return run_s3_versions(args)
+                if args.s3_cmd == "all":
+                    return run_s3_all(args)
             
-            if args.elb_cmd == "listeners":
-                return run_elb_listeners(args)
-            if args.elb_cmd == "target-groups":
-                return run_elb_target_groups(args)
-            if args.elb_cmd == "access-logs":
-                return run_elb_access_logs(args)
-            if args.elb_cmd == "all":
-                return run_elb_all(args)
-        
-        if args.collect_target == "route53":
-            from ventra.collector.route53.route53_hosted_zones import run_route53_hosted_zones
-            from ventra.collector.route53.route53_records import run_route53_records
-            from ventra.collector.route53.route53_query_logs import run_route53_query_logs
-            from ventra.collector.route53.route53_all import run_route53_all
+            # VPC (Resources - info, subnets, routes, etc.)
+            if args.collect_target == "vpc":
+                from ventra.collector.resources.vpc.vpc import (
+                    collect_vpc_info,
+                    collect_vpc_subnets,
+                    collect_vpc_routes,
+                    collect_vpc_security_groups,
+                    collect_vpc_nacls,
+                    collect_vpc_endpoints,
+                    collect_vpc_internet_gateways,
+                    collect_vpc_nat_gateways,
+                    collect_vpc_all,
+                )
+                
+                if args.vpc_cmd == "info":
+                    return collect_vpc_info(args)
+                if args.vpc_cmd == "subnets":
+                    return collect_vpc_subnets(args)
+                if args.vpc_cmd == "routes":
+                    return collect_vpc_routes(args)
+                if args.vpc_cmd == "sg":
+                    return collect_vpc_security_groups(args)
+                if args.vpc_cmd == "nacl":
+                    return collect_vpc_nacls(args)
+                if args.vpc_cmd == "endpoints":
+                    return collect_vpc_endpoints(args)
+                if args.vpc_cmd == "igw":
+                    return collect_vpc_internet_gateways(args)
+                if args.vpc_cmd == "nat":
+                    return collect_vpc_nat_gateways(args)
+                if args.vpc_cmd == "all":
+                    return collect_vpc_all(args)
             
-            if args.route53_cmd == "hosted-zones":
-                return run_route53_hosted_zones(args)
-            if args.route53_cmd == "records":
-                return run_route53_records(args)
-            if args.route53_cmd == "query-logs":
-                return run_route53_query_logs(args)
-            if args.route53_cmd == "all":
-                return run_route53_all(args)
-        
-        if args.collect_target == "eks":
-            from ventra.collector.eks.eks_clusters import run_eks_clusters
-            from ventra.collector.eks.eks_nodegroups import run_eks_nodegroups
-            from ventra.collector.eks.eks_fargate import run_eks_fargate
-            from ventra.collector.eks.eks_addons import run_eks_addons
-            from ventra.collector.eks.eks_logs_config import run_eks_logs_config
-            from ventra.collector.eks.eks_oidc import run_eks_oidc
-            from ventra.collector.eks.eks_controlplane_logs import run_eks_controlplane_logs
-            from ventra.collector.eks.eks_security import run_eks_security
-            from ventra.collector.eks.eks_networking import run_eks_networking
-            from ventra.collector.eks.eks_all import run_eks_all
+            # S3 (Resources - buckets, objects, versions)
+            if args.collect_target == "s3":
+                from ventra.collector.resources.s3.s3_bucket_info import run_s3_bucket_info
+                from ventra.collector.resources.s3.s3_objects import run_s3_objects
+                from ventra.collector.resources.s3.s3_versions import run_s3_versions
+                from ventra.collector.resources.s3.s3_all import run_s3_all
+                
+                if args.s3_cmd == "bucket-info":
+                    return run_s3_bucket_info(args)
+                if args.s3_cmd == "objects":
+                    return run_s3_objects(args)
+                if args.s3_cmd == "versions":
+                    return run_s3_versions(args)
+                if args.s3_cmd == "all":
+                    return run_s3_all(args)
             
-            if args.eks_cmd == "clusters":
-                return run_eks_clusters(args)
-            if args.eks_cmd == "nodegroups":
-                return run_eks_nodegroups(args)
-            if args.eks_cmd == "fargate":
-                return run_eks_fargate(args)
-            if args.eks_cmd == "addons":
-                return run_eks_addons(args)
-            if args.eks_cmd == "logs-config":
-                return run_eks_logs_config(args)
-            if args.eks_cmd == "oidc":
-                return run_eks_oidc(args)
-            if args.eks_cmd == "controlplane-logs":
-                return run_eks_controlplane_logs(args)
-            if args.eks_cmd == "security":
-                return run_eks_security(args)
-            if args.eks_cmd == "networking":
-                return run_eks_networking(args)
-            if args.eks_cmd == "all":
-                return run_eks_all(args)
-        
-        if args.collect_target == "config":
-            from ventra.collector.config.config_history import run_config_history
-            from ventra.collector.config.config_snapshots import run_config_snapshots
-            from ventra.collector.config.config_drifts import run_config_drifts
+            # ELB (Resources - load balancers, target groups, listeners)
+            if args.collect_target == "elb":
+                from ventra.collector.resources.elb.elb_all import run_elb_all
+                from ventra.collector.resources.elb.elb_listeners import run_elb_listeners
+                from ventra.collector.resources.elb.elb_target_groups import run_elb_target_groups
+                
+                if args.elb_cmd == "all":
+                    return run_elb_all(args)
+                if args.elb_cmd == "listeners":
+                    return run_elb_listeners(args)
+                if args.elb_cmd == "target-groups":
+                    return run_elb_target_groups(args)
             
-            if args.config_cmd == "history":
-                return run_config_history(args)
-            if args.config_cmd == "snapshots":
-                return run_config_snapshots(args)
-            if args.config_cmd == "drifts":
-                return run_config_drifts(args)
-        
-        if args.collect_target == "securityhub":
-            from ventra.collector.securityhub.securityhub_findings import run_securityhub_findings
+            # Route53 (Resources - hosted zones, records)
+            if args.collect_target == "route53":
+                from ventra.collector.resources.route53.route53_hosted_zones import run_route53_hosted_zones
+                from ventra.collector.resources.route53.route53_records import run_route53_records
+                from ventra.collector.resources.route53.route53_all import run_route53_all
+                
+                if args.route53_cmd == "hosted-zones":
+                    return run_route53_hosted_zones(args)
+                if args.route53_cmd == "records":
+                    return run_route53_records(args)
+                if args.route53_cmd == "all":
+                    return run_route53_all(args)
             
-            if args.securityhub_cmd == "findings":
-                return run_securityhub_findings(args)
+            # CloudWatch (Resources - alarms, dashboards)
+            if args.collect_target == "cloudwatch":
+                from ventra.collector.resources.cloudwatch.cloudwatch_alarms import run_cloudwatch_alarms
+                from ventra.collector.resources.cloudwatch.cloudwatch_dashboards import run_cloudwatch_dashboards
+                
+                if args.cloudwatch_cmd == "alarms":
+                    return run_cloudwatch_alarms(args)
+                if args.cloudwatch_cmd == "dashboards":
+                    return run_cloudwatch_dashboards(args)
+            
+            # EventBridge (Resources - rules, buses, targets)
+            if args.collect_target == "eventbridge":
+                from ventra.collector.resources.eventbridge.eventbridge_rules import run_eventbridge_rules
+                from ventra.collector.resources.eventbridge.eventbridge_targets import run_eventbridge_targets
+                from ventra.collector.resources.eventbridge.eventbridge_buses import run_eventbridge_buses
+                from ventra.collector.resources.eventbridge.eventbridge_all import run_eventbridge_all
+                
+                if args.eventbridge_cmd == "rules":
+                    return run_eventbridge_rules(args)
+                if args.eventbridge_cmd == "targets":
+                    return run_eventbridge_targets(args)
+                if args.eventbridge_cmd == "buses":
+                    return run_eventbridge_buses(args)
+                if args.eventbridge_cmd == "all":
+                    return run_eventbridge_all(args)
             
 
 
@@ -514,8 +802,9 @@ def build_cli():
 
     parser = argparse.ArgumentParser(
         prog="ventra",
-        description="Ventra DFIR Collection & Analysis Framework",
+        description="Ventra - Cloud DFIR Collection & Analysis Framework",
         formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="For more information, visit: https://github.com/yourusername/ventra"
     )
 
     sub = parser.add_subparsers(dest="command", required=True)
@@ -548,6 +837,15 @@ def build_cli():
     case_list = case_sub.add_parser("list", help="List all cases")
 
     # =========================================================================
+    # STATUS
+    # =========================================================================
+    status = sub.add_parser("status", help="Show collection status")
+    status_sub = status.add_subparsers(dest="status_cmd", required=True)
+    
+    status_collectors = status_sub.add_parser("collectors", help="Show collector status across cases")
+    status_collectors.add_argument("--cases", type=str, nargs="+", help="Specific cases to check (default: all cases)")
+
+    # =========================================================================
     # NORMALIZE
     # =========================================================================
     normalize = sub.add_parser("normalize", help="Normalize collected data into standardized schema")
@@ -559,16 +857,39 @@ def build_cli():
     normalize.add_argument("--region", type=str, help="AWS region (optional, will be extracted from data if available)")
 
     # =========================================================================
+    # ANALYZE
+    # =========================================================================
+    analyze = sub.add_parser("analyze", help="Analyze normalized data and generate DFIR reports")
+    analyze_sub = analyze.add_subparsers(dest="analyze_cmd", required=True)
+    
+    report = analyze_sub.add_parser("report", help="Generate DFIR investigation report")
+    report.add_argument("--case", type=str, required=True, help="Case name")
+    report.add_argument("--format", type=str, choices=["text", "json"], default="text", help="Report format (default: text)")
+    report.add_argument("--output", type=str, help="Output file path (default: case/reports/dfir_report.{txt|json})")
+
+    # =========================================================================
     # COLLECT
     # =========================================================================
     collect = sub.add_parser("collect", help="Run Ventra collectors")
     collect.add_argument("--profile", type=str, help="Ventra internal profile")
     collect.add_argument("--region", type=str, help="Override region")
 
-    collect_sub = collect.add_subparsers(dest="collect_target", required=True)
+    collect_sub = collect.add_subparsers(dest="collect_domain", required=True)
+    
+    # Domain A: Events (Activity Logs)
+    events = collect_sub.add_parser("events", help="Collect activity logs and events (Domain A)")
+    events_sub = events.add_subparsers(dest="collect_target", required=True)
+    
+    # Domain B: Resources (Environment State)  
+    resources = collect_sub.add_parser("resources", help="Collect resource metadata and configuration snapshots (Domain B)")
+    resources_sub = resources.add_subparsers(dest="collect_target", required=True)
 
-    # CLOUDTRAIL
-    ct = collect_sub.add_parser("cloudtrail")
+    # =========================================================================
+    # DOMAIN A: EVENTS
+    # =========================================================================
+    
+    # CLOUDTRAIL (Events)
+    ct = events_sub.add_parser("cloudtrail", help="Collect CloudTrail API activity logs")
     ct_sub = ct.add_subparsers(dest="cloudtrail_cmd", required=True)
 
     # history
@@ -598,8 +919,12 @@ def build_cli():
     ct_all.add_argument("--prefix", type=str, required=True)
     ct_all.add_argument("--output", type=str)
 
-    # EC2
-    ec2 = collect_sub.add_parser("ec2", help="EC2 collectors")
+    # =========================================================================
+    # DOMAIN B: RESOURCES
+    # =========================================================================
+    
+    # EC2 (Resources)
+    ec2 = resources_sub.add_parser("ec2", help="Collect EC2 instance metadata and configuration")
     ec2_sub = ec2.add_subparsers(dest="ec2_cmd", required=True)
 
     # metadata-passive
@@ -638,8 +963,8 @@ def build_cli():
     ec2_all.add_argument("--instance", type=str, required=True, help="EC2 instance ID")
     ec2_all.add_argument("--output", type=str, help="Override output directory")
 
-    # VPC
-    vpc = collect_sub.add_parser("vpc", help="VPC network infrastructure collectors")
+    # VPC (Resources - info, subnets, routes, etc.)
+    vpc = resources_sub.add_parser("vpc", help="Collect VPC network infrastructure metadata")
     vpc_sub = vpc.add_subparsers(dest="vpc_cmd", required=True)
     
     # info
@@ -690,22 +1015,24 @@ def build_cli():
     vpc_nat.add_argument("--vpc-id", type=str, help="Filter by specific VPC ID (optional)")
     vpc_nat.add_argument("--output", type=str, help="Override output directory")
     
-    # flowlogs
-    vpc_flowlogs = vpc_sub.add_parser("flowlogs", help="Collect VPC flow log configurations and optionally recent log events")
+    # all
+    vpc_all = vpc_sub.add_parser("all", help="Run all VPC resource collectors")
+    vpc_all.add_argument("--case", type=str, required=True, help="Case name")
+    vpc_all.add_argument("--vpc-id", type=str, help="Filter by specific VPC ID (optional)")
+    vpc_all.add_argument("--output", type=str, help="Override output directory")
+
+    # VPC Flow Logs (Events) - separate parser
+    vpc_logs = events_sub.add_parser("vpc", help="Collect VPC flow log events")
+    vpc_logs_sub = vpc_logs.add_subparsers(dest="vpc_cmd", required=True)
+    
+    vpc_flowlogs = vpc_logs_sub.add_parser("flowlogs", help="Collect VPC flow log configurations and events")
     vpc_flowlogs.add_argument("--case", type=str, required=True, help="Case name")
     vpc_flowlogs.add_argument("--vpc-id", type=str, help="Filter by specific VPC ID (optional)")
     vpc_flowlogs.add_argument("--hours", type=int, help="Retrieve last N hours of CloudWatch Logs events (optional)")
     vpc_flowlogs.add_argument("--output", type=str, help="Override output directory")
-    
-    # all
-    vpc_all = vpc_sub.add_parser("all", help="Run all VPC collectors in sequence")
-    vpc_all.add_argument("--case", type=str, required=True, help="Case name")
-    vpc_all.add_argument("--vpc-id", type=str, help="Filter by specific VPC ID (optional)")
-    vpc_all.add_argument("--hours", type=int, help="Retrieve last N hours of CloudWatch Logs events for flow logs (optional)")
-    vpc_all.add_argument("--output", type=str, help="Override output directory")
 
-    # IAM
-    iam = collect_sub.add_parser("iam", help="IAM collectors")
+    # IAM (Resources)
+    iam = resources_sub.add_parser("iam", help="Collect IAM users, roles, groups, and policies")
     iam_sub = iam.add_subparsers(dest="iam_cmd", required=True)
     
     # all (full account collection)
@@ -737,8 +1064,8 @@ def build_cli():
     iam_policy.add_argument("--arn", type=str, required=True, help="IAM policy ARN")
     iam_policy.add_argument("--output", type=str, help="Override output directory")
 
-    # S3
-    s3 = collect_sub.add_parser("s3", help="S3 collectors")
+    # S3 (Resources - buckets, objects, versions)
+    s3 = resources_sub.add_parser("s3", help="Collect S3 bucket metadata, objects, and versions")
     s3_sub = s3.add_subparsers(dest="s3_cmd", required=True)
     
     # bucket-info
@@ -746,12 +1073,6 @@ def build_cli():
     s3_bucket_info.add_argument("--case", type=str, required=True, help="Case name")
     s3_bucket_info.add_argument("--bucket", type=str, required=True, help="S3 bucket name")
     s3_bucket_info.add_argument("--output", type=str, help="Override output directory")
-    
-    # access
-    s3_access = s3_sub.add_parser("access", help="Access points, access-point policies, cross-account principals, public exposure checks")
-    s3_access.add_argument("--case", type=str, required=True, help="Case name")
-    s3_access.add_argument("--bucket", type=str, required=True, help="S3 bucket name")
-    s3_access.add_argument("--output", type=str, help="Override output directory")
     
     # objects
     s3_objects = s3_sub.add_parser("objects", help="Lightweight listing (NOT downloading everything). Recursively lists all objects under prefix")
@@ -769,97 +1090,65 @@ def build_cli():
     s3_versions.add_argument("--output", type=str, help="Override output directory")
     
     # all
-    s3_all = s3_sub.add_parser("all", help="Run all S3 collectors for a bucket")
+    s3_all = s3_sub.add_parser("all", help="Run all S3 resource collectors for a bucket")
     s3_all.add_argument("--case", type=str, required=True, help="Case name")
     s3_all.add_argument("--bucket", type=str, required=True, help="S3 bucket name")
     s3_all.add_argument("--prefix", type=str, help="Prefix for objects/versions collection (optional)")
     s3_all.add_argument("--output", type=str, help="Override output directory")
 
-    # GuardDuty
-    guradduty = collect_sub.add_parser("guradduty", help="GuardDuty collectors")
-    guradduty_sub = guradduty.add_subparsers(dest="guradduty_cmd", required=True)
+    # S3 Access Logs (Events) - separate parser
+    s3_logs = events_sub.add_parser("s3", help="Collect S3 access logs")
+    s3_logs_sub = s3_logs.add_subparsers(dest="s3_cmd", required=True)
     
-    # detectors
-    gd_detectors = guradduty_sub.add_parser("detectors", help="Collect all GuardDuty detectors")
-    gd_detectors.add_argument("--case", type=str, required=True, help="Case name")
-    gd_detectors.add_argument("--all-regions", action="store_true", help="Collect from all regions")
-    gd_detectors.add_argument("--output", type=str, help="Override output directory")
+    s3_access = s3_logs_sub.add_parser("access", help="Access points, access-point policies, cross-account principals, public exposure checks, and access logs")
+    s3_access.add_argument("--case", type=str, required=True, help="Case name")
+    s3_access.add_argument("--bucket", type=str, required=True, help="S3 bucket name")
+    s3_access.add_argument("--output", type=str, help="Override output directory")
+
+    # GuardDuty (Events)
+    guardduty = events_sub.add_parser("guardduty", help="Collect GuardDuty security findings and events")
+    guardduty_sub = guardduty.add_subparsers(dest="guardduty_cmd", required=True)
     
     # findings
-    gd_findings = guradduty_sub.add_parser("findings", help="Collect GuardDuty findings")
+    gd_findings = guardduty_sub.add_parser("findings", help="Collect GuardDuty findings")
     gd_findings.add_argument("--case", type=str, required=True, help="Case name")
     gd_findings.add_argument("--severity", type=str, help="Filter by severity (low, medium, high, critical)")
     gd_findings.add_argument("--resource", type=str, help="Filter by resource ID (e.g., i-1234)")
     gd_findings.add_argument("--output", type=str, help="Override output directory")
     
-    # details
-    gd_details = guradduty_sub.add_parser("details", help="Collect detailed information for a specific finding")
-    gd_details.add_argument("--case", type=str, required=True, help="Case name")
-    gd_details.add_argument("--id", type=str, required=True, help="Finding ID")
-    gd_details.add_argument("--output", type=str, help="Override output directory")
-    
     # malware
-    gd_malware = guradduty_sub.add_parser("malware", help="Collect EBS malware-scan results")
+    gd_malware = guardduty_sub.add_parser("malware", help="Collect EBS malware-scan results")
     gd_malware.add_argument("--case", type=str, required=True, help="Case name")
     gd_malware.add_argument("--output", type=str, help="Override output directory")
-    
-    # all
-    gd_all = guradduty_sub.add_parser("all", help="Run all GuardDuty collectors")
-    gd_all.add_argument("--case", type=str, required=True, help="Case name")
-    gd_all.add_argument("--all-regions", action="store_true", help="Collect from all regions for detectors")
-    gd_all.add_argument("--output", type=str, help="Override output directory")
 
-    # CloudWatch
-    cloudwatch = collect_sub.add_parser("cloudwatch", help="CloudWatch collectors")
+    # CloudWatch (Resources - alarms, dashboards)
+    cloudwatch = resources_sub.add_parser("cloudwatch", help="Collect CloudWatch alarms and dashboards")
     cw_sub = cloudwatch.add_subparsers(dest="cloudwatch_cmd", required=True)
-    
-    # log-groups
-    cw_log_groups = cw_sub.add_parser("log-groups", help="Collect all CloudWatch log groups")
-    cw_log_groups.add_argument("--case", type=str, required=True, help="Case name")
-    cw_log_groups.add_argument("--output", type=str, help="Override output directory")
-    
-    # logs
-    cw_logs = cw_sub.add_parser("logs", help="Collect log events from a specific log group")
-    cw_logs.add_argument("--case", type=str, required=True, help="Case name")
-    cw_logs.add_argument("--group", type=str, required=True, help="Log group name")
-    cw_logs.add_argument("--hours", type=int, help="Collect events from last N hours (optional)")
-    cw_logs.add_argument("--output", type=str, help="Override output directory")
-    
-    # metrics
-    cw_metrics = cw_sub.add_parser("metrics", help="Collect CloudWatch metrics")
-    cw_metrics.add_argument("--case", type=str, required=True, help="Case name")
-    cw_metrics.add_argument("--namespace", type=str, help="Filter by namespace (optional)")
-    cw_metrics.add_argument("--dimensions", type=str, help="Filter by dimensions (format: Name1=Value1,Name2=Value2)")
-    cw_metrics.add_argument("--hours", type=int, default=24, help="Hours of metric data to collect (default: 24)")
-    cw_metrics.add_argument("--output", type=str, help="Override output directory")
     
     # alarms
     cw_alarms = cw_sub.add_parser("alarms", help="Collect CloudWatch alarms")
     cw_alarms.add_argument("--case", type=str, required=True, help="Case name")
     cw_alarms.add_argument("--output", type=str, help="Override output directory")
     
-    # events
-    cw_events = cw_sub.add_parser("events", help="Collect EventBridge rules")
-    cw_events.add_argument("--case", type=str, required=True, help="Case name")
-    cw_events.add_argument("--output", type=str, help="Override output directory")
-    
     # dashboards
     cw_dashboards = cw_sub.add_parser("dashboards", help="Collect CloudWatch dashboards")
     cw_dashboards.add_argument("--case", type=str, required=True, help="Case name")
     cw_dashboards.add_argument("--output", type=str, help="Override output directory")
     
-    # all
-    cw_all = cw_sub.add_parser("all", help="Run all CloudWatch collectors")
-    cw_all.add_argument("--case", type=str, required=True, help="Case name")
-    cw_all.add_argument("--output", type=str, help="Override output directory")
+    # CloudWatch Logs (Events) - single parser for log group and events
+    cw_logs_events = events_sub.add_parser("cloudwatch", help="Collect CloudWatch log group metadata and log events")
+    cw_logs_events.add_argument("--case", type=str, required=True, help="Case name")
+    cw_logs_events.add_argument("--group", type=str, required=True, help="Log group name (e.g., '/aws/lambda/my-function')")
+    cw_logs_events.add_argument("--hours", type=int, help="Collect log events from last N hours (optional)")
+    cw_logs_events.add_argument("--output", type=str, help="Override output directory")
 
-    # KMS
-    kms = collect_sub.add_parser("kms", help="KMS collectors")
+    # KMS (Resources)
+    kms = resources_sub.add_parser("kms", help="Collect KMS keys and key policies")
     kms.add_argument("--case", type=str, required=True, help="Case name")
     kms.add_argument("--output", type=str, help="Override output directory")
 
-    # EventBridge
-    eventbridge = collect_sub.add_parser("eventbridge", help="EventBridge collectors")
+    # EventBridge (Resources)
+    eventbridge = resources_sub.add_parser("eventbridge", help="Collect EventBridge rules, buses, and targets")
     eventbridge_sub = eventbridge.add_subparsers(dest="eventbridge_cmd", required=True)
     
     eb_rules = eventbridge_sub.add_parser("rules", help="Collect EventBridge rules")
@@ -878,8 +1167,8 @@ def build_cli():
     eb_all.add_argument("--case", type=str, required=True, help="Case name")
     eb_all.add_argument("--output", type=str, help="Override output directory")
 
-    # Lambda
-    lambda_parser = collect_sub.add_parser("lambda", help="Lambda collectors")
+    # Lambda (Resources)
+    lambda_parser = resources_sub.add_parser("lambda", help="Collect Lambda function metadata, config, and code")
     lambda_sub = lambda_parser.add_subparsers(dest="lambda_cmd", required=True)
     
     lambda_functions = lambda_sub.add_parser("functions", help="Collect all Lambda functions")
@@ -911,8 +1200,8 @@ def build_cli():
     lambda_all.add_argument("--name", type=str, required=True, help="Function name or ARN")
     lambda_all.add_argument("--output", type=str, help="Override output directory")
 
-    # DynamoDB
-    dynamodb = collect_sub.add_parser("dynamodb", help="DynamoDB collectors")
+    # DynamoDB (Resources)
+    dynamodb = resources_sub.add_parser("dynamodb", help="Collect DynamoDB tables, backups, and streams")
     dynamodb_sub = dynamodb.add_subparsers(dest="dynamodb_cmd", required=True)
     
     ddb_tables = dynamodb_sub.add_parser("tables", help="Collect DynamoDB tables")
@@ -933,8 +1222,8 @@ def build_cli():
     ddb_all.add_argument("--limit", type=int, help="Limit number of table items to scan (optional, scans all items if not provided)")
     ddb_all.add_argument("--output", type=str, help="Override output directory")
 
-    # SNS
-    sns = collect_sub.add_parser("sns", help="SNS collectors")
+    # SNS (Resources)
+    sns = resources_sub.add_parser("sns", help="Collect SNS topics and subscriptions")
     sns_sub = sns.add_subparsers(dest="sns_cmd", required=True)
     
     sns_topics = sns_sub.add_parser("topics", help="Collect SNS topics")
@@ -949,8 +1238,8 @@ def build_cli():
     sns_all.add_argument("--case", type=str, required=True, help="Case name")
     sns_all.add_argument("--output", type=str, help="Override output directory")
 
-    # SQS
-    sqs = collect_sub.add_parser("sqs", help="SQS collectors")
+    # SQS (Resources)
+    sqs = resources_sub.add_parser("sqs", help="Collect SQS queues and messages")
     sqs_sub = sqs.add_subparsers(dest="sqs_cmd", required=True)
     
     sqs_queues = sqs_sub.add_parser("queues", help="Collect SQS queues")
@@ -967,8 +1256,8 @@ def build_cli():
     sqs_all.add_argument("--case", type=str, required=True, help="Case name")
     sqs_all.add_argument("--output", type=str, help="Override output directory")
 
-    # API Gateway
-    apigw = collect_sub.add_parser("apigw", help="API Gateway collectors")
+    # API Gateway (Resources)
+    apigw = resources_sub.add_parser("apigw", help="Collect API Gateway REST APIs, routes, and integrations")
     apigw_sub = apigw.add_subparsers(dest="apigw_cmd", required=True)
     
     apigw_rest_apis = apigw_sub.add_parser("rest-apis", help="Collect REST APIs")
@@ -990,8 +1279,8 @@ def build_cli():
     apigw_all.add_argument("--api-id", type=str, help="Specific API ID (optional, collects all APIs if not provided)")
     apigw_all.add_argument("--output", type=str, help="Override output directory")
 
-    # ELB
-    elb = collect_sub.add_parser("elb", help="ELB collectors")
+    # ELB (Resources - load balancers, listeners, target groups)
+    elb = resources_sub.add_parser("elb", help="Collect ELB load balancers, listeners, and target groups")
     elb_sub = elb.add_subparsers(dest="elb_cmd", required=True)
     
     elb_listeners = elb_sub.add_parser("listeners", help="Collect load balancer listeners")
@@ -1002,16 +1291,28 @@ def build_cli():
     elb_target_groups.add_argument("--case", type=str, required=True, help="Case name")
     elb_target_groups.add_argument("--output", type=str, help="Override output directory")
     
-    elb_access_logs = elb_sub.add_parser("access-logs", help="Collect access log configurations")
-    elb_access_logs.add_argument("--case", type=str, required=True, help="Case name")
-    elb_access_logs.add_argument("--output", type=str, help="Override output directory")
-    
-    elb_all = elb_sub.add_parser("all", help="Collect all ELB data (listeners, target groups, access logs)")
+    elb_all = elb_sub.add_parser("all", help="Collect all ELB resources (listeners, target groups)")
     elb_all.add_argument("--case", type=str, required=True, help="Case name")
     elb_all.add_argument("--output", type=str, help="Override output directory")
 
-    # Route53
-    route53 = collect_sub.add_parser("route53", help="Route53 collectors")
+    # ELB Access Logs (Events) - separate parser
+    elb_logs = events_sub.add_parser("elb", help="Collect ELB access logs")
+    elb_logs_sub = elb_logs.add_subparsers(dest="elb_cmd", required=True)
+    
+    elb_access_logs = elb_logs_sub.add_parser("access-logs", help="Collect Classic ELB access log configurations")
+    elb_access_logs.add_argument("--case", type=str, required=True, help="Case name")
+    elb_access_logs.add_argument("--output", type=str, help="Override output directory")
+    
+    alb_access_logs = elb_logs_sub.add_parser("alb", help="Collect ALB access log configurations")
+    alb_access_logs.add_argument("--case", type=str, required=True, help="Case name")
+    alb_access_logs.add_argument("--output", type=str, help="Override output directory")
+    
+    nlb_access_logs = elb_logs_sub.add_parser("nlb", help="Collect NLB access log configurations")
+    nlb_access_logs.add_argument("--case", type=str, required=True, help="Case name")
+    nlb_access_logs.add_argument("--output", type=str, help="Override output directory")
+
+    # Route53 (Resources - hosted zones, records)
+    route53 = resources_sub.add_parser("route53", help="Collect Route53 hosted zones and DNS records")
     route53_sub = route53.add_subparsers(dest="route53_cmd", required=True)
     
     r53_hosted_zones = route53_sub.add_parser("hosted-zones", help="Collect hosted zones")
@@ -1023,17 +1324,36 @@ def build_cli():
     r53_records.add_argument("--zone-id", type=str, help="Specific zone ID (optional, collects all if not provided)")
     r53_records.add_argument("--output", type=str, help="Override output directory")
     
-    r53_query_logs = route53_sub.add_parser("query-logs", help="Collect query logging configurations")
-    r53_query_logs.add_argument("--case", type=str, required=True, help="Case name")
-    r53_query_logs.add_argument("--output", type=str, help="Override output directory")
-    
-    r53_all = route53_sub.add_parser("all", help="Collect all Route53 data for a hosted zone (zone info, records, query logs) into one file")
+    r53_all = route53_sub.add_parser("all", help="Collect all Route53 resources (zones, records)")
     r53_all.add_argument("--case", type=str, required=True, help="Case name")
     r53_all.add_argument("--zone", type=str, required=True, help="Zone ID or domain name")
     r53_all.add_argument("--output", type=str, help="Override output directory")
 
-    # EKS
-    eks = collect_sub.add_parser("eks", help="EKS collectors")
+    # Route53 Resolver Query Logs (Events) - separate parser
+    r53_logs = events_sub.add_parser("route53", help="Collect Route53 Resolver query logs")
+    r53_logs_sub = r53_logs.add_subparsers(dest="route53_cmd", required=True)
+    
+    r53_query_logs = r53_logs_sub.add_parser("query-logs", help="Collect Route53 Resolver query logging configurations and events")
+    r53_query_logs.add_argument("--case", type=str, required=True, help="Case name")
+    r53_query_logs.add_argument("--output", type=str, help="Override output directory")
+    
+    # WAF Logs (Events)
+    waf = events_sub.add_parser("waf", help="Collect WAF log configurations")
+    waf.add_argument("--case", type=str, required=True, help="Case name")
+    waf.add_argument("--output", type=str, help="Override output directory")
+    
+    # CloudFront Access Logs (Events - Optional)
+    cloudfront = events_sub.add_parser("cloudfront", help="Collect CloudFront access log configurations (optional)")
+    cloudfront.add_argument("--case", type=str, required=True, help="Case name")
+    cloudfront.add_argument("--output", type=str, help="Override output directory")
+    
+    # Detective Findings (Events - Optional)
+    detective = events_sub.add_parser("detective", help="Collect Amazon Detective findings (optional)")
+    detective.add_argument("--case", type=str, required=True, help="Case name")
+    detective.add_argument("--output", type=str, help="Override output directory")
+
+    # EKS (Resources)
+    eks = resources_sub.add_parser("eks", help="Collect EKS clusters, nodegroups, and configuration")
     eks_sub = eks.add_subparsers(dest="eks_cmd", required=True)
     
     eks_clusters = eks_sub.add_parser("clusters", help="Collect EKS clusters")
@@ -1087,27 +1407,8 @@ def build_cli():
     eks_all.add_argument("--hours", type=int, default=24, help="Hours of control plane logs to collect (default: 24)")
     eks_all.add_argument("--output", type=str, help="Override output directory")
 
-    # Config
-    config = collect_sub.add_parser("config", help="AWS Config collectors")
-    config_sub = config.add_subparsers(dest="config_cmd", required=True)
-    
-    config_history = config_sub.add_parser("history", help="Collect configuration history")
-    config_history.add_argument("--case", type=str, required=True, help="Case name")
-    config_history.add_argument("--resource-type", type=str, help="Filter by resource type (optional)")
-    config_history.add_argument("--resource-id", type=str, help="Filter by resource ID (optional)")
-    config_history.add_argument("--hours", type=int, default=24, help="Hours of history to collect (default: 24)")
-    config_history.add_argument("--output", type=str, help="Override output directory")
-    
-    config_snapshots = config_sub.add_parser("snapshots", help="Collect configuration snapshots")
-    config_snapshots.add_argument("--case", type=str, required=True, help="Case name")
-    config_snapshots.add_argument("--output", type=str, help="Override output directory")
-    
-    config_drifts = config_sub.add_parser("drifts", help="Collect configuration drifts")
-    config_drifts.add_argument("--case", type=str, required=True, help="Case name")
-    config_drifts.add_argument("--output", type=str, help="Override output directory")
-
-    # Security Hub
-    securityhub = collect_sub.add_parser("securityhub", help="Security Hub collectors")
+    # Security Hub (Events)
+    securityhub = events_sub.add_parser("securityhub", help="Collect Security Hub security findings")
     securityhub_sub = securityhub.add_subparsers(dest="securityhub_cmd", required=True)
     
     sh_findings = securityhub_sub.add_parser("findings", help="Collect Security Hub findings")
@@ -1123,6 +1424,27 @@ def build_cli():
 # MAIN
 # =============================================================================
 def main():
+    # Print banner only if not showing help
+    import sys
+    if len(sys.argv) > 1 and sys.argv[1] not in ['-h', '--help']:
+        banner_text = """
+[bold cyan]=================================================================[/bold cyan]
+[bold cyan]|[/bold cyan]                                                                 [bold cyan]|[/bold cyan]
+[bold cyan]|[/bold cyan]  [bold white]██╗   ██╗███████╗███╗   ██╗████████╗██████╗  █████╗[/bold white]  [bold cyan]|[/bold cyan]
+[bold cyan]|[/bold cyan]  [bold white]██║   ██║██╔════╝████╗  ██║╚══██╔══╝██╔══██╗██╔══██╗[/bold white]  [bold cyan]|[/bold cyan]
+[bold cyan]|[/bold cyan]  [bold white]██║   ██║█████╗  ██╔██╗ ██║   ██║   ██████╔╝███████║[/bold white]  [bold cyan]|[/bold cyan]
+[bold cyan]|[/bold cyan]  [bold white]╚██╗ ██╔╝██╔══╝  ██║╚██╗██║   ██║   ██╔══██╗██╔══██║[/bold white]  [bold cyan]|[/bold cyan]
+[bold cyan]|[/bold cyan]  [bold white] ╚████╔╝ ███████╗██║ ╚████║   ██║   ██║  ██║██║  ██║[/bold white]  [bold cyan]|[/bold cyan]
+[bold cyan]|[/bold cyan]  [bold white]  ╚═══╝  ╚══════╝╚═╝  ╚═══╝   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝[/bold white]  [bold cyan]|[/bold cyan]
+[bold cyan]|[/bold cyan]                                                                 [bold cyan]|[/bold cyan]
+[bold cyan]|[/bold cyan]  [bold yellow]Cloud DFIR Collection & Analysis Framework[/bold yellow]        [bold cyan]|[/bold cyan]
+[bold cyan]|[/bold cyan]  [dim]v0.1.0[/dim]                                              [bold cyan]|[/bold cyan]
+[bold cyan]|[/bold cyan]                                                                 [bold cyan]|[/bold cyan]
+[bold cyan]=================================================================[/bold cyan]
+        """
+        console.print(banner_text)
+        console.print()
+    
     parser = build_cli()
     args = parser.parse_args()
     route(args)

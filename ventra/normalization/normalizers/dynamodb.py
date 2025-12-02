@@ -25,15 +25,19 @@ class DynamoDBNormalizer(BaseNormalizer):
     Normalizes DynamoDB resources from collector JSON files.
     
     Handles:
-    - dynamodb_*_all.json (from dynamodb_all collector)
+    - dynamodb_tables*.json, dynamodb_backups*.json (from resources/)
     """
     
     name = "dynamodb"
     
     def load_raw(self, context: NormalizationContext) -> Iterator[Dict[str, Any]]:
         """Load DynamoDB data from collector JSON files."""
-        patterns = ["dynamodb_*_all.json"]
-        files = self.find_collector_files(context, patterns)
+        # DynamoDB files are in resources/ subdirectory
+        patterns = [
+            "dynamodb_tables*.json",
+            "dynamodb_backups*.json",
+        ]
+        files = self.find_collector_files(context, patterns, subdirs=["resources"])
         
         if not files:
             return
@@ -55,8 +59,11 @@ class DynamoDBNormalizer(BaseNormalizer):
         """Override run to handle multiple resource types from one file."""
         from ..core.base import NormalizationSummary
         
-        patterns = ["dynamodb_*_all.json"]
-        files = self.find_collector_files(context, patterns)
+        patterns = [
+            "dynamodb_tables*.json",
+            "dynamodb_backups*.json",
+        ]
+        files = self.find_collector_files(context, patterns, subdirs=["resources"])
         
         if not files:
             print(f"    ⚠ No DynamoDB data found")
@@ -137,7 +144,14 @@ class DynamoDBNormalizer(BaseNormalizer):
             region=region,
         )
         
-        tags = extract_tags(table_info.get("Tags", {}))
+        # Handle Tags - can be dict or list format
+        tags_raw = table_info.get("Tags")
+        if tags_raw is None:
+            tags = {}
+        elif isinstance(tags_raw, dict):
+            tags = tags_raw if tags_raw else {}
+        else:
+            tags = extract_tags(tags_raw)
         create_time = normalize_timestamp(table_info.get("CreationDateTime"))
         status = table_info.get("TableStatus", "").lower()
         
@@ -178,16 +192,27 @@ class DynamoDBNormalizer(BaseNormalizer):
                     "relationship_type": RelationshipTypes.CREATED_BY,
                 })
         
-        # Streams
+        # Streams - handle both "Stream" (single) and "Streams" (array) formats
+        stream = all_data.get("Stream")
         streams = all_data.get("Streams", [])
-        for stream_data in streams:
-            stream_arn = stream_data.get("StreamArn")
+        if stream and isinstance(stream, dict):
+            stream_arn = stream.get("StreamArn")
             if stream_arn:
                 relationships.append({
                     "target_arn": stream_arn,
                     "target_type": "aws.dynamodb.stream",
                     "relationship_type": RelationshipTypes.USES,
                 })
+        elif isinstance(streams, list):
+            for stream_data in streams:
+                if isinstance(stream_data, dict):
+                    stream_arn = stream_data.get("StreamArn")
+                    if stream_arn:
+                        relationships.append({
+                            "target_arn": stream_arn,
+                            "target_type": "aws.dynamodb.stream",
+                            "relationship_type": RelationshipTypes.USES,
+                        })
         
         if relationships:
             normalized[Fields.RELATIONSHIPS] = relationships
@@ -198,11 +223,11 @@ class DynamoDBNormalizer(BaseNormalizer):
             "item_count": table_info.get("ItemCount", 0),
             "attribute_definitions": table_info.get("AttributeDefinitions", []),
             "key_schema": table_info.get("KeySchema", []),
-            "billing_mode": table_info.get("BillingModeSummary", {}).get("BillingMode"),
+            "billing_mode": (table_info.get("BillingModeSummary") or {}).get("BillingMode"),
             "provisioned_throughput": table_info.get("ProvisionedThroughput"),
             "global_secondary_indexes": len(table_info.get("GlobalSecondaryIndexes", [])),
             "local_secondary_indexes": len(table_info.get("LocalSecondaryIndexes", [])),
-            "stream_enabled": bool(table_info.get("StreamSpecification", {}).get("StreamEnabled")),
+            "stream_enabled": bool((table_info.get("StreamSpecification") or {}).get("StreamEnabled")),
             "stream_arn": table_info.get("LatestStreamArn"),
             "sse_description": table_info.get("SSEDescription"),
             "table_class": table_info.get("TableClass"),

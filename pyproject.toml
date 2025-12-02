@@ -19,10 +19,15 @@ dependencies = [
     "paramiko"
 ]
 
-# This creates the CLI command: `ventra`
+# CLI entrypoint: `ventra`
 [project.scripts]
 ventra = "ventra.cli:main"
 
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["ventra*"]
+exclude = ["output*", "build*", "dist*", "*.egg-info"]

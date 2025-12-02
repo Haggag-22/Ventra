@@ -189,6 +189,40 @@ class ResourceTypes:
     VPC_SUBNET = "aws.vpc.subnet"
     VPC_SECURITY_GROUP = "aws.vpc.security_group"
     
+    # ELB
+    ELB_LOAD_BALANCER = "aws.elb.load_balancer"
+    ELB_TARGET_GROUP = "aws.elb.target_group"
+    ELB_LISTENER = "aws.elb.listener"
+    
+    # EventBridge
+    EVENTBRIDGE_RULE = "aws.eventbridge.rule"
+    EVENTBRIDGE_BUS = "aws.eventbridge.bus"
+    
+    # GuardDuty
+    GUARDDUTY_DETECTOR = "aws.guardduty.detector"
+    GUARDDUTY_FINDING = "aws.guardduty.finding"
+    
+    # KMS
+    KMS_KEY = "aws.kms.key"
+    
+    # SNS
+    SNS_TOPIC = "aws.sns.topic"
+    SNS_SUBSCRIPTION = "aws.sns.subscription"
+    
+    # SQS
+    SQS_QUEUE = "aws.sqs.queue"
+    
+    # API Gateway
+    APIGW_REST_API = "aws.apigw.rest_api"
+    APIGW_STAGE = "aws.apigw.stage"
+    APIGW_RESOURCE = "aws.apigw.resource"
+    
+    # CloudWatch
+    CLOUDWATCH_LOG_GROUP = "aws.cloudwatch.log_group"
+    CLOUDWATCH_LOG_STREAM = "aws.cloudwatch.log_stream"
+    CLOUDWATCH_LOG_EVENT = "aws.cloudwatch.log_event"
+    CLOUDWATCH_ALARM = "aws.cloudwatch.alarm"
+    
     # Generic
     UNKNOWN = "aws.unknown"
 

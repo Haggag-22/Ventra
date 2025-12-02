@@ -24,15 +24,21 @@ class IAMNormalizer(BaseNormalizer):
     Normalizes IAM resources from collector JSON files.
     
     Handles:
-    - iam_all.json (from iam_all collector)
+    - iam_users*.json, iam_roles*.json, iam_policies*.json, iam_groups*.json (from resources/)
     """
     
     name = "iam"
     
     def load_raw(self, context: NormalizationContext) -> Iterator[Dict[str, Any]]:
         """Load IAM data from collector JSON files."""
-        patterns = ["iam_all.json"]
-        files = self.find_collector_files(context, patterns)
+        # IAM files are in resources/ subdirectory
+        patterns = [
+            "iam_users*.json",
+            "iam_roles*.json",
+            "iam_policies*.json",
+            "iam_groups*.json",
+        ]
+        files = self.find_collector_files(context, patterns, subdirs=["resources"])
         
         if not files:
             return
@@ -54,8 +60,13 @@ class IAMNormalizer(BaseNormalizer):
         """Override run to handle multiple resource types from one file."""
         from ..core.base import NormalizationSummary
         
-        patterns = ["iam_all.json"]
-        files = self.find_collector_files(context, patterns)
+        patterns = [
+            "iam_users*.json",
+            "iam_roles*.json",
+            "iam_policies*.json",
+            "iam_groups*.json",
+        ]
+        files = self.find_collector_files(context, patterns, subdirs=["resources"])
         
         if not files:
             print(f"    ⚠ No IAM data found")

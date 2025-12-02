@@ -7,7 +7,7 @@ and field mapping used across all normalizers.
 
 import re
 from datetime import datetime
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional, Tuple, Union
 from urllib.parse import unquote
 
 
@@ -92,7 +92,7 @@ def extract_resource_id_from_arn(arn: str) -> Optional[str]:
 # =============================================================================
 
 def normalize_timestamp(
-    value: Optional[str | datetime | int | float],
+    value: Optional[Union[str, datetime, int, float]],
     default: Optional[str] = None,
 ) -> Optional[str]:
     """
@@ -297,7 +297,7 @@ def generate_resource_id(
 
 def map_fields(
     source: Dict[str, any],
-    field_mapping: Dict[str, str | Tuple[str, callable]],
+    field_mapping: Dict[str, Union[str, Tuple[str, callable]]],
     default_values: Optional[Dict[str, any]] = None,
 ) -> Dict[str, any]:
     """

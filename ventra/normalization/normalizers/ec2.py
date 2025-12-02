@@ -25,15 +25,23 @@ class EC2Normalizer(BaseNormalizer):
     Normalizes EC2 resources from collector JSON files.
     
     Handles:
-    - ec2_*_all.json (from ec2_all collector)
+    - ec2_instances*.json, ec2_volumes*.json, ec2_snapshots*.json, etc. (from resources/)
     """
     
     name = "ec2"
     
     def load_raw(self, context: NormalizationContext) -> Iterator[Dict[str, Any]]:
         """Load EC2 data from collector JSON files."""
-        patterns = ["ec2_*_all.json"]
-        files = self.find_collector_files(context, patterns)
+        # EC2 files are in resources/ subdirectory
+        patterns = [
+            "ec2_instances*.json",
+            "ec2_volumes*.json",
+            "ec2_snapshots*.json",
+            "ec2_security_groups*.json",
+            "ec2_network_interfaces*.json",
+            "ec2_metadata_*.json",
+        ]
+        files = self.find_collector_files(context, patterns, subdirs=["resources"])
         
         if not files:
             return
@@ -66,8 +74,15 @@ class EC2Normalizer(BaseNormalizer):
         from ..core.base import NormalizationSummary
         
         # Find files
-        patterns = ["ec2_*_all.json"]
-        files = self.find_collector_files(context, patterns)
+        patterns = [
+            "ec2_instances*.json",
+            "ec2_volumes*.json",
+            "ec2_snapshots*.json",
+            "ec2_security_groups*.json",
+            "ec2_network_interfaces*.json",
+            "ec2_metadata_*.json",
+        ]
+        files = self.find_collector_files(context, patterns, subdirs=["resources"])
         
         if not files:
             print(f"    ⚠ No EC2 data found")

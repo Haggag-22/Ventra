@@ -33,14 +33,15 @@ class CloudTrailNormalizer(BaseNormalizer):
     
     def load_raw(self, context: NormalizationContext) -> Iterator[Dict[str, Any]]:
         """Load CloudTrail events from collector JSON files."""
-        # Find CloudTrail collector files
+        # Find CloudTrail collector files in events/ subdirectory
         patterns = [
             "cloudtrail_history_raw.json",
             "cloudtrail_s3_*.json",
             "cloudtrail_lake_*.json",
+            "s3_*cloudtrail*.json",  # S3 bucket files that might contain CloudTrail logs
         ]
         
-        files = self.find_collector_files(context, patterns)
+        files = self.find_collector_files(context, patterns, subdirs=["events"])
         
         if not files:
             return

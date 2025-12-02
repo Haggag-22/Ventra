@@ -117,7 +117,7 @@ class BaseNormalizer(ABC):
         self,
         context: "NormalizationContext",
         patterns: List[str],
-        subdir: Optional[str] = None,
+        subdirs: Optional[List[str]] = None,
     ) -> List[Path]:
         """
         Find collector JSON files matching patterns.
@@ -128,8 +128,9 @@ class BaseNormalizer(ABC):
             Normalization context
         patterns : list of str
             Filename patterns to match (e.g., ["s3_*_all.json", "s3_bucket_info.json"])
-        subdir : str, optional
-            Subdirectory within case_dir to search (e.g., "s3", "ec2")
+        subdirs : list of str, optional
+            Subdirectories within case_dir to search (e.g., ["events", "resources"]).
+            If None, searches in both "events" and "resources" subdirectories.
         
         Returns
         -------
@@ -137,17 +138,23 @@ class BaseNormalizer(ABC):
             Matching file paths
         """
         case_dir = Path(context.case_dir)
-        search_dir = case_dir / subdir if subdir else case_dir
         
-        if not search_dir.exists():
-            return []
+        # Default to searching both events and resources subdirectories
+        if subdirs is None:
+            subdirs = ["events", "resources"]
         
         found = []
-        for pattern in patterns:
-            # Simple glob matching
-            for file_path in search_dir.glob(pattern):
-                if file_path.is_file() and file_path.suffix == ".json":
-                    found.append(file_path)
+        for subdir in subdirs:
+            search_dir = case_dir / subdir
+            
+            if not search_dir.exists():
+                continue
+            
+            for pattern in patterns:
+                # Simple glob matching
+                for file_path in search_dir.glob(pattern):
+                    if file_path.is_file() and file_path.suffix == ".json":
+                        found.append(file_path)
         
         return sorted(set(found))
     
@@ -172,6 +179,43 @@ class BaseNormalizer(ABC):
             print(f"    ⚠ Error loading {file_path}: {e}")
             return None
     
+    def _sort_records_by_timestamp(self, records: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Sort records by timestamp for chronological ordering.
+        
+        Checks multiple timestamp fields in priority order:
+        1. event_time (for events like CloudTrail)
+        2. created_at (for resources)
+        3. last_modified (for S3 objects, etc.)
+        4. updated_at (for resources with updates)
+        
+        Records without timestamps are placed at the end.
+        
+        Parameters
+        ----------
+        records : list of dict
+            Normalized records to sort
+        
+        Returns
+        -------
+        list of dict
+            Records sorted chronologically (oldest first)
+        """
+        def get_timestamp(record: Dict[str, Any]) -> str:
+            # Priority order: event_time > created_at > last_modified > updated_at
+            timestamp = (
+                record.get(Fields.EVENT_TIME) or
+                record.get(Fields.CREATED_AT) or
+                record.get(Fields.LAST_MODIFIED) or
+                record.get(Fields.UPDATED_AT)
+            )
+            if timestamp:
+                return timestamp
+            # Put records without timestamps at the end
+            return "9999-12-31T23:59:59Z"
+        
+        return sorted(records, key=get_timestamp)
+    
     def save_normalized(
         self,
         context: "NormalizationContext",
@@ -180,6 +224,9 @@ class BaseNormalizer(ABC):
     ) -> Path:
         """
         Save normalized records to JSON file.
+        
+        Records are automatically sorted by timestamp (event_time or created_at)
+        for chronological timeline analysis.
         
         Parameters
         ----------
@@ -201,11 +248,14 @@ class BaseNormalizer(ABC):
         filename = output_filename or f"{self.name}.json"
         output_path = output_dir / filename
         
+        # Sort records by timestamp for chronological timeline
+        sorted_records = self._sort_records_by_timestamp(records)
+        
         output_data = {
             "normalizer": self.name,
             "normalized_at": datetime.utcnow().isoformat() + "Z",
-            "record_count": len(records),
-            "records": records,
+            "record_count": len(sorted_records),
+            "records": sorted_records,
         }
         
         with open(output_path, "w", encoding="utf-8") as f:

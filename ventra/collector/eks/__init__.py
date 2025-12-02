@@ -1,2 +1,0 @@
-# EKS Collector Module
-
