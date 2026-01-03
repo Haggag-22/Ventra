@@ -33,9 +33,9 @@ class CloudWatchNormalizer(BaseNormalizer):
     
     def load_raw(self, context: NormalizationContext) -> Iterator[Dict[str, Any]]:
         """Load CloudWatch data from collector JSON files."""
-        # CloudWatch log groups are in events/ subdirectory
+        # CloudWatch log groups are in logs/ subdirectory
         patterns = ["cloudwatch_log_group_*.json"]
-        files = self.find_collector_files(context, patterns, subdirs=["events"])
+        files = self.find_collector_files(context, patterns, subdirs=["logs"])
         
         if not files:
             return
@@ -58,7 +58,7 @@ class CloudWatchNormalizer(BaseNormalizer):
         from ..core.base import NormalizationSummary
         
         patterns = ["cloudwatch_log_group_*.json"]
-        files = self.find_collector_files(context, patterns, subdirs=["events"])
+        files = self.find_collector_files(context, patterns, subdirs=["logs"])
         
         if not files:
             print(f"    ⚠ No CloudWatch data found")

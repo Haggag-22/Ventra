@@ -33,9 +33,9 @@ class GuardDutyNormalizer(BaseNormalizer):
     
     def load_raw(self, context: NormalizationContext) -> Iterator[Dict[str, Any]]:
         """Load GuardDuty data from collector JSON files."""
-        # GuardDuty files are in events/ subdirectory
+        # GuardDuty files are in logs/ subdirectory
         patterns = ["guardduty_findings.json", "guardduty_malware.json"]
-        files = self.find_collector_files(context, patterns, subdirs=["events"])
+        files = self.find_collector_files(context, patterns, subdirs=["logs"])
         
         if not files:
             return
@@ -58,7 +58,7 @@ class GuardDutyNormalizer(BaseNormalizer):
         from ..core.base import NormalizationSummary
         
         patterns = ["guardduty_findings.json", "guardduty_malware.json"]
-        files = self.find_collector_files(context, patterns, subdirs=["events"])
+        files = self.find_collector_files(context, patterns, subdirs=["logs"])
         
         if not files:
             print(f"    ⚠ No GuardDuty data found")
@@ -78,7 +78,7 @@ class GuardDutyNormalizer(BaseNormalizer):
                 continue
             
             try:
-                # Handle detectors structure
+                # Handle detectors structure (uppercase - old format)
                 detectors = data.get("Detectors", [])
                 for detector_data in detectors:
                     detector_id = detector_data.get("DetectorId")
@@ -96,11 +96,24 @@ class GuardDutyNormalizer(BaseNormalizer):
                         if finding:
                             all_resources.append(finding)
                 
-                # Handle standalone findings file
+                # Handle standalone findings file (uppercase - old format)
                 if "Findings" in data and not detectors:
                     findings = data.get("Findings", [])
                     for finding_data in findings:
                         finding = self._normalize_finding(finding_data, None, context)
+                        if finding:
+                            all_resources.append(finding)
+                
+                # Handle new format with lowercase keys (from guardduty_findings collector)
+                if "findings" in data:
+                    findings_list = data.get("findings", [])
+                    detectors_list = data.get("detectors", [])
+                    
+                    # Get detector ID from the list (usually just one)
+                    detector_id = detectors_list[0] if detectors_list else None
+                    
+                    for finding_data in findings_list:
+                        finding = self._normalize_finding(finding_data, detector_id, context)
                         if finding:
                             all_resources.append(finding)
             

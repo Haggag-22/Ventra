@@ -26,7 +26,7 @@ class S3Normalizer(BaseNormalizer):
     
     Handles:
     - s3_buckets*.json, s3_objects*.json, s3_versions*.json, s3_bucket_policies*.json (from resources/)
-    - s3_access_logs*.json (from events/)
+    - s3_access_logs*.json (from logs/)
     """
     
     name = "s3"
@@ -41,7 +41,7 @@ class S3Normalizer(BaseNormalizer):
             "s3_bucket_policies*.json",
             "s3_access_logs*.json",
         ]
-        files = self.find_collector_files(context, patterns, subdirs=["resources", "events"])
+        files = self.find_collector_files(context, patterns, subdirs=["resources", "logs"])
         
         if not files:
             return
@@ -70,7 +70,7 @@ class S3Normalizer(BaseNormalizer):
             "s3_bucket_policies*.json",
             "s3_access_logs*.json",
         ]
-        files = self.find_collector_files(context, patterns, subdirs=["resources", "events"])
+        files = self.find_collector_files(context, patterns, subdirs=["resources", "logs"])
         
         if not files:
             print(f"    ⚠ No S3 data found")

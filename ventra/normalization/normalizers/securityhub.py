@@ -31,9 +31,12 @@ class SecurityHubNormalizer(BaseNormalizer):
     
     def load_raw(self, context: NormalizationContext) -> Iterator[Dict[str, Any]]:
         """Load Security Hub data from collector JSON files."""
-        # Security Hub files are in events/ subdirectory
-        patterns = ["securityhub_findings.json"]
-        files = self.find_collector_files(context, patterns, subdirs=["events"])
+        # Security Hub and Detective files are in logs/ subdirectory
+        patterns = [
+            "securityhub_findings.json",
+            "detective_findings.json",
+        ]
+        files = self.find_collector_files(context, patterns, subdirs=["logs"])
         
         if not files:
             return
@@ -74,8 +77,11 @@ class SecurityHubNormalizer(BaseNormalizer):
         """Override run to handle findings array."""
         from ..core.base import NormalizationSummary
         
-        patterns = ["securityhub_findings.json"]
-        files = self.find_collector_files(context, patterns, subdirs=["events"])
+        patterns = [
+            "securityhub_findings.json",
+            "detective_findings.json",
+        ]
+        files = self.find_collector_files(context, patterns, subdirs=["logs"])
         
         if not files:
             print(f"    ⚠ No Security Hub data found")

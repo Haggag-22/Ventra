@@ -11,88 +11,66 @@ from rich import box
 from ventra.case.store import list_cases, get_output_base_dir
 
 
-# Map collector names to their file patterns
-COLLECTOR_PATTERNS = {
-    "cloudtrail": [
-        "cloudtrail_history_raw.json",
-        "cloudtrail_s3_*.json",
-        "cloudtrail_lake_*.json",
-    ],
-    "ec2": [
-        "ec2_*_all.json",
-        "ec2_*_metadata*.json",
-        "ec2_*_snapshots.json",
-        "ec2_*_volumes.json",
-    ],
-    "s3": [
-        "s3_*_all.json",
-        "s3_*.json",  # Also match individual bucket files
-    ],
-    "iam": [
-        "iam_all.json",
-        "iam_*.json",
-    ],
-    "dynamodb": [
-        "dynamodb_*_all.json",
-        "dynamodb_*.json",
-    ],
-    "lambda": [
-        "lambda_*_all.json",
-        "lambda_*.json",
-    ],
-    "eks": [
-        "eks_*_all.json",
-        "eks_*.json",
-    ],
-    "vpc": [
-        "vpc_*.json",
-    ],
-    "elb": [
-        "elb_*_all.json",
-        "elb_*.json",
-    ],
-    "eventbridge": [
-        "eventbridge_*_all.json",
-        "eventbridge_*.json",
-    ],
-    "guradduty": [
-        "guradduty_*_all.json",
-        "guradduty_*.json",
-        "guradduty_findings.json",
-    ],
-    "securityhub": [
-        "securityhub_findings.json",
-        "securityhub_*.json",
-    ],
-    "kms": [
-        "kms_*.json",
-    ],
-    "sns": [
-        "sns_*_all.json",
-        "sns_*.json",
-    ],
-    "sqs": [
-        "sqs_*_all.json",
-        "sqs_*.json",
-    ],
-    "apigw": [
-        "apigw_*_all.json",
-        "apigw_*.json",
-    ],
-    "cloudwatch": [
-        "cloudwatch_*_all.json",
-        "cloudwatch_*.json",
-    ],
-    "route53": [
-        "route53_*_all.json",
-        "route53_*.json",
-    ],
+# Map collector script names to their file patterns
+LOGS_COLLECTORS = {
+    "cloudtrail_history": ["cloudtrail_history_raw.json"],
+    "cloudtrail_s3": ["cloudtrail_s3_*.json"],
+    "cloudtrail_lake": ["cloudtrail_lake_*.json"],
+    "cloudwatch_log_group": ["cloudwatch_log_group_*.json"],
+    "guardduty_findings": ["guardduty_findings.json"],
+    "guardduty_malware": ["guardduty_malware.json"],
+    "securityhub_findings": ["securityhub_findings.json"],
+    "detective_findings": ["detective_findings.json"],
+    "s3_access_logs": ["s3_access_logs*.json"],
+    "alb_access_logs": ["alb_access_logs*.json"],
+    "elb_access_logs": ["elb_access_logs*.json"],
+    "nlb_access_logs": ["nlb_access_logs*.json"],
+    "cloudfront_access_logs": ["cloudfront_access_logs.json"],
+    "waf_logs": ["waf_logs.json"],
+    "vpc_flow_logs": ["vpc_flow_logs*.json"],
+    "route53_resolver_query_logs": ["route53_resolver_query_logs.json"],
 }
 
-
-def get_all_collectors() -> List[str]:
-    """Get list of all available collectors."""
-    return sorted(COLLECTOR_PATTERNS.keys())
+RESOURCES_COLLECTORS = {
+    "ec2_instances": ["ec2_instances*.json"],
+    "ec2_volumes": ["ec2_volumes*.json"],
+    "ec2_snapshots": ["ec2_snapshots*.json"],
+    "ec2_security_groups": ["ec2_security_groups*.json"],
+    "ec2_network_interfaces": ["ec2_network_interfaces*.json"],
+    "ec2_metadata_active": ["ec2_metadata_active*.json"],
+    "ec2_metadata_passive": ["ec2_metadata_passive*.json"],
+    "iam_users": ["iam_users*.json"],
+    "iam_roles": ["iam_roles*.json"],
+    "iam_policies": ["iam_policies*.json"],
+    "iam_groups": ["iam_groups*.json"],
+    "s3_buckets": ["s3_buckets*.json"],
+    "s3_objects": ["s3_objects*.json"],
+    "s3_versions": ["s3_versions*.json"],
+    "s3_bucket_policies": ["s3_bucket_policies*.json"],
+    "lambda_functions": ["lambda_functions*.json"],
+    "lambda_config": ["lambda_config*.json"],
+    "lambda_env_vars": ["lambda_env_vars*.json"],
+    "lambda_policy": ["lambda_policy*.json"],
+    "lambda_code": ["lambda_code*.json"],
+    "dynamodb_tables": ["dynamodb_tables*.json"],
+    "dynamodb_backups": ["dynamodb_backups*.json"],
+    "apigw_rest_apis": ["apigw_rest_apis*.json"],
+    "apigw_integrations": ["apigw_integrations*.json"],
+    "apigw_routes": ["apigw_routes*.json"],
+    "eks_clusters": ["eks_clusters*.json"],
+    "eks_nodegroups": ["eks_nodegroups*.json"],
+    "eks_security": ["eks_security*.json"],
+    "eventbridge_rules": ["eventbridge_rules*.json"],
+    "eventbridge_targets": ["eventbridge_targets*.json"],
+    "kms_keys": ["kms_keys*.json"],
+    "vpc": ["vpc*.json"],
+    "vpc_subnets": ["vpc_subnets*.json"],
+    "vpc_route_tables": ["vpc_route_tables*.json"],
+    "vpc_security_groups": ["vpc_security_groups*.json"],
+    "vpc_network_acls": ["vpc_network_acls*.json"],
+    "route53_hosted_zones": ["route53_hosted_zones*.json"],
+    "route53_records": ["route53_records*.json"],
+}
 
 
 def _match_pattern(filename: str, pattern: str) -> bool:
@@ -102,15 +80,20 @@ def _match_pattern(filename: str, pattern: str) -> bool:
     return bool(re.match(regex_pattern, filename))
 
 
-def _check_collector_in_case(case_dir: Path, collector: str) -> Tuple[bool, Optional[str]]:
+def _check_collector_in_case(case_dir: Path, collector_name: str, patterns: List[str], subdir: str) -> Tuple[bool, Optional[str]]:
     """Check if a collector has data in a case directory."""
-    patterns = COLLECTOR_PATTERNS.get(collector, [])
-    
     if not os.path.exists(case_dir):
         return False, None
     
-    # Check all JSON files in case directory
-    for json_file in case_dir.glob("*.json"):
+    # Check in the specified subdirectory
+    search_dir = case_dir / subdir
+    
+    if not search_dir.exists():
+        return False, None
+    
+    # Check all JSON files in subdirectory (recursive, because some collectors
+    # store outputs under nested folders like resources/iam/*.json)
+    for json_file in search_dir.rglob("*.json"):
         filename = json_file.name
         
         # Skip normalized files
@@ -127,15 +110,78 @@ def _check_collector_in_case(case_dir: Path, collector: str) -> Tuple[bool, Opti
     return False, None
 
 
-def check_collector_status(case_names: Optional[List[str]] = None) -> Dict[str, Dict[str, Tuple[bool, Optional[str]]]]:
+def _apply_all_markers(
+    case_dir: Path,
+    resources_status: Dict[str, Dict[str, Tuple[bool, Optional[str]]]],
+    case_key: str,
+) -> None:
     """
-    Check collector status across cases.
+    If a service-level 'all' collector ran, mark its related per-service resource
+    collectors as collected in status.
+    """
+    resources_dir = case_dir / "resources"
+    if not resources_dir.exists():
+        return
+
+    def _mark(collectors: List[str], rel_path: str) -> None:
+        for c in collectors:
+            if c in resources_status:
+                resources_status[c][case_key] = (True, rel_path)
+
+    # EC2 all → mark all EC2-related collectors
+    ec2_all = resources_dir / "ec2_all.json"
+    if ec2_all.exists():
+        _mark(
+            [
+                "ec2_instances",
+                "ec2_volumes",
+                "ec2_snapshots",
+                "ec2_security_groups",
+                "ec2_network_interfaces",
+                "ec2_metadata_active",
+                "ec2_metadata_passive",
+            ],
+            os.path.relpath(ec2_all, case_dir),
+        )
+
+    # VPC all → mark all VPC-related collectors
+    vpc_all = resources_dir / "vpc_all.json"
+    if vpc_all.exists():
+        _mark(
+            [
+                "vpc",
+                "vpc_subnets",
+                "vpc_route_tables",
+                "vpc_security_groups",
+                "vpc_network_acls",
+            ],
+            os.path.relpath(vpc_all, case_dir),
+        )
+
+    # IAM all → mark all IAM-related collectors (saved under resources/iam/)
+    iam_all = resources_dir / "iam" / "iam_all.json"
+    if iam_all.exists():
+        _mark(
+            [
+                "iam_users",
+                "iam_roles",
+                "iam_policies",
+                "iam_groups",
+            ],
+            os.path.relpath(iam_all, case_dir),
+        )
+
+
+def check_collector_status(case_names: Optional[List[str]] = None) -> Tuple[Dict[str, Dict[str, Tuple[bool, Optional[str]]]], Dict[str, Dict[str, Tuple[bool, Optional[str]]]]]:
+    """
+    Check collector status across cases, separated by logs and resources.
     
     Args:
         case_names: Optional list of case names to check. If None, checks all cases.
     
     Returns:
-        Dict mapping collector -> case -> (is_collected, file_path)
+        Tuple of (logs_status, resources_status)
+        Each is a dict mapping collector -> case -> (is_collected, file_path)
     """
     # Get all cases
     if case_names:
@@ -152,73 +198,129 @@ def check_collector_status(case_names: Optional[List[str]] = None) -> Dict[str, 
     else:
         cases = list_cases()
     
-    collectors = get_all_collectors()
+    # Build status dicts for logs and resources
+    logs_status = {}
+    resources_status = {}
     
-    # Build status dict
-    status = {}
-    for collector in collectors:
-        status[collector] = {}
+    for collector_name, patterns in LOGS_COLLECTORS.items():
+        logs_status[collector_name] = {}
         for case in cases:
             case_dir = Path(case['path'])
-            is_collected, file_path = _check_collector_in_case(case_dir, collector)
-            status[collector][case['dir_name']] = (is_collected, file_path)
+            is_collected, file_path = _check_collector_in_case(case_dir, collector_name, patterns, "logs")
+            logs_status[collector_name][case['dir_name']] = (is_collected, file_path)
     
-    return status
+    for collector_name, patterns in RESOURCES_COLLECTORS.items():
+        resources_status[collector_name] = {}
+        for case in cases:
+            case_dir = Path(case['path'])
+            is_collected, file_path = _check_collector_in_case(case_dir, collector_name, patterns, "resources")
+            resources_status[collector_name][case['dir_name']] = (is_collected, file_path)
+
+    # Apply "all" markers after initial scan so per-resource rows can reflect
+    # service-level all collectors (ec2 all, vpc all, iam all, ...).
+    for case in cases:
+        case_dir = Path(case["path"])
+        _apply_all_markers(case_dir, resources_status, case["dir_name"])
+    
+    return logs_status, resources_status
 
 
-def format_status_table(status: Dict[str, Dict[str, Tuple[bool, Optional[str]]]], case_names: Optional[List[str]] = None) -> Table:
+def format_status_tables(
+    logs_status: Dict[str, Dict[str, Tuple[bool, Optional[str]]]], 
+    resources_status: Dict[str, Dict[str, Tuple[bool, Optional[str]]]], 
+    case_names: Optional[List[str]] = None
+) -> Tuple[Table, Table]:
     """
-    Format collector status as a Rich table.
+    Format collector status as two Rich tables (one for logs, one for resources).
     
     Returns:
-        Rich Table object
+        Tuple of (logs_table, resources_table)
     """
-    if not status:
-        table = Table(title="[bold red]No collectors or cases found[/bold red]", box=box.ROUNDED)
-        return table
-    
-    # Get all cases from status
+    # Get all cases from both status dicts
     all_cases = set()
-    for collector_status in status.values():
+    for collector_status in logs_status.values():
+        all_cases.update(collector_status.keys())
+    for collector_status in resources_status.values():
         all_cases.update(collector_status.keys())
     
     if case_names:
-        # Filter cases
-        all_cases = [c for c in sorted(all_cases) if c in case_names]
+        # Normalize case names for comparison (convert to lowercase directory names)
+        from ventra.case.store import get_case_dir
+        normalized_case_names = set()
+        for name in case_names:
+            case_dir = get_case_dir(name)
+            if case_dir:
+                normalized_case_names.add(os.path.basename(case_dir))
+        # Filter cases using normalized names
+        all_cases = [c for c in sorted(all_cases) if c in normalized_case_names]
     else:
         all_cases = sorted(all_cases)
     
     if not all_cases:
-        table = Table(title="[bold yellow]No cases found[/bold yellow]", box=box.ROUNDED)
-        return table
+        empty_table = Table(title="[bold yellow]No cases found[/bold yellow]", box=box.ROUNDED)
+        return empty_table, empty_table
     
-    collectors = sorted(status.keys())
+    # Create Logs table
+    logs_table = Table(
+        title="[bold cyan]📋 Logs Collectors[/bold cyan]",
+        box=box.ROUNDED,
+        show_header=True,
+        border_style="cyan",
+        show_lines=True,
+        header_style="bold cyan"
+    )
+    logs_table.add_column("[bold cyan]Collector Script[/bold cyan]", style="cyan", no_wrap=True, width=30)
     
-    # Create Rich table with enhanced styling
-    table = Table(
-        title="[bold magenta]📊 Collector Status[/bold magenta]",
+    # Add case columns
+    for case in all_cases:
+        logs_table.add_column(f"[bold yellow]{case}[/bold yellow]", justify="center", width=15)
+    
+    # Add rows for logs collectors
+    for collector in sorted(logs_status.keys()):
+        row = [f"[cyan]{collector}[/cyan]"]
+        for case in all_cases:
+            is_collected, file_path = logs_status[collector].get(case, (False, None))
+            if is_collected:
+                row.append("[bold green]✓ COLLECTED[/bold green]")
+            else:
+                row.append("[bold red]✗ MISSING[/bold red]")
+        logs_table.add_row(*row)
+    
+    # Create Resources table
+    resources_table = Table(
+        title="[bold magenta]📦 Resources Collectors[/bold magenta]",
         box=box.ROUNDED,
         show_header=True,
         border_style="magenta",
         show_lines=True,
         header_style="bold magenta"
     )
-    table.add_column("[bold cyan]AWS Service[/bold cyan]", style="cyan", no_wrap=True, width=20)
+    resources_table.add_column("[bold magenta]Collector Script[/bold magenta]", style="magenta", no_wrap=True, width=30)
     
     # Add case columns
     for case in all_cases:
-        table.add_column(f"[bold yellow]{case}[/bold yellow]", justify="center", width=15)
+        resources_table.add_column(f"[bold yellow]{case}[/bold yellow]", justify="center", width=15)
     
-    # Add rows with emoji indicators
-    for collector in collectors:
-        row = [f"[cyan]{collector}[/cyan]"]
+    # Add rows for resources collectors
+    for collector in sorted(resources_status.keys()):
+        row = [f"[magenta]{collector}[/magenta]"]
         for case in all_cases:
-            is_collected, file_path = status[collector].get(case, (False, None))
+            is_collected, file_path = resources_status[collector].get(case, (False, None))
             if is_collected:
                 row.append("[bold green]✓ COLLECTED[/bold green]")
             else:
                 row.append("[bold red]✗ MISSING[/bold red]")
-        table.add_row(*row)
+        resources_table.add_row(*row)
     
-    return table
+    return logs_table, resources_table
+
+
+# Legacy function for backwards compatibility
+def get_all_collectors() -> List[str]:
+    """Get list of all available collectors (legacy - use LOGS_COLLECTORS and RESOURCES_COLLECTORS instead)."""
+    all_collectors = set(LOGS_COLLECTORS.keys())
+    all_collectors.update(RESOURCES_COLLECTORS.keys())
+    return sorted(all_collectors)
+
+
 

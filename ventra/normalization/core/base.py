@@ -129,8 +129,8 @@ class BaseNormalizer(ABC):
         patterns : list of str
             Filename patterns to match (e.g., ["s3_*_all.json", "s3_bucket_info.json"])
         subdirs : list of str, optional
-            Subdirectories within case_dir to search (e.g., ["events", "resources"]).
-            If None, searches in both "events" and "resources" subdirectories.
+            Subdirectories within case_dir to search (e.g., ["logs", "resources"]).
+            If None, searches in both "logs" and "resources" subdirectories.
         
         Returns
         -------
@@ -139,9 +139,9 @@ class BaseNormalizer(ABC):
         """
         case_dir = Path(context.case_dir)
         
-        # Default to searching both events and resources subdirectories
+        # Default to searching both logs and resources subdirectories
         if subdirs is None:
-            subdirs = ["events", "resources"]
+            subdirs = ["logs", "resources"]
         
         found = []
         for subdir in subdirs:

@@ -32,13 +32,15 @@ class ELBNormalizer(BaseNormalizer):
     
     def load_raw(self, context: NormalizationContext) -> Iterator[Dict[str, Any]]:
         """Load ELB data from collector JSON files."""
-        # ELB files are in resources/ subdirectory (access logs are in events/)
+        # ELB access logs are in logs/ subdirectory
         patterns = [
             "elb_access_logs*.json",
             "alb_access_logs*.json",
             "nlb_access_logs*.json",
+            "cloudfront_access_logs.json",
+            "waf_logs.json",
         ]
-        files = self.find_collector_files(context, patterns, subdirs=["events"])
+        files = self.find_collector_files(context, patterns, subdirs=["logs"])
         
         if not files:
             return
@@ -64,8 +66,10 @@ class ELBNormalizer(BaseNormalizer):
             "elb_access_logs*.json",
             "alb_access_logs*.json",
             "nlb_access_logs*.json",
+            "cloudfront_access_logs.json",
+            "waf_logs.json",
         ]
-        files = self.find_collector_files(context, patterns, subdirs=["events"])
+        files = self.find_collector_files(context, patterns, subdirs=["logs"])
         
         if not files:
             print(f"    ⚠ No ELB data found")

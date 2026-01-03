@@ -5,3 +5,9 @@ These collectors gather resource metadata and configuration snapshots showing "e
 Examples: IAM users/roles, EC2 instances, S3 buckets, Lambda functions, VPC configurations.
 """
 
+
+
+
+
+
+

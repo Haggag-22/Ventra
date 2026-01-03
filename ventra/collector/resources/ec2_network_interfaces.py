@@ -114,3 +114,9 @@ def run_ec2_network_interfaces(args):
     except Exception as e:
         print(f"❌ Unexpected error: {e}")
 
+
+
+
+
+
+

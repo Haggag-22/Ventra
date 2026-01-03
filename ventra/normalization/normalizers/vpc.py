@@ -32,15 +32,16 @@ class VPCNormalizer(BaseNormalizer):
     
     def load_raw(self, context: NormalizationContext) -> Iterator[Dict[str, Any]]:
         """Load VPC data from collector JSON files."""
-        # VPC files are in resources/ subdirectory
+        # VPC resource files are in resources/, flow logs are in events/
         patterns = [
             "vpc*.json",
             "vpc_subnets*.json",
             "vpc_route_tables*.json",
             "vpc_security_groups*.json",
             "vpc_network_acls*.json",
+            "vpc_flow_logs*.json",
         ]
-        files = self.find_collector_files(context, patterns, subdirs=["resources"])
+        files = self.find_collector_files(context, patterns, subdirs=["resources", "logs"])
         
         if not files:
             return
@@ -68,8 +69,9 @@ class VPCNormalizer(BaseNormalizer):
             "vpc_route_tables*.json",
             "vpc_security_groups*.json",
             "vpc_network_acls*.json",
+            "vpc_flow_logs*.json",
         ]
-        files = self.find_collector_files(context, patterns, subdirs=["resources"])
+        files = self.find_collector_files(context, patterns, subdirs=["resources", "logs"])
         
         if not files:
             print(f"    ⚠ No VPC data found")

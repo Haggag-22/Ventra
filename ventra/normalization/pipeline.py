@@ -27,6 +27,7 @@ from .normalizers.elb import ELBNormalizer
 from .normalizers.securityhub import SecurityHubNormalizer
 from .normalizers.apigw import APIGWNormalizer
 from .normalizers.cloudwatch import CloudWatchNormalizer
+from .normalizers.route53 import Route53Normalizer
 
 
 # Registry of available normalizers
@@ -48,6 +49,7 @@ _NORMALIZERS = {
     "securityhub": SecurityHubNormalizer,
     "apigw": APIGWNormalizer,
     "cloudwatch": CloudWatchNormalizer,
+    "route53": Route53Normalizer,
 }
 
 

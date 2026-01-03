@@ -21,6 +21,7 @@ from .elb import ELBNormalizer
 from .securityhub import SecurityHubNormalizer
 from .apigw import APIGWNormalizer
 from .cloudwatch import CloudWatchNormalizer
+from .route53 import Route53Normalizer
 
 __all__ = [
     "CloudTrailNormalizer",
@@ -40,5 +41,6 @@ __all__ = [
     "SecurityHubNormalizer",
     "APIGWNormalizer",
     "CloudWatchNormalizer",
+    "Route53Normalizer",
 ]
 

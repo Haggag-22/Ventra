@@ -223,6 +223,11 @@ class ResourceTypes:
     CLOUDWATCH_LOG_EVENT = "aws.cloudwatch.log_event"
     CLOUDWATCH_ALARM = "aws.cloudwatch.alarm"
     
+    # Route53
+    ROUTE53_HOSTED_ZONE = "aws.route53.hosted_zone"
+    ROUTE53_RECORD = "aws.route53.record"
+    ROUTE53_RESOLVER_QUERY_LOG = "aws.route53.resolver_query_log"
+    
     # Generic
     UNKNOWN = "aws.unknown"
 

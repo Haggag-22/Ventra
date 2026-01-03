@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import os
 import boto3
 from botocore.exceptions import ClientError
 from rich.console import Console
@@ -13,9 +14,9 @@ from rich.syntax import Syntax
 
 from ventra.auth.whoami import aws_whoami
 from ventra.auth.store import save_ventra_profile
-from ventra.collector.events.cloudtrail_history import run_cloudtrail_history
-from ventra.collector.events.cloudtrail_s3 import run_cloudtrail_s3
-from ventra.collector.events.cloudtrail_lake import run_cloudtrail_lake
+from ventra.collector.logs.cloudtrail_history import run_cloudtrail_history
+from ventra.collector.logs.cloudtrail_s3 import run_cloudtrail_s3
+from ventra.collector.logs.cloudtrail_lake import run_cloudtrail_lake
 from ventra.collector.resources.ec2.ec2_metadata_passive import run_ec2_meta_external
 from ventra.case.store import create_case, list_cases, get_or_create_case
 
@@ -203,8 +204,8 @@ def route(args):
             table.add_column("Case Name", style="cyan", width=30)
             table.add_column("Directory", style="dim")
             
-            for idx, (case_name, case_dir) in enumerate(cases.items(), 1):
-                table.add_row(str(idx), case_name, case_dir)
+            for idx, case in enumerate(cases, 1):
+                table.add_row(str(idx), case['name'], case['path'])
             
             console.print(table)
             console.print()
@@ -215,7 +216,7 @@ def route(args):
     # -------------------------------------------------------------------------
     if args.command == "status":
         if args.status_cmd == "collectors":
-            from ventra.status.collectors import check_collector_status, format_status_table
+            from ventra.status.collectors import check_collector_status, format_status_tables
             
             console.print(Panel.fit(
                 "[bold magenta]📊 Collector Status Check[/bold magenta]",
@@ -225,11 +226,22 @@ def route(args):
             console.print()
             
             with console.status("[bold magenta]Analyzing collectors...[/bold magenta]", spinner="dots"):
+                # Support both --cases (plural) and --case (singular)
                 case_names = getattr(args, "cases", None)
-                status = check_collector_status(case_names)
+                if not case_names:
+                    case_name = getattr(args, "case", None)
+                    if case_name:
+                        case_names = [case_name]
+                logs_status, resources_status = check_collector_status(case_names)
             
-            table = format_status_table(status, case_names)
-            console.print(table)
+            logs_table, resources_table = format_status_tables(logs_status, resources_status, case_names)
+            
+            # Print Logs table
+            console.print(logs_table)
+            console.print()
+            
+            # Print Resources table
+            console.print(resources_table)
             console.print()
             return
 
@@ -332,10 +344,96 @@ def route(args):
         return
 
     # -------------------------------------------------------------------------
+    # CORRELATE
+    # -------------------------------------------------------------------------
+    if args.command == "correlate":
+        from ventra.case.store import get_case_dir
+        from ventra.correlation import run_correlation_pipeline
+        
+        console.print(Panel.fit(
+            "[bold green]🔗 Correlating Normalized Data[/bold green]",
+            border_style="green",
+            box=box.ROUNDED
+        ))
+        console.print()
+        
+        # Resolve case directory
+        case_identifier = args.case
+        case_dir = get_case_dir(case_identifier)
+        
+        if not case_dir:
+            console.print(Panel.fit(
+                f"[bold red]❌ Case not found: {case_identifier}[/bold red]",
+                border_style="red",
+                box=box.ROUNDED
+            ))
+            return
+        
+        console.print(f"[green]Case:[/green] [bold]{case_identifier}[/bold]")
+        console.print(f"[green]Directory:[/green] {case_dir}")
+        console.print()
+        
+        # Run correlation pipeline
+        with console.status("[bold green]Correlating data...[/bold green]", spinner="dots"):
+            summaries = run_correlation_pipeline(
+                case_dir,
+            )
+        
+        if not summaries:
+            console.print(Panel.fit(
+                "[yellow]⚠ No correlations performed[/yellow]",
+                border_style="yellow",
+                box=box.ROUNDED
+            ))
+            return
+        
+        # Display summary table
+        from rich.table import Table
+        table = Table(
+            title="[bold green]📊 Correlation Summary[/bold green]",
+            box=box.ROUNDED,
+            border_style="green",
+            show_lines=True
+        )
+        table.add_column("Correlator", style="cyan", width=25)
+        table.add_column("Records Processed", justify="right", style="yellow")
+        table.add_column("Correlations Found", justify="right", style="green")
+        table.add_column("Errors", justify="right", style="red")
+        
+        total_records = 0
+        total_correlations = 0
+        total_errors = 0
+        
+        for summary in summaries:
+            table.add_row(
+                summary.name,
+                str(summary.records_processed),
+                str(summary.correlations_found),
+                str(summary.error_count)
+            )
+            total_records += summary.records_processed
+            total_correlations += summary.correlations_found
+            total_errors += summary.error_count
+        
+        table.add_row(
+            "[bold]TOTAL[/bold]",
+            f"[bold]{total_records}[/bold]",
+            f"[bold]{total_correlations}[/bold]",
+            f"[bold]{total_errors}[/bold]"
+        )
+        
+        console.print(table)
+        console.print()
+        console.print(f"[green]✓ Correlation complete![/green] Output saved to: [dim]{case_dir}/correlated/[/dim]")
+        console.print()
+        return
+
+    # -------------------------------------------------------------------------
     # ANALYZE
     # -------------------------------------------------------------------------
     if args.command == "analyze":
-        from ventra.analysis.commands.report import run_report_command
+        from ventra.case.store import get_case_dir
+        from ventra.analysis import run_from_args as run_analysis_from_args
         
         console.print(Panel.fit(
             "[bold green]🔍 Analyzing Normalized Data[/bold green]",
@@ -343,10 +441,41 @@ def route(args):
             box=box.ROUNDED
         ))
         console.print()
-        
-        if args.analyze_cmd == "report":
-            run_report_command(args)
+
+        # Resolve case directory
+        case_identifier = args.case
+        case_dir = get_case_dir(case_identifier)
+
+        if not case_dir:
+            console.print(Panel.fit(
+                f"[red]❌ Case not found:[/red] [bold]{case_identifier}[/bold]\n"
+                "[dim]Use 'ventra case list' to see available cases[/dim]",
+                border_style="red",
+                box=box.ROUNDED
+            ))
             return
+
+        # Set case_dir on args for analysis pipeline
+        args.case_dir = case_dir
+
+        # Run full analysis pipeline (normalize -> correlate -> AI enrichment -> report)
+        try:
+            outputs = run_analysis_from_args(args)
+            report_path = outputs.get("report_path")
+            ai_path = outputs.get("ai_enrichment_path")
+            console.print(f"[green]✓ Analysis complete[/green]")
+            if report_path:
+                console.print(f"[dim]Report:[/dim] {report_path}")
+            if ai_path:
+                console.print(f"[dim]AI Enrichment:[/dim] {ai_path}")
+            console.print()
+        except Exception as e:
+            console.print(Panel.fit(
+                f"[red]❌ Analysis error:[/red] [bold]{e}[/bold]",
+                border_style="red",
+                box=box.ROUNDED
+            ))
+        return
 
     # -------------------------------------------------------------------------
     # COLLECT
@@ -363,10 +492,10 @@ def route(args):
         args.case_name = case_name
 
         # Route based on domain (events or resources)
-        if args.collect_domain == "events":
+        if args.collect_domain == "logs":
             # Domain A: Events
             console.print(Panel.fit(
-                "[bold cyan]📡 Collecting Events (Domain A)[/bold cyan]",
+                "[bold cyan]📡 Collecting Logs[/bold cyan]",
                 border_style="cyan",
                 box=box.ROUNDED
             ))
@@ -392,36 +521,36 @@ def route(args):
             
             # GuardDuty (Events)
             if args.collect_target == "guardduty":
-                from ventra.collector.events.guardduty_findings import run_guardduty_findings
-                from ventra.collector.events.guardduty_malware import run_guardduty_malware
-                
-                if args.guardduty_cmd == "findings":
-                    return run_guardduty_findings(args)
-                if args.guardduty_cmd == "malware":
-                    return run_guardduty_malware(args)
+                from ventra.collector.logs.guardduty_findings import run_guardduty_findings
+                from ventra.collector.logs.guardduty_malware import run_guardduty_malware
+
+                # Single command: collect everything (findings + malware scan info)
+                run_guardduty_findings(args)
+                run_guardduty_malware(args)
+                return
             
             # SecurityHub (Events)
             if args.collect_target == "securityhub":
-                from ventra.collector.events.securityhub_findings import run_securityhub_findings
+                from ventra.collector.logs.securityhub_findings import run_securityhub_findings
                 return run_securityhub_findings(args)
             
             # CloudWatch Logs (Events)
             if args.collect_target == "cloudwatch":
-                from ventra.collector.events.cloudwatch_log_group import run_cloudwatch_log_group
+                from ventra.collector.logs.cloudwatch_log_group import run_cloudwatch_log_group
                 return run_cloudwatch_log_group(args)
             
             # VPC Flow Logs (Events)
             if args.collect_target == "vpc":
-                from ventra.collector.events.vpc_flow_logs import run_vpc_flow_logs
+                from ventra.collector.logs.vpc_flow_logs import run_vpc_flow_logs
                 
                 if args.vpc_cmd == "flowlogs":
                     return run_vpc_flow_logs(args)
             
             # ELB Access Logs (Events)
             if args.collect_target == "elb":
-                from ventra.collector.events.elb_access_logs import run_elb_access_logs
-                from ventra.collector.events.alb_access_logs import run_alb_access_logs
-                from ventra.collector.events.nlb_access_logs import run_nlb_access_logs
+                from ventra.collector.logs.elb_access_logs import run_elb_access_logs
+                from ventra.collector.logs.alb_access_logs import run_alb_access_logs
+                from ventra.collector.logs.nlb_access_logs import run_nlb_access_logs
                 
                 if args.elb_cmd == "access-logs":
                     return run_elb_access_logs(args)
@@ -432,31 +561,31 @@ def route(args):
             
             # S3 Access Logs (Events)
             if args.collect_target == "s3":
-                from ventra.collector.events.s3_access_logs import run_s3_access_logs
+                from ventra.collector.logs.s3_access_logs import run_s3_access_logs
                 
                 if args.s3_cmd == "access":
                     return run_s3_access_logs(args)
             
             # Route53 Resolver Query Logs (Events)
             if args.collect_target == "route53":
-                from ventra.collector.events.route53_resolver_query_logs import run_route53_resolver_query_logs
+                from ventra.collector.logs.route53_resolver_query_logs import run_route53_resolver_query_logs
                 
                 if args.route53_cmd == "query-logs":
                     return run_route53_resolver_query_logs(args)
             
             # WAF Logs (Events)
             if args.collect_target == "waf":
-                from ventra.collector.events.waf_logs import run_waf_logs
+                from ventra.collector.logs.waf_logs import run_waf_logs
                 return run_waf_logs(args)
             
             # CloudFront Access Logs (Events - Optional)
             if args.collect_target == "cloudfront":
-                from ventra.collector.events.cloudfront_access_logs import run_cloudfront_access_logs
+                from ventra.collector.logs.cloudfront_access_logs import run_cloudfront_access_logs
                 return run_cloudfront_access_logs(args)
             
             # Detective Findings (Events - Optional)
             if args.collect_target == "detective":
-                from ventra.collector.events.detective_findings import run_detective_findings
+                from ventra.collector.logs.detective_findings import run_detective_findings
                 return run_detective_findings(args)
 
         elif args.collect_domain == "resources":
@@ -501,17 +630,17 @@ def route(args):
                 from ventra.collector.resources.iam.roles import run_iam_role
                 from ventra.collector.resources.iam.groups import run_iam_group
                 from ventra.collector.resources.iam.policies import run_iam_policy
-            
-            if args.iam_cmd == "all":
-                return run_iam_all(args)
-            if args.iam_cmd == "user":
-                return run_iam_user(args)
-            if args.iam_cmd == "role":
-                return run_iam_role(args)
-            if args.iam_cmd == "group":
-                return run_iam_group(args)
-            if args.iam_cmd == "policy":
-                return run_iam_policy(args)
+                
+                if args.iam_cmd == "all":
+                    return run_iam_all(args)
+                if args.iam_cmd == "user":
+                    return run_iam_user(args)
+                if args.iam_cmd == "role":
+                    return run_iam_role(args)
+                if args.iam_cmd == "group":
+                    return run_iam_group(args)
+                if args.iam_cmd == "policy":
+                    return run_iam_policy(args)
         
             # Lambda (Resources)
             if args.collect_target == "lambda":
@@ -844,6 +973,7 @@ def build_cli():
     
     status_collectors = status_sub.add_parser("collectors", help="Show collector status across cases")
     status_collectors.add_argument("--cases", type=str, nargs="+", help="Specific cases to check (default: all cases)")
+    status_collectors.add_argument("--case", type=str, help="Single case to check (alternative to --cases)")
 
     # =========================================================================
     # NORMALIZE
@@ -857,15 +987,54 @@ def build_cli():
     normalize.add_argument("--region", type=str, help="AWS region (optional, will be extracted from data if available)")
 
     # =========================================================================
+    # CORRELATE
+    # =========================================================================
+    correlate = sub.add_parser("correlate", help="Correlate normalized events and resources to build relationships")
+    correlate.add_argument("--case", type=str, required=True, help="Case name (e.g., 'ec2-compromise' or 'ec2')")
+
+    # =========================================================================
     # ANALYZE
     # =========================================================================
     analyze = sub.add_parser("analyze", help="Analyze normalized data and generate DFIR reports")
-    analyze_sub = analyze.add_subparsers(dest="analyze_cmd", required=True)
-    
-    report = analyze_sub.add_parser("report", help="Generate DFIR investigation report")
-    report.add_argument("--case", type=str, required=True, help="Case name")
-    report.add_argument("--format", type=str, choices=["text", "json"], default="text", help="Report format (default: text)")
-    report.add_argument("--output", type=str, help="Output file path (default: case/reports/dfir_report.{txt|json})")
+    analyze.add_argument("--case", type=str, required=True, help="Case name (e.g., 'ec2-compromise' or 'ec2')")
+    analyze.add_argument("--profile", type=str, help="Ventra internal profile")
+    analyze.add_argument("--account-id", type=str, help="AWS account ID (optional)")
+    analyze.add_argument("--region", type=str, help="AWS region (optional)")
+    analyze.add_argument("--output-subdir", type=str, default="normalized", help="Normalized output subdirectory (default: 'normalized')")
+
+    # AI enrichment (optional; disabled by default unless configured)
+    analyze.add_argument(
+        "--ai-provider",
+        type=str,
+        choices=["off", "openai"],
+        default=os.environ.get("VENTRA_AI_PROVIDER", "off"),
+        help="AI provider for findings enrichment (default: env VENTRA_AI_PROVIDER or 'off')",
+    )
+    analyze.add_argument(
+        "--ai-model",
+        type=str,
+        default=os.environ.get("VENTRA_AI_MODEL", "gpt-4o-mini"),
+        help="AI model name (default: env VENTRA_AI_MODEL or 'gpt-4o-mini')",
+    )
+    analyze.add_argument(
+        "--ai-max-findings",
+        type=int,
+        default=int(os.environ.get("VENTRA_AI_MAX_FINDINGS", "25")),
+        help="Max findings to enrich (default: env VENTRA_AI_MAX_FINDINGS or 25)",
+    )
+
+    analyze.add_argument(
+        "--format",
+        type=str,
+        choices=["text", "json"],
+        default="text",
+        help="Report format (default: text)",
+    )
+    analyze.add_argument(
+        "--output",
+        type=str,
+        help="Output report file path (default: case/reports/dfir_report.{txt|json})",
+    )
 
     # =========================================================================
     # COLLECT
@@ -877,8 +1046,8 @@ def build_cli():
     collect_sub = collect.add_subparsers(dest="collect_domain", required=True)
     
     # Domain A: Events (Activity Logs)
-    events = collect_sub.add_parser("events", help="Collect activity logs and events (Domain A)")
-    events_sub = events.add_subparsers(dest="collect_target", required=True)
+    logs = collect_sub.add_parser("logs", help="Collect activity logs and events")
+    logs_sub = logs.add_subparsers(dest="collect_target", required=True)
     
     # Domain B: Resources (Environment State)  
     resources = collect_sub.add_parser("resources", help="Collect resource metadata and configuration snapshots (Domain B)")
@@ -889,13 +1058,17 @@ def build_cli():
     # =========================================================================
     
     # CLOUDTRAIL (Events)
-    ct = events_sub.add_parser("cloudtrail", help="Collect CloudTrail API activity logs")
+    ct = logs_sub.add_parser("cloudtrail", help="Collect CloudTrail API activity logs")
     ct_sub = ct.add_subparsers(dest="cloudtrail_cmd", required=True)
 
     # history
     ct_hist = ct_sub.add_parser("history")
     ct_hist.add_argument("--case", type=str, required=True, help="Case name (e.g., 'ec2-compromise' or 'ec2'). Creates case if it doesn't exist.")
-    ct_hist.add_argument("--hours", type=int, required=True)
+    ct_hist.add_argument(
+        "--hours",
+        type=int,
+        help="Lookback window in hours. If omitted, collects maximum available history from the CloudTrail API (service-limited, typically ~90 days).",
+    )
     ct_hist.add_argument("--output", type=str)
 
     # s3
@@ -914,7 +1087,11 @@ def build_cli():
     # all
     ct_all = ct_sub.add_parser("all")
     ct_all.add_argument("--case", type=str, required=True, help="Case name (e.g., 'ec2-compromise' or 'ec2'). Creates case if it doesn't exist.")
-    ct_all.add_argument("--hours", type=int, required=True)
+    ct_all.add_argument(
+        "--hours",
+        type=int,
+        help="Lookback window in hours for CloudTrail API history. If omitted, collects maximum available history from the CloudTrail API (service-limited, typically ~90 days).",
+    )
     ct_all.add_argument("--bucket", type=str, required=True)
     ct_all.add_argument("--prefix", type=str, required=True)
     ct_all.add_argument("--output", type=str)
@@ -960,7 +1137,7 @@ def build_cli():
     
     ec2_all = ec2_sub.add_parser("all", help="Collect all EC2 instance data (metadata, volumes, snapshots) into one file")
     ec2_all.add_argument("--case", type=str, required=True, help="Case name")
-    ec2_all.add_argument("--instance", type=str, required=True, help="EC2 instance ID")
+    ec2_all.add_argument("--instance", type=str, help="Optional EC2 instance ID. If omitted, collects all instances in the account/region.")
     ec2_all.add_argument("--output", type=str, help="Override output directory")
 
     # VPC (Resources - info, subnets, routes, etc.)
@@ -1022,13 +1199,17 @@ def build_cli():
     vpc_all.add_argument("--output", type=str, help="Override output directory")
 
     # VPC Flow Logs (Events) - separate parser
-    vpc_logs = events_sub.add_parser("vpc", help="Collect VPC flow log events")
+    vpc_logs = logs_sub.add_parser("vpc", help="Collect VPC flow log events")
     vpc_logs_sub = vpc_logs.add_subparsers(dest="vpc_cmd", required=True)
     
     vpc_flowlogs = vpc_logs_sub.add_parser("flowlogs", help="Collect VPC flow log configurations and events")
     vpc_flowlogs.add_argument("--case", type=str, required=True, help="Case name")
     vpc_flowlogs.add_argument("--vpc-id", type=str, help="Filter by specific VPC ID (optional)")
-    vpc_flowlogs.add_argument("--hours", type=int, help="Retrieve last N hours of CloudWatch Logs events (optional)")
+    vpc_flowlogs.add_argument(
+        "--hours",
+        type=int,
+        help="Lookback window in hours. If omitted, collects all available flow log history (may be large).",
+    )
     vpc_flowlogs.add_argument("--output", type=str, help="Override output directory")
 
     # IAM (Resources)
@@ -1097,7 +1278,7 @@ def build_cli():
     s3_all.add_argument("--output", type=str, help="Override output directory")
 
     # S3 Access Logs (Events) - separate parser
-    s3_logs = events_sub.add_parser("s3", help="Collect S3 access logs")
+    s3_logs = logs_sub.add_parser("s3", help="Collect S3 access logs")
     s3_logs_sub = s3_logs.add_subparsers(dest="s3_cmd", required=True)
     
     s3_access = s3_logs_sub.add_parser("access", help="Access points, access-point policies, cross-account principals, public exposure checks, and access logs")
@@ -1106,20 +1287,9 @@ def build_cli():
     s3_access.add_argument("--output", type=str, help="Override output directory")
 
     # GuardDuty (Events)
-    guardduty = events_sub.add_parser("guardduty", help="Collect GuardDuty security findings and events")
-    guardduty_sub = guardduty.add_subparsers(dest="guardduty_cmd", required=True)
-    
-    # findings
-    gd_findings = guardduty_sub.add_parser("findings", help="Collect GuardDuty findings")
-    gd_findings.add_argument("--case", type=str, required=True, help="Case name")
-    gd_findings.add_argument("--severity", type=str, help="Filter by severity (low, medium, high, critical)")
-    gd_findings.add_argument("--resource", type=str, help="Filter by resource ID (e.g., i-1234)")
-    gd_findings.add_argument("--output", type=str, help="Override output directory")
-    
-    # malware
-    gd_malware = guardduty_sub.add_parser("malware", help="Collect EBS malware-scan results")
-    gd_malware.add_argument("--case", type=str, required=True, help="Case name")
-    gd_malware.add_argument("--output", type=str, help="Override output directory")
+    guardduty = logs_sub.add_parser("guardduty", help="Collect GuardDuty findings and malware scan info (all)")
+    guardduty.add_argument("--case", type=str, required=True, help="Case name")
+    guardduty.add_argument("--output", type=str, help="Override output directory")
 
     # CloudWatch (Resources - alarms, dashboards)
     cloudwatch = resources_sub.add_parser("cloudwatch", help="Collect CloudWatch alarms and dashboards")
@@ -1136,10 +1306,10 @@ def build_cli():
     cw_dashboards.add_argument("--output", type=str, help="Override output directory")
     
     # CloudWatch Logs (Events) - single parser for log group and events
-    cw_logs_events = events_sub.add_parser("cloudwatch", help="Collect CloudWatch log group metadata and log events")
+    cw_logs_events = logs_sub.add_parser("cloudwatch", help="Collect CloudWatch log group metadata and log events")
     cw_logs_events.add_argument("--case", type=str, required=True, help="Case name")
     cw_logs_events.add_argument("--group", type=str, required=True, help="Log group name (e.g., '/aws/lambda/my-function')")
-    cw_logs_events.add_argument("--hours", type=int, help="Collect log events from last N hours (optional)")
+    cw_logs_events.add_argument("--hours", type=int, help="Lookback window in hours. If omitted, collects all available log events (may be large).")
     cw_logs_events.add_argument("--output", type=str, help="Override output directory")
 
     # KMS (Resources)
@@ -1296,7 +1466,7 @@ def build_cli():
     elb_all.add_argument("--output", type=str, help="Override output directory")
 
     # ELB Access Logs (Events) - separate parser
-    elb_logs = events_sub.add_parser("elb", help="Collect ELB access logs")
+    elb_logs = logs_sub.add_parser("elb", help="Collect ELB access logs")
     elb_logs_sub = elb_logs.add_subparsers(dest="elb_cmd", required=True)
     
     elb_access_logs = elb_logs_sub.add_parser("access-logs", help="Collect Classic ELB access log configurations")
@@ -1330,7 +1500,7 @@ def build_cli():
     r53_all.add_argument("--output", type=str, help="Override output directory")
 
     # Route53 Resolver Query Logs (Events) - separate parser
-    r53_logs = events_sub.add_parser("route53", help="Collect Route53 Resolver query logs")
+    r53_logs = logs_sub.add_parser("route53", help="Collect Route53 Resolver query logs")
     r53_logs_sub = r53_logs.add_subparsers(dest="route53_cmd", required=True)
     
     r53_query_logs = r53_logs_sub.add_parser("query-logs", help="Collect Route53 Resolver query logging configurations and events")
@@ -1338,17 +1508,17 @@ def build_cli():
     r53_query_logs.add_argument("--output", type=str, help="Override output directory")
     
     # WAF Logs (Events)
-    waf = events_sub.add_parser("waf", help="Collect WAF log configurations")
+    waf = logs_sub.add_parser("waf", help="Collect WAF log configurations")
     waf.add_argument("--case", type=str, required=True, help="Case name")
     waf.add_argument("--output", type=str, help="Override output directory")
     
     # CloudFront Access Logs (Events - Optional)
-    cloudfront = events_sub.add_parser("cloudfront", help="Collect CloudFront access log configurations (optional)")
+    cloudfront = logs_sub.add_parser("cloudfront", help="Collect CloudFront access log configurations (optional)")
     cloudfront.add_argument("--case", type=str, required=True, help="Case name")
     cloudfront.add_argument("--output", type=str, help="Override output directory")
     
     # Detective Findings (Events - Optional)
-    detective = events_sub.add_parser("detective", help="Collect Amazon Detective findings (optional)")
+    detective = logs_sub.add_parser("detective", help="Collect Amazon Detective findings (optional)")
     detective.add_argument("--case", type=str, required=True, help="Case name")
     detective.add_argument("--output", type=str, help="Override output directory")
 
@@ -1388,7 +1558,7 @@ def build_cli():
     eks_controlplane_logs = eks_sub.add_parser("controlplane-logs", help="Collect control plane logs")
     eks_controlplane_logs.add_argument("--case", type=str, required=True, help="Case name")
     eks_controlplane_logs.add_argument("--cluster", type=str, required=True, help="Cluster name")
-    eks_controlplane_logs.add_argument("--hours", type=int, default=24, help="Hours of logs to collect (default: 24)")
+    eks_controlplane_logs.add_argument("--hours", type=int, help="Lookback window in hours. If omitted, collects all available control plane logs (may be large).")
     eks_controlplane_logs.add_argument("--output", type=str, help="Override output directory")
     
     eks_security = eks_sub.add_parser("security", help="Collect security configuration")
@@ -1404,18 +1574,13 @@ def build_cli():
     eks_all = eks_sub.add_parser("all", help="Run all EKS collectors")
     eks_all.add_argument("--case", type=str, required=True, help="Case name")
     eks_all.add_argument("--cluster", type=str, required=True, help="Cluster name")
-    eks_all.add_argument("--hours", type=int, default=24, help="Hours of control plane logs to collect (default: 24)")
+    eks_all.add_argument("--hours", type=int, help="Lookback window in hours for control plane logs. If omitted, collects all available control plane logs (may be large).")
     eks_all.add_argument("--output", type=str, help="Override output directory")
 
     # Security Hub (Events)
-    securityhub = events_sub.add_parser("securityhub", help="Collect Security Hub security findings")
-    securityhub_sub = securityhub.add_subparsers(dest="securityhub_cmd", required=True)
-    
-    sh_findings = securityhub_sub.add_parser("findings", help="Collect Security Hub findings")
-    sh_findings.add_argument("--case", type=str, required=True, help="Case name")
-    sh_findings.add_argument("--severity", type=str, help="Filter by severity (low, medium, high, critical)")
-    sh_findings.add_argument("--compliance-status", type=str, help="Filter by compliance status (passed, failed, warning)")
-    sh_findings.add_argument("--output", type=str, help="Override output directory")
+    securityhub = logs_sub.add_parser("securityhub", help="Collect Security Hub findings (all)")
+    securityhub.add_argument("--case", type=str, required=True, help="Case name")
+    securityhub.add_argument("--output", type=str, help="Override output directory")
 
     return parser
 
