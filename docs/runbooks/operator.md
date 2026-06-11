@@ -20,7 +20,7 @@ CloudShell already has credentials for the signed-in principal. From the shell:
 ```bash
 pip install --user harbor-collector
 
-harbor-collect aws \
+harbor collect aws \
   --case CASE-2026-0042 \
   --since 2026-05-11 \
   --regions us-east-1,us-west-2 \
@@ -40,7 +40,7 @@ The collector prints a live progress table, then writes a sealed package:
 
 Harbor runs **every registered collector** on each invocation — there are no profiles to
 choose. Analysts review what came back (and what surfaced as gaps) in the console. Use
-`harbor-collect aws --list-collectors` to see the current set.
+`harbor collect aws --list-collectors` to see the current set.
 
 ## Shipping the package to the IR team
 

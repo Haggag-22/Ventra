@@ -68,7 +68,7 @@ and standard DFIR practice:
 ```bash
 # Review the read-only IAM policy first: docs/iam-policies/aws-collector-readonly.json
 pip install harbor-collector            # or: pip install -e . from a git checkout; or bin/aws_cloudshell.sh
-harbor-collect aws --case CASE-2026-0042 --out ./harbor-evidence
+harbor collect aws --case CASE-2026-0042 --out ./harbor-evidence
 ```
 
 ### Ingester + Console (on the IR workstation)
@@ -100,7 +100,7 @@ pyproject.toml   harbor-collector package (pip install from repo root)
 
 ```
 collector/
-  cli.py                 entry point (harbor-collect) — runs every registered collector
+  cli.py                 entry point (`harbor collect`) — runs every registered collector
   lib/                   models, base, chain_of_custody, packaging, transport
   aws/                   registry, runner, client_factory + collector modules
     identity/            iam, sts, account, kms, secrets

@@ -27,7 +27,7 @@ dev = [
 ]
 
 [project.scripts]
-harbor-collect = "collector.cli:main"
+harbor = "collector.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
