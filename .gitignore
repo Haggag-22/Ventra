@@ -21,8 +21,8 @@ out/
 npm-debug.log*
 yarn-error.log*
 
-# Harbor runtime data — never commit real evidence
-cases/
+# Harbor runtime data — never commit real evidence (root store only)
+/cases/
 *.tar.zst
 *.tar.gz
 !tests/fixtures/**/*.tar.zst

@@ -11,7 +11,7 @@ type ButtonSize = "sm" | "md" | "icon";
 
 const BTN_VARIANTS: Record<ButtonVariant, string> = {
   primary: "bg-accent text-accent-fg hover:bg-accent/90 font-medium",
-  "primary-dark": "bg-[rgb(37,99,235)] text-white hover:bg-[rgb(29,78,216)] font-medium",
+  "primary-dark": "bg-[rgb(30,58,138)] text-white hover:bg-[rgb(30,64,175)] font-medium shadow-sm",
   secondary: "bg-surface-2 text-fg border border-border hover:bg-surface-2/70",
   ghost: "text-fg-subtle hover:text-fg hover:bg-surface-2",
   danger: "bg-bad-red/15 text-bad-red border border-bad-red/30 hover:bg-bad-red/25",
