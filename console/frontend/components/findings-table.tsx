@@ -15,24 +15,24 @@ const COLS = [
   { key: "severity", label: "Severity", min: 80 },
   { key: "finding_source", label: "Source", min: 100 },
   { key: "event_action", label: "Action", min: 140 },
-  { key: "user_name", label: "Principal", min: 90 },
-  { key: "source_ip", label: "Source IP", min: 100 },
+  { key: "user_name", label: "Principal", min: 120 },
+  { key: "source_ip", label: "Source IP", min: 120 },
   { key: "cloud_region", label: "Region", min: 80 },
 ] as const;
 
 type ColKey = (typeof COLS)[number]["key"];
 
 const DEFAULT_WIDTHS: Record<ColKey, number> = {
-  timestamp: 190,
-  severity: 90,
-  finding_source: 120,
-  event_action: 280,
-  user_name: 130,
-  source_ip: 130,
-  cloud_region: 110,
+  timestamp: 180,
+  severity: 88,
+  finding_source: 110,
+  event_action: 240,
+  user_name: 180,
+  source_ip: 160,
+  cloud_region: 100,
 };
 
-const WIDTHS_KEY = "harbor.findings-table.widths";
+const WIDTHS_KEY = "harbor.findings-table.widths.v2";
 
 function loadWidths(): Record<ColKey, number> {
   if (typeof window === "undefined") return DEFAULT_WIDTHS;
@@ -172,21 +172,23 @@ export function FindingsTable({
                         {e.event_action || e.message}
                       </td>
                       <td
-                        className="truncate"
+                        className="overflow-hidden whitespace-nowrap"
+                        title={e.user_name || undefined}
                         onClick={(ev) => ev.stopPropagation()}
                       >
                         {e.user_name ? (
-                          <Entity kind="user" value={e.user_name} truncate className="max-w-full" />
+                          <Entity kind="user" value={e.user_name} className="max-w-full" />
                         ) : (
                           <span className="text-fg-subtle">—</span>
                         )}
                       </td>
                       <td
-                        className="truncate"
+                        className="overflow-hidden whitespace-nowrap"
+                        title={e.source_ip || undefined}
                         onClick={(ev) => ev.stopPropagation()}
                       >
                         {e.source_ip ? (
-                          <Entity kind="ip" value={e.source_ip} truncate className="max-w-full" />
+                          <Entity kind="ip" value={e.source_ip} className="max-w-full" />
                         ) : (
                           <span className="text-fg-subtle">—</span>
                         )}
