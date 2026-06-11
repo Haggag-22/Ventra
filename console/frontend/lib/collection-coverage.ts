@@ -1,33 +1,6 @@
-// Collection Coverage helpers — profile scope, gap roll-up, and manifest resolution.
+// Collection Coverage helpers — gap roll-up and manifest resolution.
 
 import { CATALOG, type CatalogItem, type Cloud } from "./catalog";
-
-/** Collectors selected by each built-in profile (mirrors collector/common/profiles/*.yml). */
-export const PROFILE_COLLECTORS: Record<string, string[]> = {
-  baseline: ["account", "cloudtrail", "vpc_flow", "guardduty", "waf", "iam", "sts"],
-  full: [
-    "account",
-    "cloudtrail",
-    "vpc_flow",
-    "guardduty",
-    "waf",
-    "iam",
-    "sts",
-    "config",
-    "securityhub",
-    "macie",
-    "detective",
-    "kms",
-    "secrets",
-    "ec2",
-    "s3",
-    "lambda",
-  ],
-  identity: ["account", "cloudtrail", "iam", "kms", "secrets"],
-  data_exfil: ["account", "cloudtrail", "vpc_flow", "s3", "lambda"],
-  insider: ["account", "cloudtrail", "iam", "sts", "s3"],
-  ransomware: ["account", "cloudtrail", "kms", "s3", "ec2", "iam"],
-};
 
 /** Sub-artifact / category gaps rolled up to a catalog collector id. */
 export const GAP_PARENT: Record<string, string> = {
@@ -44,8 +17,7 @@ export type CoverageState =
   | "empty"
   | "denied"
   | "not_enabled"
-  | "not_run"
-  | "not_in_profile";
+  | "not_run";
 
 export interface ManifestGap {
   name: string;
@@ -65,7 +37,6 @@ export interface ResolvedCoverage {
   records: number;
   detail: string;
   gaps: ManifestGap[];
-  inProfile: boolean;
 }
 
 const SOURCE_PRIORITY: Record<string, number> = {
@@ -90,9 +61,8 @@ export function catalogItems(cloud: Cloud): CatalogItem[] {
   return (CATALOG[cloud] ?? []).flatMap((g) => g.items);
 }
 
-export function profileCollectorIds(profileName?: string): string[] {
-  if (!profileName) return PROFILE_COLLECTORS.baseline;
-  return PROFILE_COLLECTORS[profileName] ?? [];
+export function tier1CollectorIds(cloud: Cloud): string[] {
+  return catalogItems(cloud).filter((i) => i.tier === 1).map((i) => i.id);
 }
 
 export function aggregateManifestSources(sources: ManifestSource[] = []) {
@@ -117,29 +87,7 @@ export function resolveCollectorCoverage(
   id: string,
   bySource: Map<string, { status: string; records: number; notes: string }>,
   gaps: ManifestGap[],
-  inProfile: boolean,
 ): ResolvedCoverage {
-  if (!inProfile) {
-    const src = bySource.get(id);
-    if (src && (src.status === "collected" || src.status === "partial")) {
-      const childGaps = gapsForCollector(id, gaps);
-      return {
-        state: childGaps.length ? "partial" : "collected",
-        records: src.records,
-        detail: src.notes,
-        gaps: childGaps,
-        inProfile: false,
-      };
-    }
-    return {
-      state: "not_in_profile",
-      records: 0,
-      detail: "Not part of the collection profile that ran.",
-      gaps: [],
-      inProfile: false,
-    };
-  }
-
   const src = bySource.get(id);
   const childGaps = gapsForCollector(id, gaps);
 
@@ -150,7 +98,6 @@ export function resolveCollectorCoverage(
         records: src.records,
         detail: childGaps.map((g) => g.detail).join(" "),
         gaps: childGaps,
-        inProfile: true,
       };
     }
     return {
@@ -158,7 +105,6 @@ export function resolveCollectorCoverage(
       records: src.records,
       detail: src.notes,
       gaps: [],
-      inProfile: true,
     };
   }
 
@@ -168,8 +114,7 @@ export function resolveCollectorCoverage(
       state: GAP_TO_STATE[directGap.reason] ?? "not_enabled",
       records: 0,
       detail: directGap.detail,
-      gaps: childGaps.length ? childGaps : directGap ? [directGap] : [],
-      inProfile: true,
+      gaps: childGaps.length ? childGaps : [directGap],
     };
   }
 
@@ -180,28 +125,15 @@ export function resolveCollectorCoverage(
       records: 0,
       detail: childGaps.map((g) => g.detail).join(" "),
       gaps: childGaps,
-      inProfile: true,
     };
   }
 
   if (src?.status === "empty") {
-    return {
-      state: "empty",
-      records: 0,
-      detail: src.notes,
-      gaps: [],
-      inProfile: true,
-    };
+    return { state: "empty", records: 0, detail: src.notes, gaps: [] };
   }
 
   if (src?.status === "errored") {
-    return {
-      state: "denied",
-      records: 0,
-      detail: src.notes,
-      gaps: [],
-      inProfile: true,
-    };
+    return { state: "denied", records: 0, detail: src.notes, gaps: [] };
   }
 
   return {
@@ -209,7 +141,6 @@ export function resolveCollectorCoverage(
     records: 0,
     detail: "Collector did not run for this case.",
     gaps: [],
-    inProfile: true,
   };
 }
 

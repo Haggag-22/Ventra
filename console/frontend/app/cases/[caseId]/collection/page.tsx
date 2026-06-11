@@ -8,7 +8,6 @@ import { CATALOG, CLOUD_IMPLEMENTED, type Cloud } from "@/lib/catalog";
 import {
   aggregateManifestSources,
   catalogItems,
-  profileCollectorIds,
   resolveCollectorCoverage,
   unmappedGaps,
   type CoverageState,
@@ -35,7 +34,6 @@ const STATE_META: Record<
   not_enabled: { label: "Not available", icon: Square, tone: "text-warn-amber", collected: false },
   denied: { label: "Access denied", icon: XSquare, tone: "text-bad-red", collected: false },
   not_run: { label: "Not run", icon: Square, tone: "text-fg-subtle", collected: false },
-  not_in_profile: { label: "Not in profile", icon: Square, tone: "text-fg-subtle", collected: false },
 };
 
 export default function CollectionPage() {
@@ -49,30 +47,21 @@ export default function CollectionPage() {
   const manifest = manifestQ.data;
   const cloud = (manifest.cloud ?? "aws") as Cloud;
   const groups = CATALOG[cloud] ?? [];
-  const profileName = manifest.profile?.name ?? summaryQ.data.profile?.name ?? "baseline";
-  const profileIds = new Set(profileCollectorIds(profileName));
   const bySource = aggregateManifestSources(manifest.sources ?? []);
   const gaps: { name: string; reason: string; detail: string }[] = manifest.gaps ?? [];
   const catalogIds = new Set(catalogItems(cloud).map((i) => i.id));
 
-  const resolve = (id: string) =>
-    resolveCollectorCoverage(id, bySource, gaps, profileIds.has(id));
+  const resolve = (id: string) => resolveCollectorCoverage(id, bySource, gaps);
 
   const allItems = groups.flatMap((g) => g.items);
   const resolved = allItems.map((it) => ({ it, r: resolve(it.id) }));
 
-  const profileItems = resolved.filter((x) => x.r.inProfile);
-  const profileCollected = profileItems.filter(
-    (x) => x.r.state === "collected" || x.r.state === "partial",
-  ).length;
-  const profileTotal = profileItems.length;
-
-  const implementedCollected = resolved.filter(
+  const collectedCount = resolved.filter(
     (x) => x.r.state === "collected" || x.r.state === "partial",
   ).length;
 
   const extraGaps = unmappedGaps(gaps, catalogIds);
-  const profilePct = Math.round((profileCollected / Math.max(profileTotal, 1)) * 100);
+  const coveragePct = Math.round((collectedCount / Math.max(allItems.length, 1)) * 100);
 
   return (
     <>
@@ -82,10 +71,8 @@ export default function CollectionPage() {
         panel="collection"
         actions={
           <span className="text-xs text-fg-subtle">
-            <span className="font-medium text-fg">{profileName}</span>
-            <span className="mx-1.5 text-border">·</span>
-            <span className="text-ok-green font-medium">{profileCollected}</span> / {profileTotal}{" "}
-            in profile
+            <span className="text-ok-green font-medium">{collectedCount}</span> / {allItems.length}{" "}
+            collectors
           </span>
         }
       />
@@ -99,18 +86,18 @@ export default function CollectionPage() {
 
         <Card className="p-4">
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-fg-subtle">
-            <span className="stat-label">Profile coverage ({profileName})</span>
-            <span className="mono">{profilePct}%</span>
+            <span className="stat-label">Collector coverage</span>
+            <span className="mono">{coveragePct}%</span>
           </div>
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-2">
             <div
               className="h-full rounded-full bg-ok-green"
-              style={{ width: `${profilePct}%` }}
+              style={{ width: `${coveragePct}%` }}
             />
           </div>
           <div className="mt-2 text-2xs text-fg-subtle">
-            {implementedCollected} of {allItems.length} implemented {cloud.toUpperCase()} collectors
-            have data in this case.
+            Harbor runs every registered {cloud.toUpperCase()} collector; gaps show what was
+            unavailable or empty in this account.
           </div>
           <div className="mt-3 flex flex-wrap gap-3 text-2xs text-fg-subtle">
             <Legend icon={CheckSquare} tone="text-ok-green" label="Collected" />
@@ -118,7 +105,6 @@ export default function CollectionPage() {
             <Legend icon={MinusSquare} tone="text-warn-amber" label="No records" />
             <Legend icon={Square} tone="text-warn-amber" label="Not available" />
             <Legend icon={XSquare} tone="text-bad-red" label="Access denied" />
-            <Legend icon={Square} tone="text-fg-subtle" label="Not in profile" />
           </div>
         </Card>
 
@@ -141,11 +127,6 @@ export default function CollectionPage() {
                         <span className="rounded border border-border bg-surface-2 px-1.5 py-0.5 text-2xs uppercase tracking-wide text-fg-subtle">
                           Tier {item.tier}
                         </span>
-                        {r.inProfile && (
-                          <span className="rounded border border-accent/25 bg-accent/10 px-1.5 py-0.5 text-2xs text-accent">
-                            In profile
-                          </span>
-                        )}
                       </div>
                       <div className="mt-0.5 text-xs text-fg-subtle">{item.description}</div>
                       {r.detail && r.state !== "collected" && (

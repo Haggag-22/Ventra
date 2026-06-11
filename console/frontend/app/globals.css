@@ -808,6 +808,10 @@ body {
     transition: background 0.1s;
   }
 
+  .cloudtrail-view .ct-table.ct-table-no-row-click tbody tr {
+    cursor: default;
+  }
+
   .cloudtrail-view .ct-table tbody tr:hover td {
     background: rgb(var(--surface-2));
   }

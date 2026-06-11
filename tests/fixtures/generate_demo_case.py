@@ -29,8 +29,8 @@ from pathlib import Path
 # Make the collector importable when run from the repo root.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "collector"))
 
-from harbor_collector.common.chain_of_custody.signing import sign_manifest  # noqa: E402
-from harbor_collector.common.models import (  # noqa: E402
+from collector.lib.chain_of_custody.signing import sign_manifest  # noqa: E402
+from collector.lib.models import (  # noqa: E402
     Manifest,
     Operator,
     SourceResult,
@@ -39,7 +39,7 @@ from harbor_collector.common.models import (  # noqa: E402
     WrittenFile,
     GapReason,
 )
-from harbor_collector.common.packaging.packager import seal_package  # noqa: E402
+from collector.lib.packaging.packager import seal_package  # noqa: E402
 
 ACCOUNT = "123456789012"
 ALIAS = "client-prod"
@@ -432,7 +432,7 @@ def generate(out_dir: Path, case_id: str = "CASE-2026-0042") -> Path:
             operator=Operator(principal_arn=f"arn:aws:sts::{ACCOUNT}:assumed-role/IR-Responder/omar",
                               user_id="AROAEXAMPLE:omar", source_ip="100.64.0.10"),
             started_at=_t(-10), completed_at=_t(2000),
-            profile_name="baseline",
+            profile_name="all",
             host_environment="cloudshell", host_os="Amazon Linux 2023",
             host_runtime="python 3.11.8",
             time_window=TimeWindow(since=BASE - timedelta(days=3)),

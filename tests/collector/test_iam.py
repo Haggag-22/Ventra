@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
 
-from harbor_collector.aws.identity.iam import IamCollector, _managed_policy_doc_index
-from harbor_collector.common.models import CollectionContext, GapReason, TimeWindow
+from collector.aws.identity.iam import IamCollector, _managed_policy_doc_index
+from collector.lib.models import CollectionContext, GapReason, TimeWindow
 
 
 class _FakePaginator:

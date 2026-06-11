@@ -67,8 +67,8 @@ and standard DFIR practice:
 
 ```bash
 # Review the read-only IAM policy first: docs/iam-policies/aws-collector-readonly.json
-pip install harbor-collector            # or use the signed bootstrap
-harbor-collect aws --profile baseline --case CASE-2026-0042 --out ./harbor-evidence
+pip install harbor-collector            # or: pip install -e . from a git checkout; or bin/aws_cloudshell.sh
+harbor-collect aws --case CASE-2026-0042 --out ./harbor-evidence
 ```
 
 ### Ingester + Console (on the IR workstation)
@@ -85,6 +85,7 @@ See the [Operator Runbook](docs/runbooks/operator.md) and
 ## Repository layout
 
 ```
+bin/         CloudShell bootstrap scripts (aws_cloudshell.sh, verify_signature.sh)
 collector/   Acquisition tool (Python, boto3) — runs in the client cloud shell
 ingester/    Verify → parse → normalize → load (Python, DuckDB/Parquet)
 console/     Analyst GUI — FastAPI backend + Next.js frontend
@@ -92,7 +93,29 @@ schemas/     JSON Schemas: manifest, package, unified event
 docs/        EPF spec, IAM policies, runbooks, threat coverage
 deploy/      Docker, Compose, Terraform reference forensics environment
 tests/       Fixtures + unit/integration/e2e
+pyproject.toml   harbor-collector package (pip install from repo root)
 ```
+
+### Collector layout
+
+```
+collector/
+  cli.py                 entry point (harbor-collect) — runs every registered collector
+  lib/                   models, base, chain_of_custody, packaging, transport
+  aws/                   registry, runner, client_factory + collector modules
+    identity/            iam, sts, account, kms, secrets
+    control_plane/       cloudtrail, config
+    network/             vpc_flow, waf
+    detections/          guardduty, securityhub, macie, detective
+    workloads/           ec2, s3, lambda
+  azure/                 scaffolded for later phases
+  gcp/                   scaffolded for later phases
+  tools/                 verify_readonly static guard
+```
+
+Design rules: **read-only** (zero mutating API calls), **hash on acquisition**, pure collectors
+that return `SourceResult`, and **gaps are evidence** (disabled sources recorded in the manifest).
+The `readonly-guard` CI check and IAM policies in `docs/iam-policies/` enforce the first rule.
 
 ## Status
 

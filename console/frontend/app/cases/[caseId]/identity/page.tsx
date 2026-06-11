@@ -1,20 +1,19 @@
 "use client";
 
 import { useCase } from "@/components/case-context";
-import { IdentityPrincipal } from "@/components/identity-principal";
+import { IdentityRolesTable } from "@/components/identity-roles-table";
+import { IdentityUsersTable } from "@/components/identity-users-table";
 import { PanelBody, PanelHeader } from "@/components/panel";
 import { StatCard } from "@/components/stat";
-import { Badge, Card, CardHeader, LoadingPanel } from "@/components/ui";
+import { LoadingPanel } from "@/components/ui";
 import { api } from "@/lib/api";
-import { fmtDateOnly, fmtNum } from "@/lib/format";
-import { policiesForRole, policiesForUser } from "@/lib/iam-policies";
+import { fmtNum } from "@/lib/format";
 import { useQuery } from "@tanstack/react-query";
 import {
   Fingerprint,
   KeyRound,
   Lock,
   Shield,
-  ShieldCheck,
   ShieldX,
   Users,
   UsersRound,
@@ -54,11 +53,6 @@ export default function IdentityPage() {
   const kmsKeys = kmsQ.data?.data?.keys?.length;
   const secretCount = secretsQ.data?.data?.secrets?.length;
 
-  const keyAgeDays = (d: string) => {
-    if (!d) return null;
-    return Math.floor((Date.now() - new Date(d).getTime()) / 86400000);
-  };
-
   return (
     <>
       <PanelHeader
@@ -91,107 +85,23 @@ export default function IdentityPage() {
           )}
         </div>
 
-        {/* IAM users */}
-        <Card className="overflow-hidden">
-          <CardHeader title={`IAM users (${users.length})`} icon={KeyRound} />
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border text-left text-2xs uppercase tracking-wide text-fg-subtle">
-                <th className="px-4 py-2">User</th>
-                <th className="px-4 py-2">Created</th>
-                <th className="px-4 py-2">Access keys</th>
-                <th className="px-4 py-2">MFA</th>
-                <th className="px-4 py-2">Flags</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((u) => {
-                const keys = u.AccessKeys ?? [];
-                const mfa = (u.MFADevices ?? []).length > 0;
-                const unusedActive = keys.some(
-                  (k: any) => k.Status === "Active" && !(k.LastUsed?.LastUsedDate),
-                );
-                const newish = keyAgeDays(u.CreateDate);
-                return (
-                  <tr key={u.UserName} className="row-hover border-b border-border/60">
-                    <td className="px-4 py-2.5">
-                      <IdentityPrincipal
-                        label={u.UserName}
-                        principalType="user"
-                        policies={policiesForUser(u, groups)}
-                        mono={false}
-                      />
-                    </td>
-                    <td className="px-4 py-2.5 mono text-xs text-fg-subtle">
-                      {fmtDateOnly(u.CreateDate)}
-                      {newish !== null && newish < 7 && (
-                        <Badge className="ml-2 border-high/30 bg-high/10 text-high">new</Badge>
-                      )}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <div className="flex flex-col gap-0.5">
-                        {keys.map((k: any) => (
-                          <span key={k.AccessKeyId} className="mono text-2xs text-fg-subtle">
-                            {k.AccessKeyId} · {k.Status}
-                            {k.LastUsed?.LastUsedDate
-                              ? ` · used ${fmtDateOnly(k.LastUsed.LastUsedDate)}`
-                              : " · never used"}
-                          </span>
-                        ))}
-                        {keys.length === 0 && <span className="text-2xs text-fg-subtle">none</span>}
-                      </div>
-                    </td>
-                    <td className="px-4 py-2.5">
-                      {mfa ? (
-                        <span className="flex items-center gap-1 text-2xs text-ok-green">
-                          <ShieldCheck className="h-3.5 w-3.5" /> enabled
-                        </span>
-                      ) : (
-                        <span className="flex items-center gap-1 text-2xs text-warn-amber">
-                          <ShieldX className="h-3.5 w-3.5" /> none
-                        </span>
-                      )}
-                    </td>
-                    <td className="px-4 py-2.5">
-                      <div className="flex flex-wrap gap-1">
-                        {!mfa && (
-                          <Badge className="border-warn-amber/30 bg-warn-amber/10 text-warn-amber">
-                            no MFA
-                          </Badge>
-                        )}
-                        {unusedActive && (
-                          <Badge className="border-medium/30 bg-medium/10 text-medium">
-                            unused active key
-                          </Badge>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </Card>
-
-        {/* Roles */}
-        <Card className="overflow-hidden">
-          <CardHeader title={`IAM roles (${roles.length})`} />
-          <div className="divide-y divide-border">
-            {roles.map((r) => (
-              <div key={r.RoleName} className="flex items-center justify-between px-4 py-2.5">
-                <IdentityPrincipal
-                  label={r.Arn ?? r.RoleName}
-                  principalType="role"
-                  policies={policiesForRole(r)}
-                />
-                <span className="mono text-2xs text-fg-subtle">{fmtDateOnly(r.CreateDate)}</span>
-              </div>
-            ))}
-            {roles.length === 0 && (
-              <div className="px-4 py-6 text-center text-xs text-fg-subtle">No roles collected.</div>
-            )}
+        <div className="cloudtrail-view space-y-4">
+          <div className="ct-panel">
+            <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+              <KeyRound className="h-4 w-4 text-fg-subtle" />
+              <span className="text-sm font-semibold text-fg">IAM users ({users.length})</span>
+            </div>
+            <IdentityUsersTable users={users} groups={groups} policies={policies} />
           </div>
-        </Card>
+
+          <div className="ct-panel">
+            <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+              <Shield className="h-4 w-4 text-fg-subtle" />
+              <span className="text-sm font-semibold text-fg">IAM roles ({roles.length})</span>
+            </div>
+            <IdentityRolesTable roles={roles} />
+          </div>
+        </div>
       </PanelBody>
     </>
   );

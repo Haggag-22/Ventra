@@ -6,6 +6,14 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
 
+# .env is the single source of truth for IDE + shell.
+set -a
+# shellcheck disable=SC1091
+[[ -f "$ROOT/.env" ]] && source "$ROOT/.env"
+set +a
+export PYTHONDONTWRITEBYTECODE="${PYTHONDONTWRITEBYTECODE:-1}"
+"$ROOT/scripts/clean-pycache.sh" >/dev/null 2>&1 || true
+
 mkdir -p cases .harbor-uploads
 
 if [[ -x "$ROOT/.venv/bin/uvicorn" ]]; then

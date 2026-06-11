@@ -1,9 +1,0 @@
-# Insider profile — privileged-user misuse.
-name: insider
-description: Privileged-misuse focus — console logins, IAM, sensitive actions, storage access.
-collectors:
-  - account
-  - cloudtrail
-  - iam
-  - sts
-  - s3

@@ -38,12 +38,15 @@
         "ec2:DescribeNetworkInterfaces",
         "ec2:DescribeSecurityGroups",
         "ec2:DescribeInstances",
+        "ec2:DescribeInstanceAttribute",
         "ec2:DescribeVolumes",
         "ec2:DescribeSnapshots",
+        "ec2:DescribeSnapshotAttribute",
         "ec2:DescribeImages",
         "ec2:DescribeLaunchTemplates",
         "ec2:DescribeLaunchTemplateVersions",
-        "ec2:DescribeAddresses"
+        "ec2:DescribeAddresses",
+        "logs:FilterLogEvents"
       ],
       "Resource": "*"
     },

@@ -1,6 +1,6 @@
 import type { UnifiedEvent } from "@/lib/types";
 
-/** Human-readable label for the service that produced a finding. */
+/** Human-readable label for a harbor_source / collector id. */
 const ORIGIN_LABELS: Record<string, string> = {
   guardduty: "GuardDuty",
   securityhub: "Security Hub",
@@ -13,6 +13,11 @@ const ORIGIN_LABELS: Record<string, string> = {
   firewallmanager: "Firewall Manager",
   health: "AWS Health",
 };
+
+export function harborSourceLabel(source: string): string {
+  const key = source.toLowerCase();
+  return ORIGIN_LABELS[key] ?? titleCaseSlug(source);
+}
 
 function titleCaseSlug(slug: string): string {
   return slug

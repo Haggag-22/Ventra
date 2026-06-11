@@ -107,7 +107,7 @@
         "overrides": {
           "type": "array",
           "items": { "type": "string" },
-          "description": "Collectors added/removed relative to the profile default."
+          "description": "Reserved for future use; always empty when name is all."
         }
       }
     },

@@ -21,8 +21,10 @@ These are not style preferences — they are correctness requirements for an evi
 
 ## Project layout
 
-- `collector/` — Python, `boto3`. One module per artifact group. Pure functions where
-  possible: AWS clients in, structured records out.
+- `collector/` — Python, `boto3`. Cloud providers (`aws/`, `azure/`, `gcp/`) each hold
+  their collector modules. Shared code lives in `lib/`. Every registered collector runs
+  on each invocation — no profiles or presets.
+- `bin/` — CloudShell bootstrap scripts (not part of the pip package).
 - `ingester/` — Python. `parsers/` (source-specific) → `normalizer/` (unified schema) →
   `loaders/`. Parsers must be pure and independently versioned.
 - `console/backend/` — FastAPI over the case store. Thin; all RBAC enforced server-side.
@@ -33,7 +35,7 @@ These are not style preferences — they are correctness requirements for an evi
 ```bash
 # Python tooling (collector + ingester + backend)
 python -m venv .venv && source .venv/bin/activate
-pip install -e "collector[dev]" -e "ingester[dev]" -e "console/backend[dev]"
+pip install -e ".[dev]" -e "ingester[dev]" -e "console/backend[dev]"
 pre-commit install
 
 # Frontend
@@ -50,8 +52,8 @@ cd console/frontend && npm install && npm run dev
 
 ## Adding a new collector
 
-1. Add a module under `collector/harbor_collector/aws/<group>/`.
-2. Register it in the relevant profile(s) under `collector/harbor_collector/common/profiles/`.
+1. Add a module under `collector/aws/<group>/`.
+2. Register it in `collector/aws/registry.py` (it will run automatically on every collection).
 3. Add a fixture and a `moto`-mocked test under `tests/collector/`.
 4. Document the artifact in `docs/evidence-package-format.md` and the IAM actions it needs
    in `docs/iam-policies/`.

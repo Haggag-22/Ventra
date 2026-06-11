@@ -18,13 +18,13 @@ import pytest
 moto = pytest.importorskip("moto")
 from moto import mock_aws  # noqa: E402
 
-from harbor_collector.aws.client_factory import AwsClientFactory  # noqa: E402
-from harbor_collector.aws.runner.runner import (  # noqa: E402
+from collector.aws.client_factory import AwsClientFactory  # noqa: E402
+from collector.aws.registry import all_collector_names  # noqa: E402
+from collector.aws.runner.runner import (  # noqa: E402
     AwsRunConfig,
     parse_window,
     run_aws_collection,
 )
-from harbor_collector.common.profiles import load_profile, resolve_collectors  # noqa: E402
 
 
 def _read_member(archive: Path, name: str) -> bytes:
@@ -43,21 +43,15 @@ def _read_member(archive: Path, name: str) -> bytes:
 
 
 @mock_aws
-def test_baseline_collection_produces_valid_package(tmp_path: Path) -> None:
-    # Seed a little IAM state so the iam/account collectors have something real to gather.
+def test_full_collection_produces_valid_package(tmp_path: Path) -> None:
     iam = boto3.client("iam", region_name="us-east-1")
     iam.create_user(UserName="alice")
     iam.create_access_key(UserName="alice")
     iam.create_role(RoleName="app-role", AssumeRolePolicyDocument=json.dumps({"Version": "2012-10-17", "Statement": []}))
 
-    profile = load_profile("baseline")
-    collectors, overrides = resolve_collectors(profile, [], [])
-
     cfg = AwsRunConfig(
         case_id="CASE-TEST-0001",
-        profile=profile,
-        collectors=collectors,
-        profile_overrides=overrides,
+        collectors=all_collector_names(),
         regions=["us-east-1"],
         time_window=parse_window("2026-01-01", None),
         out_dir=tmp_path,
@@ -65,24 +59,21 @@ def test_baseline_collection_produces_valid_package(tmp_path: Path) -> None:
 
     package = run_aws_collection(cfg, factory=AwsClientFactory(boto3.Session()))
 
-    # Package exists and hashes.
     assert package.path.exists()
     assert len(package.sha256) == 64
 
-    # Manifest is present, parseable, and carries chain-of-custody fields.
     manifest = json.loads(_read_member(package.path, "manifest.json"))
     assert manifest["case_id"] == "CASE-TEST-0001"
     assert manifest["cloud"] == "aws"
-    assert manifest["account_id"]  # moto default account
+    assert manifest["account_id"]
     assert manifest["operator"]["principal_arn"]
     assert manifest["schema_version"] == "1.0.0"
-    assert {s["name"] for s in manifest["sources"]}  # at least one source recorded
+    assert manifest["profile"]["name"] == "all"
+    assert {s["name"] for s in manifest["sources"]}
 
-    # Signature sidecar exists inside the package.
     sig = _read_member(package.path, "manifest.json.sig")
-    assert sig  # non-empty (sha256-stamp fallback in CI without cosign)
+    assert sig
 
-    # The account collector should have captured operator context.
     names = {s["name"] for s in manifest["sources"]}
     assert "account" in names
 
@@ -90,18 +81,13 @@ def test_baseline_collection_produces_valid_package(tmp_path: Path) -> None:
 @mock_aws
 def test_gap_is_recorded_not_fatal(tmp_path: Path) -> None:
     """A service with nothing configured must surface as a gap, and the run must still seal."""
-    profile = load_profile("baseline")
-    collectors, overrides = resolve_collectors(profile, [], [])
     cfg = AwsRunConfig(
         case_id="CASE-TEST-0002",
-        profile=profile,
-        collectors=collectors,
-        profile_overrides=overrides,
+        collectors=all_collector_names(),
         regions=["us-east-1"],
         time_window=parse_window(None, None),
         out_dir=tmp_path,
     )
     package = run_aws_collection(cfg, factory=AwsClientFactory(boto3.Session()))
     manifest = json.loads(_read_member(package.path, "manifest.json"))
-    # vpc_flow / guardduty / waf have nothing configured in a blank account -> gaps or empty.
     assert "gaps" in manifest
