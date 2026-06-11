@@ -2,7 +2,7 @@
 
 import { importPackage } from "@/lib/api";
 import { useQueryClient } from "@tanstack/react-query";
-import { CheckCircle2, FileArchive, FolderOpen, ShieldCheck, X } from "lucide-react";
+import { CheckCircle2, FileArchive, FolderOpen, X } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import { Button, Input } from "./ui";
@@ -49,6 +49,10 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
   };
 
   const handleImport = async () => {
+    if (!caseName.trim()) {
+      setError("Enter a case name.");
+      return;
+    }
     if (!file) {
       setError("Choose an evidence package file.");
       return;
@@ -56,7 +60,7 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
     setStage("uploading");
     setError("");
     try {
-      const res = await importPackage(file, caseName.trim() || undefined);
+      const res = await importPackage(file, caseName.trim());
       setResult(res);
       setStage("done");
       qc.invalidateQueries({ queryKey: ["cases"] });
@@ -102,11 +106,9 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
                     value={caseName}
                     onChange={(e) => setCaseName(e.target.value)}
                     placeholder="e.g. CASE-2026-0042"
+                    required
                     autoFocus
                   />
-                  <span className="text-2xs text-fg-subtle">
-                    Optional — leave blank to keep the ID from the package manifest.
-                  </span>
                 </label>
 
                 <div className="space-y-1.5">
@@ -134,12 +136,6 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
 
               {error && <p className="mt-3 text-sm text-bad-red">{error}</p>}
 
-              <p className="mt-4 flex items-start gap-2 text-2xs text-fg-subtle">
-                <ShieldCheck className="mt-0.5 h-3.5 w-3.5 shrink-0" />
-                Harbor verifies the signature and every source hash before loading. Ingest runs
-                locally on this machine.
-              </p>
-
               <div className="mt-5 flex justify-end gap-2">
                 <Button type="button" variant="ghost" onClick={onClose}>
                   Cancel
@@ -147,7 +143,7 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
                 <Button
                   type="button"
                   variant="primary-dark"
-                  disabled={!file}
+                  disabled={!file || !caseName.trim()}
                   onClick={handleImport}
                 >
                   Import
