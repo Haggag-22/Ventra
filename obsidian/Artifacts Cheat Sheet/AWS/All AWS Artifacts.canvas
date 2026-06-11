@@ -1,0 +1,13 @@
+{
+	"nodes":[
+		{"id":"82ce132a603be833","type":"file","file":"Artifacts Cheat Sheet/AWS/AWS IR Cheat Sheet (Erblind).png","x":-1340,"y":-540,"width":740,"height":405},
+		{"id":"6439e25ce8f6e813","x":-460,"y":-540,"width":400,"height":398,"type":"file","file":"Pasted image 20260611152932.png"},
+		{"id":"3887147df199bd67","type":"file","file":"Artifacts Cheat Sheet/AWS/Database Logs.md","x":40,"y":-542,"width":400,"height":400},
+		{"id":"34efa14f0fef192f","type":"file","file":"Artifacts Cheat Sheet/AWS/Control Plane And Cloud Native Logs.md","x":-1340,"y":-60,"width":400,"height":736},
+		{"id":"24fc0ad47dbd6cfa","type":"file","file":"Artifacts Cheat Sheet/AWS/Container Workloads Logs.md","x":-860,"y":-60,"width":400,"height":649},
+		{"id":"67ab836c9adaf265","type":"file","file":"Artifacts Cheat Sheet/AWS/EC2 & EBS Logs.md","x":-360,"y":-60,"width":400,"height":520},
+		{"id":"ac20662aa824396e","type":"file","file":"Artifacts Cheat Sheet/AWS/Network And Edge Logs.md","x":120,"y":-60,"width":400,"height":395},
+		{"id":"3f52c262f126ab63","type":"file","file":"Artifacts Cheat Sheet/AWS/Application Logs.md","x":520,"y":-535,"width":400,"height":400}
+	],
+	"edges":[]
+}

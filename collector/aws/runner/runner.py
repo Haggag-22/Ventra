@@ -51,6 +51,10 @@ class RunReporter:
 
     events: list[tuple[str, str]] = field(default_factory=list)
 
+    def begin_run(self, account_id: str, regions: list[str], case_id: str = "") -> None:
+        """Called once after identity/regions are resolved. No-op by default; the CLI's
+        matrix reporter overrides it to print the run header."""
+
     def start(self, name: str) -> None:
         self._emit(name, "running")
 
@@ -83,6 +87,7 @@ def run_aws_collection(cfg: AwsRunConfig, *, factory: AwsClientFactory | None = 
     regions = cfg.regions or cf.enabled_regions()
 
     reporter = cfg.reporter or RunReporter()
+    reporter.begin_run(identity.account_id, regions, cfg.case_id)
 
     with tempfile.TemporaryDirectory(prefix="harbor-stage-") as tmp:
         staging = Path(tmp)

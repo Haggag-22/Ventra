@@ -13,7 +13,7 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Network And Edge Logs.md",
+                "file": "Artifacts Cheat Sheet/AWS/Network And Edge Logs.md",
                 "mode": "preview",
                 "source": false
               },
@@ -27,16 +27,73 @@
             "state": {
               "type": "markdown",
               "state": {
-                "file": "Tool Testers.md",
+                "file": "Collectors/AWS Collectors.md",
                 "mode": "preview",
                 "source": false
               },
               "icon": "lucide-file",
-              "title": "Tool Testers"
+              "title": "AWS Collectors"
+            }
+          },
+          {
+            "id": "06a8f55e75a67a0e",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Collectors/AWS Collectors.md",
+                "mode": "preview",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "AWS Collectors"
+            }
+          },
+          {
+            "id": "8c391c5c2d4d7cfb",
+            "type": "leaf",
+            "state": {
+              "type": "image",
+              "state": {
+                "file": "Artifacts Cheat Sheet/AWS/AWS IR Cheat Sheet (Erblind).png"
+              },
+              "icon": "lucide-image",
+              "title": "AWS IR Cheat Sheet (Erblind)"
+            }
+          },
+          {
+            "id": "61a70f575dabb228",
+            "type": "leaf",
+            "state": {
+              "type": "markdown",
+              "state": {
+                "file": "Artifacts Cheat Sheet/AWS/Application Logs.md",
+                "mode": "source",
+                "source": false
+              },
+              "icon": "lucide-file",
+              "title": "Application Logs"
+            }
+          },
+          {
+            "id": "7bff6c8720d3433e",
+            "type": "leaf",
+            "state": {
+              "type": "canvas",
+              "state": {
+                "file": "Artifacts Cheat Sheet/AWS/All AWS Artifacts.canvas",
+                "viewState": {
+                  "x": -305.64000191881905,
+                  "y": -203.76546375655766,
+                  "zoom": -0.779982268029248
+                }
+              },
+              "icon": "lucide-layout-dashboard",
+              "title": "All AWS Artifacts"
             }
           }
         ],
-        "currentTab": 1
+        "currentTab": 5
       }
     ],
     "direction": "vertical"
@@ -93,7 +150,7 @@
       }
     ],
     "direction": "horizontal",
-    "width": 300
+    "width": 327.5
   },
   "right": {
     "id": "9855956450f76d93",
@@ -195,14 +252,35 @@
       "bases:Create new base": false
     }
   },
-  "active": "66a391d2e5ea608b",
+  "active": "7bff6c8720d3433e",
   "lastOpenFiles": [
-    "Harbor Collectors.md",
-    "Tool Testers.md",
-    "Network And Edge Logs.md",
-    "EC2 & EBS Logs.md",
-    "Database Logs.md",
+    "Pasted image 20260611152932.png",
+    "Artifacts Cheat Sheet/AWS/AWS IR Cheat Sheet (Erblind).png",
+    "Artifacts Cheat Sheet/AWS/Application Logs.md",
+    "Pasted image 20260611152917.png",
+    "Artifacts Cheat Sheet/GCP Artifacts/GCP IR Cheat Sheet (Erblind).png",
+    "Collectors/AWS Collectors.md",
+    "Artifacts Cheat Sheet/GCP Artifacts/GCP Artifacts.canvas",
+    "Artifacts Cheat Sheet/Azure Artifacts/Azure Artifacts.canvas",
+    "Artifacts Cheat Sheet/Azure Artifacts/Azure IR Cheat Sheet (Erblind).png",
+    "Artifacts Cheat Sheet/AWS/All AWS Artifacts.canvas",
+    "Artifacts Cheat Sheet/AWS/Control Plane And Cloud Native Logs.md",
+    "Questions the tool should ask before collecting.md",
     "Third-Party Identity Provider Logs.md",
+    "Artifacts Cheat Sheet/AWS/EC2 & EBS Logs.md",
+    "Artifacts Cheat Sheet/AWS/Container Workloads Logs.md",
+    "Artifacts Cheat Sheet/AWS/Database Logs.md",
+    "Artifacts Cheat Sheet/AWS/Network And Edge Logs.md",
+    "Artifacts Cheat Sheet/AWS",
+    "Artifacts Cheat Sheet/GCP Artifacts",
+    "Artifacts Cheat Sheet/Azure Artifacts",
+    "Artifacts Cheat Sheet/AWS Artifacts",
+    "Collectors/GCP Collectors.md",
+    "Artifacts Cheat Sheet",
+    "Collectors/Azure Collectors.md",
+    "Collectors",
+    "Pasted image 20260611151849.png",
+    "Tool Testers.md",
     "Ventra Collectors.md"
   ]
 }

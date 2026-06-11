@@ -1,3 +1,4 @@
+
 <style>
 /* Widen tables in this note */
 .markdown-preview-view.is-readable-line-width .markdown-preview-sizer,
