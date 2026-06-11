@@ -1,9 +1,14 @@
 "use client";
 
 import { MultiSelect, SelectDropdown } from "@/components/multiselect";
+import {
+  ALL_CLOUDTRAIL_COL_KEYS,
+  CLOUDTRAIL_COLS,
+  type CloudTrailColKey,
+} from "@/lib/cloudtrail-columns";
 import { fmtNum } from "@/lib/format";
 import type { Facets } from "@/lib/types";
-import { Filter, Search } from "lucide-react";
+import { Columns3, Filter, Search } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const ORDER_OPTIONS = [
@@ -26,7 +31,9 @@ export function CloudTrailToolbar({
   filters,
   total,
   matched,
+  visibleColumns,
   onChange,
+  onColumnsChange,
   onApply,
   onReset,
 }: {
@@ -34,7 +41,9 @@ export function CloudTrailToolbar({
   filters: CloudTrailFilters;
   total: number;
   matched: number;
+  visibleColumns: CloudTrailColKey[];
   onChange: (next: Partial<CloudTrailFilters>) => void;
+  onColumnsChange: (cols: CloudTrailColKey[]) => void;
   onApply: () => void;
   onReset: () => void;
 }) {
@@ -58,6 +67,22 @@ export function CloudTrailToolbar({
     value: f.value,
     count: f.count,
   }));
+
+  const columnOptions = CLOUDTRAIL_COLS.map((c) => ({
+    value: c.key,
+    label: c.label,
+  }));
+
+  const toggleColumn = (key: CloudTrailColKey) => {
+    const col = CLOUDTRAIL_COLS.find((c) => c.key === key);
+    if (col?.locked) return;
+
+    const cur = visibleColumns;
+    const next = cur.includes(key) ? cur.filter((x) => x !== key) : [...cur, key];
+    const ordered = ALL_CLOUDTRAIL_COL_KEYS.filter((k) => next.includes(k));
+    if (ordered.length === 0) return;
+    onColumnsChange(ordered);
+  };
 
   return (
     <div className="ct-filter-bar">
@@ -142,6 +167,18 @@ export function CloudTrailToolbar({
           value={filters.order ?? "desc"}
           options={ORDER_OPTIONS}
           onChange={(v) => onChange({ order: v })}
+          variant="cloudtrail"
+        />
+
+        <MultiSelect
+          label="Columns"
+          icon={Columns3}
+          options={columnOptions}
+          selected={visibleColumns}
+          lockedValues={CLOUDTRAIL_COLS.filter((c) => c.locked).map((c) => c.key)}
+          onToggle={(v) => toggleColumn(v as CloudTrailColKey)}
+          onClear={() => onColumnsChange(["timestamp"])}
+          searchable={false}
           variant="cloudtrail"
         />
 

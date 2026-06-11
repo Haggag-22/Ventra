@@ -54,7 +54,7 @@ Validated against `manifest.schema.json`. Required top-level fields:
 | `operator` | IAM principal ARN that ran the collector, user id, source IP. |
 | `started_at`, `completed_at` | RFC 3339 UTC bounds of the run. |
 | `time_window` | Incident window applied to event sources (`since`/`until`/`full_available`). |
-| `profile` | Which profile ran, plus per-run overrides. |
+| `profile` | Always `{ "name": "all" }` — every registered collector ran. |
 | `sources[]` | Per source: `name`, `path`, `record_count`, `bytes`, `sha256`, `status`, `notes`. |
 | `gaps[]` | Sources expected but unavailable, with a `reason`. **A gap is evidence.** |
 | `host` | `cloudshell` / `ec2` / `local`, OS, runtime. |
@@ -114,7 +114,7 @@ provider's own export without trusting Harbor's normalization.
   "started_at": "2026-06-10T18:15:30Z",
   "completed_at": "2026-06-10T18:22:04Z",
   "time_window": { "since": "2026-05-11T00:00:00Z", "until": null, "mode": "window" },
-  "profile": { "name": "baseline", "overrides": [] },
+  "profile": { "name": "all", "overrides": [] },
   "sources": [
     { "name": "cloudtrail", "path": "sources/cloudtrail/events.jsonl.zst",
       "record_count": 48213, "bytes": 19283742,

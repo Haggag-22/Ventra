@@ -7,6 +7,7 @@ import { useEffect, useRef, useState } from "react";
 
 export interface Option {
   value: string;
+  label?: string;
   count?: number;
 }
 
@@ -24,6 +25,7 @@ export function MultiSelect({
   searchable = true,
   align = "left",
   variant = "default",
+  lockedValues,
 }: {
   label: string;
   icon?: LucideIcon;
@@ -34,6 +36,7 @@ export function MultiSelect({
   searchable?: boolean;
   align?: "left" | "right";
   variant?: "default" | "cloudtrail";
+  lockedValues?: string[];
 }) {
   const [open, setOpen] = useState(false);
   const [q, setQ] = useState("");
@@ -117,12 +120,15 @@ export function MultiSelect({
             )}
             {shown.map((o) => {
               const on = selected.includes(o.value);
+              const locked = lockedValues?.includes(o.value);
               return (
                 <button
                   key={o.value}
-                  onClick={() => onToggle(o.value)}
+                  onClick={() => !locked && onToggle(o.value)}
+                  disabled={locked}
                   className={cn(
                     "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs hover:bg-surface-2",
+                    locked && "cursor-not-allowed opacity-60",
                   )}
                 >
                   <span
@@ -136,7 +142,7 @@ export function MultiSelect({
                     {on && <Check className="h-2.5 w-2.5" />}
                   </span>
                   <span className="mono flex-1 truncate text-fg">
-                    {o.value}
+                    {o.label ?? o.value}
                   </span>
                   {o.count !== undefined && (
                     <span className="mono text-2xs text-fg-subtle">

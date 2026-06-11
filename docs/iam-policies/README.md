@@ -29,5 +29,5 @@ to S3 rather than CloudWatch. To collect them, the policy grants `s3:GetObject` 
 
 ```bash
 # Lists every action in the policy and flags any that are not get/list/describe/lookup.
-python -m harbor_collector.tools.verify_readonly docs/iam-policies/aws-collector-readonly.json
+python -m collector.tools.verify_readonly docs/iam-policies/aws-collector-readonly.json
 ```

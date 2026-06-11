@@ -9,8 +9,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from harbor_collector.common.base import assert_readonly
-from harbor_collector.tools.verify_readonly import check_collectors, check_policy
+from collector.lib.base import assert_readonly
+from collector.tools.verify_readonly import check_collectors, check_policy
 
 REPO = Path(__file__).resolve().parents[2]
 

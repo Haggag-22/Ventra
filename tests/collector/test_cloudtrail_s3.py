@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from harbor_collector.aws.control_plane.cloudtrail_s3 import (
+from collector.aws.control_plane.cloudtrail_s3 import (
     data_events_configured,
     insight_events_configured,
     lookup_event_category,

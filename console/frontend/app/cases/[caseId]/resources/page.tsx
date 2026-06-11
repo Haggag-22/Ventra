@@ -135,7 +135,7 @@ export default function ResourcesPage() {
         {tab === "s3" &&
           (buckets.length === 0 ? (
             <Card className="py-4">
-              <EmptyState icon={Database} title="No S3 inventory" description="The s3 collector wasn't part of this profile." />
+              <EmptyState icon={Database} title="No S3 inventory" description="The s3 collector did not return data for this case." />
             </Card>
           ) : (
             <Card className="overflow-hidden">

@@ -18,11 +18,11 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install collector
-        run: pip install ./collector
+        run: pip install .
       - name: Guard — registered collectors are read-only
-        run: python -m harbor_collector.tools.verify_readonly --collectors
+        run: python -m collector.tools.verify_readonly --collectors
       - name: Guard — published IAM policy is read-only
-        run: python -m harbor_collector.tools.verify_readonly docs/iam-policies/aws-collector-readonly.json
+        run: python -m collector.tools.verify_readonly docs/iam-policies/aws-collector-readonly.json
 
   python:
     runs-on: ubuntu-latest
@@ -33,7 +33,7 @@ jobs:
           python-version: "3.11"
       - name: Install
         run: |
-          pip install ./collector[dev] ./ingester[dev] ./console/backend
+          pip install .[dev] ./ingester[dev] ./console/backend
           pip install ruff
       - name: Lint
         run: ruff check collector ingester console/backend

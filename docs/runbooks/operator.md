@@ -11,7 +11,7 @@ outbound on its own.
    Their security team confirms it's read-only and attaches it to the role you'll use.
 2. **Agree a case ID and time window.** e.g. `CASE-2026-0042`, window = incident date minus
    30 days. IR rarely wants everything; scope to the incident plus a buffer.
-3. **Pick a profile** — see below.
+3. **Agree regions** if you want to limit scope (default: all enabled regions).
 
 ## Running in AWS CloudShell
 
@@ -21,7 +21,6 @@ CloudShell already has credentials for the signed-in principal. From the shell:
 pip install --user harbor-collector
 
 harbor-collect aws \
-  --profile baseline \
   --case CASE-2026-0042 \
   --since 2026-05-11 \
   --regions us-east-1,us-west-2 \
@@ -39,18 +38,9 @@ The collector prints a live progress table, then writes a sealed package:
 > S3-resident logs, pass `--stream-to s3://your-evidence-bucket/...` (a bucket *you* control)
 > so big pulls stream out instead of staging locally. See `--help`.
 
-## Profiles
-
-| Profile | Use when | Collects |
-|---------|----------|----------|
-| `baseline` | Unknown incident (default) | CloudTrail, VPC Flow config, GuardDuty, WAF, IAM, STS, account context |
-| `full` | High severity / unknown scope | baseline + Tier 2 + auto-detected Tier 3 |
-| `identity` | Credential compromise / BEC | CloudTrail, IAM, STS, KMS, Secrets |
-| `data_exfil` | Suspected exfiltration | CloudTrail, VPC Flow, S3 surface, CloudFront, DNS, Transit Gateway |
-| `ransomware` | Cloud ransomware | CloudTrail, EBS evidence trail, KMS, S3, EC2 inventory |
-| `insider` | Privileged misuse | CloudTrail, IAM, console logins, S3 access |
-
-Override individual collectors with `--add <name>` / `--remove <name>`.
+Harbor runs **every registered collector** on each invocation — there are no profiles to
+choose. Analysts review what came back (and what surfaced as gaps) in the console. Use
+`harbor-collect aws --list-collectors` to see the current set.
 
 ## Shipping the package to the IR team
 

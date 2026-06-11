@@ -1,5 +1,7 @@
 # Harbor developer convenience targets.
-.PHONY: help install dev-setup demo ingest backend frontend dev console test lint readonly-guard clean
+export PYTHONDONTWRITEBYTECODE := 1
+
+.PHONY: help install dev-setup demo ingest backend frontend dev console test lint readonly-guard clean clean-pycache ensure-no-pycache install-hooks
 
 help:
 	@echo "Harbor targets:"
@@ -14,15 +16,16 @@ help:
 	@echo "  make test           Run the Python test suite"
 	@echo "  make lint           ruff + frontend typecheck"
 	@echo "  make readonly-guard Verify the collector is read-only"
+	@echo "  make clean-pycache    Remove all __pycache__ folders locally"
 
 install:
-	pip install -e ./collector[dev] -e ./ingester[dev] -e ./console/backend
+	pip install -e .[dev] -e ./ingester[dev] -e ./console/backend
 
-dev-setup: install
+dev-setup: install clean-pycache ensure-no-pycache install-hooks
 	mkdir -p cases .harbor-uploads
 	cd console/frontend && npm install
 
-dev:
+dev: clean-pycache
 	./scripts/dev-local.sh
 
 demo:
@@ -31,7 +34,7 @@ demo:
 ingest:
 	harbor-ingest tests/fixtures/case-*.tar.zst --case-store ./cases
 
-backend:
+backend: clean-pycache
 	HARBOR_CASE_STORE=./cases HARBOR_UPLOAD_DIR=./.harbor-uploads \
 	uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 
@@ -41,7 +44,7 @@ frontend:
 console:
 	docker compose -f deploy/compose/harbor.yml up --build
 
-test:
+test: clean-pycache
 	pytest tests/ -q
 
 lint:
@@ -49,8 +52,17 @@ lint:
 	cd console/frontend && npm run typecheck
 
 readonly-guard:
-	python -m harbor_collector.tools.verify_readonly --collectors
-	python -m harbor_collector.tools.verify_readonly docs/iam-policies/aws-collector-readonly.json
+	python -m collector.tools.verify_readonly --collectors
+	python -m collector.tools.verify_readonly docs/iam-policies/aws-collector-readonly.json
 
-clean:
+clean-pycache:
+	@./scripts/clean-pycache.sh
+
+ensure-no-pycache:
+	@chmod +x scripts/ensure-no-pycache.sh && ./scripts/ensure-no-pycache.sh
+
+install-hooks:
+	@./scripts/install-git-hooks.sh
+
+clean: clean-pycache
 	rm -rf cases .harbor-uploads tests/fixtures/case-*.tar.* tests/fixtures/case-*.sha256

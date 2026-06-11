@@ -7,11 +7,17 @@ import { CloudTrailToolbar,
 } from "@/components/cloudtrail-toolbar";
 import { PanelBody, PanelHeader } from "@/components/panel";
 import { api, type EventParams } from "@/lib/api";
+import {
+  ALL_CLOUDTRAIL_COL_KEYS,
+  CLOUDTRAIL_VISIBLE_COLS_KEY,
+  loadVisibleCloudTrailCols,
+  type CloudTrailColKey,
+} from "@/lib/cloudtrail-columns";
 import { fmtNum } from "@/lib/format";
 import { useFilters } from "@/lib/useFilters";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ScrollText } from "lucide-react";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 const PAGE = 100;
 const BASE_SOURCE = ["cloudtrail", "sts"];
@@ -46,6 +52,22 @@ export default function CloudTrailPage() {
   const { caseId } = useCase();
   const { params, write, clearAll } = useFilters();
   const [page, setPage] = useState(0);
+  const [visibleColumns, setVisibleColumns] = useState<CloudTrailColKey[]>(
+    ALL_CLOUDTRAIL_COL_KEYS,
+  );
+
+  useEffect(() => {
+    setVisibleColumns(loadVisibleCloudTrailCols());
+  }, []);
+
+  const handleColumnsChange = useCallback((cols: CloudTrailColKey[]) => {
+    setVisibleColumns(cols);
+    try {
+      localStorage.setItem(CLOUDTRAIL_VISIBLE_COLS_KEY, JSON.stringify(cols));
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const filters = useMemo(() => filtersFromParams(params), [params]);
   const effective = useMemo(() => paramsFromFilters(filters), [filters]);
@@ -112,13 +134,19 @@ export default function CloudTrailPage() {
           filters={filters}
           total={total}
           matched={matched}
+          visibleColumns={visibleColumns}
           onChange={handleChange}
+          onColumnsChange={handleColumnsChange}
           onApply={handleApply}
           onReset={handleReset}
         />
 
         <div className="ct-panel">
-          <CloudTrailTable events={eventsQ.data?.events ?? []} loading={eventsQ.isLoading} />
+          <CloudTrailTable
+            events={eventsQ.data?.events ?? []}
+            loading={eventsQ.isLoading}
+            visibleColumns={visibleColumns}
+          />
         </div>
 
         {matched > PAGE && (
