@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ventra Evidence Viewer</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div id="app">
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-mark">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 22s8-3.5 8-10V5l-8-3-8 3v7c0 6.5 8 10 8 10z"/>
+          <path d="M9 12l2 2 4-4"/>
+        </svg>
+      </div>
+      <div class="brand-text">
+        <div class="brand-title">Ventra</div>
+        <div class="brand-sub">Evidence Viewer</div>
+      </div>
+    </div>
+
+    <div class="platform-switch" id="platformSwitch">
+      <button class="platform-btn" id="platformBtn">
+        <span class="platform-icon" id="platformIcon">AWS</span>
+        <span class="platform-name" id="platformName">Amazon Web Services</span>
+        <svg class="chevron" viewBox="0 0 24 24"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div class="platform-menu" id="platformMenu">
+        <button class="platform-option" data-platform="aws">
+          <span class="platform-icon aws">AWS</span>
+          <span class="opt-text"><b>Amazon Web Services</b><small>EC2 · IAM · CloudTrail · S3</small></span>
+          <span class="chip ok" id="awsTag">Active</span>
+        </button>
+        <button class="platform-option" data-platform="azure">
+          <span class="platform-icon azure">AZ</span>
+          <span class="opt-text"><b>Microsoft Azure</b><small>Entra ID · Activity Logs · VMs</small></span>
+          <span class="chip neutral">Soon</span>
+        </button>
+        <button class="platform-option" data-platform="gcp">
+          <span class="platform-icon gcp">GCP</span>
+          <span class="opt-text"><b>Google Cloud</b><small>Audit Logs · GCE · IAM</small></span>
+          <span class="chip neutral">Soon</span>
+        </button>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-section">Investigate</div>
+      <a class="nav-item" href="#/overview" data-view="overview">
+        <svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/></svg>
+        Overview
+      </a>
+      <a class="nav-item" href="#/cloudtrail" data-view="cloudtrail">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg>
+        CloudTrail Timeline
+      </a>
+      <a class="nav-item" href="#/findings" data-view="findings">
+        <svg viewBox="0 0 24 24"><path d="M12 3l9 16H3l9-16z"/><path d="M12 10v4"/><path d="M12 17.5v.5"/></svg>
+        Security Findings
+      </a>
+      <a class="nav-item" href="#/identity" data-view="identity">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.5-6.5 8-6.5s8 2.5 8 6.5"/></svg>
+        Identity &amp; Access
+      </a>
+      <a class="nav-item" href="#/network" data-view="network">
+        <svg viewBox="0 0 24 24"><circle cx="5" cy="12" r="2.5"/><circle cx="19" cy="5" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M7.3 11l9.4-5M7.3 13l9.4 5"/></svg>
+        Network Evidence
+      </a>
+      <a class="nav-item" href="#/workloads" data-view="workloads">
+        <svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><path d="M6 10h.01M10 10h.01M14 10h.01"/></svg>
+        Workloads
+      </a>
+      <a class="nav-item" href="#/application" data-view="application">
+        <svg viewBox="0 0 24 24"><path d="M4 6h16v12H4z"/><path d="M8 10h8M8 14h5"/></svg>
+        Application Logs
+      </a>
+      <a class="nav-item" href="#/idp" data-view="idp">
+        <svg viewBox="0 0 24 24"><path d="M12 3l8 4v6c0 4-3.5 7-8 8-4.5-1-8-4-8-8V7l8-4z"/><circle cx="12" cy="11" r="2"/></svg>
+        Identity Providers
+      </a>
+      <div class="nav-section">Package</div>
+      <a class="nav-item" href="#/coverage" data-view="coverage">
+        <svg viewBox="0 0 24 24"><path d="M4 12l5 5L20 6"/></svg>
+        Collection Coverage
+      </a>
+      <a class="nav-item" href="#/files" data-view="files">
+        <svg viewBox="0 0 24 24"><path d="M4 4h6l2 3h8a1 1 0 011 1v11a1 1 0 01-1 1H4a1 1 0 01-1-1V5a1 1 0 011-1z"/></svg>
+        File Browser
+      </a>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="readonly-pill">
+        <span class="dot"></span> READ-ONLY
+      </div>
+    </div>
+  </aside>
+
+  <div class="main">
+    <header class="topbar">
+      <div class="topbar-meta" id="topbarMeta">
+        <span class="meta-chip skeleton" style="width:180px"></span>
+      </div>
+      <div class="topbar-actions" id="topbarActions"></div>
+    </header>
+    <section class="content" id="content">
+      <div class="loading"><div class="spinner"></div>Loading evidence package…</div>
+    </section>
+    <input type="file" id="folderInput" webkitdirectory directory multiple hidden>
+    <input type="file" id="zipInput" accept=".zip,application/zip" hidden>
+  </div>
+
+  <div class="drawer-backdrop" id="drawerBackdrop"></div>
+  <aside class="drawer" id="drawer">
+    <div class="drawer-head">
+      <div class="drawer-title" id="drawerTitle">Detail</div>
+      <button class="icon-btn" id="drawerClose" title="Close">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </div>
+    <div class="drawer-body" id="drawerBody"></div>
+  </aside>
+</div>
+<script src="/static/app.js"></script>
+</body>
+</html>

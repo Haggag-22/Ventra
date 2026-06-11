@@ -1,0 +1,174 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harbor-ir.example/schemas/manifest.schema.json",
+  "title": "Harbor Evidence Package Manifest",
+  "description": "Chain-of-custody, integrity, and environment metadata for a Harbor evidence package. One manifest per package; signed as manifest.json.sig.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "tool_version",
+    "case_id",
+    "cloud",
+    "account_id",
+    "regions",
+    "operator",
+    "started_at",
+    "completed_at",
+    "profile",
+    "sources",
+    "host"
+  ],
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "description": "Semantic version of this manifest schema.",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "tool_version": {
+      "type": "string",
+      "description": "Harbor collector version that produced the package."
+    },
+    "tool_commit": {
+      "type": "string",
+      "description": "Git commit of the collector build, if available."
+    },
+    "case_id": {
+      "type": "string",
+      "description": "Operator-supplied case identifier.",
+      "minLength": 1
+    },
+    "engagement_id": {
+      "type": "string",
+      "description": "Optional engagement / matter identifier."
+    },
+    "cloud": {
+      "type": "string",
+      "enum": ["aws", "azure", "gcp"]
+    },
+    "account_id": {
+      "type": "string",
+      "description": "Cloud account/subscription/project identifier."
+    },
+    "account_alias": {
+      "type": "string"
+    },
+    "org_id": {
+      "type": "string",
+      "description": "AWS Organizations ID / Azure tenant / GCP org, if discoverable."
+    },
+    "partition": {
+      "type": "string",
+      "description": "AWS partition (aws, aws-us-gov, aws-cn) or cloud equivalent."
+    },
+    "regions": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Regions the collection covered."
+    },
+    "operator": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["principal_arn"],
+      "properties": {
+        "principal_arn": {
+          "type": "string",
+          "description": "IAM principal that executed the collector (sts:GetCallerIdentity)."
+        },
+        "user_id": { "type": "string" },
+        "source_ip": { "type": "string" }
+      }
+    },
+    "started_at": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 UTC timestamp when collection began."
+    },
+    "completed_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "time_window": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Incident-scoped window applied to event sources.",
+      "properties": {
+        "since": { "type": ["string", "null"], "format": "date-time" },
+        "until": { "type": ["string", "null"], "format": "date-time" },
+        "mode": { "type": "string", "enum": ["window", "full_available"] }
+      }
+    },
+    "profile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name"],
+      "properties": {
+        "name": { "type": "string" },
+        "overrides": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Collectors added/removed relative to the profile default."
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "description": "One entry per collected source file.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "path", "sha256", "status"],
+        "properties": {
+          "name": { "type": "string", "description": "Logical source name, e.g. cloudtrail." },
+          "path": { "type": "string", "description": "Path within the archive." },
+          "record_count": { "type": ["integer", "null"], "minimum": 0 },
+          "bytes": { "type": ["integer", "null"], "minimum": 0 },
+          "sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+          "status": {
+            "type": "string",
+            "enum": ["collected", "empty", "partial", "errored", "skipped"]
+          },
+          "notes": { "type": "string" }
+        }
+      }
+    },
+    "gaps": {
+      "type": "array",
+      "description": "Sources that were expected but unavailable. A gap is itself evidence.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "reason"],
+        "properties": {
+          "name": { "type": "string" },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "service_not_enabled",
+              "logging_not_configured",
+              "access_denied",
+              "region_opted_out",
+              "not_present",
+              "collector_error",
+              "out_of_scope"
+            ]
+          },
+          "detail": { "type": "string" }
+        }
+      }
+    },
+    "host": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["environment"],
+      "properties": {
+        "environment": {
+          "type": "string",
+          "enum": ["cloudshell", "ec2", "local", "ci", "unknown"]
+        },
+        "os": { "type": "string" },
+        "runtime": { "type": "string", "description": "e.g. python 3.11.8" }
+      }
+    }
+  }
+}

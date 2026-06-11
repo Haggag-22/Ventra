@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  readonly-guard:
+    # The collector must never call a mutating cloud API. This gate fails the build if it does.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install collector
+        run: pip install ./collector
+      - name: Guard — registered collectors are read-only
+        run: python -m harbor_collector.tools.verify_readonly --collectors
+      - name: Guard — published IAM policy is read-only
+        run: python -m harbor_collector.tools.verify_readonly docs/iam-policies/aws-collector-readonly.json
+
+  python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: |
+          pip install ./collector[dev] ./ingester[dev] ./console/backend
+          pip install ruff
+      - name: Lint
+        run: ruff check collector ingester console/backend
+      - name: Schema validation
+        run: |
+          python - <<'PY'
+          import json, pathlib
+          for p in pathlib.Path("schemas").glob("*.json"):
+              json.loads(p.read_text())  # must parse
+              print("ok", p.name)
+          PY
+      - name: Tests
+        run: python -m pytest tests/ -q
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: console/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - run: npm install --no-audit --no-fund
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Build
+        run: npm run build
+
+  secret-scan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

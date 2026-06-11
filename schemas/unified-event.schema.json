@@ -1,0 +1,130 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harbor-ir.example/schemas/unified-event.schema.json",
+  "title": "Harbor Unified Event",
+  "description": "The normalized event shape every source is mapped to. ECS-aligned and intentionally minimal; source-specific fields are preserved verbatim under raw.",
+  "type": "object",
+  "required": ["@timestamp", "event", "cloud", "harbor"],
+  "properties": {
+    "@timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "RFC 3339 UTC. The canonical time axis for the Timeline."
+    },
+    "event": {
+      "type": "object",
+      "required": ["kind", "category"],
+      "properties": {
+        "kind": { "type": "string", "enum": ["alert", "event", "state", "finding"] },
+        "category": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["authentication", "network", "iam", "configuration", "data", "threat", "process", "session"]
+          }
+        },
+        "action": { "type": "string", "description": "e.g. AssumeRole, PutBucketPolicy." },
+        "outcome": { "type": "string", "enum": ["success", "failure", "unknown"] },
+        "severity": { "type": "string", "enum": ["critical", "high", "medium", "low", "info"] },
+        "provider": { "type": "string", "description": "Originating service, e.g. cloudtrail." }
+      }
+    },
+    "cloud": {
+      "type": "object",
+      "required": ["provider"],
+      "properties": {
+        "provider": { "type": "string", "enum": ["aws", "azure", "gcp"] },
+        "account": {
+          "type": "object",
+          "properties": { "id": { "type": "string" } }
+        },
+        "region": { "type": "string" },
+        "service": {
+          "type": "object",
+          "properties": { "name": { "type": "string" } }
+        }
+      }
+    },
+    "user": {
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "id": { "type": "string" },
+        "arn": { "type": "string" },
+        "type": {
+          "type": "string",
+          "enum": ["IAMUser", "AssumedRole", "Root", "FederatedUser", "AWSService", "Unknown"]
+        }
+      }
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "ip": { "type": "string" },
+        "geo": {
+          "type": "object",
+          "properties": {
+            "country_iso_code": { "type": "string" },
+            "city_name": { "type": "string" }
+          }
+        },
+        "as": {
+          "type": "object",
+          "properties": {
+            "number": { "type": "integer" },
+            "organization_name": { "type": "string" }
+          }
+        }
+      }
+    },
+    "destination": {
+      "type": "object",
+      "properties": {
+        "ip": { "type": "string" },
+        "port": { "type": "integer" },
+        "bytes": { "type": "integer" }
+      }
+    },
+    "resource": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string" },
+        "id": { "type": "string" },
+        "arn": { "type": "string" }
+      }
+    },
+    "user_agent": {
+      "type": "object",
+      "properties": {
+        "original": { "type": "string" },
+        "category": { "type": "string", "enum": ["console", "cli", "sdk", "service", "unknown"] }
+      }
+    },
+    "related": {
+      "type": "object",
+      "description": "Denormalized arrays for fast pivot across panels.",
+      "properties": {
+        "ip": { "type": "array", "items": { "type": "string" } },
+        "user": { "type": "array", "items": { "type": "string" } },
+        "resource": { "type": "array", "items": { "type": "string" } }
+      }
+    },
+    "harbor": {
+      "type": "object",
+      "required": ["case_id", "source"],
+      "description": "Harbor bookkeeping fields set at ingest.",
+      "properties": {
+        "case_id": { "type": "string" },
+        "source": { "type": "string", "description": "Logical source the record came from." },
+        "ingest_id": { "type": "string" },
+        "parser_version": { "type": "string" }
+      }
+    },
+    "message": { "type": "string", "description": "Human-readable summary for table display." },
+    "raw": {
+      "type": "object",
+      "description": "The original source record, verbatim. Enrichment never modifies this.",
+      "additionalProperties": true
+    }
+  }
+}

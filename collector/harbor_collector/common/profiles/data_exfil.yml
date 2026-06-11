@@ -1,0 +1,10 @@
+# Data exfiltration profile — quantify and trace data leaving the environment.
+name: data_exfil
+description: Exfiltration focus — network egress, storage access, snapshot movement.
+collectors:
+  - account
+  - cloudtrail
+  - vpc_flow
+  - s3
+  - lambda
+auto_detect_tier3: true   # picks up cloudfront, transit_gateway, route53_resolver if present

@@ -1,0 +1,11 @@
+# Identity profile — suspected credential compromise / business email compromise.
+# Focused on "who authenticated where" and credential abuse.
+name: identity
+description: Credential-compromise focus — auth, IAM, role assumption, secrets, keys.
+collectors:
+  - account
+  - cloudtrail
+  - iam
+  - sts
+  - kms
+  - secrets

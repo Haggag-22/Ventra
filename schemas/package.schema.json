@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://harbor-ir.example/schemas/package.schema.json",
+  "title": "Harbor Evidence Package Layout",
+  "description": "Documents the on-disk layout of an unpacked Harbor evidence package. This schema is descriptive (used by docs/tests); the archive itself is a tar.zst.",
+  "type": "object",
+  "required": ["manifest", "signature", "collection_log", "sources"],
+  "properties": {
+    "manifest": {
+      "const": "manifest.json",
+      "description": "Validated against manifest.schema.json."
+    },
+    "signature": {
+      "const": "manifest.json.sig",
+      "description": "Detached signature over manifest.json (cosign/minisign)."
+    },
+    "collection_log": {
+      "const": "collection.log",
+      "description": "Structured JSON-lines log of the collector run."
+    },
+    "sources": {
+      "type": "object",
+      "description": "sources/<name>/ — one directory per logical source.",
+      "patternProperties": {
+        "^[a-z0-9_]+$": {
+          "type": "object",
+          "properties": {
+            "events": {
+              "description": "events.jsonl.zst — normalized JSON Lines for the source.",
+              "type": "string"
+            },
+            "config": {
+              "description": "config.json — service/logging configuration snapshot.",
+              "type": "string"
+            },
+            "meta": {
+              "description": "_meta.json — time window, region list, record count, sha256.",
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "errors": {
+      "type": "object",
+      "description": "errors/<source>.log — partial failures and AccessDenied detail."
+    }
+  }
+}

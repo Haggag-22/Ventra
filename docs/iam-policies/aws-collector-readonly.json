@@ -1,0 +1,170 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "HarborIdentityAndAccountContext",
+      "Effect": "Allow",
+      "Action": [
+        "sts:GetCallerIdentity",
+        "iam:ListAccountAliases",
+        "organizations:DescribeOrganization",
+        "ec2:DescribeRegions",
+        "account:GetContactInformation",
+        "account:ListRegions"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "HarborCloudTrail",
+      "Effect": "Allow",
+      "Action": [
+        "cloudtrail:DescribeTrails",
+        "cloudtrail:GetTrailStatus",
+        "cloudtrail:GetTrail",
+        "cloudtrail:GetEventSelectors",
+        "cloudtrail:GetInsightSelectors",
+        "cloudtrail:ListTrails",
+        "cloudtrail:LookupEvents"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "HarborVpcFlowAndNetwork",
+      "Effect": "Allow",
+      "Action": [
+        "ec2:DescribeFlowLogs",
+        "ec2:DescribeVpcs",
+        "ec2:DescribeSubnets",
+        "ec2:DescribeNetworkInterfaces",
+        "ec2:DescribeSecurityGroups",
+        "ec2:DescribeInstances",
+        "ec2:DescribeVolumes",
+        "ec2:DescribeSnapshots",
+        "ec2:DescribeImages",
+        "ec2:DescribeLaunchTemplates",
+        "ec2:DescribeLaunchTemplateVersions",
+        "ec2:DescribeAddresses"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "HarborGuardDuty",
+      "Effect": "Allow",
+      "Action": [
+        "guardduty:ListDetectors",
+        "guardduty:GetDetector",
+        "guardduty:ListFindings",
+        "guardduty:GetFindings",
+        "guardduty:GetFindingsStatistics",
+        "guardduty:ListFilters",
+        "guardduty:GetFilter"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "HarborWAF",
+      "Effect": "Allow",
+      "Action": [
+        "wafv2:ListWebACLs",
+        "wafv2:GetWebACL",
+        "wafv2:GetLoggingConfiguration",
+        "wafv2:ListLoggingConfigurations",
+        "wafv2:GetSampledRequests"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "HarborIAMSnapshot",
+      "Effect": "Allow",
+      "Action": [
+        "iam:GetAccountAuthorizationDetails",
+        "iam:ListUsers",
+        "iam:ListRoles",
+        "iam:ListGroups",
+        "iam:ListPolicies",
+        "iam:ListAttachedUserPolicies",
+        "iam:ListUserPolicies",
+        "iam:GetUserPolicy",
+        "iam:ListAttachedRolePolicies",
+        "iam:ListRolePolicies",
+        "iam:GetRolePolicy",
+        "iam:ListAttachedGroupPolicies",
+        "iam:ListGroupPolicies",
+        "iam:GetGroupPolicy",
+        "iam:ListGroupsForUser",
+        "iam:GetPolicy",
+        "iam:GetPolicyVersion",
+        "iam:GetRole",
+        "iam:ListAccessKeys",
+        "iam:GetAccessKeyLastUsed",
+        "iam:ListMFADevices",
+        "iam:GetAccountPasswordPolicy",
+        "iam:GenerateCredentialReport",
+        "iam:GetCredentialReport"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "HarborTier2ReadOnly",
+      "Effect": "Allow",
+      "Action": [
+        "config:DescribeConfigurationRecorders",
+        "config:DescribeDeliveryChannels",
+        "config:GetResourceConfigHistory",
+        "config:DescribeComplianceByConfigRule",
+        "securityhub:GetFindings",
+        "securityhub:DescribeHub",
+        "securityhub:GetEnabledStandards",
+        "macie2:GetMacieSession",
+        "macie2:ListFindings",
+        "macie2:GetFindings",
+        "detective:ListGraphs",
+        "detective:ListInvestigations",
+        "route53resolver:ListResolverQueryLogConfigs",
+        "route53resolver:ListResolverQueryLogConfigAssociations",
+        "elasticloadbalancing:DescribeLoadBalancers",
+        "elasticloadbalancing:DescribeLoadBalancerAttributes",
+        "elasticloadbalancing:DescribeListeners",
+        "cloudfront:ListDistributions",
+        "cloudfront:GetDistributionConfig",
+        "apigateway:GET",
+        "kms:ListKeys",
+        "kms:DescribeKey",
+        "kms:GetKeyPolicy",
+        "kms:ListGrants",
+        "secretsmanager:ListSecrets",
+        "secretsmanager:DescribeSecret",
+        "ssm:DescribeParameters",
+        "ssm:GetParameterHistory",
+        "lambda:ListFunctions",
+        "lambda:GetFunction",
+        "lambda:GetPolicy",
+        "s3:ListAllMyBuckets",
+        "s3:GetBucketLocation",
+        "s3:GetBucketPolicy",
+        "s3:GetBucketPolicyStatus",
+        "s3:GetBucketAcl",
+        "s3:GetBucketLogging",
+        "s3:GetBucketPublicAccessBlock",
+        "s3:GetBucketObjectLockConfiguration"
+      ],
+      "Resource": "*"
+    },
+    {
+      "Sid": "HarborReadLogObjects",
+      "Effect": "Allow",
+      "Action": [
+        "s3:GetObject",
+        "s3:ListBucket"
+      ],
+      "Resource": [
+        "arn:aws:s3:::*-logs",
+        "arn:aws:s3:::*-logs/*",
+        "arn:aws:s3:::*cloudtrail*",
+        "arn:aws:s3:::*cloudtrail*/*",
+        "arn:aws:s3:::*flow-log*",
+        "arn:aws:s3:::*flow-log*/*"
+      ]
+    }
+  ]
+}

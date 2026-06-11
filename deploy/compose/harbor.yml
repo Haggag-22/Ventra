@@ -1,0 +1,44 @@
+# Harbor analyst workstation — one command brings up the console.
+#
+#   docker compose -f deploy/compose/harbor.yml up
+#
+# Console: http://localhost:8080  ·  API: http://localhost:8000
+# Both bind to localhost only. The stack makes no outbound calls and ships no telemetry.
+# Ingested cases persist in the named volume `harbor-cases`.
+
+name: harbor
+
+services:
+  backend:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/backend.Dockerfile
+    environment:
+      HARBOR_CASE_STORE: /data/cases
+      HARBOR_UPLOAD_DIR: /data/uploads
+      HARBOR_CORS: http://localhost:8080
+    volumes:
+      - harbor-cases:/data
+    ports:
+      - "127.0.0.1:8000:8000"
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; urllib.request.urlopen('http://127.0.0.1:8000/api/health')"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+
+  frontend:
+    build:
+      context: ../..
+      dockerfile: deploy/docker/frontend.Dockerfile
+    environment:
+      HARBOR_API: http://backend:8000
+    depends_on:
+      - backend
+    ports:
+      - "127.0.0.1:8080:8080"
+    restart: unless-stopped
+
+volumes:
+  harbor-cases:

@@ -1,0 +1,44 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+.turbo/
+npm-debug.log*
+yarn-error.log*
+
+# Harbor runtime data — never commit real evidence
+cases/
+*.tar.zst
+*.tar.gz
+!tests/fixtures/**/*.tar.zst
+harbor-evidence/
+*.duckdb
+*.parquet
+!tests/fixtures/**/*.parquet
+
+# Keys & secrets
+*.pem
+*.key
+!docs/keys/*.pub
+
+# OS / editor
+.DS_Store
+.claude/
+.idea/
+.vscode/
+*.swp

@@ -1,0 +1,34 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "harbor-ingester"
+version = "0.1.0"
+description = "Verify, parse, normalize, and load Harbor evidence packages for the analyst console."
+readme = "README.md"
+requires-python = ">=3.11"
+license = { text = "Apache-2.0" }
+dependencies = [
+    "pyarrow>=15.0",
+    "duckdb>=0.10",
+    "PyYAML>=6.0",
+    "rich>=13.7",
+]
+
+[project.optional-dependencies]
+zstd = ["zstandard>=0.22"]
+enrich = ["geoip2>=4.8", "user-agents>=2.2"]
+dev = ["pytest>=8.0", "ruff>=0.4", "mypy>=1.10"]
+
+[project.scripts]
+harbor-ingest = "harbor_ingester.cli:ingest_main"
+harbor-verify = "harbor_ingester.cli:verify_main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["harbor_ingester*"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py311"
