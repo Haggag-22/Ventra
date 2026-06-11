@@ -1,25 +1,15 @@
 "use client";
 
 import { IntegrityBadge } from "@/components/badges";
-import { SeverityBar } from "@/components/charts";
 import { CloudProviderIcon } from "@/components/cloud-provider-icon";
 import { ImportDialog } from "@/components/import-dialog";
 import { Button, Card, EmptyState, LoadingPanel } from "@/components/ui";
 import { api } from "@/lib/api";
 import { CLOUDS, CLOUD_LABELS, type Cloud } from "@/lib/catalog";
-import { fmtDateOnly, fmtNum, relativeSpan } from "@/lib/format";
 import type { CaseSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
-import {
-  Anchor,
-  ArrowRight,
-  FolderOpen,
-  Globe,
-  ShieldAlert,
-  Upload,
-  Users,
-} from "lucide-react";
+import { Anchor, FolderOpen, ShieldAlert, Upload } from "lucide-react";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 
@@ -35,7 +25,7 @@ export default function CasesPage() {
   const visible = tab === "all" ? all : all.filter((c) => c.cloud === tab);
 
   const tabs: { id: Tab; label: string }[] = [
-    { id: "all", label: "All clouds" },
+    { id: "all", label: "All" },
     ...CLOUDS.map((c) => ({ id: c as Tab, label: CLOUD_LABELS[c] })),
   ];
 
@@ -164,50 +154,31 @@ const CLOUD_BADGE: Record<string, string> = {
 };
 
 function CaseCard({ c }: { c: CaseSummary }) {
-  const crit = (c.by_severity?.critical ?? 0) + (c.by_severity?.high ?? 0);
   return (
     <Link href={`/cases/${encodeURIComponent(c.case_id)}/overview`}>
-      <Card className="group h-full p-4 transition-colors hover:border-accent/40">
-        <div className="flex items-start justify-between gap-2">
+      <Card className="group p-3 transition-colors hover:border-accent/40">
+        <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
-            <div className="mono text-sm font-semibold text-fg">{c.case_id}</div>
-            <div className="mt-1 flex items-center gap-2">
-              <span
-                className={cn(
-                  "inline-flex items-center gap-1.5 rounded border px-1.5 py-0.5",
-                  CLOUD_BADGE[c.cloud] ?? "border-border bg-surface-2",
-                )}
-              >
-                <CloudProviderIcon cloud={c.cloud} size={18} />
-                <span className="text-2xs font-medium uppercase text-fg-subtle">{c.cloud}</span>
-              </span>
-              <span className="mono truncate text-xs text-fg-subtle">
-                {c.account_id}
-                {c.account_alias ? ` (${c.account_alias})` : ""}
-              </span>
+            <div className="flex min-w-0 items-baseline gap-2">
+              <span className="mono truncate text-sm font-semibold text-fg">{c.case_id}</span>
+              {c.account_id && (
+                <>
+                  <span className="shrink-0 text-fg-subtle/60">·</span>
+                  <span className="mono truncate text-xs text-fg-subtle">{c.account_id}</span>
+                </>
+              )}
             </div>
+            <span
+              className={cn(
+                "mt-1.5 inline-flex items-center gap-1.5 rounded border px-1.5 py-0.5",
+                CLOUD_BADGE[c.cloud] ?? "border-border bg-surface-2",
+              )}
+            >
+              <CloudProviderIcon cloud={c.cloud} size={16} />
+              <span className="text-2xs font-medium uppercase text-fg-subtle">{c.cloud}</span>
+            </span>
           </div>
           <IntegrityBadge value={c.integrity} />
-        </div>
-
-        <div className="mt-3">
-          <SeverityBar counts={c.by_severity ?? {}} />
-        </div>
-
-        <div className="mt-3 grid grid-cols-3 gap-2 text-xs">
-          <Stat icon={ShieldAlert} value={fmtNum(c.totals?.events)} label="events" />
-          <Stat icon={Users} value={fmtNum(c.totals?.principals)} label="principals" />
-          <Stat icon={Globe} value={fmtNum(c.totals?.source_ips)} label="IPs" />
-        </div>
-
-        <div className="mt-3 flex items-center justify-between border-t border-border pt-3 text-2xs text-fg-subtle">
-          <span>
-            {fmtDateOnly(c.event_span?.first)} · {relativeSpan(c.event_span?.first, c.event_span?.last)}
-          </span>
-          <span className="flex items-center gap-1 text-fg-subtle group-hover:text-accent">
-            {crit > 0 && <span className="text-high">{crit} high+</span>}
-            <ArrowRight className="h-3.5 w-3.5" />
-          </span>
         </div>
       </Card>
     </Link>
@@ -237,14 +208,3 @@ function CloudTabEmpty({
   );
 }
 
-function Stat({ icon: Icon, value, label }: { icon: any; value: string; label: string }) {
-  return (
-    <div className="flex flex-col gap-0.5">
-      <span className="flex items-center gap-1 text-fg">
-        <Icon className="h-3 w-3 text-fg-subtle" />
-        <span className="mono font-medium">{value}</span>
-      </span>
-      <span className="text-2xs text-fg-subtle">{label}</span>
-    </div>
-  );
-}
