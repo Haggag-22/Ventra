@@ -1,0 +1,6 @@
+name,email,ssn,credit_card,phone
+SYNTHETIC TEST DATA - NOT REAL - generated for Macie DFIR testing,,,,
+Jane Doe,jane.doe@example.com,123-45-6789,4111 1111 1111 1111,+1-202-555-0101
+John Roe,john.roe@example.com,987-65-4321,5500 0000 0000 0004,+1-202-555-0102
+Pat Sample,pat.sample@example.com,078-05-1120,3400 0000 0000 009,+1-202-555-0103
+Alex Test,alex.test@example.com,219-09-9999,6011 0000 0000 0004,+1-202-555-0104
