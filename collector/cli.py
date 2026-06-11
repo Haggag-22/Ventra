@@ -1,10 +1,10 @@
-"""Harbor collector command-line interface.
+"""Harbor command-line interface.
 
-    harbor-collect aws --case CASE-2026-0042 \
+    harbor collect aws --case CASE-2026-0042 \
         --since 2026-05-11 --regions us-east-1,us-west-2 --out ./harbor-evidence
 
-Runs every registered collector for the cloud. The CLI is deliberately thin: it parses
-arguments, builds an AwsRunConfig, and delegates to the runner.
+The CLI is deliberately thin: it parses arguments, builds an AwsRunConfig, and delegates to
+the runner. All forensic logic lives in the collectors and the runner.
 """
 
 from __future__ import annotations
@@ -19,13 +19,23 @@ from .lib.transport import get_transport
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
-        prog="harbor-collect",
-        description="Read-only cloud forensic triage collector (Harbor).",
+        prog="harbor",
+        description="Harbor — read-only cloud forensic triage.",
     )
-    p.add_argument("--version", action="version", version=f"harbor-collector {__version__}")
-    sub = p.add_subparsers(dest="cloud", required=True)
+    p.add_argument(
+        "--version",
+        action="version",
+        version=f"harbor-collector {__version__}",
+    )
+    sub = p.add_subparsers(dest="command", required=True)
 
-    aws = sub.add_parser("aws", help="Collect from AWS (the first supported cloud).")
+    collect = sub.add_parser(
+        "collect",
+        help="Collect evidence from a cloud (read-only, all registered collectors).",
+    )
+    cloud_sub = collect.add_subparsers(dest="cloud", required=True)
+
+    aws = cloud_sub.add_parser("aws", help="Collect from AWS.")
     aws.add_argument("--case", help="Case identifier, e.g. CASE-2026-0042.")
     aws.add_argument("--engagement", default="", help="Optional engagement/matter id.")
     aws.add_argument("--regions", default="", help="Comma-separated regions (default: all enabled).")
@@ -69,9 +79,9 @@ def _cli_reporter():
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
 
-    if args.cloud == "aws":
+    if args.command == "collect" and args.cloud == "aws":
         return _run_aws(args)
-    print(f"Cloud {args.cloud!r} is scaffolded but not yet implemented.", file=sys.stderr)
+    print(f"Command {args.command!r} is not implemented.", file=sys.stderr)
     return 2
 
 

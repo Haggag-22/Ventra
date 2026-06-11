@@ -56,7 +56,7 @@
 }
 </style>
 
-All collectors currently implemented in Harbor (`harbor-collect aws`). **Tier 1** runs in the baseline profile; **Tier 2** collectors are opt-in via extended profiles.
+All collectors currently implemented in Harbor (`harbor collect aws`). **Tier 1** runs in the baseline profile; **Tier 2** collectors are opt-in via extended profiles.
 
 **GUI panel names** match the Harbor Evidence Viewer sidebar unless noted.
 
