@@ -1,4 +1,4 @@
-// Maps each investigation panel to the Harbor collectors that feed it.
+// Maps each investigation panel to the Ventra collectors that feed it.
 
 import { CATALOG, type CatalogItem, type Cloud } from "./catalog";
 

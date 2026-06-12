@@ -11,7 +11,7 @@ provider "aws" {
   region = var.region
   default_tags {
     tags = {
-      Project   = "harbor-live-test"
+      Project   = "ventra-live-test"
       Purpose   = "dfir-collector-testing"
       Ephemeral = "true"
     }
@@ -29,12 +29,12 @@ resource "random_id" "suffix" { byte_length = 4 }
 resource "aws_vpc" "test" {
   cidr_block           = "10.42.0.0/16"
   enable_dns_hostnames = true
-  tags                 = { Name = "harbor-test-vpc" }
+  tags                 = { Name = "ventra-test-vpc" }
 }
 
 resource "aws_internet_gateway" "test" {
   vpc_id = aws_vpc.test.id
-  tags   = { Name = "harbor-test-igw" }
+  tags   = { Name = "ventra-test-igw" }
 }
 
 resource "aws_subnet" "public" {
@@ -42,7 +42,7 @@ resource "aws_subnet" "public" {
   cidr_block              = "10.42.1.0/24"
   availability_zone       = data.aws_availability_zones.available.names[0]
   map_public_ip_on_launch = true
-  tags                    = { Name = "harbor-test-public" }
+  tags                    = { Name = "ventra-test-public" }
 }
 
 resource "aws_route_table" "public" {
@@ -59,12 +59,12 @@ resource "aws_route_table_association" "public" {
 }
 
 resource "aws_cloudwatch_log_group" "flow" {
-  name              = "/harbor-test/vpc-flow-logs"
+  name              = "/ventra-test/vpc-flow-logs"
   retention_in_days = 1
 }
 
 resource "aws_iam_role" "flow" {
-  name = "harbor-test-flowlogs-role"
+  name = "ventra-test-flowlogs-role"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -76,7 +76,7 @@ resource "aws_iam_role" "flow" {
 }
 
 resource "aws_iam_role_policy" "flow" {
-  name = "harbor-test-flowlogs-policy"
+  name = "ventra-test-flowlogs-policy"
   role = aws_iam_role.flow.id
   policy = jsonencode({
     Version = "2012-10-17"
@@ -100,7 +100,7 @@ resource "aws_flow_log" "test" {
 
 # Intentional misconfig: SSH open to the world. Flagged by the ec2 + config collectors.
 resource "aws_security_group" "open" {
-  name        = "harbor-test-open-sg"
+  name        = "ventra-test-open-sg"
   description = "Intentionally open for DFIR testing"
   vpc_id      = aws_vpc.test.id
   ingress {
@@ -116,7 +116,7 @@ resource "aws_security_group" "open" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
-  tags = { Name = "harbor-test-open-sg" }
+  tags = { Name = "ventra-test-open-sg" }
 }
 
 # ---------------------------------------------------------------------------
@@ -148,32 +148,32 @@ resource "aws_instance" "test" {
     for i in $(seq 1 6); do curl -s https://aws.amazon.com > /dev/null || true; sleep 5; done
   EOF
 
-  tags = { Name = "harbor-test-instance" }
+  tags = { Name = "ventra-test-instance" }
 }
 
 resource "aws_ebs_volume" "test" {
   count             = var.create_ec2 ? 1 : 0
   availability_zone = data.aws_availability_zones.available.names[0]
   size              = 1
-  tags              = { Name = "harbor-test-volume" }
+  tags              = { Name = "ventra-test-volume" }
 }
 
 resource "aws_ebs_snapshot" "test" {
   count     = var.create_ec2 ? 1 : 0
   volume_id = aws_ebs_volume.test[0].id
-  tags      = { Name = "harbor-test-snapshot" }
+  tags      = { Name = "ventra-test-snapshot" }
 }
 
 # ---------------------------------------------------------------------------
 # S3 — a logs bucket, a public-access-block-disabled bucket, a PII bucket.
 # ---------------------------------------------------------------------------
 resource "aws_s3_bucket" "logs" {
-  bucket        = "harbor-test-${random_id.suffix.hex}-logs"
+  bucket        = "ventra-test-${random_id.suffix.hex}-logs"
   force_destroy = true
 }
 
 resource "aws_s3_bucket" "misconfig" {
-  bucket        = "harbor-test-${random_id.suffix.hex}-public"
+  bucket        = "ventra-test-${random_id.suffix.hex}-public"
   force_destroy = true
 }
 
@@ -204,7 +204,7 @@ resource "aws_s3_bucket_policy" "misconfig_public" {
 }
 
 resource "aws_s3_bucket" "pii" {
-  bucket        = "harbor-test-${random_id.suffix.hex}-pii"
+  bucket        = "ventra-test-${random_id.suffix.hex}-pii"
   force_destroy = true
 }
 
@@ -219,18 +219,18 @@ resource "aws_s3_object" "pii" {
 # KMS + Secrets Manager
 # ---------------------------------------------------------------------------
 resource "aws_kms_key" "test" {
-  description             = "harbor-test customer-managed key"
+  description             = "ventra-test customer-managed key"
   deletion_window_in_days = 7
-  tags                    = { Name = "harbor-test-key" }
+  tags                    = { Name = "ventra-test-key" }
 }
 
 resource "aws_kms_alias" "test" {
-  name          = "alias/harbor-test-${random_id.suffix.hex}"
+  name          = "alias/ventra-test-${random_id.suffix.hex}"
   target_key_id = aws_kms_key.test.key_id
 }
 
 resource "aws_secretsmanager_secret" "test" {
-  name                    = "harbor-test-secret-${random_id.suffix.hex}"
+  name                    = "ventra-test-secret-${random_id.suffix.hex}"
   recovery_window_in_days = 0
 }
 
@@ -252,7 +252,7 @@ data "archive_file" "lambda" {
 }
 
 resource "aws_iam_role" "lambda" {
-  name = "harbor-test-lambda-role"
+  name = "ventra-test-lambda-role"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -264,7 +264,7 @@ resource "aws_iam_role" "lambda" {
 }
 
 resource "aws_lambda_function" "test" {
-  function_name    = "harbor-test-fn-${random_id.suffix.hex}"
+  function_name    = "ventra-test-fn-${random_id.suffix.hex}"
   role             = aws_iam_role.lambda.arn
   handler          = "index.handler"
   runtime          = "python3.12"
@@ -291,7 +291,7 @@ resource "aws_lambda_permission" "public" {
 # IAM — a user with an over-broad inline policy + access key, an assumable role.
 # ---------------------------------------------------------------------------
 resource "aws_iam_user" "test" {
-  name          = "harbor-test-user-${random_id.suffix.hex}"
+  name          = "ventra-test-user-${random_id.suffix.hex}"
   force_destroy = true
 }
 
@@ -300,7 +300,7 @@ resource "aws_iam_access_key" "test" {
 }
 
 resource "aws_iam_user_policy" "test" {
-  name = "harbor-test-inline"
+  name = "ventra-test-inline"
   user = aws_iam_user.test.name
   policy = jsonencode({
     Version = "2012-10-17"
@@ -313,7 +313,7 @@ resource "aws_iam_user_policy" "test" {
 }
 
 resource "aws_iam_role" "app" {
-  name = "harbor-test-app-role-${random_id.suffix.hex}"
+  name = "ventra-test-app-role-${random_id.suffix.hex}"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{

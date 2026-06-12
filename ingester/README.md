@@ -1,4 +1,4 @@
-# Harbor Ingester
+# Ventra Ingester
 
 Turns a sealed [evidence package](../docs/evidence-package-format.md) into a queryable case
 the console can investigate. Runs on the IR workstation — heavy deps live here, not in the
@@ -23,8 +23,8 @@ collector.
 ## Use
 
 ```bash
-harbor-ingest ./case-CASE-2026-0042-*.tar.zst --case-store ./cases
-harbor-verify ./case-CASE-2026-0042-*.tar.zst          # integrity check only
+ventra-ingest ./case-CASE-2026-0042-*.tar.zst --case-store ./cases
+ventra-verify ./case-CASE-2026-0042-*.tar.zst          # integrity check only
 ```
 
 ## Case store layout

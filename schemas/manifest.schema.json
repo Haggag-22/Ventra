@@ -1,8 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://harbor-ir.example/schemas/manifest.schema.json",
-  "title": "Harbor Evidence Package Manifest",
-  "description": "Chain-of-custody, integrity, and environment metadata for a Harbor evidence package. One manifest per package; signed as manifest.json.sig.",
+  "$id": "https://ventra-ir.example/schemas/manifest.schema.json",
+  "title": "Ventra Evidence Package Manifest",
+  "description": "Chain-of-custody, integrity, and environment metadata for a Ventra evidence package. One manifest per package; signed as manifest.json.sig.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -27,7 +27,7 @@
     },
     "tool_version": {
       "type": "string",
-      "description": "Harbor collector version that produced the package."
+      "description": "Ventra collector version that produced the package."
     },
     "tool_commit": {
       "type": "string",

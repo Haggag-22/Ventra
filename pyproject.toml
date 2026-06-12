@@ -3,13 +3,13 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "harbor-collector"
+name = "ventra-collector"
 version = "0.1.0"
 description = "Read-only cloud forensic triage collector — runs in the client's cloud shell."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
-authors = [{ name = "Harbor contributors" }]
+authors = [{ name = "Ventra contributors" }]
 keywords = ["dfir", "incident-response", "aws", "forensics", "cloud"]
 dependencies = [
     "boto3>=1.34",
@@ -27,8 +27,8 @@ dev = [
 ]
 
 [project.scripts]
-harbor = "collector.cli:main"
-harbor-collect = "collector.cli:main_legacy"
+ventra = "collector.cli:main"
+ventra-collect = "collector.cli:main_legacy"
 
 [tool.setuptools.packages.find]
 where = ["."]

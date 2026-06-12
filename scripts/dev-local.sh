@@ -14,7 +14,7 @@ set +a
 export PYTHONDONTWRITEBYTECODE="${PYTHONDONTWRITEBYTECODE:-1}"
 "$ROOT/scripts/clean-pycache.sh" >/dev/null 2>&1 || true
 
-mkdir -p cases .harbor-uploads
+mkdir -p cases .ventra-uploads
 
 if [[ -x "$ROOT/.venv/bin/uvicorn" ]]; then
   UVICORN="$ROOT/.venv/bin/uvicorn"
@@ -27,18 +27,18 @@ else
   exit 1
 fi
 
-export HARBOR_CASE_STORE="$ROOT/cases"
-export HARBOR_UPLOAD_DIR="$ROOT/.harbor-uploads"
+export VENTRA_CASE_STORE="$ROOT/cases"
+export VENTRA_UPLOAD_DIR="$ROOT/.ventra-uploads"
 
 FRONTEND_PORT=8080
 if lsof -i :8080 -sTCP:LISTEN >/dev/null 2>&1; then
   FRONTEND_PORT=8081
 fi
 
-echo "Harbor local dev"
+echo "Ventra local dev"
 echo "  Frontend: http://localhost:${FRONTEND_PORT}"
 echo "  Backend:  http://127.0.0.1:8000"
-echo "  Cases:    $HARBOR_CASE_STORE"
+echo "  Cases:    $VENTRA_CASE_STORE"
 if [[ "$FRONTEND_PORT" != "8080" ]]; then
   echo "  Note: port 8080 is in use — frontend on :8081"
 fi

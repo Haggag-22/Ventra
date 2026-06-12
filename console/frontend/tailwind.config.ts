@@ -1,7 +1,7 @@
 import type { Config } from "tailwindcss";
 
 /**
- * Harbor design tokens. Colors are CSS variables (see app/globals.css) so dark / light /
+ * Ventra design tokens. Colors are CSS variables (see app/globals.css) so dark / light /
  * high-contrast themes swap without rebuilding. Severity and category palettes are stable
  * across every panel.
  */

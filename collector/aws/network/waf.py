@@ -137,8 +137,8 @@ class WafCollector(Collector):
             except Exception:  # noqa: BLE001 - sampling is best-effort enrichment
                 continue
             for req in resp.get("SampledRequests") or []:
-                req["_harbor_region"] = region
-                req["_harbor_web_acl_arn"] = arn
-                req["_harbor_rule_metric"] = metric
+                req["_ventra_region"] = region
+                req["_ventra_web_acl_arn"] = arn
+                req["_ventra_rule_metric"] = metric
                 out.append(req)
         return out

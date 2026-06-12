@@ -1,4 +1,4 @@
-# Harbor Console
+# Ventra Console
 
 The analyst investigation GUI. Two parts:
 
@@ -12,7 +12,7 @@ The analyst investigation GUI. Two parts:
 ### Docker (recommended)
 
 ```bash
-docker compose -f ../deploy/compose/harbor.yml up
+docker compose -f ../deploy/compose/ventra.yml up
 # Console: http://localhost:8080
 ```
 
@@ -21,7 +21,7 @@ docker compose -f ../deploy/compose/harbor.yml up
 ```bash
 # Backend (serves the case store the ingester writes to)
 pip install ./backend
-HARBOR_CASE_STORE=../cases harbor-console      # http://127.0.0.1:8000
+VENTRA_CASE_STORE=../cases ventra-console      # http://127.0.0.1:8000
 
 # Frontend
 cd frontend && npm install && npm run dev      # http://localhost:8080  (proxies /api → backend)

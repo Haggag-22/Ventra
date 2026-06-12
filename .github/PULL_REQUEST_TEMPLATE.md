@@ -1,4 +1,4 @@
-<!-- Thanks for contributing to Harbor. Keep PRs focused. -->
+<!-- Thanks for contributing to Ventra. Keep PRs focused. -->
 
 ## What & why
 

@@ -46,13 +46,13 @@ class VpcFlowCollector(Collector):
             except ServiceNotEnabled:
                 continue
             for fl in fls:
-                fl["_harbor_region"] = region
+                fl["_ventra_region"] = region
                 flow_configs.append(fl)
                 if fl.get("LogDestinationType") == "cloud-watch-logs" and fl.get("LogGroupName"):
                     cw_log_groups.add(f"{region}::{fl['LogGroupName']}")
             try:
                 for vpc in cf.paginate("ec2", region, "describe_vpcs", "Vpcs"):
-                    vpc["_harbor_region"] = region
+                    vpc["_ventra_region"] = region
                     vpcs.append(vpc)
             except (AccessDenied, ServiceNotEnabled):
                 pass
@@ -109,8 +109,8 @@ class VpcFlowCollector(Collector):
                     if len(records) >= MAX_CW_RECORDS:
                         truncated = True
                         break
-                    ev["_harbor_region"] = region
-                    ev["_harbor_log_group"] = group
+                    ev["_ventra_region"] = region
+                    ev["_ventra_log_group"] = group
                     records.append(ev)
             except AccessDenied as exc:
                 gaps.append(("vpc_flow_cw", GapReason.ACCESS_DENIED, exc.message))

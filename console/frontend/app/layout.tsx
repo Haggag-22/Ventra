@@ -3,7 +3,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 
 export const metadata: Metadata = {
-  title: "Harbor — Cloud IR Console",
+  title: "Ventra — Cloud IR Console",
   description: "Cloud incident response triage console. Offline, no telemetry.",
   robots: "noindex, nofollow",
 };

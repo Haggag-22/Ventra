@@ -1,4 +1,4 @@
-# Operator Runbook — running the Harbor collector
+# Operator Runbook — running the Ventra collector
 
 For the **responder** running the collector in the client's environment (or the client
 running it themselves under your guidance). The collector is read-only and ships nothing
@@ -17,46 +17,46 @@ outbound on its own.
 
 CloudShell already has credentials for the signed-in principal.
 
-### One-time setup (skips if Harbor is already installed)
+### One-time setup (skips if Ventra is already installed)
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Haggag-22/Harbor/main/bin/install-cloudshell.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Haggag-22/Ventra/main/bin/install-cloudshell.sh | bash
 ```
 
-This creates `~/.harbor-venv`, installs Harbor once, and adds it to your PATH. Re-running
+This creates `~/.ventra-venv`, installs Ventra once, and adds it to your PATH. Re-running
 the script is safe — it detects an existing install and does not re-download packages.
 
 ### Collect evidence
 
 ```bash
-harbor collect aws \
+ventra collect aws \
   --case CASE-2026-0042 \
   --since 2026-05-11 \
   --regions us-east-1,us-west-2 \
-  --out ~/harbor-evidence
+  --out ~/ventra-evidence
 ```
 
 Or install and collect in one step:
 
 ```bash
-HARBOR_CASE=CASE-2026-0042 HARBOR_SINCE=2026-05-11 \
+VENTRA_CASE=CASE-2026-0042 VENTRA_SINCE=2026-05-11 \
   bash bin/aws_cloudshell.sh
 ```
 
 The collector prints a live progress table, then writes a sealed package:
 
 ```
-./harbor-evidence/case-CASE-2026-0042-123456789012-20260610T181530Z.tar.zst
-./harbor-evidence/case-CASE-2026-0042-...-.tar.zst.sig
+./ventra-evidence/case-CASE-2026-0042-123456789012-20260610T181530Z.tar.zst
+./ventra-evidence/case-CASE-2026-0042-...-.tar.zst.sig
 ```
 
 > **CloudShell limits.** Home is ~1 GB and the session idles out after ~20 min. For large
 > S3-resident logs, pass `--stream-to s3://your-evidence-bucket/...` (a bucket *you* control)
 > so big pulls stream out instead of staging locally. See `--help`.
 
-Harbor runs **every registered collector** on each invocation — there are no profiles to
+Ventra runs **every registered collector** on each invocation — there are no profiles to
 choose. Analysts review what came back (and what surfaced as gaps) in the console. Use
-`harbor collect aws --list-collectors` to see the current set.
+`ventra collect aws --list-collectors` to see the current set.
 
 ## Shipping the package to the IR team
 
@@ -77,6 +77,6 @@ failed. Don't try to "fix" it; the gap is recorded in the manifest as evidence.
 ## Verifying before you run anything
 
 ```bash
-cosign verify-blob --key harbor-release.pub \
-  --signature harbor-collector.whl.sig harbor-collector.whl
+cosign verify-blob --key ventra-release.pub \
+  --signature ventra-collector.whl.sig ventra-collector.whl
 ```

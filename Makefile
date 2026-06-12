@@ -1,10 +1,10 @@
-# Harbor developer convenience targets.
+# Ventra developer convenience targets.
 export PYTHONDONTWRITEBYTECODE := 1
 
 .PHONY: help install dev-setup demo ingest backend frontend dev console test lint readonly-guard clean clean-pycache ensure-no-pycache install-hooks
 
 help:
-	@echo "Harbor targets:"
+	@echo "Ventra targets:"
 	@echo "  make install        Install collector + ingester + backend (editable)"
 	@echo "  make dev-setup      install + npm deps + local dirs (one-time)"
 	@echo "  make dev            Run backend + frontend locally (live reload)"
@@ -22,7 +22,7 @@ install:
 	pip install -e .[dev] -e ./ingester[dev] -e ./console/backend
 
 dev-setup: install clean-pycache ensure-no-pycache install-hooks
-	mkdir -p cases .harbor-uploads
+	mkdir -p cases .ventra-uploads
 	cd console/frontend && npm install
 
 dev: clean-pycache
@@ -32,17 +32,17 @@ demo:
 	python tests/fixtures/generate_demo_case.py --out tests/fixtures/
 
 ingest:
-	harbor-ingest tests/fixtures/case-*.tar.zst --case-store ./cases
+	ventra-ingest tests/fixtures/case-*.tar.zst --case-store ./cases
 
 backend: clean-pycache
-	HARBOR_CASE_STORE=./cases HARBOR_UPLOAD_DIR=./.harbor-uploads \
+	VENTRA_CASE_STORE=./cases VENTRA_UPLOAD_DIR=./.ventra-uploads \
 	uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 
 frontend:
 	cd console/frontend && npm run dev
 
 console:
-	docker compose -f deploy/compose/harbor.yml up --build
+	docker compose -f deploy/compose/ventra.yml up --build
 
 test: clean-pycache
 	pytest tests/ -q
@@ -65,4 +65,4 @@ install-hooks:
 	@./scripts/install-git-hooks.sh
 
 clean: clean-pycache
-	rm -rf cases .harbor-uploads tests/fixtures/case-*.tar.* tests/fixtures/case-*.sha256
+	rm -rf cases .ventra-uploads tests/fixtures/case-*.tar.* tests/fixtures/case-*.sha256

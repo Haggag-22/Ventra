@@ -87,7 +87,7 @@ def _unwrap(record: dict[str, Any]) -> dict[str, Any]:
     if isinstance(inner, str):
         try:
             detail = json.loads(inner)
-            detail["_harbor_region"] = record.get("_harbor_region", detail.get("awsRegion", ""))
+            detail["_ventra_region"] = record.get("_ventra_region", detail.get("awsRegion", ""))
             return detail
         except json.JSONDecodeError:
             pass
@@ -148,7 +148,7 @@ def _to_event(detail: dict[str, Any], ctx: NormalizeContext) -> UnifiedEvent:
         event_severity=severity,
         event_provider="cloudtrail",
         cloud_account=detail.get("recipientAccountId", ctx.account_id),
-        cloud_region=detail.get("awsRegion", detail.get("_harbor_region", "")),
+        cloud_region=detail.get("awsRegion", detail.get("_ventra_region", "")),
         cloud_service=detail.get("eventSource", "").split(".")[0],
         user_name=name,
         user_id=uid,
@@ -165,7 +165,7 @@ def _to_event(detail: dict[str, Any], ctx: NormalizeContext) -> UnifiedEvent:
         related_resource=related_res,
         message=_message(action, name, err, detail.get("eventSource", "")),
         case_id=ctx.case_id,
-        harbor_source="cloudtrail",
+        ventra_source="cloudtrail",
         raw=detail,
     )
     return ev
@@ -195,7 +195,7 @@ def normalize_sts(records: list[dict], ctx: NormalizeContext) -> Iterator[Unifie
             continue
         ev = _to_event(detail, ctx)
         ev.event_category = ["session", "authentication"]
-        ev.harbor_source = "sts"
+        ev.ventra_source = "sts"
         # The graph edge targets the *role* (stable), not the per-session assumed-role ARN.
         req = detail.get("requestParameters", {}) or {}
         resp = detail.get("responseElements", {}) or {}

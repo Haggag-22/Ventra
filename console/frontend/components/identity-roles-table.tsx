@@ -17,7 +17,7 @@ const DEFAULT_WIDTHS: Record<ColKey, number> = {
   created: 120,
 };
 
-const WIDTHS_KEY = "harbor.identity-roles-table.widths";
+const WIDTHS_KEY = "ventra.identity-roles-table.widths";
 
 export function IdentityRolesTable({ roles }: { roles: any[] }) {
   const { startResize, colPct } = useResizableColumns(COLS, DEFAULT_WIDTHS, WIDTHS_KEY);

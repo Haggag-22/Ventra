@@ -1,6 +1,6 @@
 # Evidence Package Format (EPF) v1
 
-The EPF is the **single contract** between Harbor's three tiers. The collector produces it;
+The EPF is the **single contract** between Ventra's three tiers. The collector produces it;
 the ingester consumes it; the console renders from what the ingester loaded. Lock this and
 the collector, ingester, and console can all evolve independently behind it.
 
@@ -79,13 +79,13 @@ Validated against `manifest.schema.json`. Required top-level fields:
 
 ## 5. Source record format
 
-Inside `events.jsonl.zst`, each line is one source record **as collected** — Harbor does
+Inside `events.jsonl.zst`, each line is one source record **as collected** — Ventra does
 *not* normalize inside the package. Normalization happens in the ingester so that the raw
 evidence in the package stays as close to the provider's original as possible. The ingester
 maps these into the unified event schema at import.
 
 Rationale: keeping the package raw means a third party can verify the evidence against the
-provider's own export without trusting Harbor's normalization.
+provider's own export without trusting Ventra's normalization.
 
 ## 6. Versioning
 

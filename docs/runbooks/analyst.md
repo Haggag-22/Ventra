@@ -1,4 +1,4 @@
-# Analyst Runbook — investigating in the Harbor console
+# Analyst Runbook — investigating in the Ventra console
 
 For the **investigator / analyst** working a case in the console. The console runs on your
 IR workstation (or forensic VPC) and makes no outbound calls.
@@ -6,7 +6,7 @@ IR workstation (or forensic VPC) and makes no outbound calls.
 ## 1. Start the console
 
 ```bash
-docker compose -f deploy/compose/harbor.yml up
+docker compose -f deploy/compose/ventra.yml up
 # Console: http://localhost:8080
 ```
 
@@ -14,7 +14,7 @@ Or run the pieces directly during development — see [`console/README.md`](../.
 
 ## 2. Import the evidence package
 
-In **Cases → Import package**, drop the `.tar.zst`. Harbor will, in order:
+In **Cases → Import package**, drop the `.tar.zst`. Ventra will, in order:
 
 1. **Verify** the signature and every per-source SHA-256.
 2. **Parse** each source.
@@ -24,7 +24,7 @@ In **Cases → Import package**, drop the `.tar.zst`. Harbor will, in order:
 If integrity fails, the import stops and shows exactly which hash/signature mismatched. A
 clean import shows a **green integrity badge** on the case header.
 
-> Prefer the CLI? `harbor-ingest ./case-....tar.zst --case-store ./cases`
+> Prefer the CLI? `ventra-ingest ./case-....tar.zst --case-store ./cases`
 
 ## 3. Orient — the Overview panel
 

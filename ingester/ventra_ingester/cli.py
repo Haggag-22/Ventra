@@ -1,4 +1,4 @@
-"""Harbor ingester CLI: ``harbor-ingest`` and ``harbor-verify``."""
+"""Ventra ingester CLI: ``ventra-ingest`` and ``ventra-verify``."""
 
 from __future__ import annotations
 
@@ -20,13 +20,13 @@ def _reporter():
 
 
 def ingest_main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(prog="harbor-ingest", description="Ingest a Harbor evidence package.")
+    p = argparse.ArgumentParser(prog="ventra-ingest", description="Ingest a Ventra evidence package.")
     p.add_argument("package", help="Path to the .tar.zst / .tar.gz evidence package.")
     p.add_argument("--case-store", default="./cases", help="Case store root (default: ./cases).")
     p.add_argument("--geoip-city", default=None, help="Optional MaxMind City DB for geo enrichment.")
     p.add_argument("--geoip-asn", default=None, help="Optional MaxMind ASN DB for ASN enrichment.")
     p.add_argument("--iocs", default=None, help="Optional file of IOCs (one IP/ARN/user per line).")
-    p.add_argument("--version", action="version", version=f"harbor-ingester {__version__}")
+    p.add_argument("--version", action="version", version=f"ventra-ingester {__version__}")
     args = p.parse_args(argv)
 
     from .enrichment import Enricher
@@ -61,7 +61,7 @@ def ingest_main(argv: list[str] | None = None) -> int:
 
 
 def verify_main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(prog="harbor-verify", description="Verify package integrity only.")
+    p = argparse.ArgumentParser(prog="ventra-verify", description="Verify package integrity only.")
     p.add_argument("package", help="Path to the evidence package.")
     p.add_argument("--key", default=None, help="Public key for cryptographic signature verify.")
     p.add_argument("--json", action="store_true", help="Emit the integrity report as JSON.")

@@ -1,8 +1,8 @@
 """Detached signing of the manifest.
 
-Harbor prefers an external signer (cosign or minisign) when present, so the same keys and
+Ventra prefers an external signer (cosign or minisign) when present, so the same keys and
 verification flow used for release artifacts cover evidence too. When no signer is available
-(common inside a bare cloud shell) Harbor falls back to an unkeyed SHA-256 *integrity stamp*
+(common inside a bare cloud shell) Ventra falls back to an unkeyed SHA-256 *integrity stamp*
 so the package is still tamper-evident in transit, and records which mode was used.
 """
 

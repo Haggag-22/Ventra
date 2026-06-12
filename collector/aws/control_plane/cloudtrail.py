@@ -190,7 +190,7 @@ class CloudTrailCollector(Collector):
                     if len(management) + len(insights) >= MAX_LOOKUP_RECORDS:
                         truncated = True
                         break
-                    ev["_harbor_region"] = region
+                    ev["_ventra_region"] = region
                     if lookup_event_category(ev) == "Insight":
                         insights.append(ev)
                     else:

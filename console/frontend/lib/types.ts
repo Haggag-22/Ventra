@@ -36,7 +36,7 @@ export interface UnifiedEvent {
   related_resource: string[];
   message: string;
   case_id: string;
-  harbor_source: string;
+  ventra_source: string;
   raw: Record<string, unknown>;
 }
 
@@ -52,7 +52,7 @@ export interface FacetValue {
   count: number;
 }
 export interface Facets {
-  harbor_source: FacetValue[];
+  ventra_source: FacetValue[];
   event_severity: FacetValue[];
   event_action: FacetValue[];
   user_name: FacetValue[];

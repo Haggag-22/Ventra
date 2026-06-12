@@ -1,5 +1,5 @@
 ###############################################################################
-# Harbor — reference forensics environment.
+# Ventra — reference forensics environment.
 # Isolated analysis VPC (no IGW) + immutable evidence bucket + duty-separated roles.
 # REVIEW before applying. See README.md.
 ###############################################################################
@@ -22,7 +22,7 @@ variable "region" {
 variable "evidence_bucket_name" {
   type        = string
   description = "Globally-unique name for the immutable evidence bucket."
-  default     = "harbor-forensics-evidence-CHANGE-ME"
+  default     = "ventra-forensics-evidence-CHANGE-ME"
 }
 
 variable "object_lock_days" {
@@ -41,19 +41,19 @@ resource "aws_vpc" "forensics" {
   cidr_block           = "10.90.0.0/16"
   enable_dns_support   = true
   enable_dns_hostnames = true
-  tags                 = { Name = "harbor-forensics", Purpose = "dfir" }
+  tags                 = { Name = "ventra-forensics", Purpose = "dfir" }
 }
 
 resource "aws_subnet" "analysis" {
   vpc_id            = aws_vpc.forensics.id
   cidr_block        = "10.90.1.0/24"
   availability_zone = "${var.region}a"
-  tags              = { Name = "harbor-forensics-analysis" }
+  tags              = { Name = "ventra-forensics-analysis" }
 }
 
 resource "aws_route_table" "private" {
   vpc_id = aws_vpc.forensics.id
-  tags   = { Name = "harbor-forensics-private" }
+  tags   = { Name = "ventra-forensics-private" }
   # Intentionally no 0.0.0.0/0 route — the environment has no internet egress.
 }
 
@@ -72,7 +72,7 @@ resource "aws_vpc_endpoint" "s3" {
 
 # Restrictive SG: no inbound; egress only to the S3 prefix list.
 resource "aws_security_group" "analysis" {
-  name        = "harbor-forensics-analysis"
+  name        = "ventra-forensics-analysis"
   description = "No inbound; egress only to S3 via the gateway endpoint."
   vpc_id      = aws_vpc.forensics.id
 
@@ -83,7 +83,7 @@ resource "aws_security_group" "analysis" {
     protocol        = "tcp"
     prefix_list_ids = [aws_vpc_endpoint.s3.prefix_list_id]
   }
-  tags = { Name = "harbor-forensics-analysis" }
+  tags = { Name = "ventra-forensics-analysis" }
 }
 
 # Log our own investigative activity.
@@ -95,7 +95,7 @@ resource "aws_flow_log" "forensics" {
 }
 
 resource "aws_cloudwatch_log_group" "flow" {
-  name              = "/harbor/forensics/flowlogs"
+  name              = "/ventra/forensics/flowlogs"
   retention_in_days = 365
 }
 
@@ -154,25 +154,25 @@ locals {
 }
 
 resource "aws_iam_role" "responder" {
-  name               = "harbor-responder"
+  name               = "ventra-responder"
   assume_role_policy = local.trust
   description        = "Acquires evidence (runs the collector in source accounts)."
 }
 
 resource "aws_iam_role" "investigator" {
-  name               = "harbor-investigator"
+  name               = "ventra-investigator"
   assume_role_policy = local.trust
   description        = "Analyzes evidence in the forensics account."
 }
 
 resource "aws_iam_role" "custodian" {
-  name               = "harbor-data-custodian"
+  name               = "ventra-data-custodian"
   assume_role_policy = local.trust
   description        = "Manages the evidence bucket lifecycle."
 }
 
 resource "aws_iam_role" "flow_logs" {
-  name = "harbor-forensics-flowlogs"
+  name = "ventra-forensics-flowlogs"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{

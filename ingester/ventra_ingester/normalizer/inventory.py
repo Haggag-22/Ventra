@@ -53,6 +53,6 @@ def iam_state_events(snapshot: dict, ctx: NormalizeContext) -> Iterator[UnifiedE
             message=f"IAM user {user.get('UserName','')}"
             + (f" — {oldest_note}" if oldest_note else ""),
             case_id=ctx.case_id,
-            harbor_source="iam",
+            ventra_source="iam",
             raw={"UserName": user.get("UserName"), "AccessKeys": keys},
         )

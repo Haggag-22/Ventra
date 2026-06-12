@@ -53,9 +53,9 @@ class UnifiedEvent:
 
     message: str = ""
 
-    # Harbor bookkeeping
+    # Ventra bookkeeping
     case_id: str = ""
-    harbor_source: str = ""
+    ventra_source: str = ""
     parser_version: str = "1.0.0"
 
     raw: dict[str, Any] = field(default_factory=dict)

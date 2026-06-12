@@ -112,7 +112,7 @@ export function FilterRail({ facets }: { facets?: Facets }) {
         </Group>
 
         <Group title="Source">
-          {(facets?.harbor_source ?? []).map((f) => (
+          {(facets?.ventra_source ?? []).map((f) => (
             <Row
               key={f.value}
               active={selectedSources.includes(f.value)}

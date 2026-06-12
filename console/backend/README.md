@@ -1,4 +1,4 @@
-# Harbor Console Backend
+# Ventra Console Backend
 
 FastAPI service that exposes the case store to the frontend. It is intentionally thin: all
 investigative logic is data in the case store, and all queries flow through one safe,
@@ -25,9 +25,9 @@ parameterized path (`app/store.py`). RBAC is enforced here, server-side.
 
 | Var | Default | Meaning |
 |-----|---------|---------|
-| `HARBOR_CASE_STORE` | `./cases` | Root the ingester writes to. |
-| `HARBOR_UPLOAD_DIR` | `./.harbor-uploads` | Staging for uploaded packages. |
-| `HARBOR_CORS` | `localhost:3000,8080` | Allowed frontend origins. |
+| `VENTRA_CASE_STORE` | `./cases` | Root the ingester writes to. |
+| `VENTRA_UPLOAD_DIR` | `./.ventra-uploads` | Staging for uploaded packages. |
+| `VENTRA_CORS` | `localhost:3000,8080` | Allowed frontend origins. |
 
 Telemetry is off and not configurable. The service makes no outbound calls.
 
@@ -35,11 +35,11 @@ Telemetry is off and not configurable. The service makes no outbound calls.
 
 ```bash
 pip install .
-HARBOR_CASE_STORE=../../cases harbor-console     # uvicorn on 127.0.0.1:8000
+VENTRA_CASE_STORE=../../cases ventra-console     # uvicorn on 127.0.0.1:8000
 ```
 
 ## Auth / RBAC
 
 Roles (`responder`, `investigator`, `data_custodian`, `analyst`) gate capabilities. For local
 single-analyst use the default is `investigator`. A deployment can front the API with OIDC and
-pass the role via the `X-Harbor-Role` header.
+pass the role via the `X-Ventra-Role` header.

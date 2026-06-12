@@ -24,8 +24,8 @@ export const DEFAULT_CLOUDTRAIL_WIDTHS: Record<CloudTrailColKey, number> = {
   event_category: 110,
 };
 
-export const CLOUDTRAIL_WIDTHS_KEY = "harbor.cloudtrail-table.widths";
-export const CLOUDTRAIL_VISIBLE_COLS_KEY = "harbor.cloudtrail-table.visible-cols";
+export const CLOUDTRAIL_WIDTHS_KEY = "ventra.cloudtrail-table.widths";
+export const CLOUDTRAIL_VISIBLE_COLS_KEY = "ventra.cloudtrail-table.visible-cols";
 
 export function loadCloudTrailWidths(): Record<CloudTrailColKey, number> {
   if (typeof window === "undefined") return DEFAULT_CLOUDTRAIL_WIDTHS;

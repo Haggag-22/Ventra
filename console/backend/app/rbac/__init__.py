@@ -3,7 +3,7 @@
 Four roles, mapped from AWS forensic guidance: Responder (acquires), Investigator (analyzes),
 Data Custodian (manages evidence lifecycle), Analyst (reports/read-only). Capabilities are
 enforced server-side. For local single-analyst use the default role is ``investigator``; a
-deployment can wire real auth (OIDC) by populating the ``X-Harbor-Role`` claim upstream.
+deployment can wire real auth (OIDC) by populating the ``X-Ventra-Role`` claim upstream.
 """
 
 from __future__ import annotations
@@ -30,13 +30,13 @@ CAPABILITIES: dict[str, set[Role]] = {
 }
 
 
-def current_role(x_harbor_role: str | None = Header(default=None)) -> Role:
-    if not x_harbor_role:
+def current_role(x_ventra_role: str | None = Header(default=None)) -> Role:
+    if not x_ventra_role:
         return Role.INVESTIGATOR  # local default
     try:
-        return Role(x_harbor_role.lower())
+        return Role(x_ventra_role.lower())
     except ValueError:
-        raise HTTPException(status_code=403, detail=f"Unknown role: {x_harbor_role}")
+        raise HTTPException(status_code=403, detail=f"Unknown role: {x_ventra_role}")
 
 
 def require(capability: str):

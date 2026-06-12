@@ -1,5 +1,5 @@
 /** @type {import('next').NextConfig} */
-const API = process.env.HARBOR_API || "http://127.0.0.1:8000";
+const API = process.env.VENTRA_API || "http://127.0.0.1:8000";
 
 const nextConfig = {
   reactStrictMode: true,

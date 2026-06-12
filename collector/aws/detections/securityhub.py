@@ -59,7 +59,7 @@ class SecurityHubCollector(Collector):
                     if len(findings) >= MAX_FINDINGS:
                         truncated = True
                         break
-                    f["_harbor_region"] = region
+                    f["_ventra_region"] = region
                     findings.append(f)
             except AccessDenied as exc:
                 gaps.append(("securityhub", GapReason.ACCESS_DENIED, f"{region}: {exc.message}"))

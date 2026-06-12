@@ -1,12 +1,12 @@
-# Harbor analyst workstation — one command brings up the console.
+# Ventra analyst workstation — one command brings up the console.
 #
-#   docker compose -f deploy/compose/harbor.yml up
+#   docker compose -f deploy/compose/ventra.yml up
 #
 # Console: http://localhost:8080  ·  API: http://localhost:8000
 # Both bind to localhost only. The stack makes no outbound calls and ships no telemetry.
-# Ingested cases persist in the named volume `harbor-cases`.
+# Ingested cases persist in the named volume `ventra-cases`.
 
-name: harbor
+name: ventra
 
 services:
   backend:
@@ -14,11 +14,11 @@ services:
       context: ../..
       dockerfile: deploy/docker/backend.Dockerfile
     environment:
-      HARBOR_CASE_STORE: /data/cases
-      HARBOR_UPLOAD_DIR: /data/uploads
-      HARBOR_CORS: http://localhost:8080
+      VENTRA_CASE_STORE: /data/cases
+      VENTRA_UPLOAD_DIR: /data/uploads
+      VENTRA_CORS: http://localhost:8080
     volumes:
-      - harbor-cases:/data
+      - ventra-cases:/data
     ports:
       - "127.0.0.1:8000:8000"
     restart: unless-stopped
@@ -33,7 +33,7 @@ services:
       context: ../..
       dockerfile: deploy/docker/frontend.Dockerfile
     environment:
-      HARBOR_API: http://backend:8000
+      VENTRA_API: http://backend:8000
     depends_on:
       - backend
     ports:
@@ -41,4 +41,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  harbor-cases:
+  ventra-cases:

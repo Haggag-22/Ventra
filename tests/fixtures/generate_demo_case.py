@@ -1,4 +1,4 @@
-"""Generate a realistic synthetic Harbor evidence package for demos and tests.
+"""Generate a realistic synthetic Ventra evidence package for demos and tests.
 
 The data tells one coherent story so the console has something meaningful to render:
 
@@ -64,7 +64,7 @@ def _ct(detail: dict) -> dict:
     detail.setdefault("eventVersion", "1.09")
     detail.setdefault("awsRegion", REGION)
     detail.setdefault("recipientAccountId", ACCOUNT)
-    return {"CloudTrailEvent": json.dumps(detail), "_harbor_region": REGION}
+    return {"CloudTrailEvent": json.dumps(detail), "_ventra_region": REGION}
 
 
 def _identity_user(name: str, ip: str, ua: str) -> dict:
@@ -264,21 +264,21 @@ def build_vpc_flow() -> list[dict]:
     # Normal internal chatter.
     for i in range(30):
         s = start + i * 5
-        out.append({"_harbor_region": REGION, "timestamp": s * 1000,
+        out.append({"_ventra_region": REGION, "timestamp": s * 1000,
                     "message": f"2 {ACCOUNT} {eni} 10.0.1.20 10.0.2.30 51514 443 6 12 1500 "
                                f"{s} {s+10} ACCEPT OK"})
     # Large exfil egress to a public IP.
     for i in range(12):
         s = start + 200 + i * 7
         nbytes = rng.randint(40_000_000, 90_000_000)
-        out.append({"_harbor_region": REGION, "timestamp": s * 1000,
+        out.append({"_ventra_region": REGION, "timestamp": s * 1000,
                     "message": f"2 {ACCOUNT} {eni} 10.0.1.20 {EXFIL_IP} 49888 443 6 8000 {nbytes} "
                                f"{s} {s+30} ACCEPT OK"})
     # Rejected recon scans inbound.
     for i in range(20):
         s = start + 50 + i * 3
         port = rng.choice([22, 3389, 445, 23])
-        out.append({"_harbor_region": REGION, "timestamp": s * 1000,
+        out.append({"_ventra_region": REGION, "timestamp": s * 1000,
                     "message": f"2 {ACCOUNT} {eni} {ATTACKER_IP} 10.0.1.20 40000 {port} 6 3 120 "
                                f"{s} {s+5} REJECT OK"})
     return out
@@ -362,11 +362,11 @@ def build_iam_snapshot() -> dict:
 def build_s3_inventory() -> dict:
     return {"buckets": [
         {"name": "client-prod-db-backups", "region": REGION, "creation_date": "2023-02-01",
-         "logging": None, "_harbor_no_access_logging": True,
+         "logging": None, "_ventra_no_access_logging": True,
          "policy_status": {"IsPublic": False}, "object_lock": None},
         {"name": "client-prod-assets", "region": REGION, "creation_date": "2023-02-01",
          "logging": {"TargetBucket": "client-prod-logs"},
-         "policy_status": {"IsPublic": True}, "_harbor_public": True},
+         "policy_status": {"IsPublic": True}, "_ventra_public": True},
         {"name": "client-prod-logs", "region": REGION, "creation_date": "2023-02-01",
          "logging": None, "policy_status": {"IsPublic": False}},
     ]}
@@ -375,19 +375,19 @@ def build_s3_inventory() -> dict:
 def build_ec2_inventory() -> dict:
     return {
         "instances": [
-            {"InstanceId": "i-0web001", "_harbor_region": REGION, "State": {"Name": "running"},
+            {"InstanceId": "i-0web001", "_ventra_region": REGION, "State": {"Name": "running"},
              "PrivateIpAddress": "10.0.1.20", "PublicIpAddress": "52.0.0.20",
              "InstanceType": "t3.large", "ImageId": "ami-0abc"},
-            {"InstanceId": "i-0db002", "_harbor_region": REGION, "State": {"Name": "running"},
+            {"InstanceId": "i-0db002", "_ventra_region": REGION, "State": {"Name": "running"},
              "PrivateIpAddress": "10.0.2.30", "InstanceType": "r5.xlarge", "ImageId": "ami-0def"},
         ],
-        "volumes": [{"VolumeId": "vol-0db", "_harbor_region": REGION, "Size": 500}],
+        "volumes": [{"VolumeId": "vol-0db", "_ventra_region": REGION, "Size": 500}],
         "snapshots": [
-            {"SnapshotId": "snap-0ab12cd34ef56", "_harbor_region": REGION, "VolumeSize": 500,
+            {"SnapshotId": "snap-0ab12cd34ef56", "_ventra_region": REGION, "VolumeSize": 500,
              "Encrypted": False, "StartTime": _t(1300),
              "Description": "db nightly", "Shared": True, "OwnerAlias": ""}],
         "network_interfaces": [], "security_groups": [
-            {"GroupId": "sg-0web", "GroupName": "web-sg", "_harbor_region": REGION,
+            {"GroupId": "sg-0web", "GroupName": "web-sg", "_ventra_region": REGION,
              "IpPermissions": [{"FromPort": 443, "ToPort": 443, "IpProtocol": "tcp",
                                 "IpRanges": [{"CidrIp": "0.0.0.0/0"}]}]}],
         "launch_templates": [],
@@ -423,7 +423,7 @@ def _write_json(path: Path, obj) -> WrittenFile:
 def generate(out_dir: Path, case_id: str = "CASE-2026-0042") -> Path:
     import tempfile
 
-    with tempfile.TemporaryDirectory(prefix="harbor-demo-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="ventra-demo-") as tmp:
         staging = Path(tmp)
         manifest = Manifest(
             schema_version="1.0.0", tool_version="0.1.0", case_id=case_id,
@@ -495,7 +495,7 @@ def generate(out_dir: Path, case_id: str = "CASE-2026-0042") -> Path:
 
 
 def main() -> int:
-    ap = argparse.ArgumentParser(description="Generate a synthetic Harbor demo package.")
+    ap = argparse.ArgumentParser(description="Generate a synthetic Ventra demo package.")
     ap.add_argument("--out", default="tests/fixtures", help="Output directory.")
     ap.add_argument("--case", default="CASE-2026-0042")
     args = ap.parse_args()

@@ -16,8 +16,8 @@ export interface Pin {
   createdAt: number;
 }
 
-const KEY = (caseId: string) => `harbor.pins.${caseId}`;
-const EVT = "harbor:pins";
+const KEY = (caseId: string) => `ventra.pins.${caseId}`;
+const EVT = "ventra:pins";
 
 function read(caseId: string): Pin[] {
   try {

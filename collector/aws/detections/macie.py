@@ -96,7 +96,7 @@ class MacieCollector(Collector):
             try:
                 got = cf.call("macie2", region, "get_findings", findingIds=chunk).get("findings", [])
                 for f in got:
-                    f["_harbor_region"] = region
+                    f["_ventra_region"] = region
                 out.extend(got)
             except (AccessDenied, ServiceNotEnabled):
                 continue

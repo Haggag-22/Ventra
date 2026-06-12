@@ -129,7 +129,7 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
                     onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
                   />
                   <span className="text-2xs text-fg-subtle">
-                    Harbor evidence archive (.tar.zst or .tar.gz)
+                    Ventra evidence archive (.tar.zst or .tar.gz)
                   </span>
                 </div>
               </div>

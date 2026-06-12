@@ -1,10 +1,10 @@
-# Harbor console backend + ingester. Runs on the IR workstation; no outbound calls.
+# Ventra console backend + ingester. Runs on the IR workstation; no outbound calls.
 FROM python:3.11-slim AS base
 
 ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    HARBOR_CASE_STORE=/data/cases \
-    HARBOR_UPLOAD_DIR=/data/uploads
+    VENTRA_CASE_STORE=/data/cases \
+    VENTRA_UPLOAD_DIR=/data/uploads
 
 WORKDIR /app
 

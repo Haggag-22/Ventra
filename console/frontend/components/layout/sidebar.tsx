@@ -143,7 +143,7 @@ export function Sidebar({ caseId }: { caseId: string }) {
           </svg>
         </div>
         <div>
-          <div className="sb-brand-title">Harbor</div>
+          <div className="sb-brand-title">Ventra</div>
           <div className="sb-brand-sub">Evidence Viewer</div>
         </div>
       </Link>

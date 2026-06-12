@@ -50,7 +50,7 @@ const DEFAULT_WIDTHS: Record<string, number> = {
   outcome: 72,
 };
 
-const WIDTHS_KEY = "harbor.events-table.widths";
+const WIDTHS_KEY = "ventra.events-table.widths";
 
 function loadWidths(): Record<string, number> {
   if (typeof window === "undefined") return DEFAULT_WIDTHS;
@@ -203,7 +203,7 @@ export function EventsTable({
                   <td className="px-3 overflow-hidden">
                     <span
                       className={cn("finding-origin-badge", findingOriginClass(origin))}
-                      title={`Collector: ${e.harbor_source}`}
+                      title={`Collector: ${e.ventra_source}`}
                     >
                       {origin}
                     </span>

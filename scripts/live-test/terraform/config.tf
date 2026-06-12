@@ -4,7 +4,7 @@
 
 resource "aws_s3_bucket" "config" {
   count         = var.enable_config ? 1 : 0
-  bucket        = "harbor-test-${random_id.suffix.hex}-config"
+  bucket        = "ventra-test-${random_id.suffix.hex}-config"
   force_destroy = true
 }
 
@@ -35,7 +35,7 @@ resource "aws_s3_bucket_policy" "config" {
 
 resource "aws_iam_role" "config" {
   count = var.enable_config ? 1 : 0
-  name  = "harbor-test-config-role"
+  name  = "ventra-test-config-role"
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
@@ -54,14 +54,14 @@ resource "aws_iam_role_policy_attachment" "config" {
 
 resource "aws_config_configuration_recorder" "test" {
   count    = var.enable_config ? 1 : 0
-  name     = "harbor-test-recorder"
+  name     = "ventra-test-recorder"
   role_arn = aws_iam_role.config[0].arn
   recording_group { all_supported = true }
 }
 
 resource "aws_config_delivery_channel" "test" {
   count          = var.enable_config ? 1 : 0
-  name           = "harbor-test-channel"
+  name           = "ventra-test-channel"
   s3_bucket_name = aws_s3_bucket.config[0].bucket
   depends_on     = [aws_config_configuration_recorder.test]
 }

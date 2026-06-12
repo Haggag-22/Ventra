@@ -1,7 +1,7 @@
-# Contributing to Harbor
+# Contributing to Ventra
 
 Thanks for helping build forensically-sound cloud IR tooling. This guide covers the
-ground rules that keep Harbor trustworthy.
+ground rules that keep Ventra trustworthy.
 
 ## Non-negotiables
 
@@ -60,7 +60,7 @@ cd console/frontend && npm install && npm run dev
 
 ## Adding a new parser / source to the console
 
-1. Add a parser under `ingester/harbor_ingester/parsers/`.
+1. Add a parser under `ingester/ventra_ingester/parsers/`.
 2. Map it to the unified schema in `normalizer/`.
 3. Add a fixture + round-trip test.
 4. If it introduces a new event category, update the console's category palette.

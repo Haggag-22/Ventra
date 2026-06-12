@@ -1,4 +1,4 @@
-"""Harbor console backend — FastAPI app exposing the case store to the frontend.
+"""Ventra console backend — FastAPI app exposing the case store to the frontend.
 
 Endpoints are grouped by panel. Everything is read-only over the case store except the import
 endpoint, which runs the ingester. No outbound calls, no telemetry.
@@ -19,9 +19,9 @@ from .rbac import Role, _check, current_role
 from .store import CaseNotFound, EventQuery, store
 
 app = FastAPI(
-    title="Harbor Console API",
+    title="Ventra Console API",
     version=__version__,
-    description="Read-only analyst console over Harbor evidence packages. No telemetry.",
+    description="Read-only analyst console over Ventra evidence packages. No telemetry.",
 )
 
 app.add_middleware(
@@ -220,7 +220,7 @@ async def import_case(
     case_id: str | None = Form(None),
     _: Role = Depends(_check("import_case")),
 ) -> dict:
-    from harbor_ingester.pipeline import ingest_package
+    from ventra_ingester.pipeline import ingest_package
 
     override = _normalize_case_id(case_id)
     dest = settings.upload_dir / (file.filename or "package.tar.zst")

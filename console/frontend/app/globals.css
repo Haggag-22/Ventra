@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /*
-  Harbor theme tokens. All colors are `R G B` triples so Tailwind's `<alpha-value>` works.
+  Ventra theme tokens. All colors are `R G B` triples so Tailwind's `<alpha-value>` works.
   Dark is the default (analysts work long hours); light and high-contrast are opt-in.
 */
 :root,

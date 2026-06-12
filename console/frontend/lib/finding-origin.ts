@@ -1,6 +1,6 @@
 import type { UnifiedEvent } from "@/lib/types";
 
-/** Human-readable label for a harbor_source / collector id. */
+/** Human-readable label for a ventra_source / collector id. */
 const ORIGIN_LABELS: Record<string, string> = {
   guardduty: "GuardDuty",
   securityhub: "Security Hub",
@@ -14,7 +14,7 @@ const ORIGIN_LABELS: Record<string, string> = {
   health: "AWS Health",
 };
 
-export function harborSourceLabel(source: string): string {
+export function ventraSourceLabel(source: string): string {
   const key = source.toLowerCase();
   return ORIGIN_LABELS[key] ?? titleCaseSlug(source);
 }
@@ -29,10 +29,10 @@ function titleCaseSlug(slug: string): string {
 
 /** Resolve the originating product for a finding row in Security Findings. */
 export function findingOrigin(event: UnifiedEvent): string {
-  const provider = (event.event_provider || event.harbor_source || "").toLowerCase();
+  const provider = (event.event_provider || event.ventra_source || "").toLowerCase();
   if (ORIGIN_LABELS[provider]) return ORIGIN_LABELS[provider];
 
-  if (event.harbor_source === "securityhub") {
+  if (event.ventra_source === "securityhub") {
     const raw = event.raw ?? {};
     const product =
       (raw.ProductName as string | undefined) ||
@@ -41,7 +41,7 @@ export function findingOrigin(event: UnifiedEvent): string {
   }
 
   if (provider) return titleCaseSlug(provider);
-  return titleCaseSlug(event.harbor_source || "unknown");
+  return titleCaseSlug(event.ventra_source || "unknown");
 }
 
 export function findingOriginClass(origin: string): string {

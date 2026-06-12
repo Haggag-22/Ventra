@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "harbor-ingester"
+name = "ventra-ingester"
 version = "0.1.0"
-description = "Verify, parse, normalize, and load Harbor evidence packages for the analyst console."
+description = "Verify, parse, normalize, and load Ventra evidence packages for the analyst console."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
@@ -22,12 +22,12 @@ enrich = ["geoip2>=4.8", "user-agents>=2.2"]
 dev = ["pytest>=8.0", "ruff>=0.4", "mypy>=1.10"]
 
 [project.scripts]
-harbor-ingest = "harbor_ingester.cli:ingest_main"
-harbor-verify = "harbor_ingester.cli:verify_main"
+ventra-ingest = "ventra_ingester.cli:ingest_main"
+ventra-verify = "ventra_ingester.cli:verify_main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["harbor_ingester*"]
+include = ["ventra_ingester*"]
 
 [tool.ruff]
 line-length = 110

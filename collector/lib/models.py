@@ -1,6 +1,6 @@
 """Core data models shared across all collectors.
 
-These mirror the Harbor manifest schema (``schemas/manifest.schema.json``). Keeping them as
+These mirror the Ventra manifest schema (``schemas/manifest.schema.json``). Keeping them as
 plain dataclasses keeps the collector dependency-light enough to run in a cloud shell.
 """
 

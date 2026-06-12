@@ -1,11 +1,11 @@
 <div align="center">
 
-# ⚓ Harbor
+# Ventra
 
 **Cloud-native incident response triage — collect, normalize, investigate.**
 
-Harbor is an open-source toolkit for cloud forensic triage. A responder runs a single
-read-only command in the client's cloud shell; Harbor pulls exactly the logs and
+Ventra is an open-source toolkit for cloud forensic triage. A responder runs a single
+read-only command in the client's cloud shell; Ventra pulls exactly the logs and
 artifacts incident responders need into a sealed, hash-verified evidence package. The
 package is handed to the IR team, normalized, and investigated in a clean, modern
 analyst console — without ever touching the client environment again.
@@ -16,9 +16,9 @@ analyst console — without ever touching the client environment again.
 
 ---
 
-## What Harbor is
+## What Ventra is
 
-Harbor has three loosely-coupled tiers connected by one contract — the
+Ventra has three loosely-coupled tiers connected by one contract — the
 **Evidence Package Format (EPF)**:
 
 | Tier | Runs where | Job |
@@ -35,19 +35,19 @@ Harbor has three loosely-coupled tiers connected by one contract — the
 └────────────────┘                     └────────────────┘         └────────────────┘
 ```
 
-## What Harbor is **not**
+## What Ventra is **not**
 
 - **Not a SIEM.** Cases are bounded, time-scoped investigations — not always-on pipelines.
 - **Not an EDR or memory-forensics tool.** EC2 OS internals, memory, and full-disk imaging
-  stay with Velociraptor / disk-image workflows. Harbor deliberately does not overlap them.
+  stay with Velociraptor / disk-image workflows. Ventra deliberately does not overlap them.
 - **Not a containment tool.** The collector is **strictly read-only**. It never modifies,
   isolates, or terminates resources.
-- **Not a long-term evidence vault.** Harbor defines the evidence format; storage and
+- **Not a long-term evidence vault.** Ventra defines the evidence format; storage and
   retention are the IR firm's responsibility.
 
 ## Forensic principles
 
-Harbor is built around the guidance in AWS's
+Ventra is built around the guidance in AWS's
 [Forensic investigation environment strategies](https://aws.amazon.com/blogs/security/forensic-investigation-environment-strategies-in-the-aws-cloud/)
 and standard DFIR practice:
 
@@ -68,16 +68,16 @@ and standard DFIR practice:
 ```bash
 # Review the read-only IAM policy first: docs/iam-policies/aws-collector-readonly.json
 # AWS CloudShell — one-time install (skips if already set up):
-curl -fsSL https://raw.githubusercontent.com/Haggag-22/Harbor/main/bin/install-cloudshell.sh | bash
-harbor collect aws --case CASE-2026-0042 --out ~/harbor-evidence
+curl -fsSL https://raw.githubusercontent.com/Haggag-22/Ventra/main/bin/install-cloudshell.sh | bash
+ventra collect aws --case CASE-2026-0042 --out ~/ventra-evidence
 ```
 
 ### Ingester + Console (on the IR workstation)
 
 ```bash
-docker compose -f deploy/compose/harbor.yml up        # console at http://localhost:8080
+docker compose -f deploy/compose/ventra.yml up        # console at http://localhost:8080
 # then drag the evidence package into the Cases panel, or:
-harbor-ingest ./case-CASE-2026-0042-*.tar.zst --case-store ./cases
+ventra-ingest ./case-CASE-2026-0042-*.tar.zst --case-store ./cases
 ```
 
 See the [Operator Runbook](docs/runbooks/operator.md) and
@@ -94,14 +94,14 @@ schemas/     JSON Schemas: manifest, package, unified event
 docs/        EPF spec, IAM policies, runbooks, threat coverage
 deploy/      Docker, Compose, Terraform reference forensics environment
 tests/       Fixtures + unit/integration/e2e
-pyproject.toml   harbor-collector package (pip install from repo root)
+pyproject.toml   ventra-collector package (pip install from repo root)
 ```
 
 ### Collector layout
 
 ```
 collector/
-  cli.py                 entry point (`harbor collect`) — runs every registered collector
+  cli.py                 entry point (`ventra collect`) — runs every registered collector
   lib/                   models, base, chain_of_custody, packaging, transport
   aws/                   registry, runner, client_factory + collector modules
     identity/            iam, sts, account, kms, secrets
@@ -120,7 +120,7 @@ The `readonly-guard` CI check and IAM policies in `docs/iam-policies/` enforce t
 
 ## Status
 
-Harbor is in active development. AWS is the first supported cloud; Azure and GCP are
+Ventra is in active development. AWS is the first supported cloud; Azure and GCP are
 scaffolded for later phases that reuse the same EPF and console unchanged. See the
 [roadmap](ROADMAP.md).
 

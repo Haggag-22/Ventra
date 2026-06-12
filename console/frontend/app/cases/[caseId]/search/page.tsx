@@ -51,7 +51,7 @@ export default function SearchPage() {
   useEffect(() => setText(params.q ?? ""), [params.q]);
   useEffect(() => {
     try {
-      setSaved(JSON.parse(localStorage.getItem(`harbor.saved.${caseId}`) || "[]"));
+      setSaved(JSON.parse(localStorage.getItem(`ventra.saved.${caseId}`) || "[]"));
     } catch {
       setSaved([]);
     }
@@ -65,7 +65,7 @@ export default function SearchPage() {
     if (!text.trim()) return;
     const next = Array.from(new Set([text, ...saved])).slice(0, 12);
     setSaved(next);
-    localStorage.setItem(`harbor.saved.${caseId}`, JSON.stringify(next));
+    localStorage.setItem(`ventra.saved.${caseId}`, JSON.stringify(next));
   };
 
   const totalQ = useQuery({

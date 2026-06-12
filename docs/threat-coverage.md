@@ -1,9 +1,9 @@
 # Threat coverage — MITRE ATT&CK for Cloud (IaaS)
 
-Which sources Harbor collects answer which questions. This drives both the collection
+Which sources Ventra collects answer which questions. This drives both the collection
 profiles and the console's "you'd want X enabled next time" recommendations.
 
-Harbor's collection scope deliberately targets Shawn's four questions:
+Ventra's collection scope deliberately targets Shawn's four questions:
 
 1. **Who authenticated where** → CloudTrail (console logins, AssumeRole), IAM, STS.
 2. **What did they do once authenticated** → CloudTrail management events, Config history.
@@ -14,7 +14,7 @@ Harbor's collection scope deliberately targets Shawn's four questions:
 
 ## Coverage matrix
 
-| ATT&CK Tactic | Representative techniques | Primary Harbor sources |
+| ATT&CK Tactic | Representative techniques | Primary Ventra sources |
 |---------------|---------------------------|------------------------|
 | Initial Access | Valid Accounts (T1078.004) | CloudTrail console logins, STS, IAM credential report |
 | Execution | Cloud Admin Command, Serverless | CloudTrail, Lambda inventory, SSM |
@@ -28,7 +28,7 @@ Harbor's collection scope deliberately targets Shawn's four questions:
 | Exfiltration | Transfer to Cloud Account (T1537) | EBS snapshot share/copy history, VPC Flow, DNS, CloudFront |
 | Impact | Data Destruction, Resource Hijacking (T1496) | CloudTrail, GuardDuty findings, Config |
 
-## Gaps Harbor surfaces
+## Gaps Ventra surfaces
 
 When a source needed to answer a tactic is disabled, the console's **Collection** panel calls
 it out explicitly — e.g. "VPC Flow Logs not enabled → exfiltration volume cannot be

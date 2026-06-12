@@ -32,7 +32,7 @@ const DEFAULT_WIDTHS: Record<ColKey, number> = {
   cloud_region: 100,
 };
 
-const WIDTHS_KEY = "harbor.findings-table.widths.v2";
+const WIDTHS_KEY = "ventra.findings-table.widths.v2";
 
 function loadWidths(): Record<ColKey, number> {
   if (typeof window === "undefined") return DEFAULT_WIDTHS;
@@ -163,7 +163,7 @@ export function FindingsTable({
                       <td className="truncate">
                         <span
                           className={cn("finding-origin-badge", findingOriginClass(origin))}
-                          title={`Collector: ${e.harbor_source}`}
+                          title={`Collector: ${e.ventra_source}`}
                         >
                           {origin}
                         </span>

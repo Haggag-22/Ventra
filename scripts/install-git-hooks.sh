@@ -15,7 +15,7 @@ install_hook() {
   local path="$HOOKS_DIR/$name"
   cat >"$path" <<EOF
 #!/bin/sh
-# Harbor: drop Python bytecode caches after git updates.
+# Ventra: drop Python bytecode caches after git updates.
 "$ROOT/scripts/clean-pycache.sh" >/dev/null 2>&1 || true
 EOF
   chmod +x "$path"

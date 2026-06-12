@@ -2,7 +2,7 @@
   "Version": "2012-10-17",
   "Statement": [
     {
-      "Sid": "HarborIdentityAndAccountContext",
+      "Sid": "VentraIdentityAndAccountContext",
       "Effect": "Allow",
       "Action": [
         "sts:GetCallerIdentity",
@@ -15,7 +15,7 @@
       "Resource": "*"
     },
     {
-      "Sid": "HarborCloudTrail",
+      "Sid": "VentraCloudTrail",
       "Effect": "Allow",
       "Action": [
         "cloudtrail:DescribeTrails",
@@ -29,7 +29,7 @@
       "Resource": "*"
     },
     {
-      "Sid": "HarborVpcFlowAndNetwork",
+      "Sid": "VentraVpcFlowAndNetwork",
       "Effect": "Allow",
       "Action": [
         "ec2:DescribeFlowLogs",
@@ -51,7 +51,7 @@
       "Resource": "*"
     },
     {
-      "Sid": "HarborGuardDuty",
+      "Sid": "VentraGuardDuty",
       "Effect": "Allow",
       "Action": [
         "guardduty:ListDetectors",
@@ -65,7 +65,7 @@
       "Resource": "*"
     },
     {
-      "Sid": "HarborWAF",
+      "Sid": "VentraWAF",
       "Effect": "Allow",
       "Action": [
         "wafv2:ListWebACLs",
@@ -77,7 +77,7 @@
       "Resource": "*"
     },
     {
-      "Sid": "HarborIAMSnapshot",
+      "Sid": "VentraIAMSnapshot",
       "Effect": "Allow",
       "Action": [
         "iam:GetAccountAuthorizationDetails",
@@ -108,7 +108,7 @@
       "Resource": "*"
     },
     {
-      "Sid": "HarborTier2ReadOnly",
+      "Sid": "VentraTier2ReadOnly",
       "Effect": "Allow",
       "Action": [
         "config:DescribeConfigurationRecorders",
@@ -154,7 +154,7 @@
       "Resource": "*"
     },
     {
-      "Sid": "HarborReadLogObjects",
+      "Sid": "VentraReadLogObjects",
       "Effect": "Allow",
       "Action": [
         "s3:GetObject",

@@ -18,9 +18,9 @@ sys.path.insert(0, str(REPO / "tests" / "fixtures"))
 
 from generate_demo_case import generate  # noqa: E402
 
-from harbor_ingester.package import EvidencePackage  # noqa: E402
-from harbor_ingester.pipeline import ingest_package  # noqa: E402
-from harbor_ingester.verify import verify_package  # noqa: E402
+from ventra_ingester.package import EvidencePackage  # noqa: E402
+from ventra_ingester.pipeline import ingest_package  # noqa: E402
+from ventra_ingester.verify import verify_package  # noqa: E402
 
 
 @pytest.fixture(scope="module")

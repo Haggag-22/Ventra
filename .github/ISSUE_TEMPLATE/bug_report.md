@@ -16,7 +16,7 @@ Steps, command line, and (sanitized) inputs.
 What you expected instead.
 
 **Environment**
-- Harbor version:
+- Ventra version:
 - OS / runtime:
 - Cloud (if collector): AWS / Azure / GCP
 

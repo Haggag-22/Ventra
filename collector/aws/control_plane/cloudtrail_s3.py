@@ -1,7 +1,7 @@
 """Read CloudTrail log files from the trail's S3 bucket.
 
 LookupEvents returns management and insight events. Data events, network activity events,
-and insight events may also appear in S3 log files; Harbor reads those from S3 when the trail
+and insight events may also appear in S3 log files; Ventra reads those from S3 when the trail
 is configured to log there.
 """
 
@@ -284,8 +284,8 @@ def collect_s3_trail_records(
                             if not _in_window(ts, start, end):
                                 continue
                             out = dict(rec)
-                            out["_harbor_region"] = out.get("awsRegion") or region
-                            out["_harbor_log_key"] = key
+                            out["_ventra_region"] = out.get("awsRegion") or region
+                            out["_ventra_log_key"] = key
                             records.append(out)
                             stats["records"] += 1
                         if stats["truncated"]:

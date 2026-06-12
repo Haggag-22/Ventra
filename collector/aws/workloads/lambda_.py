@@ -32,7 +32,7 @@ class LambdaCollector(Collector):
             try:
                 for fn in cf.paginate("lambda", region, "list_functions", "Functions"):
                     fn = dict(fn)
-                    fn["_harbor_region"] = region
+                    fn["_ventra_region"] = region
                     self._redact_env(fn)
                     arn = fn.get("FunctionArn")
                     try:

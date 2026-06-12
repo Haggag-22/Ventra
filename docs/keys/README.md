@@ -2,12 +2,12 @@
 
 This directory holds **public** keys only. Private keys never live in the repo.
 
-- `harbor-release.pub` — the public key releases are signed with (cosign/minisign). Verify a
+- `ventra-release.pub` — the public key releases are signed with (cosign/minisign). Verify a
   downloaded artifact before running it in a client environment:
 
   ```bash
-  cosign verify-blob --key docs/keys/harbor-release.pub \
-    --signature harbor-collector.whl.sig harbor-collector.whl
+  cosign verify-blob --key docs/keys/ventra-release.pub \
+    --signature ventra-collector.whl.sig ventra-collector.whl
   ```
 
 The signing key is generated and published as part of the first tagged release (Phase 4).

@@ -2,7 +2,7 @@
 
 A **reference** implementation of the isolated analysis environment from AWS's
 [Forensic investigation environment strategies](https://aws.amazon.com/blogs/security/forensic-investigation-environment-strategies-in-the-aws-cloud/).
-This is not required to run Harbor — the console runs fine on a laptop — but if your firm
+This is not required to run Ventra — the console runs fine on a laptop — but if your firm
 wants to do analysis inside a dedicated AWS account, this is a sound starting point.
 
 It provisions, in a **dedicated forensics account**:

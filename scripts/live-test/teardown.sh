@@ -61,4 +61,4 @@ terraform -chdir="$TF_DIR" destroy -input=false -auto-approve \
   -var "region=$REGION" -var "enable_config=$TF_VAR_enable_config" || \
   warn "terraform destroy reported errors — check the console for stragglers"
 
-say "Teardown complete. Verify in the console that GuardDuty/Security Hub/Macie are off and no harbor-test-* resources remain."
+say "Teardown complete. Verify in the console that GuardDuty/Security Hub/Macie are off and no ventra-test-* resources remain."

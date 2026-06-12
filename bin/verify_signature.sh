@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Verify a Harbor release artifact before running it in a client environment.
+# Verify a Ventra release artifact before running it in a client environment.
 set -euo pipefail
 
 ARTIFACT="${1:?usage: verify_signature.sh <artifact> [pubkey]}"
-PUBKEY="${2:-harbor-release.pub}"
+PUBKEY="${2:-ventra-release.pub}"
 
 if command -v cosign >/dev/null 2>&1; then
   cosign verify-blob --key "$PUBKEY" --signature "${ARTIFACT}.sig" "$ARTIFACT"

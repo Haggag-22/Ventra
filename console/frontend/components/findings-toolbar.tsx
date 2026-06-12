@@ -1,7 +1,7 @@
 "use client";
 
 import { MultiSelect } from "@/components/multiselect";
-import { harborSourceLabel } from "@/lib/finding-origin";
+import { ventraSourceLabel } from "@/lib/finding-origin";
 import { fmtNum } from "@/lib/format";
 import { SEVERITY_META, SEVERITY_ORDER } from "@/lib/severity";
 import type { Facets } from "@/lib/types";
@@ -33,9 +33,9 @@ export function FindingsToolbar({
     count: facets?.event_severity.find((f) => f.value === s)?.count,
   }));
 
-  const sourceOptions = (facets?.harbor_source ?? []).map((f) => ({
+  const sourceOptions = (facets?.ventra_source ?? []).map((f) => ({
     value: f.value,
-    label: harborSourceLabel(f.value),
+    label: ventraSourceLabel(f.value),
     count: f.count,
   }));
 

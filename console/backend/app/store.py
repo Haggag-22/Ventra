@@ -22,7 +22,7 @@ from .config import settings
 FILTERABLE = {
     "event_kind", "event_action", "event_outcome", "event_severity", "event_provider",
     "cloud_region", "cloud_service", "user_name", "user_arn", "user_type", "source_ip",
-    "dest_ip", "resource_id", "resource_arn", "harbor_source", "ua_category", "source_country",
+    "dest_ip", "resource_id", "resource_arn", "ventra_source", "ua_category", "source_country",
 }
 SORTABLE = {"timestamp", "event_severity", "event_action", "user_name", "source_ip"}
 
@@ -140,7 +140,7 @@ class CaseStore:
             params.extend(q.severities)
         if q.sources:
             placeholders = ",".join("?" for _ in q.sources)
-            clauses.append(f"harbor_source IN ({placeholders})")
+            clauses.append(f"ventra_source IN ({placeholders})")
             params.extend(q.sources)
         if q.actions:
             placeholders = ",".join("?" for _ in q.actions)
@@ -233,7 +233,7 @@ class CaseStore:
                 return [{"value": r[0], "count": r[1]} for r in rows]
 
             return {
-                "harbor_source": agg("harbor_source"),
+                "ventra_source": agg("ventra_source"),
                 "event_severity": agg("event_severity"),
                 "event_action": agg("event_action"),
                 "user_name": agg("user_name"),
@@ -258,7 +258,7 @@ class CaseStore:
             ).fetchone()
             tmin, tmax = span
             rows = con.execute(
-                f"SELECT timestamp, event_severity, harbor_source FROM read_parquet(?) {where} "
+                f"SELECT timestamp, event_severity, ventra_source FROM read_parquet(?) {where} "
                 f"{'AND' if where else 'WHERE'} timestamp <> '' ORDER BY timestamp",
                 [path, *params],
             ).fetchall()
@@ -275,7 +275,7 @@ class CaseStore:
         try:
             rows = con.execute(
                 "SELECT user_arn, user_name, resource_arn, source_ip, count(*) c "
-                "FROM read_parquet(?) WHERE harbor_source IN ('sts') OR event_action='AssumeRole' "
+                "FROM read_parquet(?) WHERE ventra_source IN ('sts') OR event_action='AssumeRole' "
                 "GROUP BY 1,2,3,4",
                 [path],
             ).fetchall()
@@ -302,20 +302,20 @@ class CaseStore:
         try:
             top_talkers = con.execute(
                 "SELECT dest_ip, sum(coalesce(dest_bytes,0)) bytes, count(*) flows "
-                "FROM read_parquet(?) WHERE harbor_source='vpc_flow' AND dest_ip<>'' "
+                "FROM read_parquet(?) WHERE ventra_source='vpc_flow' AND dest_ip<>'' "
                 "GROUP BY 1 ORDER BY bytes DESC LIMIT 15",
                 [path],
             ).fetchall()
             rejected = con.execute(
                 "SELECT source_ip, dest_ip, dest_port, count(*) c FROM read_parquet(?) "
-                "WHERE harbor_source='vpc_flow' AND event_outcome='failure' "
+                "WHERE ventra_source='vpc_flow' AND event_outcome='failure' "
                 "GROUP BY 1,2,3 ORDER BY c DESC LIMIT 15",
                 [path],
             ).fetchall()
             totals = con.execute(
                 "SELECT count(*) flows, sum(coalesce(dest_bytes,0)) bytes, "
                 "sum(CASE WHEN event_outcome='failure' THEN 1 ELSE 0 END) rejects "
-                "FROM read_parquet(?) WHERE harbor_source='vpc_flow'",
+                "FROM read_parquet(?) WHERE ventra_source='vpc_flow'",
                 [path],
             ).fetchone()
         finally:

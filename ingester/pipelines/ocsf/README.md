@@ -1,11 +1,11 @@
 # OCSF & STIX export
 
-Harbor's unified event schema is ECS-aligned, which makes a mapping to
+Ventra's unified event schema is ECS-aligned, which makes a mapping to
 [OCSF](https://schema.ocsf.io/) (Open Cybersecurity Schema Framework) straightforward.
 
 ## Mapping sketch (unified event → OCSF)
 
-| Harbor field | OCSF |
+| Ventra field | OCSF |
 |--------------|------|
 | `@timestamp` | `time` |
 | `event.action` | `activity_name` |
@@ -17,7 +17,7 @@ Harbor's unified event schema is ECS-aligned, which makes a mapping to
 | `resource.arn` | `resources[].uid` |
 | `raw` | `unmapped` |
 
-A `harbor-export --format ocsf` command is on the roadmap (Phase 8). Until then, the mapping
+A `ventra-export --format ocsf` command is on the roadmap (Phase 8). Until then, the mapping
 above plus the `events.parquet` columns is enough to script an export with DuckDB + a small
 transform.
 

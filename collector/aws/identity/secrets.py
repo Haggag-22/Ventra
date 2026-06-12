@@ -29,7 +29,7 @@ class SecretsCollector(Collector):
                     # ListSecrets already returns metadata; ensure no value leaks (it never does).
                     s.pop("SecretString", None)
                     s.pop("SecretBinary", None)
-                    s["_harbor_region"] = region
+                    s["_ventra_region"] = region
                     secrets.append(s)
             except AccessDenied as exc:
                 gaps.append(("secrets", GapReason.ACCESS_DENIED, f"{region}: {exc.message}"))

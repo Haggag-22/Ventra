@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Harbor are documented here. Format follows
+All notable changes to Ventra are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning is
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
@@ -22,4 +22,4 @@ All notable changes to Harbor are documented here. Format follows
 - Docker Compose stack for the analyst workstation; Terraform reference forensics
   environment.
 
-[Unreleased]: https://example.com/harbor/compare/main...HEAD
+[Unreleased]: https://example.com/ventra/compare/main...HEAD

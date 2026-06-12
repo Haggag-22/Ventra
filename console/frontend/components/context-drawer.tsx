@@ -56,7 +56,7 @@ export function ContextDrawer({
             <div className="flex items-center gap-2">
               <SeverityBadge severity={event.event_severity} />
               <OutcomeBadge outcome={event.event_outcome} />
-              <span className="chip">{event.harbor_source}</span>
+              <span className="chip">{event.ventra_source}</span>
             </div>
             <h3 className="mt-2 text-sm font-semibold text-fg break-words">
               {event.event_action || event.message}

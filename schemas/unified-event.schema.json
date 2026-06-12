@@ -1,10 +1,10 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://harbor-ir.example/schemas/unified-event.schema.json",
-  "title": "Harbor Unified Event",
+  "$id": "https://ventra-ir.example/schemas/unified-event.schema.json",
+  "title": "Ventra Unified Event",
   "description": "The normalized event shape every source is mapped to. ECS-aligned and intentionally minimal; source-specific fields are preserved verbatim under raw.",
   "type": "object",
-  "required": ["@timestamp", "event", "cloud", "harbor"],
+  "required": ["@timestamp", "event", "cloud", "ventra"],
   "properties": {
     "@timestamp": {
       "type": "string",
@@ -109,10 +109,10 @@
         "resource": { "type": "array", "items": { "type": "string" } }
       }
     },
-    "harbor": {
+    "ventra": {
       "type": "object",
       "required": ["case_id", "source"],
-      "description": "Harbor bookkeeping fields set at ingest.",
+      "description": "Ventra bookkeeping fields set at ingest.",
       "properties": {
         "case_id": { "type": "string" },
         "source": { "type": "string", "description": "Logical source the record came from." },

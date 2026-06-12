@@ -78,7 +78,7 @@ class AwsClientFactory:
 
     def __init__(self, session: boto3.Session | None = None) -> None:
         self._session = session or boto3.Session()
-        self._cfg = Config(retries={"max_attempts": 5, "mode": "adaptive"}, user_agent_extra="harbor")
+        self._cfg = Config(retries={"max_attempts": 5, "mode": "adaptive"}, user_agent_extra="ventra")
         self._cache: dict[tuple[str, str | None], Any] = {}
 
     def client(self, service: str, region: str | None = None) -> Any:

@@ -1,4 +1,4 @@
-"""Open and read a Harbor evidence package.
+"""Open and read a Ventra evidence package.
 
 Handles both ``.tar.zst`` and ``.tar.gz`` containers. Exposes the manifest and a way to read
 each source file (gzip JSON-lines or plain JSON) without unpacking the whole archive to disk.
@@ -48,7 +48,7 @@ class EvidencePackage:
                 if m.isfile():
                     self._members[m.name] = tar.extractfile(m).read()
         if "manifest.json" not in self._members:
-            raise ValueError(f"{path} is not a Harbor package: no manifest.json")
+            raise ValueError(f"{path} is not a Ventra package: no manifest.json")
         self.manifest: dict[str, Any] = json.loads(self._members["manifest.json"])
 
     # -- raw member access ---------------------------------------------------------------

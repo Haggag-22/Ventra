@@ -1,8 +1,8 @@
-# Harbor live-test harness
+# Ventra live-test harness
 
 A one-command test cycle that stands up a small, **deliberately misconfigured** AWS
 environment, enables the detection services, generates real activity (sample findings +
-optional Stratus Red Team attacks), runs `harbor-collect`, and then tears everything back
+optional Stratus Red Team attacks), runs `ventra-collect`, and then tears everything back
 down. The point is to exercise all 16 collectors against real AWS responses — the one thing
 the moto test suite can't prove.
 
@@ -39,7 +39,7 @@ GuardDuty running ~48h first). Leaving it off also lets you verify the collector
 
 - `aws` CLI v2, authenticated to your **sandbox** account (`aws sts get-caller-identity`)
 - `terraform` >= 1.3
-- `harbor-collect` on PATH (`pip install -e .` from the repo root)
+- `ventra-collect` on PATH (`pip install -e .` from the repo root)
 - *(optional)* `stratus` — [Stratus Red Team](https://github.com/DataDog/stratus-red-team). If
   absent, the attack step is skipped with a notice.
 - *(optional)* `jq` — for the gap summary at the end.
@@ -70,7 +70,7 @@ read the `sources` statuses and the `gaps` array — that's the real test result
 - **Set a budget alarm first.** Example:
   ```bash
   aws budgets create-budget --account-id "$(aws sts get-caller-identity --query Account --output text)" \
-    --budget '{"BudgetName":"harbor-live-test","BudgetLimit":{"Amount":"20","Unit":"USD"},"TimeUnit":"MONTHLY","BudgetType":"COST"}'
+    --budget '{"BudgetName":"ventra-live-test","BudgetLimit":{"Amount":"20","Unit":"USD"},"TimeUnit":"MONTHLY","BudgetType":"COST"}'
   ```
 - `teardown.sh` only disables the detection services **that this harness enabled** (tracked in
   `.state/`), so it won't turn off something you already had running.

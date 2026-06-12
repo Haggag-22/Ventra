@@ -96,7 +96,7 @@ export default function CollectionPage() {
             />
           </div>
           <div className="mt-2 text-2xs text-fg-subtle">
-            Harbor runs every registered {cloud.toUpperCase()} collector; gaps show what was
+            Ventra runs every registered {cloud.toUpperCase()} collector; gaps show what was
             unavailable or empty in this account.
           </div>
           <div className="mt-3 flex flex-wrap gap-3 text-2xs text-fg-subtle">

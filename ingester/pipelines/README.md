@@ -1,7 +1,7 @@
 # Forwarding pipelines
 
-Harbor normalizes every source into one ECS-aligned schema. That same output can feed a
-client's existing tooling, not just the Harbor console.
+Ventra normalizes every source into one ECS-aligned schema. That same output can feed a
+client's existing tooling, not just the Ventra console.
 
 ## Logstash → Elastic SIEM
 
@@ -9,9 +9,9 @@ client's existing tooling, not just the Harbor console.
 into Elasticsearch. Export a source from a built case to NDJSON, then run Logstash:
 
 ```bash
-duckdb -c "COPY (SELECT * FROM 'cases/<id>/events.parquet' WHERE harbor_source='cloudtrail') \
+duckdb -c "COPY (SELECT * FROM 'cases/<id>/events.parquet' WHERE ventra_source='cloudtrail') \
            TO 'cloudtrail.ndjson' (FORMAT JSON)"
-HARBOR_NDJSON=$PWD/cloudtrail.ndjson ELASTIC_HOSTS=https://es:9200 \
+VENTRA_NDJSON=$PWD/cloudtrail.ndjson ELASTIC_HOSTS=https://es:9200 \
   logstash -f ingester/pipelines/logstash/cloudtrail.conf
 ```
 

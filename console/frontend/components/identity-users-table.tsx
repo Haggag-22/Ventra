@@ -22,7 +22,7 @@ const DEFAULT_WIDTHS: Record<ColKey, number> = {
   mfa: 90,
 };
 
-const WIDTHS_KEY = "harbor.identity-users-table.widths";
+const WIDTHS_KEY = "ventra.identity-users-table.widths";
 
 export function IdentityUsersTable({
   users,

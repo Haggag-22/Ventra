@@ -1,8 +1,8 @@
 {
-  "name": "harbor-console",
+  "name": "ventra-console",
   "version": "0.1.0",
   "private": true,
-  "description": "Harbor analyst console — professional cloud IR investigation GUI.",
+  "description": "Ventra analyst console — professional cloud IR investigation GUI.",
   "scripts": {
     "dev": "next dev -p 8080",
     "build": "next build",

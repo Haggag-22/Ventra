@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Harbor live-test driver: stand up infra, enable detection services, generate findings,
+# Ventra live-test driver: stand up infra, enable detection services, generate findings,
 # optionally run Stratus attacks, then run the collector. Pair with teardown.sh.
 #
 #   bash run-test.sh [-y]
@@ -29,7 +29,7 @@ need() { command -v "$1" >/dev/null 2>&1 || { warn "missing required tool: $1"; 
 
 need aws
 need terraform
-command -v harbor-collect >/dev/null 2>&1 || warn "harbor-collect not on PATH — install with 'pip install -e .' from the repo root (collection step will fail without it)"
+command -v ventra-collect >/dev/null 2>&1 || warn "ventra-collect not on PATH — install with 'pip install -e .' from the repo root (collection step will fail without it)"
 
 # --- safety gate -----------------------------------------------------------
 ACCOUNT="$(aws sts get-caller-identity --query Account --output text)"
@@ -83,7 +83,7 @@ if [[ "${WITH_MACIE:-0}" == "1" ]]; then
   fi
   JOB_ID="$(aws macie2 create-classification-job \
     --job-type ONE_TIME \
-    --name "harbor-test-$(date -u +%H%M%S)" \
+    --name "ventra-test-$(date -u +%H%M%S)" \
     --s3-job-definition "{\"bucketDefinitions\":[{\"accountId\":\"$ACCOUNT\",\"buckets\":[\"$PII_BUCKET\"]}]}" \
     --query jobId --output text 2>/dev/null || echo '')"
   [[ -n "$JOB_ID" ]] && echo "classification job $JOB_ID started (takes 10–30 min to surface findings)"
@@ -111,15 +111,15 @@ if [[ "${WITH_STRATUS:-0}" == "1" ]]; then
 fi
 
 # --- 6. Run the collector --------------------------------------------------
-say "Harbor collect"
+say "Ventra collect"
 SINCE="$(date -u +%Y-%m-%d)"
-if command -v harbor-collect >/dev/null 2>&1; then
-  harbor-collect aws --case "$CASE_ID" --regions "$REGION" --since "$SINCE" --out "$OUT_DIR"
+if command -v ventra-collect >/dev/null 2>&1; then
+  ventra-collect aws --case "$CASE_ID" --regions "$REGION" --since "$SINCE" --out "$OUT_DIR"
   PKG="$(ls -t "$OUT_DIR"/case-*.tar.* 2>/dev/null | grep -v '.sha256' | head -1 || true)"
   echo "package: ${PKG:-<none>}"
 else
-  warn "harbor-collect missing — skipped. Install it and run:"
-  echo "  harbor-collect aws --case $CASE_ID --regions $REGION --since $SINCE --out $OUT_DIR"
+  warn "ventra-collect missing — skipped. Install it and run:"
+  echo "  ventra-collect aws --case $CASE_ID --regions $REGION --since $SINCE --out $OUT_DIR"
 fi
 
 say "Done. Review the package's manifest.json (sources + gaps), then run: bash teardown.sh"

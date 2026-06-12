@@ -109,7 +109,7 @@ class GuardDutyCollector(Collector):
                 got = cf.call("guardduty", region, "get_findings",
                               DetectorId=did, FindingIds=chunk).get("Findings", [])
                 for f in got:
-                    f["_harbor_region"] = region
+                    f["_ventra_region"] = region
                 out.extend(got)
             except (AccessDenied, ServiceNotEnabled, ClientError):
                 continue

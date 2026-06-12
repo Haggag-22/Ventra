@@ -81,9 +81,9 @@ class S3Collector(Collector):
             )
             if isinstance(entry.get("policy_status"), dict) and entry["policy_status"].get("IsPublic"):
                 public_count += 1
-                entry["_harbor_public"] = True
+                entry["_ventra_public"] = True
             if not entry.get("logging"):
-                entry["_harbor_no_access_logging"] = True
+                entry["_ventra_no_access_logging"] = True
             records.append(entry)
 
         if public_count:

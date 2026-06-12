@@ -78,7 +78,7 @@ def _verify_signature(pkg: EvidencePackage) -> tuple[str, bool, list[str]]:
         )
         return ("sha256-stamp", valid, notes)
     # A real cosign/minisign signature: presence recorded; full crypto verify is a CLI step
-    # with the public key (harbor-verify --key ...).
+    # with the public key (ventra-verify --key ...).
     notes.append("Cryptographic signature present; verify with the release public key.")
     return ("cosign/minisign", True, notes)
 

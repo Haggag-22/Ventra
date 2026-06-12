@@ -53,7 +53,7 @@ class Ec2Collector(Collector):
             try:
                 for res in cf.paginate("ec2", region, "describe_instances", "Reservations"):
                     for inst in res.get("Instances", []):
-                        inst["_harbor_region"] = region
+                        inst["_ventra_region"] = region
                         inventory["instances"].append(inst)
                 inventory["volumes"].extend(self._tag_region(
                     cf.paginate("ec2", region, "describe_volumes", "Volumes"), region))
@@ -91,8 +91,8 @@ class Ec2Collector(Collector):
         share_stats = self._enrich_snapshot_permissions(cf, inventory["snapshots"], gaps)
         userdata_count = self._enrich_user_data(cf, inventory["instances"], gaps)
 
-        shared = [s for s in inventory["snapshots"] if s.get("_harbor_shared")]
-        public = [s for s in inventory["snapshots"] if s.get("_harbor_public")]
+        shared = [s for s in inventory["snapshots"] if s.get("_ventra_shared")]
+        public = [s for s in inventory["snapshots"] if s.get("_ventra_public")]
         wf = self.write_json(inventory, "snapshot.json")
         self.write_meta(
             {
@@ -126,7 +126,7 @@ class Ec2Collector(Collector):
     def _tag_region(items, region):
         out = []
         for it in items:
-            it["_harbor_region"] = region
+            it["_ventra_region"] = region
             out.append(it)
         return out
 
@@ -153,7 +153,7 @@ class Ec2Collector(Collector):
                 )
                 break
             sid = snap.get("SnapshotId")
-            region = snap.get("_harbor_region")
+            region = snap.get("_ventra_region")
             if not sid:
                 continue
             try:
@@ -171,9 +171,9 @@ class Ec2Collector(Collector):
                 continue
             snap["CreateVolumePermissions"] = perms
             if perms:
-                snap["_harbor_shared"] = True
+                snap["_ventra_shared"] = True
             if any(p.get("Group") == "all" for p in perms):
-                snap["_harbor_public"] = True
+                snap["_ventra_public"] = True
         return stats
 
     def _enrich_user_data(
@@ -195,7 +195,7 @@ class Ec2Collector(Collector):
                 )
                 break
             iid = inst.get("InstanceId")
-            region = inst.get("_harbor_region")
+            region = inst.get("_ventra_region")
             if not iid:
                 continue
             try:
@@ -212,6 +212,6 @@ class Ec2Collector(Collector):
             except ServiceNotEnabled:
                 continue
             if value:
-                inst["_harbor_user_data_b64"] = value
+                inst["_ventra_user_data_b64"] = value
                 captured += 1
         return captured

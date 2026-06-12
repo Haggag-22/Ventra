@@ -89,7 +89,7 @@ def run_aws_collection(cfg: AwsRunConfig, *, factory: AwsClientFactory | None = 
     reporter = cfg.reporter or RunReporter()
     reporter.begin_run(identity.account_id, regions, cfg.case_id)
 
-    with tempfile.TemporaryDirectory(prefix="harbor-stage-") as tmp:
+    with tempfile.TemporaryDirectory(prefix="ventra-stage-") as tmp:
         staging = Path(tmp)
         (staging / "sources").mkdir(parents=True, exist_ok=True)
 

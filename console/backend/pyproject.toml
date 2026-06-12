@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "harbor-console-backend"
+name = "ventra-console-backend"
 version = "0.1.0"
-description = "Harbor analyst console backend — a thin query layer over the case store."
+description = "Ventra analyst console backend — a thin query layer over the case store."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
@@ -15,14 +15,14 @@ dependencies = [
     "duckdb>=0.10",
     "pydantic>=2.6",
     "python-multipart>=0.0.9",
-    "harbor-ingester",
+    "ventra-ingester",
 ]
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0", "httpx>=0.27", "ruff>=0.4"]
 
 [project.scripts]
-harbor-console = "app.main:run"
+ventra-console = "app.main:run"
 
 [tool.setuptools.packages.find]
 where = ["."]

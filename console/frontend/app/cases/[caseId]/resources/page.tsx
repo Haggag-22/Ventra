@@ -151,8 +151,8 @@ export default function ResourcesPage() {
                 </thead>
                 <tbody>
                   {buckets.map((b) => {
-                    const pub = b._harbor_public || b.policy_status?.IsPublic;
-                    const noLog = b._harbor_no_access_logging || !b.logging;
+                    const pub = b._ventra_public || b.policy_status?.IsPublic;
+                    const noLog = b._ventra_no_access_logging || !b.logging;
                     return (
                       <tr key={b.name} className="row-hover border-b border-border/60">
                         <td className="px-4 py-2.5">

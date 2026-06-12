@@ -35,7 +35,7 @@ _COLUMNS = [
     "cloud_service", "user_name", "user_id", "user_arn", "user_type", "source_ip",
     "source_country", "source_asn", "dest_ip", "dest_port", "dest_bytes", "resource_type",
     "resource_id", "resource_arn", "ua_original", "ua_category", "related_ip", "related_user",
-    "related_resource", "message", "case_id", "harbor_source", "parser_version", "raw",
+    "related_resource", "message", "case_id", "ventra_source", "parser_version", "raw",
 ]
 
 _INT_COLUMNS = {"dest_port", "dest_bytes"}
@@ -105,7 +105,7 @@ def build_summary(
         severities[ev.event_severity] += 1
         for c in ev.event_category:
             categories[c] += 1
-        providers[ev.harbor_source] += 1
+        providers[ev.ventra_source] += 1
         if ev.event_severity in ("high", "critical"):
             sensitive += 1
         if ev.event_outcome == "failure":

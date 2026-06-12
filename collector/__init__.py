@@ -1,8 +1,8 @@
-"""Harbor collector — read-only cloud forensic triage acquisition.
+"""Ventra collector — read-only cloud forensic triage acquisition.
 
 The collector runs in the client's cloud shell, gathers exactly the logs and artifacts
 incident responders need, and seals them into a signed evidence package described by the
-Harbor Evidence Package Format (EPF).
+Ventra Evidence Package Format (EPF).
 
 Forensic invariant: nothing in this package may call a mutating cloud API. See
 ``collector.tools.verify_readonly`` and the ``readonly-guard`` CI check.

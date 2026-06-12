@@ -38,7 +38,7 @@ export default function CasesPage() {
               <Anchor className="h-5 w-5" />
             </div>
             <div>
-              <h1 className="text-lg font-semibold tracking-tight">Harbor</h1>
+              <h1 className="text-lg font-semibold tracking-tight">Ventra</h1>
               <p className="text-xs text-fg-subtle">Cloud Incident Response Console</p>
             </div>
           </div>
@@ -95,7 +95,7 @@ export default function CasesPage() {
               description={
                 <>
                   The console API isn&apos;t responding. Start it with{" "}
-                  <code className="mono rounded bg-surface-2 px-1">harbor-console</code> or via the
+                  <code className="mono rounded bg-surface-2 px-1">ventra-console</code> or via the
                   Docker Compose stack, then reload.
                 </>
               }
@@ -114,7 +114,7 @@ export default function CasesPage() {
               title={`No ${CLOUD_LABELS[tab as Cloud]} cases`}
               description={
                 tab === "aws"
-                  ? "Import an AWS evidence package collected with Harbor to begin."
+                  ? "Import an AWS evidence package collected with Ventra to begin."
                   : `The ${CLOUD_LABELS[tab as Cloud]} collector is on the roadmap. Cases will appear here once ${CLOUD_LABELS[tab as Cloud]} packages are imported.`
               }
               action={
@@ -131,7 +131,7 @@ export default function CasesPage() {
             <EmptyState
               icon={FolderOpen}
               title="No cases yet"
-              description="Import a Harbor evidence package to begin. Harbor verifies its integrity, normalizes every source, and opens it for investigation."
+              description="Import a Ventra evidence package to begin. Ventra verifies its integrity, normalizes every source, and opens it for investigation."
               action={
                 <Button variant="primary-dark" icon={Upload} onClick={() => setImportOpen(true)}>
                   Import package

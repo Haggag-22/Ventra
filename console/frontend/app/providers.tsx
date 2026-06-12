@@ -39,8 +39,8 @@ export function Providers({ children }: { children: React.ReactNode }) {
   const [density, setDensityState] = useState<Density>("comfortable");
 
   useEffect(() => {
-    const t = (localStorage.getItem("harbor.theme") as Theme) || "dark";
-    const d = (localStorage.getItem("harbor.density") as Density) || "comfortable";
+    const t = (localStorage.getItem("ventra.theme") as Theme) || "dark";
+    const d = (localStorage.getItem("ventra.density") as Density) || "comfortable";
     setThemeState(t);
     setDensityState(d);
   }, []);
@@ -54,11 +54,11 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   const setTheme = (t: Theme) => {
     setThemeState(t);
-    localStorage.setItem("harbor.theme", t);
+    localStorage.setItem("ventra.theme", t);
   };
   const setDensity = (d: Density) => {
     setDensityState(d);
-    localStorage.setItem("harbor.density", d);
+    localStorage.setItem("ventra.density", d);
   };
 
   const ui = useMemo(

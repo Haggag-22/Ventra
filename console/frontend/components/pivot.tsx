@@ -33,7 +33,7 @@ const TARGETS = [
 
 /**
  * Wrap any IP / principal / ARN to make it a pivot anchor. Clicking opens a menu that jumps
- * to that entity's slice in every panel — the feature that makes Harbor an investigation
+ * to that entity's slice in every panel — the feature that makes Ventra an investigation
  * tool rather than a log viewer.
  */
 export function Entity({

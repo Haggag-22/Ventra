@@ -4,7 +4,7 @@
 
 ## Demo case generator
 
-[`generate_demo_case.py`](generate_demo_case.py) builds a realistic, fully synthetic Harbor
+[`generate_demo_case.py`](generate_demo_case.py) builds a realistic, fully synthetic Ventra
 evidence package using the collector's own packaging code (manifest, hashing, signing,
 sealing). It encodes one coherent attack scenario:
 

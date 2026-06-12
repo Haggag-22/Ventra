@@ -61,7 +61,7 @@ class ConfigCollector(Collector):
                     "describe_compliance_by_config_rule",
                     "ComplianceByConfigRules",
                 ):
-                    c["_harbor_region"] = region
+                    c["_ventra_region"] = region
                     compliance.append(c)
             except AccessDenied as exc:
                 gaps.append(("config_compliance", GapReason.ACCESS_DENIED, f"{region}: {exc.message}"))

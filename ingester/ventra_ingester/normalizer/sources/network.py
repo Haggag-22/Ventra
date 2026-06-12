@@ -44,7 +44,7 @@ def normalize_vpc_flow(records: list[dict], ctx: NormalizeContext) -> Iterator[U
             if parsed is None:
                 continue
             flow = parsed
-            flow["_harbor_region"] = rec.get("_harbor_region", "")
+            flow["_ventra_region"] = rec.get("_ventra_region", "")
 
         src = flow.get("srcaddr", "")
         dst = flow.get("dstaddr", "")
@@ -83,7 +83,7 @@ def normalize_vpc_flow(records: list[dict], ctx: NormalizeContext) -> Iterator[U
             event_severity=severity,
             event_provider="vpc_flow",
             cloud_account=flow.get("account_id", ctx.account_id),
-            cloud_region=flow.get("_harbor_region", ""),
+            cloud_region=flow.get("_ventra_region", ""),
             cloud_service="vpc",
             source_ip=src,
             dest_ip=dst,
@@ -93,6 +93,6 @@ def normalize_vpc_flow(records: list[dict], ctx: NormalizeContext) -> Iterator[U
             related_resource=[flow.get("interface_id", "")] if flow.get("interface_id") else [],
             message=f"{action or 'FLOW'} {src} -> {dst}:{dport} ({nbytes} bytes)",
             case_id=ctx.case_id,
-            harbor_source="vpc_flow",
+            ventra_source="vpc_flow",
             raw=flow,
         )

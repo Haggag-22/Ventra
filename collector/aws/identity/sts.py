@@ -45,7 +45,7 @@ class StsCollector(Collector):
                         StartTime=start,
                         EndTime=end,
                     ):
-                        ev["_harbor_region"] = region
+                        ev["_ventra_region"] = region
                         records.append(ev)
                 except AccessDenied as exc:
                     gaps.append(("sts", GapReason.ACCESS_DENIED, f"{region}: {exc.message}"))

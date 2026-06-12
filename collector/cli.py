@@ -1,9 +1,9 @@
-"""Harbor collector command-line interface.
+"""Ventra collector command-line interface.
 
-    harbor collect aws --case CASE-2026-0042 \
-        --since 2026-05-11 --regions us-east-1,us-west-2 --out ./harbor-evidence
+    ventra collect aws --case CASE-2026-0042 \
+        --since 2026-05-11 --regions us-east-1,us-west-2 --out ./ventra-evidence
 
-``harbor-collect aws …`` is accepted as shorthand for the same command.
+``ventra-collect aws …`` is accepted as shorthand for the same command.
 
 Runs every registered collector for the cloud. The CLI is deliberately thin: it parses
 arguments, builds an AwsRunConfig, and delegates to the runner.
@@ -32,18 +32,18 @@ def _add_aws_parser(sub: argparse._SubParsersAction) -> None:
     aws.add_argument("--regions", default="", help="Comma-separated regions (default: all enabled).")
     aws.add_argument("--since", default=None, help="Window start (YYYY-MM-DD or RFC3339 UTC).")
     aws.add_argument("--until", default=None, help="Window end (YYYY-MM-DD or RFC3339 UTC).")
-    aws.add_argument("--out", default="./harbor-evidence", help="Output directory for the package.")
+    aws.add_argument("--out", default="./ventra-evidence", help="Output directory for the package.")
     aws.add_argument("--transport", default="local", help="local | s3-presigned:<url> | sftp:...")
     aws.add_argument("--key", default=None, help="Signing key path for cosign/minisign.")
     aws.add_argument("--list-collectors", action="store_true", help="List collectors and exit.")
 
 
-def build_parser(*, prog: str = "harbor") -> argparse.ArgumentParser:
+def build_parser(*, prog: str = "ventra") -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog=prog,
-        description="Read-only cloud forensic triage collector (Harbor).",
+        description="Read-only cloud forensic triage collector (Ventra).",
     )
-    p.add_argument("--version", action="version", version=f"harbor-collector {__version__}")
+    p.add_argument("--version", action="version", version=f"ventra-collector {__version__}")
     sub = p.add_subparsers(dest="command", required=True)
 
     collect = sub.add_parser("collect", help="Collect forensic evidence from a cloud.")
@@ -53,7 +53,7 @@ def build_parser(*, prog: str = "harbor") -> argparse.ArgumentParser:
 
 
 def _normalize_argv(argv: list[str]) -> list[str]:
-    """Accept legacy ``harbor aws …`` and ``harbor-collect aws …`` invocations."""
+    """Accept legacy ``ventra aws …`` and ``ventra-collect aws …`` invocations."""
     if not argv:
         return argv
     if argv[0] == "collect":
@@ -134,7 +134,7 @@ def _cli_reporter():
             ts = utcnow_iso()
             if self._console:
                 self._console.print()
-                self._console.rule("[bold]Harbor[/bold] · Live Collection Matrix")
+                self._console.rule("[bold]Ventra[/bold] · Live Collection Matrix")
                 self._console.print(f"Account ID : [bold]{self._masked}[/bold]")
                 if case_id:
                     self._console.print(f"Case       : {case_id}")
@@ -147,7 +147,7 @@ def _cli_reporter():
                 )
                 self._status.start()
             else:
-                print(f"[+] Harbor collection — account {self._masked} — {ts}")
+                print(f"[+] Ventra collection — account {self._masked} — {ts}")
 
         def start(self, name: str) -> None:
             if self._status:
@@ -263,7 +263,7 @@ def main(argv: list[str] | None = None) -> int:
 
 
 def main_legacy(argv: list[str] | None = None) -> int:
-    """Entry point for the ``harbor-collect`` console script."""
+    """Entry point for the ``ventra-collect`` console script."""
     return main(_normalize_argv(list(argv if argv is not None else sys.argv[1:])))
 
 

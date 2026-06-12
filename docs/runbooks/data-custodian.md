@@ -1,6 +1,6 @@
 # Data Custodian Runbook — evidence lifecycle
 
-For the **data custodian** responsible for evidence integrity and retention. Harbor defines
+For the **data custodian** responsible for evidence integrity and retention. Ventra defines
 the evidence format and verifies integrity; **it is not a long-term vault** — your firm's
 storage and retention policy governs the archived packages.
 
@@ -9,7 +9,7 @@ storage and retention policy governs the archived packages.
 1. Record receipt: who sent it, when, through which channel.
 2. **Verify before storing:**
    ```bash
-   harbor-verify ./case-CASE-2026-0042-....tar.zst --key harbor-release.pub
+   ventra-verify ./case-CASE-2026-0042-....tar.zst --key ventra-release.pub
    ```
    This checks the detached signature and recomputes every per-source SHA-256 against the
    manifest. Log the result.

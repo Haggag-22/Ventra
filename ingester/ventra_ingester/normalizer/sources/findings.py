@@ -92,7 +92,7 @@ def normalize_guardduty(records: list[dict], ctx: NormalizeContext) -> Iterator[
             event_severity=_gd_label(f.get("Severity")),
             event_provider="guardduty",
             cloud_account=f.get("AccountId", ctx.account_id),
-            cloud_region=f.get("Region", f.get("_harbor_region", "")),
+            cloud_region=f.get("Region", f.get("_ventra_region", "")),
             cloud_service="guardduty",
             user_name=user,
             source_ip=ip,
@@ -103,7 +103,7 @@ def normalize_guardduty(records: list[dict], ctx: NormalizeContext) -> Iterator[
             related_user=[user] if user else [],
             message=f.get("Title", f.get("Type", "GuardDuty finding")),
             case_id=ctx.case_id,
-            harbor_source="guardduty",
+            ventra_source="guardduty",
             raw=f,
         )
 
@@ -123,14 +123,14 @@ def normalize_securityhub(records: list[dict], ctx: NormalizeContext) -> Iterato
             event_severity=_SH_SEVERITY.get(sev, "info"),
             event_provider=product,
             cloud_account=f.get("AwsAccountId", ctx.account_id),
-            cloud_region=f.get("Region", f.get("_harbor_region", "")),
+            cloud_region=f.get("Region", f.get("_ventra_region", "")),
             cloud_service=product,
             resource_id=res_id.split("/")[-1] if res_id else "",
             resource_arn=res_id,
             related_resource=[r.get("Id", "") for r in resources if r.get("Id")],
             message=f.get("Title", "Security Hub finding"),
             case_id=ctx.case_id,
-            harbor_source="securityhub",
+            ventra_source="securityhub",
             raw=f,
         )
 
@@ -150,14 +150,14 @@ def normalize_macie(records: list[dict], ctx: NormalizeContext) -> Iterator[Unif
             event_severity=_macie_severity(f),
             event_provider="macie",
             cloud_account=ctx.account_id,
-            cloud_region=f.get("region", f.get("_harbor_region", "")),
+            cloud_region=f.get("region", f.get("_ventra_region", "")),
             cloud_service="macie",
             resource_id=res_name,
             resource_arn=s3.get("arn", ""),
             related_resource=[res_name] if res_name else [],
             message=f.get("title", f.get("type", "Macie finding")),
             case_id=ctx.case_id,
-            harbor_source="macie",
+            ventra_source="macie",
             raw=f,
         )
 
@@ -177,7 +177,7 @@ def normalize_detective(records: list[dict], ctx: NormalizeContext) -> Iterator[
             event_severity=_DETECTIVE_SEVERITY.get(sev, "info"),
             event_provider="detective",
             cloud_account=ctx.account_id,
-            cloud_region=inv.get("_harbor_region", ""),
+            cloud_region=inv.get("_ventra_region", ""),
             cloud_service="detective",
             resource_arn=entity,
             resource_id=entity.split("/")[-1] if entity else "",
@@ -185,7 +185,7 @@ def normalize_detective(records: list[dict], ctx: NormalizeContext) -> Iterator[
             message=f"Detective investigation on {entity_type}"
             + (f" ({entity.split('/')[-1]})" if entity else ""),
             case_id=ctx.case_id,
-            harbor_source="detective",
+            ventra_source="detective",
             raw=inv,
         )
 
@@ -198,7 +198,7 @@ def normalize_config(records: list[dict], ctx: NormalizeContext) -> Iterator[Uni
         compliance = (c.get("Compliance", {}) or {}).get("ComplianceType", "")
         severity = "medium" if compliance == "NON_COMPLIANT" else "info"
         yield UnifiedEvent(
-            timestamp=c.get("_harbor_ingest_ts", ""),
+            timestamp=c.get("_ventra_ingest_ts", ""),
             event_kind="state",
             event_category=["configuration"],
             event_action=rule,
@@ -206,10 +206,10 @@ def normalize_config(records: list[dict], ctx: NormalizeContext) -> Iterator[Uni
             event_severity=severity,
             event_provider="config",
             cloud_account=ctx.account_id,
-            cloud_region=c.get("_harbor_region", ""),
+            cloud_region=c.get("_ventra_region", ""),
             cloud_service="config",
             message=f"Config rule {rule}: {compliance}",
             case_id=ctx.case_id,
-            harbor_source="config",
+            ventra_source="config",
             raw=c,
         )

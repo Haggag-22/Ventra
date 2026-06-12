@@ -3,7 +3,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-MARKER="# harbor: no bytecode"
+MARKER="# ventra: no bytecode"
 ACTIVATE="$ROOT/.venv/bin/activate"
 
 if [[ ! -f "$ACTIVATE" ]]; then
@@ -13,7 +13,7 @@ fi
 if ! grep -qF "$MARKER" "$ACTIVATE"; then
   cat >>"$ACTIVATE" <<'EOF'
 
-# harbor: no bytecode
+# ventra: no bytecode
 export PYTHONDONTWRITEBYTECODE=1
 EOF
 fi

@@ -1,12 +1,12 @@
 # Security Policy
 
-Harbor is used in adversarial settings. Vulnerability reports get a clean, private path.
+Ventra is used in adversarial settings. Vulnerability reports get a clean, private path.
 
 ## Reporting a vulnerability
 
 **Do not open a public issue for security reports.**
 
-Email the maintainers at `security@harbor-ir.example` (replace before public release) with:
+Email the maintainers at `security@ventra-ir.example` (replace before public release) with:
 
 - A description of the issue and its impact
 - Steps to reproduce, or a proof of concept
@@ -17,7 +17,7 @@ after triage. We support coordinated disclosure and will credit reporters who wi
 
 ## Scope of particular concern
 
-Because Harbor handles evidence, we treat the following as high severity:
+Because Ventra handles evidence, we treat the following as high severity:
 
 - Any path that lets the **collector mutate client state** (it must be strictly read-only).
 - Any flaw that **breaks integrity guarantees** — hash bypass, manifest forgery, signature
@@ -31,11 +31,11 @@ Because Harbor handles evidence, we treat the following as high severity:
 ## Release signing
 
 Release artifacts are signed with [cosign](https://github.com/sigstore/cosign). The public
-key lives at `docs/keys/harbor-release.pub`. Verify before running anything a client will
+key lives at `docs/keys/ventra-release.pub`. Verify before running anything a client will
 paste into their environment:
 
 ```bash
-cosign verify-blob --key docs/keys/harbor-release.pub --signature harbor-collector.whl.sig harbor-collector.whl
+cosign verify-blob --key docs/keys/ventra-release.pub --signature ventra-collector.whl.sig ventra-collector.whl
 ```
 
 ## Supported versions

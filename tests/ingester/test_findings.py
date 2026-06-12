@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from harbor_ingester.normalizer.base import NormalizeContext
-from harbor_ingester.normalizer.sources.findings import (
+from ventra_ingester.normalizer.base import NormalizeContext
+from ventra_ingester.normalizer.sources.findings import (
     normalize_detective,
     normalize_macie,
     normalize_securityhub,
@@ -23,7 +23,7 @@ def test_securityhub_product_provider_from_product_name() -> None:
     ]
     ev = next(normalize_securityhub(records, ctx))
     assert ev.event_provider == "macie"
-    assert ev.harbor_source == "securityhub"
+    assert ev.ventra_source == "securityhub"
 
 
 def test_macie_finding_normalizer() -> None:
@@ -52,7 +52,7 @@ def test_detective_investigation_normalizer() -> None:
             "EntityArn": "arn:aws:iam::123:role/Admin",
             "EntityType": "IAMRole",
             "Severity": "HIGH",
-            "_harbor_region": "us-east-1",
+            "_ventra_region": "us-east-1",
         }
     ]
     ev = next(normalize_detective(records, ctx))

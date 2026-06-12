@@ -6,5 +6,5 @@ In short: be respectful, assume good faith, and keep discussion focused on the w
 Harassment, discrimination, and personal attacks are not tolerated. Maintainers may remove
 contributions and contributors that violate these standards.
 
-Report concerns privately to `conduct@harbor-ir.example` (replace before public release).
+Report concerns privately to `conduct@ventra-ir.example` (replace before public release).
 Reports are handled confidentially.

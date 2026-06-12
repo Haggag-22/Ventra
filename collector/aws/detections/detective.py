@@ -59,8 +59,8 @@ class DetectiveCollector(Collector):
                         "InvestigationDetails",
                         GraphArn=graph_arn,
                     ):
-                        inv["_harbor_region"] = region
-                        inv["_harbor_graph_arn"] = graph_arn
+                        inv["_ventra_region"] = region
+                        inv["_ventra_graph_arn"] = graph_arn
                         investigations.append(inv)
                 except AccessDenied as exc:
                     gaps.append(

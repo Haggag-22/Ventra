@@ -1,4 +1,4 @@
-"""Seal a staging directory into a Harbor evidence package.
+"""Seal a staging directory into a Ventra evidence package.
 
 Produces ``case-<case>-<account>-<ts>.tar.zst`` (or ``.tar.gz`` if zstandard is unavailable)
 plus a detached signature over the *package* for transit integrity. The manifest inside is
