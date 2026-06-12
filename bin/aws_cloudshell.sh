@@ -15,6 +15,7 @@ OUT_DIR="${HARBOR_OUT:-$HOME/harbor-evidence}"
 SINCE="${HARBOR_SINCE:-}"
 REGIONS="${HARBOR_REGIONS:-}"
 
+HARBOR_INSTALL_SOURCED=1
 # shellcheck source=install-cloudshell.sh
 source "${SCRIPT_DIR}/install-cloudshell.sh"
 main
