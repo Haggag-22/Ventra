@@ -26,7 +26,7 @@ AWS_REGISTRY = CollectorRegistry()
 COLLECTOR_ORDER: list[str] = []
 
 for _cls in (
-    # Tier 1
+    # baseline
     AccountCollector,
     CloudTrailCollector,
     StsCollector,
@@ -36,7 +36,7 @@ for _cls in (
     GuardDutyCollector,
     MacieCollector,
     DetectiveCollector,
-    # Tier 2
+    # extended
     ConfigCollector,
     SecurityHubCollector,
     KmsCollector,
@@ -54,7 +54,7 @@ def all_collector_names() -> list[str]:
     return list(COLLECTOR_ORDER)
 
 
-# Tier 3 services auto-detected when present. Mapping of collector name -> (service, describe-op).
-TIER3_AUTODETECT: dict[str, tuple[str, str]] = {
+# conditional services auto-detected when present. Mapping of collector name -> (service, describe-op).
+AUTODETECT_COLLECTORS: dict[str, tuple[str, str]] = {
     # Reserved for later phases (cloudfront, transit_gateway, route53_resolver, rds, eks...).
 }

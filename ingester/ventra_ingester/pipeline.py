@@ -90,6 +90,12 @@ def ingest_package(
                 sources_loaded.append(source)
                 _say(reporter, f"  {source}: {len(src_events)} events")
 
+        if source == "cloudtrail":
+            snapshot = _load_cloudtrail_artifacts(pkg, files)
+            if snapshot is not None:
+                store.write_inventory("cloudtrail", snapshot)
+                inventory_loaded.append("cloudtrail")
+
         # Inventory sources -> snapshot JSON + a few derived state events.
         if source in INVENTORY_SOURCES:
             snapshot = _load_inventory(pkg, files)
@@ -120,6 +126,17 @@ def ingest_package(
         inventory_loaded=sorted(set(inventory_loaded)),
         warnings=warnings,
     )
+
+
+def _load_cloudtrail_artifacts(pkg: EvidencePackage, files) -> Any:
+    """Persist CloudTrail config + collector meta for the console collection summary."""
+    out: dict[str, Any] = {}
+    for sf in files:
+        if sf.kind == "config":
+            out["config"] = pkg.read_json(sf.arcname)
+        elif sf.kind == "meta":
+            out["meta"] = pkg.read_json(sf.arcname)
+    return out or None
 
 
 def _load_inventory(pkg: EvidencePackage, files) -> Any:

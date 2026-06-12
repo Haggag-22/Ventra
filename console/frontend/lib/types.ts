@@ -142,3 +142,49 @@ export interface NetworkResponse {
   top_talkers: { dest_ip: string; bytes: number; flows: number }[];
   rejected: { source_ip: string; dest_ip: string; dest_port: number; count: number }[];
 }
+
+export interface CloudTrailTrailSummary {
+  name: string;
+  arn: string;
+  home_region: string;
+  s3_bucket: string;
+  s3_key_prefix: string;
+  is_logging: boolean;
+  is_multi_region: boolean;
+  is_organization: boolean;
+  log_file_validation: boolean;
+  data_events_configured?: boolean;
+  network_activity_configured?: boolean;
+  insight_events_configured?: boolean;
+}
+
+export interface CloudTrailBucketSummary {
+  bucket: string;
+  trail_arns: string[];
+  events: {
+    data?: number;
+    insight?: number;
+    network_activity?: number;
+    total: number;
+  };
+  objects_read?: number;
+  truncated?: boolean;
+}
+
+export interface CloudTrailCollection {
+  trail_count: number;
+  trails: CloudTrailTrailSummary[];
+  event_coverage: Record<string, unknown>;
+  s3_collection: Record<string, unknown>;
+  events: {
+    lookup_api: { management: number; insight: number; total: number };
+    s3: {
+      total: number;
+      data?: number;
+      insight?: number;
+      network_activity?: number;
+      by_bucket: CloudTrailBucketSummary[];
+    };
+  };
+  meta: Record<string, unknown>;
+}

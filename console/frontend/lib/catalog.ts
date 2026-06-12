@@ -6,7 +6,6 @@ export interface CatalogItem {
   id: string; // logical source name (matches manifest source names)
   label: string;
   description: string;
-  tier: 1 | 2 | 3;
 }
 
 export interface CatalogGroup {
@@ -23,47 +22,47 @@ export const CLOUD_LABELS: Record<Cloud, string> = {
   gcp: "GCP",
 };
 
-// AWS — implemented (Tier 1 baseline + Tier 2/3).
+// AWS — implemented baseline + extended collectors.
 const AWS: CatalogGroup[] = [
   {
     category: "Identity & Access",
     items: [
-      { id: "account", label: "Account context", description: "Account, org, regions, operator identity", tier: 1 },
-      { id: "iam", label: "IAM snapshot", description: "Users, roles, policies, keys, credential report", tier: 1 },
-      { id: "sts", label: "STS activity", description: "AssumeRole events (filtered from CloudTrail LookupEvents)", tier: 1 },
-      { id: "kms", label: "KMS", description: "Key inventory, policies, grants", tier: 2 },
-      { id: "secrets", label: "Secrets Manager", description: "Secret metadata (never values)", tier: 2 },
+      { id: "account", label: "Account context", description: "Account, org, regions, operator identity" },
+      { id: "iam", label: "IAM snapshot", description: "Users, roles, policies, keys, credential report" },
+      { id: "sts", label: "STS activity", description: "AssumeRole events (filtered from CloudTrail LookupEvents)" },
+      { id: "kms", label: "KMS", description: "Key inventory, policies, grants" },
+      { id: "secrets", label: "Secrets Manager", description: "Secret metadata (never values)" },
     ],
   },
   {
     category: "Control Plane",
     items: [
-      { id: "cloudtrail", label: "CloudTrail", description: "Management, insight, data, and network-activity events + trail config", tier: 1 },
-      { id: "config", label: "AWS Config", description: "Recorder state + compliance findings", tier: 2 },
+      { id: "cloudtrail", label: "CloudTrail", description: "Management, insight, data, and network-activity events + trail config" },
+      { id: "config", label: "AWS Config", description: "Recorder state + compliance findings" },
     ],
   },
   {
     category: "Network",
     items: [
-      { id: "vpc_flow", label: "VPC Flow Logs", description: "Flow-log config + recent records", tier: 1 },
-      { id: "waf", label: "AWS WAF", description: "Web ACL configs, logging, sampled requests", tier: 1 },
+      { id: "vpc_flow", label: "VPC Flow Logs", description: "Flow-log config + recent records" },
+      { id: "waf", label: "AWS WAF", description: "Web ACL configs, logging, sampled requests" },
     ],
   },
   {
     category: "Threat Detection",
     items: [
-      { id: "guardduty", label: "GuardDuty", description: "Findings, detector config, suppression filters", tier: 1 },
-      { id: "securityhub", label: "Security Hub", description: "Aggregated ASFF findings + standards", tier: 2 },
-      { id: "macie", label: "Macie", description: "Sensitive-data and policy findings", tier: 2 },
-      { id: "detective", label: "Detective", description: "Graph membership and open investigations", tier: 2 },
+      { id: "guardduty", label: "GuardDuty", description: "Findings, detector config, suppression filters" },
+      { id: "securityhub", label: "Security Hub", description: "Aggregated ASFF findings + standards" },
+      { id: "macie", label: "Macie", description: "Sensitive-data and policy findings" },
+      { id: "detective", label: "Detective", description: "Graph membership and open investigations" },
     ],
   },
   {
     category: "Workloads & Storage",
     items: [
-      { id: "ec2", label: "EC2 / EBS", description: "Inventory + snapshot share/copy evidence trail", tier: 2 },
-      { id: "s3", label: "S3 surface", description: "Bucket inventory, exposure, logging, Object Lock", tier: 2 },
-      { id: "lambda", label: "Lambda", description: "Function inventory + resource policies", tier: 2 },
+      { id: "ec2", label: "EC2 / EBS", description: "Inventory + snapshot share/copy evidence trail" },
+      { id: "s3", label: "S3 surface", description: "Bucket inventory, exposure, logging, Object Lock" },
+      { id: "lambda", label: "Lambda", description: "Function inventory + resource policies" },
     ],
   },
 ];
@@ -73,27 +72,27 @@ const AZURE: CatalogGroup[] = [
   {
     category: "Identity & Access",
     items: [
-      { id: "entra_signin", label: "Entra ID sign-ins", description: "Microsoft Entra ID sign-in logs", tier: 1 },
-      { id: "entra_audit", label: "Entra ID audit", description: "Directory change audit logs", tier: 1 },
-      { id: "rbac", label: "Azure RBAC", description: "Role assignments & definitions", tier: 1 },
+      { id: "entra_signin", label: "Entra ID sign-ins", description: "Microsoft Entra ID sign-in logs" },
+      { id: "entra_audit", label: "Entra ID audit", description: "Directory change audit logs" },
+      { id: "rbac", label: "Azure RBAC", description: "Role assignments & definitions" },
     ],
   },
   {
     category: "Control Plane",
     items: [
-      { id: "activity_log", label: "Activity Log", description: "Subscription control-plane operations", tier: 1 },
+      { id: "activity_log", label: "Activity Log", description: "Subscription control-plane operations" },
     ],
   },
   {
     category: "Network",
     items: [
-      { id: "nsg_flow", label: "NSG flow logs", description: "Network security group flow logs", tier: 1 },
+      { id: "nsg_flow", label: "NSG flow logs", description: "Network security group flow logs" },
     ],
   },
   {
     category: "Threat Detection",
     items: [
-      { id: "defender", label: "Defender for Cloud", description: "Microsoft Defender alerts", tier: 1 },
+      { id: "defender", label: "Defender for Cloud", description: "Microsoft Defender alerts" },
     ],
   },
 ];
@@ -103,24 +102,24 @@ const GCP: CatalogGroup[] = [
   {
     category: "Identity & Access",
     items: [
-      { id: "iam_policy", label: "IAM policy", description: "Policy bindings & service accounts", tier: 1 },
-      { id: "login_events", label: "Login events", description: "Workspace / Cloud Identity logins", tier: 1 },
+      { id: "iam_policy", label: "IAM policy", description: "Policy bindings & service accounts" },
+      { id: "login_events", label: "Login events", description: "Workspace / Cloud Identity logins" },
     ],
   },
   {
     category: "Control Plane",
     items: [
-      { id: "cloud_audit_admin", label: "Audit: Admin Activity", description: "Cloud Audit Logs — admin activity", tier: 1 },
-      { id: "cloud_audit_data", label: "Audit: Data Access", description: "Cloud Audit Logs — data access", tier: 1 },
+      { id: "cloud_audit_admin", label: "Audit: Admin Activity", description: "Cloud Audit Logs — admin activity" },
+      { id: "cloud_audit_data", label: "Audit: Data Access", description: "Cloud Audit Logs — data access" },
     ],
   },
   {
     category: "Network",
-    items: [{ id: "vpc_flow", label: "VPC Flow Logs", description: "VPC flow logs", tier: 1 }],
+    items: [{ id: "vpc_flow", label: "VPC Flow Logs", description: "VPC flow logs" }],
   },
   {
     category: "Threat Detection",
-    items: [{ id: "scc_findings", label: "Security Command Center", description: "SCC findings", tier: 1 }],
+    items: [{ id: "scc_findings", label: "Security Command Center", description: "SCC findings" }],
   },
 ];
 

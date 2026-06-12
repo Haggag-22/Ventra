@@ -286,6 +286,8 @@ def collect_s3_trail_records(
                             out = dict(rec)
                             out["_ventra_region"] = out.get("awsRegion") or region
                             out["_ventra_log_key"] = key
+                            out["_ventra_s3_bucket"] = bucket
+                            out["_ventra_collect_source"] = "s3_logs"
                             records.append(out)
                             stats["records"] += 1
                         if stats["truncated"]:

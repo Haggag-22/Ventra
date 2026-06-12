@@ -61,8 +61,22 @@ export function catalogItems(cloud: Cloud): CatalogItem[] {
   return (CATALOG[cloud] ?? []).flatMap((g) => g.items);
 }
 
-export function tier1CollectorIds(cloud: Cloud): string[] {
-  return catalogItems(cloud).filter((i) => i.tier === 1).map((i) => i.id);
+const AWS_BASELINE_COLLECTORS = new Set([
+  "account",
+  "iam",
+  "sts",
+  "cloudtrail",
+  "vpc_flow",
+  "waf",
+  "guardduty",
+]);
+
+export function baselineCollectorIds(cloud: Cloud): string[] {
+  const items = catalogItems(cloud);
+  if (cloud === "aws") {
+    return items.filter((i) => AWS_BASELINE_COLLECTORS.has(i.id)).map((i) => i.id);
+  }
+  return items.map((i) => i.id);
 }
 
 export function aggregateManifestSources(sources: ManifestSource[] = []) {

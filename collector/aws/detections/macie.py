@@ -1,4 +1,4 @@
-"""Amazon Macie findings collector (Tier 2).
+"""Amazon Macie findings collector (extended collector).
 
 Macie publishes sensitive-data and policy findings per region. Security Hub can aggregate
 these, but collecting Macie directly preserves full finding detail when Macie runs
@@ -16,7 +16,7 @@ from ..client_factory import AccessDenied, ServiceNotEnabled
 
 class MacieCollector(Collector):
     name = "macie"
-    tier = 2
+    priority = 2
     description = "Macie sensitive-data and policy findings."
     required_actions = (
         "macie2:GetMacieSession",

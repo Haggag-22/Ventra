@@ -1,7 +1,7 @@
 """Azure collectors — scaffolded for a later phase.
 
 Azure reuses the Evidence Package Format and the console unchanged; only the acquisition
-layer here is Azure-specific. Planned baseline sources mirror the AWS Tier 1 set:
+layer here is Azure-specific. Planned baseline sources mirror the AWS baseline set:
 
   * activity_log      — Azure Activity Log (control-plane, ~ CloudTrail)
   * entra_signin      — Microsoft Entra ID sign-in logs (~ console logins / STS)

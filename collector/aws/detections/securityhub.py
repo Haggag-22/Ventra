@@ -1,4 +1,4 @@
-"""Security Hub collector (Tier 2).
+"""Security Hub collector (extended collector).
 
 Security Hub aggregates findings from GuardDuty, Inspector, Macie, and partner products into
 a single ASFF feed. Collecting it gives the console's Findings panel a deduped, cross-service
@@ -20,7 +20,7 @@ MAX_FINDINGS = 50_000
 
 class SecurityHubCollector(Collector):
     name = "securityhub"
-    tier = 2
+    priority = 2
     description = "Security Hub findings (ASFF) and enabled standards."
     required_actions = (
         "securityhub:DescribeHub",

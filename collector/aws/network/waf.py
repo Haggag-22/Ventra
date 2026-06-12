@@ -23,7 +23,7 @@ MAX_SAMPLED_REQUESTS = 500
 
 class WafCollector(Collector):
     name = "waf"
-    tier = 1
+    priority = 1
     description = "WAFv2 Web ACL configs, logging configuration, sampled requests."
     required_actions = (
         "wafv2:ListWebACLs",

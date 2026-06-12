@@ -1,4 +1,4 @@
-"""S3 surface collector (Tier 2).
+"""S3 surface collector (extended collector).
 
 The bucket attack surface: which buckets exist, which are public or have permissive ACLs,
 their bucket policies, whether access logging is on, and Object Lock / public-access-block
@@ -26,7 +26,7 @@ def _normalize_location(constraint: str | None) -> str:
 
 class S3Collector(Collector):
     name = "s3"
-    tier = 2
+    priority = 2
     description = "S3 bucket inventory, public-exposure, policies, logging, Object Lock."
     required_actions = (
         "s3:ListAllMyBuckets",

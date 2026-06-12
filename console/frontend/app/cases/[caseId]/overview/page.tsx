@@ -7,7 +7,7 @@ import { StatCard } from "@/components/stat";
 import { Card, CardHeader, LoadingPanel } from "@/components/ui";
 import { api } from "@/lib/api";
 import { fmtNum, relativeSpan, titleCase } from "@/lib/format";
-import { gapsForCollector, tier1CollectorIds } from "@/lib/collection-coverage";
+import { baselineCollectorIds, gapsForCollector } from "@/lib/collection-coverage";
 import { catalogItem } from "@/lib/panel-collectors";
 import type { Cloud } from "@/lib/catalog";
 import { CATEGORY_COLORS, severityHex } from "@/lib/severity";
@@ -57,7 +57,7 @@ export default function OverviewPage() {
     router.push(`/cases/${caseId}/timeline?${sp}`);
   };
 
-  const tier1 = tier1CollectorIds(s.cloud as Cloud);
+  const baseline = baselineCollectorIds(s.cloud as Cloud);
   const collected = new Set(s.collection?.collected ?? []);
   const allGaps = s.collection?.gaps ?? [];
 
@@ -88,7 +88,7 @@ export default function OverviewPage() {
               icon={CheckCircle2}
             />
             <div className="divide-y divide-border">
-              {tier1.map((name) => {
+              {baseline.map((name) => {
                 const hasData = collected.has(name);
                 const childGaps = gapsForCollector(name, allGaps);
                 const gap = childGaps[0] ?? allGaps.find((g) => g.name === name);

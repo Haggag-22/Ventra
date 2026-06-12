@@ -414,6 +414,48 @@ body {
     --ct-drawer-w: 560px;
   }
 
+  .cloudtrail-view .ct-collection-summary {
+    @apply space-y-4;
+  }
+
+  .cloudtrail-view .ct-resource-stat {
+    @apply rounded-lg border border-border bg-surface-2 p-3;
+  }
+
+  .cloudtrail-view .ct-resource-section {
+    @apply space-y-3;
+  }
+
+  .cloudtrail-view .ct-resource-heading {
+    @apply flex items-center gap-2 text-sm font-semibold text-fg;
+  }
+
+  .cloudtrail-view .ct-resource-block {
+    @apply rounded-lg border border-border bg-surface-2 p-3;
+  }
+
+  .cloudtrail-view .ct-resource-block-title {
+    @apply text-sm font-semibold text-fg;
+  }
+
+  .cloudtrail-view .ct-resource-meta {
+    @apply mt-1 text-2xs text-fg-subtle;
+  }
+
+  .cloudtrail-view .ct-resource-badge {
+    @apply inline-flex rounded-md border px-1.5 py-0.5 text-2xs;
+  }
+
+  .cloudtrail-view .ct-resource-badge.is-on {
+    border-color: rgb(var(--ok-green) / 0.25);
+    background: rgb(var(--ok-green) / 0.08);
+    color: rgb(var(--ok-green));
+  }
+
+  .cloudtrail-view .ct-resource-badge.is-off {
+    @apply border-border bg-surface text-fg-subtle;
+  }
+
   .cloudtrail-view .ct-panel {
     overflow: hidden;
     border: 1px solid rgb(var(--border));
@@ -608,8 +650,15 @@ body {
   }
 
   .cloudtrail-view .ct-table-wrap {
-    max-height: calc(100vh - 250px);
+    max-height: calc(100vh - 220px);
     overflow: auto;
+  }
+
+  .cloudtrail-view .ct-select.ct-page-size {
+    width: auto;
+    min-width: 4.5rem;
+    height: 32px;
+    padding: 0 8px;
   }
 
   .cloudtrail-view pre.ct-json {
@@ -745,15 +794,15 @@ body {
   .cloudtrail-view .ct-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 12.5px;
+    font-size: 12px;
   }
 
   .cloudtrail-view .ct-table th {
     position: sticky;
     top: 0;
     z-index: 2;
-    padding: 9px 12px;
-    font-size: 10.5px;
+    padding: 5px 10px;
+    font-size: 10px;
     font-weight: 650;
     letter-spacing: 0.07em;
     text-transform: uppercase;
@@ -788,8 +837,8 @@ body {
   }
 
   .cloudtrail-view .ct-table td {
-    padding: 8px 12px;
-    font-size: 12.5px;
+    padding: 4px 10px;
+    font-size: 12px;
     background: rgb(var(--surface));
     border-bottom: 1px solid rgb(var(--border));
     border-right: 1px solid rgb(var(--border));

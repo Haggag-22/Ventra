@@ -1,4 +1,4 @@
-"""Lambda collector (Tier 2).
+"""Lambda collector (extended collector).
 
 Function inventory with resource policies and (redacted) environment configuration. Lambda is
 a common persistence and exfil vector — attacker-created functions, over-broad resource
@@ -19,7 +19,7 @@ _SECRET_KEY = re.compile(r"(secret|token|password|passwd|key|cred)", re.I)
 
 class LambdaCollector(Collector):
     name = "lambda"
-    tier = 2
+    priority = 2
     description = "Lambda function inventory, resource policies, redacted env config."
     required_actions = ("lambda:ListFunctions", "lambda:GetFunction", "lambda:GetPolicy")
 

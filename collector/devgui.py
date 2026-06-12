@@ -70,11 +70,38 @@ def _is_stale(marker: Path, *sources: Path) -> bool:
     return any(src.is_file() and src.stat().st_mtime > baseline for src in sources)
 
 
+def _pip_works(python: Path) -> bool:
+    if not python.is_file():
+        return False
+    return (
+        subprocess.run(
+            [str(python), "-m", "pip", "--version"],
+            capture_output=True,
+        ).returncode
+        == 0
+    )
+
+
+def _create_venv(venv_dir: Path) -> Path:
+    """Create a fresh ``.venv`` with a working ``pip``."""
+    py = _find_python311()
+    if venv_dir.is_dir():
+        shutil.rmtree(venv_dir)
+    print(f"Creating Ventra dev virtualenv (.venv) with {py}…")
+    subprocess.run([py, "-m", "venv", str(venv_dir)], check=True)
+    venv_python = venv_dir / "bin" / "python"
+    if not _pip_works(venv_python):
+        subprocess.run([str(venv_python), "-m", "ensurepip", "--upgrade"], check=True)
+    if not _pip_works(venv_python):
+        print("error: could not bootstrap pip in .venv.", file=sys.stderr)
+        raise SystemExit(1)
+    return venv_python
+
+
 def ensure_dev_environment(root: Path, *, force: bool = False) -> Path:
     """Create ``.venv``, install Python + npm deps. Returns the venv Python executable."""
     venv_dir = root / ".venv"
     venv_python = venv_dir / "bin" / "python"
-    pip = venv_dir / "bin" / "pip"
     setup_marker = venv_dir / _SETUP_MARKER
 
     pyproject_files = (
@@ -83,16 +110,19 @@ def ensure_dev_environment(root: Path, *, force: bool = False) -> Path:
         root / "console/backend/pyproject.toml",
     )
 
-    if not venv_python.is_file():
-        print("Creating Ventra dev virtualenv (.venv)…")
-        subprocess.run([_find_python311(), "-m", "venv", str(venv_dir)], check=True)
+    if force or not _pip_works(venv_python):
+        if venv_dir.is_dir() and not force:
+            print("Repairing broken Ventra dev virtualenv (.venv)…")
+        venv_python = _create_venv(venv_dir)
 
     if force or _is_stale(setup_marker, *pyproject_files):
         print("Installing Python dependencies (collector, ingester, console backend)…")
-        subprocess.run([str(pip), "install", "--upgrade", "pip"], check=True)
+        subprocess.run([str(venv_python), "-m", "pip", "install", "--upgrade", "pip"], check=True)
         subprocess.run(
             [
-                str(pip),
+                str(venv_python),
+                "-m",
+                "pip",
                 "install",
                 "-e",
                 f"{root}[dev]",
@@ -134,16 +164,49 @@ def ensure_dev_environment(root: Path, *, force: bool = False) -> Path:
     return venv_python
 
 
-def _pick_port(host: str, preferred: int) -> int:
-    for port in (preferred, preferred + 1, preferred + 2):
+def _port_available(port: int, *, bind_host: str = "127.0.0.1") -> bool:
+    """Return True if ``bind_host:port`` can be bound (matches uvicorn / Next.js)."""
+    if bind_host == "::":
+        try:
+            with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as sock:
+                sock.setsockopt(socket.IPPROTO_IPV6, socket.IPV6_V6ONLY, 0)
+                sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+                sock.bind(("::", port))
+                return True
+        except OSError:
+            return False
+    try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-            try:
-                sock.bind((host, port))
-                return port
-            except OSError:
-                continue
+            sock.bind((bind_host, port))
+            return True
+    except OSError:
+        return False
+
+
+def _pick_port(preferred: int, *, bind_host: str = "127.0.0.1", max_tries: int = 10) -> int:
+    for offset in range(max_tries):
+        port = preferred + offset
+        if _port_available(port, bind_host=bind_host):
+            return port
     return preferred
+
+
+def _wait_for_http(url: str, *, timeout: float = 90.0) -> bool:
+    """Poll until an HTTP server responds or timeout."""
+    import urllib.error
+    import urllib.request
+
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        try:
+            with urllib.request.urlopen(url, timeout=2) as resp:
+                if resp.status < 500:
+                    return True
+        except (urllib.error.URLError, TimeoutError):
+            pass
+        time.sleep(0.5)
+    return False
 
 
 def _dev_env(root: Path, venv_bin: Path) -> dict[str, str]:
@@ -206,8 +269,10 @@ def cmd_dev(args: Namespace) -> int:
     venv_bin = venv_python.parent
 
     env = _dev_env(root, venv_bin)
-    frontend_port = _pick_port("127.0.0.1", args.port)
-    backend_port = _pick_port("127.0.0.1", args.backend_port)
+    frontend_port = _pick_port(args.port, bind_host="::")
+    backend_port = _pick_port(args.backend_port, bind_host="127.0.0.1")
+    env["PORT"] = str(frontend_port)
+    env["VENTRA_API"] = f"http://127.0.0.1:{backend_port}"
 
     procs: list[subprocess.Popen[bytes]] = []
 
@@ -225,6 +290,8 @@ def cmd_dev(args: Namespace) -> int:
     print(f"  Cases:                   {env['VENTRA_CASE_STORE']}")
     if frontend_port != args.port:
         print(f"  Note: port {args.port} busy — using {frontend_port}")
+    if backend_port != args.backend_port:
+        print(f"  Note: port {args.backend_port} busy — using {backend_port}")
     print()
 
     procs.append(
@@ -243,19 +310,42 @@ def cmd_dev(args: Namespace) -> int:
             env=env,
         )
     )
-    time.sleep(1)
+    time.sleep(1.5)
+    backend_proc = procs[0]
+    if backend_proc.poll() is not None:
+        print(
+            f"error: backend failed to start on port {backend_port}.\n"
+            f"  Free the port: lsof -ti :{backend_port} | xargs kill -9\n"
+            "  Then run ventra dev again.",
+            file=sys.stderr,
+        )
+        _terminate(procs)
+        return 1
 
     procs.append(
         subprocess.Popen(
-            ["npm", "run", "dev", "--", "-p", str(frontend_port)],
+            ["npm", "run", "dev"],
             cwd=frontend_dir,
             env=env,
         )
     )
 
     if not args.no_open:
-        time.sleep(2)
-        webbrowser.open(f"http://127.0.0.1:{frontend_port}")
+        print("Waiting for backend and frontend…")
+        backend_ok = _wait_for_http(f"http://127.0.0.1:{backend_port}/api/health", timeout=30)
+        frontend_ok = _wait_for_http(f"http://127.0.0.1:{frontend_port}", timeout=90)
+        if not backend_ok:
+            print(
+                f"error: backend API not responding on port {backend_port}.",
+                file=sys.stderr,
+            )
+        if frontend_ok:
+            webbrowser.open(f"http://127.0.0.1:{frontend_port}")
+        else:
+            print(
+                f"error: frontend did not start on port {frontend_port}. Check the logs above.",
+                file=sys.stderr,
+            )
 
     return _wait_procs(procs)
 
@@ -297,8 +387,10 @@ def _gui_local(root: Path, args: Namespace) -> int:
     venv_bin = venv_python.parent
 
     env = _dev_env(root, venv_bin)
-    frontend_port = _pick_port("127.0.0.1", args.port)
-    backend_port = _pick_port("127.0.0.1", args.backend_port)
+    frontend_port = _pick_port(args.port, bind_host="::")
+    backend_port = _pick_port(args.backend_port, bind_host="127.0.0.1")
+    env["PORT"] = str(frontend_port)
+    env["VENTRA_API"] = f"http://127.0.0.1:{backend_port}"
 
     if args.rebuild or not (frontend_dir / ".next").is_dir():
         print("Building frontend…")
@@ -337,14 +429,13 @@ def _gui_local(root: Path, args: Namespace) -> int:
 
     procs.append(
         subprocess.Popen(
-            ["npm", "run", "start", "--", "-p", str(frontend_port)],
+            ["npm", "run", "start"],
             cwd=frontend_dir,
             env=env,
         )
     )
 
-    if not args.no_open:
-        time.sleep(2)
+    if not args.no_open and _wait_for_http(f"http://127.0.0.1:{frontend_port}"):
         webbrowser.open(f"http://127.0.0.1:{frontend_port}")
 
     return _wait_procs(procs)

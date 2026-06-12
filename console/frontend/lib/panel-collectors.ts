@@ -16,7 +16,7 @@ export interface PanelCollectorDef {
 
 export const PANEL_COLLECTORS: Record<PanelId, PanelCollectorDef> = {
   overview: {
-    blurb: "Roll-up metrics from Tier-1 sources in this case.",
+    blurb: "Roll-up metrics from baseline sources in this case.",
     collectors: [
       { id: "account" },
       { id: "cloudtrail" },
@@ -45,8 +45,8 @@ export const PANEL_COLLECTORS: Record<PanelId, PanelCollectorDef> = {
     blurb: "IAM posture, credentials, and related key/secret inventory.",
     collectors: [
       { id: "iam", note: "users, roles, policies, credential report" },
-      { id: "kms", note: "key inventory (Tier 2)" },
-      { id: "secrets", note: "secret metadata (Tier 2)" },
+      { id: "kms", note: "key inventory" },
+      { id: "secrets", note: "secret metadata" },
     ],
   },
   network: {

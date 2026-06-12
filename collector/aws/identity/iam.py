@@ -28,7 +28,7 @@ from ..client_factory import AccessDenied, ServiceNotEnabled
 
 class IamCollector(Collector):
     name = "iam"
-    tier = 1
+    priority = 1
     description = "IAM users, roles, groups, policies, access keys, credential report."
     required_actions = (
         "iam:GetAccountAuthorizationDetails",

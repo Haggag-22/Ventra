@@ -67,12 +67,13 @@ READONLY_EXCEPTIONS = frozenset(
 class Collector(abc.ABC):
     """Base class for every Ventra collector.
 
-    Subclasses set ``name`` (the logical source name in the manifest), ``tier`` (1/2/3), and
-    ``required_actions`` (cloud API actions, read-only), then implement :meth:`collect`.
+    Subclasses set ``name`` (the logical source name in the manifest), ``priority`` (1 = baseline,
+    2 = extended), and ``required_actions`` (cloud API actions, read-only), then implement
+    :meth:`collect`.
     """
 
     name: str = ""
-    tier: int = 1
+    priority: int = 1
     description: str = ""
     required_actions: tuple[str, ...] = ()
 
