@@ -177,9 +177,7 @@ def validate_trail_logs(
     elif proc.returncode != 0 and result.digest_total == 0 and result.log_total == 0:
         result.status = "error"
         result.skip_reason = result.skip_reason or "validate_logs_failed"
-    elif result.digest_total > 0 or result.log_total > 0:
-        result.status = "valid"
-    elif proc.returncode == 0:
+    elif result.digest_total > 0 or result.log_total > 0 or proc.returncode == 0:
         result.status = "valid"
     else:
         result.status = "error"

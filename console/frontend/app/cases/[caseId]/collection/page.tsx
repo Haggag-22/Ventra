@@ -31,14 +31,16 @@ const STATE_META: Record<
   collected: { label: "Collected", icon: CheckSquare, tone: "text-ok-green", collected: true },
   partial: { label: "Partial", icon: AlertTriangle, tone: "text-warn-amber", collected: true },
   empty: { label: "No records", icon: MinusSquare, tone: "text-warn-amber", collected: false },
-  not_enabled: { label: "Not available", icon: Square, tone: "text-warn-amber", collected: false },
+  not_enabled: { label: "Not enabled", icon: Square, tone: "text-warn-amber", collected: false },
   denied: { label: "Access denied", icon: XSquare, tone: "text-bad-red", collected: false },
   not_run: { label: "Not run", icon: Square, tone: "text-fg-subtle", collected: false },
-  planned: { label: "Not yet implemented", icon: Square, tone: "text-fg-subtle", collected: false },
+  planned: { label: "Detected only", icon: Square, tone: "text-fg-subtle", collected: false },
 };
 
 function displayState(id: string, state: CoverageState): CoverageState {
-  if (state === "not_run" && !IMPLEMENTED_LOG_COLLECTORS.has(id)) return "planned";
+  if ((state === "not_run" || state === "planned") && !IMPLEMENTED_LOG_COLLECTORS.has(id)) {
+    return "planned";
+  }
   return state;
 }
 
@@ -48,7 +50,11 @@ function rowDetail(
   detail: string,
   gaps: { name: string; detail: string }[],
 ): string {
-  if (display === "planned") return "";
+  // "Detected only" rows carry the posture note (enabled? where does it ship?) — the
+  // analyst's pointer for manual collection. Show it.
+  if (display === "planned") {
+    return detail || "No Ventra collector for this source yet.";
+  }
   if (state === "partial" && gaps.length) {
     return gaps.map((g) => g.detail).join(" ");
   }
@@ -116,9 +122,9 @@ export default function CollectionPage() {
             <Legend icon={CheckSquare} tone="text-ok-green" label="Collected" />
             <Legend icon={AlertTriangle} tone="text-warn-amber" label="Partial" />
             <Legend icon={MinusSquare} tone="text-warn-amber" label="No records" />
-            <Legend icon={Square} tone="text-warn-amber" label="Not available" />
+            <Legend icon={Square} tone="text-warn-amber" label="Not enabled" />
             <Legend icon={XSquare} tone="text-bad-red" label="Access denied" />
-            <Legend icon={Square} tone="text-fg-subtle" label="Not yet implemented" />
+            <Legend icon={Square} tone="text-fg-subtle" label="Detected only (manual pull)" />
           </div>
         </Card>
 

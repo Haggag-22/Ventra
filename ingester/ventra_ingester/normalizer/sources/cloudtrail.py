@@ -1,9 +1,14 @@
-"""CloudTrail + STS normalizers.
+"""CloudTrail normalizer (AssumeRole / STS events included).
 
 CloudTrail's LookupEvents wraps the real record as a JSON string in ``CloudTrailEvent``; the
 rich fields (userIdentity, sourceIPAddress, userAgent, errorCode, requestParameters) live
-there. We parse it, map to the unified schema, classify the user-agent, and flag a curated
-set of sensitive actions so the console's CloudTrail Analyzer can surface them.
+there. S3-sourced log records carry those fields at the top level already. We parse it, map to
+the unified schema, classify the user-agent, and flag a curated set of sensitive actions so the
+console's CloudTrail Analyzer can surface them.
+
+AssumeRole-family events (``eventSource == sts.amazonaws.com``) are CloudTrail events too —
+there is no separate STS source. They are additionally typed as sessions and pointed at the
+role they target, for the Identity panel's role-assumption graph.
 """
 
 from __future__ import annotations
@@ -176,34 +181,41 @@ def _message(action: str, who: str, err: str, service: str) -> str:
     return f"{base} — DENIED ({err})" if err else base
 
 
+ASSUME_ROLE_ACTIONS = frozenset(
+    {"AssumeRole", "AssumeRoleWithSAML", "AssumeRoleWithWebIdentity"}
+)
+
+
+def _apply_session_role(ev: UnifiedEvent, detail: dict[str, Any]) -> None:
+    """Type an AssumeRole-family event as a session and target the *role* it assumes.
+
+    The role ARN is the stable node the Identity panel's role-assumption graph edges to —
+    not the per-session assumed-role ARN.
+    """
+    ev.event_category = ["session", "authentication"]
+    req = detail.get("requestParameters", {}) or {}
+    resp = detail.get("responseElements", {}) or {}
+    role_arn = req.get("roleArn", "")
+    assumed = (resp.get("assumedRoleUser", {}) or {}).get("arn", "")
+    if role_arn:
+        ev.resource_arn = role_arn
+        ev.resource_type = "iam-role"
+        ev.resource_id = role_arn.split("/")[-1]
+    related = {r for r in (role_arn, assumed) if r}
+    if related:
+        ev.related_resource = sorted(set(ev.related_resource or []) | related)
+
+
 @register("cloudtrail")
 def normalize_cloudtrail(records: list[dict], ctx: NormalizeContext) -> Iterator[UnifiedEvent]:
     for rec in records:
         detail = _unwrap(rec)
         if not detail.get("eventTime"):
             continue
-        yield _to_event(detail, ctx)
-
-
-@register("sts")
-def normalize_sts(records: list[dict], ctx: NormalizeContext) -> Iterator[UnifiedEvent]:
-    """STS records are CloudTrail AssumeRole events; reuse the same mapping but force the
-    session category so the Identity panel's role-assumption graph can select them."""
-    for rec in records:
-        detail = _unwrap(rec)
-        if not detail.get("eventTime"):
-            continue
         ev = _to_event(detail, ctx)
-        ev.event_category = ["session", "authentication"]
-        ev.ventra_source = "sts"
-        # The graph edge targets the *role* (stable), not the per-session assumed-role ARN.
-        req = detail.get("requestParameters", {}) or {}
-        resp = detail.get("responseElements", {}) or {}
-        role_arn = req.get("roleArn", "")
-        assumed = (resp.get("assumedRoleUser", {}) or {}).get("arn", "")
-        if role_arn:
-            ev.resource_arn = role_arn
-            ev.resource_type = "iam-role"
-            ev.resource_id = role_arn.split("/")[-1]
-        ev.related_resource = sorted({r for r in (role_arn, assumed) if r})
+        if (
+            detail.get("eventSource") == "sts.amazonaws.com"
+            and detail.get("eventName") in ASSUME_ROLE_ACTIONS
+        ):
+            _apply_session_role(ev, detail)
         yield ev

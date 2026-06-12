@@ -229,6 +229,68 @@ def build_sts() -> list[dict]:
     return events
 
 
+def build_elb_alb() -> list[dict]:
+    """ALB access-log lines: attacker probing the admin panel before the credential theft."""
+    def alb(when: str, ip: str, request: str, status: int, ua: str) -> dict:
+        line = (
+            f"https {when} app/web-alb/50dc6c495c0c9188 {ip}:34567 10.0.1.5:80 "
+            f"0.000 0.001 0.000 {status} {status} 34 366 "
+            f'"{request}" "{ua}" ECDHE-RSA-AES128-GCM-SHA256 TLSv1.2 '
+            f"arn:aws:elasticloadbalancing:{REGION}:{ACCOUNT}:targetgroup/web/abc "
+            f'"Root=1-demo" "shop.example.com" "-" 0 {when} "forward" "-" "-" '
+            f'"10.0.1.5:80" "{status}" "-" "-"'
+        )
+        return {"line": line, "_ventra_region": REGION, "_ventra_lb_name": "web-alb",
+                "_ventra_lb_type": "application", "_ventra_s3_bucket": "client-lb-logs"}
+
+    scanner_ua = "Mozilla/5.0 (compatible; Nuclei/3.1)"
+    browser_ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    events = []
+    # Recon: scanner sweeping admin paths (mostly 404s) ~30 min before initial access.
+    for i, path in enumerate(["/wp-admin/", "/.env", "/admin/login", "/api/v1/users",
+                              "/console", "/.git/config", "/phpmyadmin/", "/admin/login"]):
+        events.append(alb(_t(-1800 + i * 40), ATTACKER_IP,
+                          f"GET https://shop.example.com:443{path} HTTP/1.1",
+                          404 if i < 6 else 200, scanner_ua))
+    # Successful admin login from the attacker IP.
+    events.append(alb(_t(-1500), ATTACKER_IP,
+                      "POST https://shop.example.com:443/admin/login HTTP/1.1", 200, browser_ua))
+    # Baseline legit traffic.
+    for i in range(20):
+        events.append(alb(_t(-3600 + i * 120), LEGIT_IP,
+                          "GET https://shop.example.com:443/products HTTP/1.1", 200, browser_ua))
+    return events
+
+
+def build_route53_resolver() -> list[dict]:
+    """Resolver query logs: C2 beaconing + DGA-style NXDOMAIN noise from the web instance."""
+    def query(when: str, name: str, rcode: str, answer: str | None) -> dict:
+        return {
+            "version": "1.1", "account_id": ACCOUNT, "region": REGION,
+            "vpc_id": "vpc-0demo1234", "query_timestamp": when,
+            "query_name": f"{name}.", "query_type": "A", "query_class": "IN",
+            "rcode": rcode,
+            "answers": [{"Rdata": answer, "Type": "A", "Class": "IN"}] if answer else [],
+            "srcaddr": "10.0.1.5", "srcport": str(40000 + rng.randint(0, 9999)),
+            "transport": "UDP", "srcids": {"instance": "i-0a1b2c3d4e5f6a7b8"},
+        }
+
+    events = []
+    # C2 beacon resolving every ~5 minutes after compromise.
+    for i in range(12):
+        events.append(query(_t(1300 + i * 300), "cdn-sync.evil-c2.net", "NOERROR",
+                            "185.220.101.45"))
+    # DGA fallback noise (NXDOMAIN burst).
+    for i in range(8):
+        events.append(query(_t(1320 + i * 15), f"x{rng.randrange(16**8):08x}.biz", "NXDOMAIN",
+                            None))
+    # Baseline legit lookups.
+    for i in range(15):
+        events.append(query(_t(-3600 + i * 240), "api.payments-partner.com", "NOERROR",
+                            "52.94.236.10"))
+    return events
+
+
 def build_guardduty() -> list[dict]:
     def finding(ftype, sev, title, ip, when, user=VICTIM_USER):
         return {
@@ -449,7 +511,7 @@ def generate(out_dir: Path, case_id: str = "CASE-2026-0042") -> Path:
         sd = staging / "sources"
         # Event sources
         src("cloudtrail", [("events.jsonl.gz", _write_gz_jsonl(sd / "cloudtrail/events.jsonl.gz",
-                                                               build_cloudtrail())),
+                                                               build_cloudtrail() + build_sts())),
                            ("config.json", _write_json(sd / "cloudtrail/config.json",
                                {"trails": [{
                                     "Name": "org-trail",
@@ -502,10 +564,7 @@ def generate(out_dir: Path, case_id: str = "CASE-2026-0042") -> Path:
                                 "management_events": 42,
                                 "trails": 1,
                             }))],
-            notes="Management events + trail config.")
-        src("sts", [("events.jsonl.gz", _write_gz_jsonl(sd / "sts/events.jsonl.gz",
-                                                        build_sts()))],
-            notes="AssumeRole activity.")
+            notes="Management events (incl. AssumeRole) + trail config.")
         src("guardduty", [("events.jsonl.gz", _write_gz_jsonl(sd / "guardduty/events.jsonl.gz",
                                                               build_guardduty()))],
             notes="6 findings.")
@@ -515,6 +574,13 @@ def generate(out_dir: Path, case_id: str = "CASE-2026-0042") -> Path:
                              {"flow_logs": [{"LogDestinationType": "cloud-watch-logs",
                                              "LogGroupName": "/vpc/flowlogs"}]}))],
             notes="Flow records incl. exfil egress.")
+        src("elb_alb", [("events.jsonl.gz", _write_gz_jsonl(sd / "elb_alb/events.jsonl.gz",
+                                                            build_elb_alb()))],
+            notes="ALB access logs — admin-panel recon + login from attacker IP.")
+        src("route53_resolver",
+            [("events.jsonl.gz", _write_gz_jsonl(sd / "route53_resolver/events.jsonl.gz",
+                                                 build_route53_resolver()))],
+            notes="DNS query logs — C2 beaconing + NXDOMAIN burst.")
         # Inventory sources
         src("iam", [("snapshot.json", _write_json(sd / "iam/snapshot.json", build_iam_snapshot()))],
             notes="3 users, 2 roles.")
@@ -530,6 +596,31 @@ def generate(out_dir: Path, case_id: str = "CASE-2026-0042") -> Path:
             name="waf", status=SourceStatus.EMPTY,
             gaps=[("waf", GapReason.NOT_PRESENT, "No WAFv2 Web ACLs in scope.")],
             notes="No WAF configured."))
+        # Logging posture for sources Ventra detects but does not pull yet.
+        manifest.add_source_result(SourceResult(
+            name="log_posture", status=SourceStatus.COLLECTED,
+            gaps=[
+                ("s3_access", GapReason.LOGGING_NOT_CONFIGURED,
+                 "Server access logging disabled on 3/3 bucket(s): "
+                 "client-data-prod, exfil-staging, client-lb-logs."),
+                ("cloudfront", GapReason.NOT_PRESENT, "No CloudFront distributions."),
+                ("eks_audit", GapReason.NOT_PRESENT, "No EKS clusters in scope."),
+                ("apigateway", GapReason.OUT_OF_SCOPE,
+                 "Access logging enabled on 1/2 stage(s) → "
+                 "arn:aws:logs:us-east-1:123456789012:log-group:apigw-prod. "
+                 "Collection not yet supported — pull from the destination manually."),
+                ("lambda_logs", GapReason.OUT_OF_SCOPE,
+                 "4 Lambda log group(s) in CloudWatch Logs. Collection not yet supported "
+                 "— pull the relevant function groups manually."),
+                ("opensearch", GapReason.NOT_PRESENT, "No OpenSearch domains in scope."),
+                ("rds", GapReason.LOGGING_NOT_CONFIGURED,
+                 "Log export disabled on all 1 RDS instance(s)."),
+                ("dynamodb_streams", GapReason.NOT_PRESENT, "No DynamoDB tables in scope."),
+                ("network_firewall", GapReason.NOT_PRESENT, "No Network Firewall in scope."),
+                ("inspector2", GapReason.SERVICE_NOT_ENABLED,
+                 "Inspector2 not enabled in scope."),
+            ],
+            notes="Logging posture recorded for uncollected sources."))
 
         # collection log + manifest + sign + seal
         (staging / "collection.log").write_text(

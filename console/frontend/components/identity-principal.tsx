@@ -26,11 +26,6 @@ export function IdentityPrincipal({
 
   if (!label) return <span className="text-fg-subtle">—</span>;
 
-  const policyHint =
-    policies.length > 0
-      ? `${policies.length} polic${policies.length === 1 ? "y" : "ies"} — click to view`
-      : "No policies in snapshot — click for details";
-
   return (
     <>
       <button
@@ -44,7 +39,7 @@ export function IdentityPrincipal({
           mono && "mono text-xs",
           className,
         )}
-        title={policyHint}
+        title={label}
       >
         <FileKey2 className="h-3 w-3 shrink-0 opacity-60" />
         <span className="truncate">{label}</span>

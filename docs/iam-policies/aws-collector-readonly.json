@@ -123,8 +123,20 @@
         "macie2:GetFindings",
         "detective:ListGraphs",
         "detective:ListInvestigations",
+        "inspector2:ListFindings",
+        "inspector2:BatchGetAccountStatus",
         "route53resolver:ListResolverQueryLogConfigs",
         "route53resolver:ListResolverQueryLogConfigAssociations",
+        "eks:ListClusters",
+        "eks:DescribeCluster",
+        "logs:DescribeLogGroups",
+        "es:ListDomainNames",
+        "es:DescribeDomain",
+        "rds:DescribeDBInstances",
+        "dynamodb:ListTables",
+        "dynamodb:DescribeTable",
+        "network-firewall:ListFirewalls",
+        "network-firewall:DescribeLoggingConfiguration",
         "elasticloadbalancing:DescribeLoadBalancers",
         "elasticloadbalancing:DescribeLoadBalancerAttributes",
         "elasticloadbalancing:DescribeListeners",
@@ -166,7 +178,11 @@
         "arn:aws:s3:::*cloudtrail*",
         "arn:aws:s3:::*cloudtrail*/*",
         "arn:aws:s3:::*flow-log*",
-        "arn:aws:s3:::*flow-log*/*"
+        "arn:aws:s3:::*flow-log*/*",
+        "arn:aws:s3:::*access-log*",
+        "arn:aws:s3:::*access-log*/*",
+        "arn:aws:s3:::*lb-logs*",
+        "arn:aws:s3:::*lb-logs*/*"
       ]
     }
   ]

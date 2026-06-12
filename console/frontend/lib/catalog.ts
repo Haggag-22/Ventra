@@ -24,15 +24,16 @@ export const CLOUD_LABELS: Record<Cloud, string> = {
 export const EXTRA_COLLECTOR_LABELS: Record<string, string> = {
   account: "Account context",
   iam: "IAM snapshot",
-  sts: "STS activity",
   kms: "KMS",
   secrets: "Secrets Manager",
   ec2: "EC2 / EBS",
   s3: "S3 surface",
   lambda: "Lambda",
+  log_posture: "Logging posture",
 };
 
-// AWS — Erblind / IR logs cheat sheet (single list).
+// AWS — Erblind / IR logs cheat sheet. Ids match collector source names / posture gap names
+// so the Logs Coverage panel can resolve each row straight from the manifest.
 const AWS_LOGS: CatalogGroup[] = [
   {
     category: "Logs Checked",
@@ -44,15 +45,15 @@ const AWS_LOGS: CatalogGroup[] = [
       },
       { id: "config", label: "AWS Config", description: "" },
       { id: "vpc_flow", label: "VPC Flow Logs", description: "" },
-      { id: "elb_alb_access_logs", label: "ELB/ALB Access Logs", description: "" },
-      { id: "route53_resolver_query_logs", label: "Route53 Resolver Query Logs", description: "" },
-      { id: "network_firewall_logs", label: "Network Firewall Logs", description: "" },
-      { id: "s3_access_logs", label: "S3 Access Logs", description: "" },
-      { id: "cloudfront_access_logs", label: "CloudFront Access Logs", description: "" },
-      { id: "apigateway_access_logs", label: "API Gateway Access Logs", description: "" },
+      { id: "elb_alb", label: "ELB/ALB Access Logs", description: "" },
+      { id: "route53_resolver", label: "Route53 Resolver Query Logs", description: "" },
+      { id: "network_firewall", label: "Network Firewall Logs", description: "" },
+      { id: "s3_access", label: "S3 Access Logs", description: "" },
+      { id: "cloudfront", label: "CloudFront Access Logs", description: "" },
+      { id: "apigateway", label: "API Gateway Access Logs", description: "" },
       { id: "lambda_logs", label: "Lambda Logs", description: "" },
-      { id: "opensearch_logs", label: "OpenSearch Logs", description: "" },
-      { id: "rds_export_logs", label: "RDS Export Logs", description: "" },
+      { id: "opensearch", label: "OpenSearch Logs", description: "" },
+      { id: "rds", label: "RDS Export Logs", description: "" },
       { id: "dynamodb_streams", label: "DynamoDB Streams", description: "" },
       { id: "guardduty", label: "GuardDuty", description: "" },
       { id: "securityhub", label: "Security Hub", description: "" },
@@ -60,7 +61,7 @@ const AWS_LOGS: CatalogGroup[] = [
       { id: "inspector2", label: "Inspector2", description: "" },
       { id: "macie", label: "Macie2", description: "" },
       { id: "waf", label: "WAF Logs", description: "" },
-      { id: "eks_audit_logs", label: "EKS Audit Logs", description: "" },
+      { id: "eks_audit", label: "EKS Audit Logs", description: "" },
     ],
   },
 ];

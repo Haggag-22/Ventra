@@ -9,7 +9,15 @@ export const GAP_PARENT: Record<string, string> = {
   insight_events: "cloudtrail",
   data_events: "cloudtrail",
   network_activity: "cloudtrail",
+  management_events: "cloudtrail",
+  log_validation: "cloudtrail",
 };
+
+/** Resolve a gap name (possibly suffixed, e.g. ``log_validation:trail``) to its catalog id. */
+export function gapParent(name: string): string {
+  const base = name.split(":")[0];
+  return GAP_PARENT[base] ?? base;
+}
 
 export type CoverageState =
   | "collected"
@@ -70,8 +78,14 @@ export const IMPLEMENTED_LOG_COLLECTORS = new Set([
   "guardduty",
   "securityhub",
   "detective",
+  "inspector2",
   "macie",
   "waf",
+  "elb_alb",
+  "cloudfront",
+  "s3_access",
+  "route53_resolver",
+  "eks_audit",
 ]);
 
 const AWS_LOGS_BASELINE = new Set([
@@ -105,7 +119,7 @@ export function aggregateManifestSources(sources: ManifestSource[] = []) {
 }
 
 export function gapsForCollector(id: string, gaps: ManifestGap[] = []): ManifestGap[] {
-  return gaps.filter((g) => (GAP_PARENT[g.name] ?? g.name) === id);
+  return gaps.filter((g) => gapParent(g.name) === id);
 }
 
 export function resolveCollectorCoverage(
@@ -170,8 +184,5 @@ export function resolveCollectorCoverage(
 }
 
 export function unmappedGaps(gaps: ManifestGap[], catalogIds: Set<string>): ManifestGap[] {
-  return gaps.filter((g) => {
-    const parent = GAP_PARENT[g.name] ?? g.name;
-    return !catalogIds.has(parent);
-  });
+  return gaps.filter((g) => !catalogIds.has(gapParent(g.name)));
 }

@@ -402,7 +402,8 @@ class CaseStore:
             events = self._events_table(con, path)
             rows = con.execute(
                 "SELECT user_arn, user_name, resource_arn, source_ip, count(*) c "
-                f"FROM {events} WHERE ventra_source IN ('sts') OR event_action='AssumeRole' "
+                f"FROM {events} WHERE event_action IN "
+                "('AssumeRole', 'AssumeRoleWithSAML', 'AssumeRoleWithWebIdentity') "
                 "GROUP BY 1,2,3,4",
                 [path],
             ).fetchall()
@@ -511,7 +512,7 @@ class CaseStore:
             events = self._events_table(con, path)
             lookup_total = con.execute(
                 f"SELECT count(*) FROM {events} "
-                "WHERE ventra_source IN ('cloudtrail', 'sts') AND ("
+                "WHERE ventra_source = 'cloudtrail' AND ("
                 "  json_extract_string(raw, '$._ventra_collect_source') = 'lookup_events' "
                 "  OR (COALESCE(json_extract_string(raw, '$._ventra_log_key'), '') = '' "
                 "      AND COALESCE(json_extract_string(raw, '$._ventra_s3_bucket'), '') = ''"
@@ -520,7 +521,7 @@ class CaseStore:
             ).fetchone()[0]
             s3_total = con.execute(
                 f"SELECT count(*) FROM {events} "
-                "WHERE ventra_source IN ('cloudtrail', 'sts') AND ("
+                "WHERE ventra_source = 'cloudtrail' AND ("
                 "  json_extract_string(raw, '$._ventra_collect_source') = 's3_logs' "
                 "  OR COALESCE(json_extract_string(raw, '$._ventra_log_key'), '') <> '' "
                 "  OR COALESCE(json_extract_string(raw, '$._ventra_s3_bucket'), '') <> ''"
@@ -531,7 +532,7 @@ class CaseStore:
                 "SELECT COALESCE(NULLIF(json_extract_string(raw, '$._ventra_s3_bucket'), ''), "
                 "'(unknown bucket)') AS bucket, count(*) AS c "
                 f"FROM {events} "
-                "WHERE ventra_source IN ('cloudtrail', 'sts') AND ("
+                "WHERE ventra_source = 'cloudtrail' AND ("
                 "  json_extract_string(raw, '$._ventra_collect_source') = 's3_logs' "
                 "  OR COALESCE(json_extract_string(raw, '$._ventra_log_key'), '') <> '' "
                 "  OR COALESCE(json_extract_string(raw, '$._ventra_s3_bucket'), '') <> ''"

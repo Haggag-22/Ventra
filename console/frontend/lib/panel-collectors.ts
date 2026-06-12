@@ -28,7 +28,6 @@ export const PANEL_COLLECTORS: Record<PanelId, PanelCollectorDef> = {
       { id: "account" },
       { id: "cloudtrail" },
       { id: "iam" },
-      { id: "sts" },
       { id: "vpc_flow" },
       { id: "guardduty" },
       { id: "waf" },
@@ -43,6 +42,7 @@ export const PANEL_COLLECTORS: Record<PanelId, PanelCollectorDef> = {
     collectors: [
       { id: "guardduty" },
       { id: "securityhub" },
+      { id: "inspector2", note: "vulnerability / reachability findings" },
       { id: "macie" },
       { id: "detective" },
       { id: "config" },
@@ -61,6 +61,9 @@ export const PANEL_COLLECTORS: Record<PanelId, PanelCollectorDef> = {
     collectors: [
       { id: "vpc_flow", note: "VPC flow records" },
       { id: "waf", note: "web ACL configs and sampled requests" },
+      { id: "elb_alb", note: "load-balancer access logs" },
+      { id: "cloudfront", note: "CDN edge access logs" },
+      { id: "route53_resolver", note: "DNS query logs" },
     ],
   },
   collection: {

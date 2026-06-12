@@ -23,7 +23,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 const PAGE_SIZE_OPTIONS = [100, 250, 500] as const;
 const DEFAULT_PAGE_SIZE = 500;
 const PAGE_SIZE_KEY = "ventra.cloudtrail.page-size";
-const BASE_SOURCE = ["cloudtrail", "sts"];
+const BASE_SOURCE = ["cloudtrail"];
 
 function loadPageSize(): number {
   if (typeof window === "undefined") return DEFAULT_PAGE_SIZE;

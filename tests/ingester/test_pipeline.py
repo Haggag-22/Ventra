@@ -78,3 +78,55 @@ def test_summary_reflects_collection_gap(demo_case) -> None:
     summary = json.loads((case_dir / "summary.json").read_text())
     gap_names = {g["name"] for g in summary["collection"]["gaps"]}
     assert "waf" in gap_names  # the demo deliberately leaves WAF unconfigured
+
+
+def test_access_and_dns_logs_normalized(demo_case) -> None:
+    """ELB/ALB and Route53 Resolver records flow through their normalizers into the store."""
+    case_dir, _ = demo_case
+    con = duckdb.connect()
+    path = str(case_dir / "events.parquet")
+
+    alb = con.execute(
+        f"SELECT count(*) FROM '{path}' WHERE ventra_source='elb_alb'"
+    ).fetchone()[0]
+    assert alb > 20
+
+    # The attacker's admin-panel probe must be present and pivotable by IP.
+    probe = con.execute(
+        f"SELECT count(*) FROM '{path}' WHERE ventra_source='elb_alb' "
+        "AND source_ip='203.0.113.66' AND message LIKE '%/admin/login%'"
+    ).fetchone()[0]
+    assert probe >= 1
+
+    dns = con.execute(
+        f"SELECT count(*) FROM '{path}' WHERE ventra_source='route53_resolver'"
+    ).fetchone()[0]
+    assert dns > 20
+
+    nxdomain = con.execute(
+        f"SELECT count(*) FROM '{path}' WHERE ventra_source='route53_resolver' "
+        "AND event_outcome='failure'"
+    ).fetchone()[0]
+    assert nxdomain >= 8  # the DGA burst
+
+
+def test_assume_role_events_folded_into_cloudtrail(demo_case) -> None:
+    """No separate STS source: AssumeRole events come from cloudtrail, role-targeted."""
+    case_dir, _ = demo_case
+    con = duckdb.connect()
+    path = str(case_dir / "events.parquet")
+
+    # The phantom 'sts' source is gone entirely.
+    assert (
+        con.execute(f"SELECT count(*) FROM '{path}' WHERE ventra_source='sts'").fetchone()[0]
+        == 0
+    )
+
+    rows = con.execute(
+        f"SELECT ventra_source, resource_type, resource_arn FROM '{path}' "
+        "WHERE event_action='AssumeRole'"
+    ).fetchall()
+    assert rows, "expected AssumeRole events in the cloudtrail source"
+    assert all(src == "cloudtrail" for src, _, _ in rows)
+    assert all(rtype == "iam-role" for _, rtype, _ in rows)  # graph targets the role
+    assert all(":role/" in (arn or "") for _, _, arn in rows)
