@@ -14,6 +14,7 @@ import {
   cloudTrailCategoryClass,
   cloudTrailEventCategory,
   shortService,
+  type CloudTrailCategory,
 } from "@/lib/cloudtrail-json";
 import type { UnifiedEvent } from "@/lib/types";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -88,7 +89,7 @@ export function CloudTrailTable({
   const colPct = (key: CloudTrailColKey) =>
     `${(((widths[key] ?? DEFAULT_CLOUDTRAIL_WIDTHS[key]) / totalWeight) * 100).toFixed(4)}%`;
 
-  const renderCell = (key: CloudTrailColKey, e: UnifiedEvent, category: string) => {
+  const renderCell = (key: CloudTrailColKey, e: UnifiedEvent, category: CloudTrailCategory) => {
     switch (key) {
       case "timestamp":
         return (

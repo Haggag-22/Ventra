@@ -1,6 +1,22 @@
 /** CloudTrail table column definitions — shared by the toolbar and table. */
 
-export const CLOUDTRAIL_COLS = [
+export type CloudTrailColKey =
+  | "timestamp"
+  | "event_action"
+  | "user_name"
+  | "source_ip"
+  | "cloud_region"
+  | "cloud_service"
+  | "event_category";
+
+export interface CloudTrailColumn {
+  key: CloudTrailColKey;
+  label: string;
+  min: number;
+  locked?: boolean;
+}
+
+export const CLOUDTRAIL_COLS: CloudTrailColumn[] = [
   { key: "timestamp", label: "Time (UTC)", min: 120, locked: true },
   { key: "event_action", label: "Event", min: 140 },
   { key: "user_name", label: "Principal", min: 90 },
@@ -8,9 +24,7 @@ export const CLOUDTRAIL_COLS = [
   { key: "cloud_region", label: "Region", min: 80 },
   { key: "cloud_service", label: "Service", min: 70 },
   { key: "event_category", label: "Category", min: 90 },
-] as const;
-
-export type CloudTrailColKey = (typeof CLOUDTRAIL_COLS)[number]["key"];
+];
 
 export const ALL_CLOUDTRAIL_COL_KEYS: CloudTrailColKey[] = CLOUDTRAIL_COLS.map((c) => c.key);
 
@@ -53,7 +67,7 @@ export function loadVisibleCloudTrailCols(): CloudTrailColKey[] {
   }
 }
 
-export function orderedVisibleCols(visible: CloudTrailColKey[]): typeof CLOUDTRAIL_COLS[number][] {
+export function orderedVisibleCols(visible: CloudTrailColKey[]): CloudTrailColumn[] {
   const set = new Set(visible);
   return CLOUDTRAIL_COLS.filter((c) => set.has(c.key));
 }

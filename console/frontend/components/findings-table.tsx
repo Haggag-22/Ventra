@@ -133,7 +133,7 @@ export function FindingsTable({
                       <span
                         role="separator"
                         aria-orientation="vertical"
-                        aria-label={`Resize ${c.label || c.key} column`}
+                        aria-label={`Resize ${c.label} column`}
                         onMouseDown={(e) => startResize(c.key, e)}
                         onClick={(e) => e.stopPropagation()}
                         className="ct-col-resize"
