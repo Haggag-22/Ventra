@@ -6,10 +6,12 @@ import os
 import shutil
 import sys
 
+_MIN_PYTHON = (3, 11)
+
 
 def _reexec_with_newer_python() -> None:
     """Re-run this module with Python 3.11+ when the default ``python3`` is too old."""
-    if sys.version_info >= (3, 11):
+    if sys.version_info >= _MIN_PYTHON:
         return
     for cmd in ("python3.12", "python3.11", "python3"):
         path = shutil.which(cmd)
@@ -18,7 +20,11 @@ def _reexec_with_newer_python() -> None:
         import subprocess
 
         ok = subprocess.run(
-            [path, "-c", "import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)"],
+            [
+                path,
+                "-c",
+                f"import sys; raise SystemExit(0 if sys.version_info >= {_MIN_PYTHON!r} else 1)",
+            ],
             capture_output=True,
         ).returncode == 0
         if not ok:
