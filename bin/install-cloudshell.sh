@@ -9,7 +9,7 @@
 #   ventra collect aws --case CASE-2026-0042 --since 2026-05-11 --out ~/ventra-evidence
 #
 # Override install source (default: GitHub main):
-#   VENTRA_INSTALL_SPEC='ventra-collector[zstd]' bash bin/install-cloudshell.sh
+#   VENTRA_INSTALL_SPEC='ventra[zstd]' bash bin/install-cloudshell.sh
 set -euo pipefail
 
 VENV="${VENTRA_VENV:-$HOME/.ventra-venv}"
@@ -63,7 +63,7 @@ install_ventra() {
   echo "Installing Ventra from ${INSTALL_SPEC}…"
   pip install --quiet --upgrade pip
   if [[ "$INSTALL_SPEC" == git+* ]] || [[ "$INSTALL_SPEC" == http* ]]; then
-    pip install --quiet "ventra-collector[zstd] @ ${INSTALL_SPEC}"
+    pip install --quiet "ventra[zstd] @ ${INSTALL_SPEC}"
   else
     pip install --quiet "${INSTALL_SPEC}[zstd]"
   fi

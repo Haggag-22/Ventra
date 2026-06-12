@@ -6,8 +6,7 @@ export PYTHONDONTWRITEBYTECODE := 1
 help:
 	@echo "Ventra targets:"
 	@echo "  make install        Install collector + ingester + backend (editable)"
-	@echo "  make dev-setup      install + npm deps + local dirs (one-time)"
-	@echo "  make dev            Run backend + frontend locally (live reload)"
+	@echo "  make dev            Same as: ventra dev (auto-setup + hot reload)"
 	@echo "  make demo           Generate a synthetic evidence package into tests/fixtures/"
 	@echo "  make ingest         Ingest the demo package into ./cases"
 	@echo "  make backend        Run the console backend (uvicorn :8000, reload)"
@@ -26,7 +25,7 @@ dev-setup: install clean-pycache ensure-no-pycache install-hooks
 	cd console/frontend && npm install
 
 dev: clean-pycache
-	./scripts/dev-local.sh
+	ventra dev
 
 demo:
 	python tests/fixtures/generate_demo_case.py --out tests/fixtures/
