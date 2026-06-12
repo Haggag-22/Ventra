@@ -1,4 +1,4 @@
-"""AWS Config collector (Tier 2).
+"""AWS Config collector (extended collector).
 
 Config's recorder state tells you whether resource-change history was being captured (a
 defense-evasion tell when it's off), and the configuration timeline is invaluable for
@@ -17,7 +17,7 @@ from ..client_factory import AccessDenied, ServiceNotEnabled
 
 class ConfigCollector(Collector):
     name = "config"
-    tier = 2
+    priority = 2
     description = "AWS Config recorder state and compliance findings."
     required_actions = (
         "config:DescribeConfigurationRecorders",

@@ -7,7 +7,7 @@ import type { EventParams } from "./api";
 // Every filter/selection lives in the URL so views are shareable. This hook reads the current
 // search params into an EventParams object and writes changes back via router.replace.
 
-const ARRAY_KEYS = new Set(["source", "severity", "category", "actions", "regions", "services"]);
+const ARRAY_KEYS = new Set(["source", "severity", "category", "actions", "regions", "services", "users"]);
 
 export function useFilters() {
   const router = useRouter();

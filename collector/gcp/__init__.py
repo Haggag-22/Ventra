@@ -1,7 +1,7 @@
 """GCP collectors — scaffolded for a later phase.
 
 GCP reuses the Evidence Package Format and the console unchanged. Planned baseline sources
-mirror the AWS Tier 1 set:
+mirror the AWS baseline set:
 
   * cloud_audit_admin   — Cloud Audit Logs: Admin Activity (~ CloudTrail management events)
   * cloud_audit_data    — Cloud Audit Logs: Data Access

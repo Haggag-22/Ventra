@@ -41,6 +41,7 @@ class EventQuery:
     actions: list[str] = field(default_factory=list)
     regions: list[str] = field(default_factory=list)
     services: list[str] = field(default_factory=list)
+    users: list[str] = field(default_factory=list)
     related_ip: str | None = None
     related_user: str | None = None
     related_resource: str | None = None
@@ -57,6 +58,7 @@ class CaseNotFound(Exception):
 class CaseStore:
     def __init__(self, root: Path | None = None) -> None:
         self.root = root or settings.case_store
+        self._parquet_cols: dict[str, set[str]] = {}
 
     # -- discovery -----------------------------------------------------------------------
 
@@ -127,6 +129,37 @@ class CaseStore:
         con.execute("SET threads TO 4")
         return con
 
+    def _parquet_columns(self, con: duckdb.DuckDBPyConnection, path: str) -> set[str]:
+        cached = self._parquet_cols.get(path)
+        if cached is not None:
+            return cached
+        cols = {
+            r[0]
+            for r in con.execute("DESCRIBE SELECT * FROM read_parquet(?)", [path]).fetchall()
+        }
+        self._parquet_cols[path] = cols
+        return cols
+
+    def _events_table(self, con: duckdb.DuckDBPyConnection, path: str) -> str:
+        """Read events.parquet, normalizing legacy ``harbor_source`` to ``ventra_source``."""
+        cols = self._parquet_columns(con, path)
+        has_v = "ventra_source" in cols
+        has_h = "harbor_source" in cols
+        if has_v and has_h:
+            return (
+                "(SELECT * EXCLUDE(ventra_source, harbor_source), "
+                "COALESCE(NULLIF(ventra_source, ''), harbor_source) AS ventra_source "
+                "FROM read_parquet(?))"
+            )
+        if has_v:
+            return "read_parquet(?)"
+        if has_h:
+            return (
+                "(SELECT * EXCLUDE(harbor_source), harbor_source AS ventra_source "
+                "FROM read_parquet(?))"
+            )
+        return "(SELECT *, CAST('' AS VARCHAR) AS ventra_source FROM read_parquet(?))"
+
     def _build_where(self, q: EventQuery) -> tuple[str, list[Any]]:
         clauses: list[str] = []
         params: list[Any] = []
@@ -154,6 +187,10 @@ class CaseStore:
             placeholders = ",".join("?" for _ in q.services)
             clauses.append(f"cloud_service IN ({placeholders})")
             params.extend(q.services)
+        if q.users:
+            placeholders = ",".join("?" for _ in q.users)
+            clauses.append(f"user_name IN ({placeholders})")
+            params.extend(q.users)
         if q.categories:
             cat_clauses = []
             for c in q.categories:
@@ -199,11 +236,12 @@ class CaseStore:
         )
         con = self._connect()
         try:
+            events = self._events_table(con, path)
             total = con.execute(
-                f"SELECT count(*) FROM read_parquet(?) {where}", [path, *params]
+                f"SELECT count(*) FROM {events} {where}", [path, *params]
             ).fetchone()[0]
             rows = con.execute(
-                f"SELECT * FROM read_parquet(?) {where} "
+                f"SELECT * FROM {events} {where} "
                 f"ORDER BY {sort_expr} {order}, timestamp ASC LIMIT ? OFFSET ?",
                 [path, *params, q.limit, q.offset],
             )
@@ -221,12 +259,13 @@ class CaseStore:
         where, params = self._build_where(q)
         con = self._connect()
         try:
+            events = self._events_table(con, path)
             def agg(col: str) -> list[dict]:
                 rows = con.execute(
-                    f"SELECT {col} AS k, count(*) AS c FROM read_parquet(?) {where} "
+                    f"SELECT {col} AS k, count(*) AS c FROM {events} {where} "
                     f"AND {col} <> '' GROUP BY 1 ORDER BY c DESC LIMIT 25"
                     if where
-                    else f"SELECT {col} AS k, count(*) AS c FROM read_parquet(?) "
+                    else f"SELECT {col} AS k, count(*) AS c FROM {events} "
                     f"WHERE {col} <> '' GROUP BY 1 ORDER BY c DESC LIMIT 25",
                     [path, *params],
                 ).fetchall()
@@ -251,14 +290,15 @@ class CaseStore:
         where, params = self._build_where(q)
         con = self._connect()
         try:
+            events = self._events_table(con, path)
             span = con.execute(
-                f"SELECT min(timestamp), max(timestamp) FROM read_parquet(?) {where} "
+                f"SELECT min(timestamp), max(timestamp) FROM {events} {where} "
                 f"{'AND' if where else 'WHERE'} timestamp <> ''",
                 [path, *params],
             ).fetchone()
             tmin, tmax = span
             rows = con.execute(
-                f"SELECT timestamp, event_severity, ventra_source FROM read_parquet(?) {where} "
+                f"SELECT timestamp, event_severity, ventra_source FROM {events} {where} "
                 f"{'AND' if where else 'WHERE'} timestamp <> '' ORDER BY timestamp",
                 [path, *params],
             ).fetchall()
@@ -273,9 +313,10 @@ class CaseStore:
         path = self._events_path(case_id)
         con = self._connect()
         try:
+            events = self._events_table(con, path)
             rows = con.execute(
                 "SELECT user_arn, user_name, resource_arn, source_ip, count(*) c "
-                "FROM read_parquet(?) WHERE ventra_source IN ('sts') OR event_action='AssumeRole' "
+                f"FROM {events} WHERE ventra_source IN ('sts') OR event_action='AssumeRole' "
                 "GROUP BY 1,2,3,4",
                 [path],
             ).fetchall()
@@ -300,14 +341,15 @@ class CaseStore:
         path = self._events_path(case_id)
         con = self._connect()
         try:
+            events = self._events_table(con, path)
             top_talkers = con.execute(
                 "SELECT dest_ip, sum(coalesce(dest_bytes,0)) bytes, count(*) flows "
-                "FROM read_parquet(?) WHERE ventra_source='vpc_flow' AND dest_ip<>'' "
+                f"FROM {events} WHERE ventra_source='vpc_flow' AND dest_ip<>'' "
                 "GROUP BY 1 ORDER BY bytes DESC LIMIT 15",
                 [path],
             ).fetchall()
             rejected = con.execute(
-                "SELECT source_ip, dest_ip, dest_port, count(*) c FROM read_parquet(?) "
+                f"SELECT source_ip, dest_ip, dest_port, count(*) c FROM {events} "
                 "WHERE ventra_source='vpc_flow' AND event_outcome='failure' "
                 "GROUP BY 1,2,3 ORDER BY c DESC LIMIT 15",
                 [path],
@@ -315,7 +357,7 @@ class CaseStore:
             totals = con.execute(
                 "SELECT count(*) flows, sum(coalesce(dest_bytes,0)) bytes, "
                 "sum(CASE WHEN event_outcome='failure' THEN 1 ELSE 0 END) rejects "
-                "FROM read_parquet(?) WHERE ventra_source='vpc_flow'",
+                f"FROM {events} WHERE ventra_source='vpc_flow'",
                 [path],
             ).fetchone()
         finally:
@@ -330,6 +372,131 @@ class CaseStore:
                 for r in rejected
             ],
         }
+
+    def cloudtrail_collection(self, case_id: str) -> dict[str, Any]:
+        """CloudTrail collection resources — trails, S3 buckets, and event counts by source."""
+        inv = self.inventory(case_id, "cloudtrail") or {}
+        config = inv.get("config") or {}
+        meta = inv.get("meta") or {}
+        summary = config.get("collection_summary") or meta.get("collection_summary") or {}
+        trails = summary.get("trails") or [_trail_from_config(t) for t in config.get("trails", [])]
+        live = self._cloudtrail_live_counts(case_id)
+
+        lookup = summary.get("events", {}).get("lookup_api") or {}
+        s3 = summary.get("events", {}).get("s3") or {}
+        by_bucket = live.get("by_bucket") or s3.get("by_bucket") or []
+        by_bucket = _merge_bucket_summaries(by_bucket, s3.get("by_bucket") or [])
+
+        return {
+            "trail_count": summary.get("trail_count", len(trails)),
+            "trails": trails,
+            "event_coverage": config.get("event_coverage") or meta.get("event_coverage") or {},
+            "s3_collection": config.get("s3_collection") or meta.get("s3_collection") or {},
+            "events": {
+                "lookup_api": {
+                    "management": live.get("lookup_management") or lookup.get("management", 0),
+                    "insight": live.get("lookup_insight") or lookup.get("insight", 0),
+                    "total": live.get("lookup_total") or lookup.get("total", 0),
+                },
+                "s3": {
+                    "total": live.get("s3_total") or s3.get("total", 0),
+                    "data": s3.get("data", 0),
+                    "insight": s3.get("insight", 0),
+                    "network_activity": s3.get("network_activity", 0),
+                    "by_bucket": by_bucket,
+                },
+            },
+            "meta": meta,
+        }
+
+    def _cloudtrail_live_counts(self, case_id: str) -> dict[str, Any]:
+        """Derive lookup vs S3 event counts from ingested events (falls back when meta is sparse)."""
+        path = self._events_path(case_id)
+        con = self._connect()
+        try:
+            events = self._events_table(con, path)
+            lookup_total = con.execute(
+                f"SELECT count(*) FROM {events} "
+                "WHERE ventra_source IN ('cloudtrail', 'sts') AND ("
+                "  json_extract_string(raw, '$._ventra_collect_source') = 'lookup_events' "
+                "  OR (COALESCE(json_extract_string(raw, '$._ventra_log_key'), '') = '' "
+                "      AND COALESCE(json_extract_string(raw, '$._ventra_s3_bucket'), '') = ''"
+                "  ))",
+                [path],
+            ).fetchone()[0]
+            s3_total = con.execute(
+                f"SELECT count(*) FROM {events} "
+                "WHERE ventra_source IN ('cloudtrail', 'sts') AND ("
+                "  json_extract_string(raw, '$._ventra_collect_source') = 's3_logs' "
+                "  OR COALESCE(json_extract_string(raw, '$._ventra_log_key'), '') <> '' "
+                "  OR COALESCE(json_extract_string(raw, '$._ventra_s3_bucket'), '') <> ''"
+                ")",
+                [path],
+            ).fetchone()[0]
+            bucket_rows = con.execute(
+                "SELECT COALESCE(NULLIF(json_extract_string(raw, '$._ventra_s3_bucket'), ''), "
+                "'(unknown bucket)') AS bucket, count(*) AS c "
+                f"FROM {events} "
+                "WHERE ventra_source IN ('cloudtrail', 'sts') AND ("
+                "  json_extract_string(raw, '$._ventra_collect_source') = 's3_logs' "
+                "  OR COALESCE(json_extract_string(raw, '$._ventra_log_key'), '') <> '' "
+                "  OR COALESCE(json_extract_string(raw, '$._ventra_s3_bucket'), '') <> ''"
+                ") GROUP BY 1 ORDER BY c DESC",
+                [path],
+            ).fetchall()
+        finally:
+            con.close()
+
+        by_bucket = [
+            {"bucket": r[0], "events": {"total": int(r[1])}, "trail_arns": []}
+            for r in bucket_rows
+        ]
+        return {
+            "lookup_total": int(lookup_total or 0),
+            "s3_total": int(s3_total or 0),
+            "by_bucket": by_bucket,
+        }
+
+
+def _trail_from_config(trail: dict[str, Any]) -> dict[str, Any]:
+    status = trail.get("Status") or {}
+    return {
+        "name": trail.get("Name", ""),
+        "arn": trail.get("TrailARN", ""),
+        "home_region": trail.get("HomeRegion", ""),
+        "s3_bucket": trail.get("S3BucketName", ""),
+        "s3_key_prefix": trail.get("S3KeyPrefix", ""),
+        "is_logging": bool(status.get("IsLogging")),
+        "is_multi_region": bool(trail.get("IsMultiRegionTrail")),
+        "is_organization": bool(trail.get("IsOrganizationTrail")),
+        "log_file_validation": bool(trail.get("LogFileValidationEnabled")),
+    }
+
+
+def _merge_bucket_summaries(
+    primary: list[dict[str, Any]], fallback: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Prefer live event totals but keep collector metadata (trail ARNs, category splits)."""
+    by_name = {b.get("bucket"): dict(b) for b in fallback if b.get("bucket")}
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for row in primary:
+        bucket = row.get("bucket")
+        if not bucket:
+            continue
+        seen.add(bucket)
+        merged = dict(by_name.get(bucket, {}))
+        merged["bucket"] = bucket
+        live_total = (row.get("events") or {}).get("total")
+        if live_total is not None:
+            events = dict(merged.get("events") or {})
+            events["total"] = live_total
+            merged["events"] = events
+        out.append(merged)
+    for bucket, meta in by_name.items():
+        if bucket not in seen:
+            out.append(meta)
+    return out
 
 
 def _decode_row(row: dict[str, Any]) -> dict[str, Any]:

@@ -88,6 +88,7 @@ def _event_query(
     actions: list[str] | None = Query(None),
     regions: list[str] | None = Query(None),
     services: list[str] | None = Query(None),
+    users: list[str] | None = Query(None),
     action: str | None = Query(None),
     user: str | None = Query(None),
     user_type: str | None = Query(None),
@@ -137,6 +138,7 @@ def _event_query(
         actions=actions or [],
         regions=regions or [],
         services=services or [],
+        users=users or [],
         related_ip=related_ip,
         related_user=related_user,
         related_resource=related_resource,
@@ -163,6 +165,11 @@ def event_facets(case_id: str, q: EventQuery = Depends(_event_query),
 def timeline(case_id: str, q: EventQuery = Depends(_event_query),
              _: Role = Depends(_check("view_case"))) -> dict:
     return store.timeline_buckets(case_id, q)
+
+
+@app.get("/api/cases/{case_id}/cloudtrail/collection")
+def cloudtrail_collection(case_id: str, _: Role = Depends(_check("view_case"))) -> dict:
+    return store.cloudtrail_collection(case_id)
 
 
 # -- findings ----------------------------------------------------------------------------

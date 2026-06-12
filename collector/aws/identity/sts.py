@@ -19,7 +19,7 @@ ASSUME_EVENTS = ("AssumeRole", "AssumeRoleWithSAML", "AssumeRoleWithWebIdentity"
 
 class StsCollector(Collector):
     name = "sts"
-    tier = 1
+    priority = 1
     description = "AssumeRole activity (sourced from CloudTrail LookupEvents)."
     required_actions = ("cloudtrail:LookupEvents",)
 
@@ -46,6 +46,7 @@ class StsCollector(Collector):
                         EndTime=end,
                     ):
                         ev["_ventra_region"] = region
+                        ev["_ventra_collect_source"] = "lookup_events"
                         records.append(ev)
                 except AccessDenied as exc:
                     gaps.append(("sts", GapReason.ACCESS_DENIED, f"{region}: {exc.message}"))

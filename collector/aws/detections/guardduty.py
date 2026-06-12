@@ -16,7 +16,7 @@ from ..client_factory import AccessDenied, ServiceNotEnabled
 
 class GuardDutyCollector(Collector):
     name = "guardduty"
-    tier = 1
+    priority = 1
     description = "GuardDuty findings, detector config, suppression filters."
     required_actions = (
         "guardduty:ListDetectors",

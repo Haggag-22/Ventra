@@ -1,4 +1,4 @@
-"""Secrets Manager collector (Tier 2).
+"""Secrets Manager collector (extended collector).
 
 Secret *metadata only* — never values. Captures which secrets exist, rotation config, resource
 policies, and last-accessed/last-changed timestamps. Secret access and changes are tracked via
@@ -14,7 +14,7 @@ from ..client_factory import AccessDenied, ServiceNotEnabled
 
 class SecretsCollector(Collector):
     name = "secrets"
-    tier = 2
+    priority = 2
     description = "Secrets Manager metadata (never values), rotation, resource policies."
     required_actions = ("secretsmanager:ListSecrets", "secretsmanager:DescribeSecret")
 

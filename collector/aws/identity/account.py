@@ -2,7 +2,7 @@
 
 Captures the environment the rest of the evidence is interpreted against: account id/alias,
 org placement, enabled regions, and the operator identity that ran the collection. This is
-Tier 1 and effectively free.
+baseline and effectively free.
 """
 
 from __future__ import annotations
@@ -14,7 +14,7 @@ from ..client_factory import AccessDenied, ServiceNotEnabled
 
 class AccountCollector(Collector):
     name = "account"
-    tier = 1
+    priority = 1
     description = "Account, organization, region, and operator context."
     required_actions = (
         "sts:GetCallerIdentity",

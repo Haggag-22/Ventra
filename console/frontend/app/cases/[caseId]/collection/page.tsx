@@ -122,12 +122,7 @@ export default function CollectionPage() {
                   <div key={item.id} className="flex items-start gap-3 px-4 py-3">
                     <Icon className={cn("mt-0.5 h-5 w-5 shrink-0", meta.tone)} />
                     <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-medium text-fg">{item.label}</span>
-                        <span className="rounded border border-border bg-surface-2 px-1.5 py-0.5 text-2xs uppercase tracking-wide text-fg-subtle">
-                          Tier {item.tier}
-                        </span>
-                      </div>
+                      <div className="text-sm font-medium text-fg">{item.label}</div>
                       <div className="mt-0.5 text-xs text-fg-subtle">{item.description}</div>
                       {r.detail && r.state !== "collected" && (
                         <div className="mt-1 text-2xs text-fg-subtle/80 italic">{r.detail}</div>

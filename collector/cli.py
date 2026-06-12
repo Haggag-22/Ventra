@@ -11,10 +11,10 @@
 Runs every registered collector for the cloud. The CLI is deliberately thin: it parses
 arguments, builds an AwsRunConfig, and delegates to the runner.
 
-While a collection runs, the CLI renders a live "collection matrix" — one PASS / PARTIAL /
-INFO / FAIL row per source as it completes — so the operator can see exactly what was
-captured and what was missing (a gap is evidence). The same matrix is written to
-``collection_matrix.csv`` in the output directory.
+While a collection runs, the CLI renders a live "collection matrix" — one PASS or FAIL row
+per source as it completes — so the operator can see exactly what was captured and what was
+missing (a gap is evidence). The same matrix is written to ``collection_matrix.csv`` in the
+output directory.
 """
 
 from __future__ import annotations
@@ -132,19 +132,11 @@ _SEV_COLOR = {"High": "red", "Medium": "yellow", "Low": "cyan"}
 
 
 def _classify(status: SourceStatus, severity: str) -> tuple[str, str]:
-    """Map a collector outcome + severity to a (label, color) for the matrix."""
-    if status == SourceStatus.COLLECTED:
+    """Map a collector outcome to PASS or FAIL for the live matrix."""
+    del severity  # binary matrix; severity stays in CSV detail only
+    if status in (SourceStatus.COLLECTED, SourceStatus.PARTIAL):
         return "PASS", "green"
-    if status == SourceStatus.PARTIAL:
-        return "PART", "yellow"
-    if status == SourceStatus.ERRORED:
-        return "FAIL", "red"
-    if status == SourceStatus.SKIPPED:
-        return "SKIP", "bright_black"
-    # EMPTY: a missing High-value source is a failure; otherwise informational.
-    if severity == "High":
-        return "FAIL", "red"
-    return "INFO", "blue"
+    return "FAIL", "red"
 
 
 def _cli_reporter():
@@ -153,22 +145,45 @@ def _cli_reporter():
     from .aws.runner.runner import RunReporter
 
     try:
+        from rich.box import ROUNDED
         from rich.console import Console
+        from rich.live import Live
+        from rich.table import Table
 
         console = Console()
     except Exception:  # pragma: no cover - rich is a declared dependency
         console = None
+        Live = None  # type: ignore[misc, assignment]
+        Table = None  # type: ignore[misc, assignment]
+        ROUNDED = None  # type: ignore[misc, assignment]
 
     class MatrixReporter(RunReporter):
-        """Streams one matrix row per source as it completes, with a live spinner."""
+        """Streams one matrix row per source as it completes, with a live table."""
 
         def __init__(self) -> None:
             super().__init__()
             self.rows: list[dict] = []
             self._console = console
-            self._status = None
+            self._live = None
+            self._table = None
+            self._plain_header = False
             self._account = ""
             self._masked = "????"
+
+        def _new_table(self):
+            table = Table(
+                show_header=True,
+                header_style="bold bright_black",
+                box=ROUNDED,
+                expand=True,
+                pad_edge=False,
+            )
+            table.add_column("Status", width=6, no_wrap=True)
+            table.add_column("Collector", width=14, no_wrap=True)
+            table.add_column("Severity", width=8, no_wrap=True)
+            table.add_column("Records", width=10, justify="right", no_wrap=True)
+            table.add_column("Detail", ratio=1, overflow="ellipsis", no_wrap=True)
+            return table
 
         # -- lifecycle ------------------------------------------------------
         def begin_run(self, account_id: str, regions: list[str], case_id: str = "") -> None:
@@ -184,29 +199,31 @@ def _cli_reporter():
                 self._console.print(f"Scope      : Global / {len(regions)} region(s)")
                 self._console.print(f"Timestamp  : {ts}")
                 self._console.print()
-                self._console.print(f"[+] Starting collection for account {self._masked}\n")
-                self._status = self._console.status(
-                    "[bright_black]initializing…[/bright_black]", spinner="dots"
-                )
-                self._status.start()
+                self._table = self._new_table()
+                self._live = Live(self._table, console=self._console, refresh_per_second=8)
+                self._live.start()
             else:
                 print(f"[+] Ventra collection — account {self._masked} — {ts}")
 
         def start(self, name: str) -> None:
-            if self._status:
-                self._status.update(f"[yellow]collecting[/yellow] {name}…")
+            if self._table is not None and self._live is not None:
+                self._table.caption = f"Collecting [yellow]{name}[/]…"
+                self._live.update(self._table)
 
         def finish(self, name: str, result) -> None:
             row = self._build_row(name, result)
             self.rows.append(row)
-            self._print_row(row)
+            self._append_row(row)
 
         def stop(self) -> None:
-            if self._status:
-                self._status.stop()
-                self._status = None
+            if self._live is not None:
+                self._live.stop()
+                self._live = None
 
         def finalize(self) -> None:
+            if self._table is not None and self._live is not None:
+                self._table.caption = None
+                self._live.update(self._table)
             self.stop()
             from collections import Counter
 
@@ -214,15 +231,12 @@ def _cli_reporter():
             if self._console:
                 self._console.print(
                     f"\n[+] Collection complete: "
-                    f"[green]{c.get('PASS', 0)} collected[/green], "
-                    f"[yellow]{c.get('PART', 0)} partial[/yellow], "
-                    f"[blue]{c.get('INFO', 0)} info[/blue], "
+                    f"[green]{c.get('PASS', 0)} pass[/green], "
                     f"[red]{c.get('FAIL', 0)} fail[/red]"
                 )
             else:
                 print(
-                    f"[+] Complete: {c.get('PASS', 0)} collected, {c.get('PART', 0)} partial, "
-                    f"{c.get('INFO', 0)} info, {c.get('FAIL', 0)} fail"
+                    f"[+] Complete: {c.get('PASS', 0)} pass, {c.get('FAIL', 0)} fail"
                 )
 
         def write_matrix_csv(self, out_dir) -> Path:
@@ -243,11 +257,33 @@ def _cli_reporter():
                     )
             return path
 
+        def _append_row(self, row: dict) -> None:
+            if self._table is not None and self._live is not None:
+                self._table.add_row(
+                    f"[bold {row['color']}]{row['label']}[/]",
+                    row["check"],
+                    f"[{row['sev_color']}]{row['severity']}[/]",
+                    row["tag"],
+                    row["desc"],
+                )
+                self._table.caption = None
+                self._live.update(self._table)
+                return
+
+            if not self._plain_header:
+                print(f"{'STATUS':<6} {'COLLECTOR':<14} {'SEVERITY':<8} {'RECORDS':>10}  DETAIL")
+                print("─" * 80)
+                self._plain_header = True
+            print(
+                f"{row['label']:<6} {row['check']:<14} {row['severity']:<8} "
+                f"{row['tag']:>10}  {row['desc']}"
+            )
+
         # -- row construction ----------------------------------------------
         def _build_row(self, name: str, result) -> dict:
             cls = AWS_REGISTRY.get(name)
-            tier = getattr(cls, "tier", 2)
-            severity = _SEVERITY.get(name, "High" if tier == 1 else "Medium")
+            priority = getattr(cls, "priority", 2)
+            severity = _SEVERITY.get(name, "High" if priority == 1 else "Medium")
             label, color = _classify(result.status, severity)
 
             count = result.record_count
@@ -268,26 +304,6 @@ def _cli_reporter():
                 "tag": tag,
                 "desc": desc,
             }
-
-        def _print_row(self, row: dict) -> None:
-            if self._console:
-                line = (
-                    f"[bold {row['color']}]{row['label']:<5}[/] "
-                    f"[bright_black]{self._masked:<8}[/] "
-                    f"{row['scope']:<7} "
-                    f"{row['check']:<13} "
-                    f"[{row['sev_color']}]{row['severity']:<6}[/] "
-                    f"{row['tag']:<12} "
-                    f"{row['desc']}"
-                )
-                # Keep every source on a single line; truncate over-long detail with an
-                # ellipsis rather than wrapping, so the matrix stays readable on any width.
-                self._console.print(line, no_wrap=True, overflow="ellipsis", crop=True)
-            else:
-                print(
-                    f"{row['label']:<5} {self._masked:<8} {row['scope']:<7} "
-                    f"{row['check']:<13} {row['severity']:<6} {row['tag']:<12} {row['desc']}"
-                )
 
     return MatrixReporter(), console
 
@@ -324,7 +340,7 @@ def _run_aws(args) -> int:
 
     if args.list_collectors:
         for name, cls in sorted(AWS_REGISTRY.all().items()):
-            print(f"  tier{cls.tier}  {name:<14} {cls.description}")
+            print(f"  {name:<14} {cls.description}")
         return 0
 
     if not args.case:

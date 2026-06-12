@@ -3,6 +3,7 @@
 
 import type {
   CaseSummary,
+  CloudTrailCollection,
   EventsResponse,
   Facets,
   IdentityResponse,
@@ -19,6 +20,7 @@ export type EventParams = {
   actions?: string[];
   regions?: string[];
   services?: string[];
+  users?: string[];
   action?: string;
   user?: string;
   user_type?: string;
@@ -78,6 +80,8 @@ export const api = {
     get<{ sources: string[]; ec2: any; s3: any; account: any }>(`/cases/${c}/resources`),
   inventory: (c: string, source: string) =>
     get<{ source: string; data: any }>(`/cases/${c}/inventory/${source}`),
+  cloudtrailCollection: (c: string) =>
+    get<CloudTrailCollection>(`/cases/${c}/cloudtrail/collection`),
 };
 
 export async function importPackage(file: File, caseId?: string): Promise<any> {

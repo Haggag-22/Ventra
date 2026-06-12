@@ -1,4 +1,4 @@
-"""KMS collector (Tier 2).
+"""KMS collector (extended collector).
 
 Key inventory with key policies and grants. Key-policy changes and broad grants are
 privilege-escalation and exfil enablers (decrypting data you shouldn't). Actual key-usage
@@ -14,7 +14,7 @@ from ..client_factory import AccessDenied, ServiceNotEnabled
 
 class KmsCollector(Collector):
     name = "kms"
-    tier = 2
+    priority = 2
     description = "KMS key inventory, key policies, and grants."
     required_actions = (
         "kms:ListKeys",

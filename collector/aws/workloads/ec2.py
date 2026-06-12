@@ -1,4 +1,4 @@
-"""EC2 inventory + EBS evidence-trail collector (Tier 2).
+"""EC2 inventory + EBS evidence-trail collector (extended collector).
 
 Inventory of instances, volumes, ENIs, security groups, AMIs and launch templates — plus the
 EBS snapshot trail (creation, cross-account sharing, cross-region copy), a classic
@@ -22,7 +22,7 @@ MAX_USER_DATA_LOOKUPS = 500
 
 class Ec2Collector(Collector):
     name = "ec2"
-    tier = 2
+    priority = 2
     description = "EC2/EBS inventory and snapshot share/copy evidence trail (metadata only)."
     required_actions = (
         "ec2:DescribeInstances",

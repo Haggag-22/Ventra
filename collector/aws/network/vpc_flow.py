@@ -22,7 +22,7 @@ MAX_CW_RECORDS = 200_000
 
 class VpcFlowCollector(Collector):
     name = "vpc_flow"
-    tier = 1
+    priority = 1
     description = "VPC Flow Logs configuration + recent CloudWatch flow records."
     required_actions = (
         "ec2:DescribeFlowLogs",

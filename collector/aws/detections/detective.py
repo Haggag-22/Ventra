@@ -1,4 +1,4 @@
-"""Amazon Detective investigations collector (Tier 2).
+"""Amazon Detective investigations collector (extended collector).
 
 Detective does not expose GuardDuty-style findings; open investigations are the closest
 IR-ready signal. This collector lists graph membership and active investigations per region.
@@ -15,7 +15,7 @@ from ..client_factory import AccessDenied, ServiceNotEnabled
 
 class DetectiveCollector(Collector):
     name = "detective"
-    tier = 2
+    priority = 2
     description = "Detective graph config and open investigations."
     required_actions = (
         "detective:ListGraphs",

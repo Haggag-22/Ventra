@@ -21,6 +21,7 @@ export interface CloudTrailFilters {
   actions?: string[];
   services?: string[];
   regions?: string[];
+  users?: string[];
   order?: string;
   user?: string;
   ip?: string;
@@ -64,6 +65,10 @@ export function CloudTrailToolbar({
     count: f.count,
   }));
   const regionOptions = (facets?.cloud_region ?? []).map((f) => ({
+    value: f.value,
+    count: f.count,
+  }));
+  const principalOptions = (facets?.user_name ?? []).map((f) => ({
     value: f.value,
     count: f.count,
   }));
@@ -150,6 +155,20 @@ export function CloudTrailToolbar({
             onChange({ regions: next.length ? next : undefined });
           }}
           onClear={() => onChange({ regions: undefined })}
+          variant="cloudtrail"
+        />
+
+        <MultiSelect
+          label="Principals"
+          icon={Filter}
+          options={principalOptions}
+          selected={filters.users ?? []}
+          onToggle={(v) => {
+            const cur = filters.users ?? [];
+            const next = cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v];
+            onChange({ users: next.length ? next : undefined });
+          }}
+          onClear={() => onChange({ users: undefined })}
           variant="cloudtrail"
         />
 
