@@ -35,6 +35,7 @@ class GapReason(enum.StrEnum):
     REGION_OPTED_OUT = "region_opted_out"
     NOT_PRESENT = "not_present"
     COLLECTOR_ERROR = "collector_error"
+    LOG_INTEGRITY_FAILED = "log_integrity_failed"
     OUT_OF_SCOPE = "out_of_scope"
 
 

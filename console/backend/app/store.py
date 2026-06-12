@@ -28,6 +28,60 @@ SORTABLE = {"timestamp", "event_severity", "event_action", "user_name", "source_
 
 SEVERITY_RANK = {"critical": 5, "high": 4, "medium": 3, "low": 2, "info": 1}
 
+# Resource inventory roll-ups: (category title, item specs).
+# Each spec maps an inventory JSON source + key to a human label. Keys may use
+# dot paths; ``_config.*`` reads nested collector config (waf, vpc_flow).
+_INVENTORY_RESOURCE_SPECS: list[tuple[str, list[dict[str, str]]]] = [
+    (
+        "Compute & storage",
+        [
+            {"id": "ec2_instances", "label": "EC2 instances", "source": "ec2", "key": "instances"},
+            {"id": "ec2_volumes", "label": "EBS volumes", "source": "ec2", "key": "volumes"},
+            {"id": "ec2_snapshots", "label": "EBS snapshots", "source": "ec2", "key": "snapshots"},
+            {"id": "ec2_images", "label": "AMIs", "source": "ec2", "key": "images"},
+            {"id": "ec2_launch_templates", "label": "Launch templates", "source": "ec2", "key": "launch_templates"},
+            {"id": "lambda_functions", "label": "Lambda functions", "source": "lambda", "key": "functions"},
+            {"id": "s3_buckets", "label": "S3 buckets", "source": "s3", "key": "buckets"},
+        ],
+    ),
+    (
+        "Network",
+        [
+            {"id": "vpc_count", "label": "VPCs", "source": "vpc_flow", "key": "_config.vpcs"},
+            {"id": "vpc_flow_logs", "label": "VPC Flow Log configs", "source": "vpc_flow", "key": "_config.flow_logs"},
+            {"id": "ec2_enis", "label": "Network interfaces", "source": "ec2", "key": "network_interfaces"},
+            {"id": "ec2_security_groups", "label": "Security groups", "source": "ec2", "key": "security_groups"},
+            {"id": "waf_acls", "label": "WAF Web ACLs", "source": "waf", "key": "_config.web_acls"},
+        ],
+    ),
+    (
+        "Identity & encryption",
+        [
+            {"id": "iam_users", "label": "IAM users", "source": "iam", "key": "users"},
+            {"id": "iam_roles", "label": "IAM roles", "source": "iam", "key": "roles"},
+            {"id": "iam_groups", "label": "IAM groups", "source": "iam", "key": "groups"},
+            {"id": "iam_policies", "label": "Customer-managed policies", "source": "iam", "key": "policies"},
+            {"id": "kms_keys", "label": "KMS keys", "source": "kms", "key": "keys"},
+            {"id": "secrets", "label": "Secrets Manager secrets", "source": "secrets", "key": "secrets"},
+        ],
+    ),
+]
+
+
+def _inventory_resource_count(data: Any, key: str) -> int:
+    node: Any = data
+    for part in key.split("."):
+        if not isinstance(node, dict):
+            return 0
+        node = node.get(part)
+    if node is None:
+        return 0
+    if isinstance(node, list):
+        return len(node)
+    if isinstance(node, (int, float)):
+        return int(node)
+    return 0
+
 
 @dataclass
 class EventQuery:
@@ -108,6 +162,38 @@ class CaseStore:
         if not inv.is_dir():
             return []
         return sorted(p.stem for p in inv.glob("*.json"))
+
+    def inventory_summary(self, case_id: str) -> dict[str, Any]:
+        """Aggregate point-in-time resource counts from inventory snapshots (no logs/events)."""
+        sources = self.inventory_sources(case_id)
+        loaded = {s: self.inventory(case_id, s) for s in sources}
+
+        categories: list[dict[str, Any]] = []
+        total = 0
+        for cat_name, specs in _INVENTORY_RESOURCE_SPECS:
+            items: list[dict[str, Any]] = []
+            for spec in specs:
+                data = loaded.get(spec["source"])
+                count = _inventory_resource_count(data, spec["key"]) if data is not None else None
+                if count is not None:
+                    total += count
+                items.append(
+                    {
+                        "id": spec["id"],
+                        "label": spec["label"],
+                        "source": spec["source"],
+                        "key": spec["key"],
+                        "count": count,
+                        "collected": spec["source"] in sources,
+                    }
+                )
+            categories.append({"name": cat_name, "items": items})
+
+        return {
+            "sources": sources,
+            "categories": categories,
+            "total_resources": total,
+        }
 
     def collection_log(self, case_id: str) -> list[dict]:
         p = self.case_dir(case_id) / "collection.log"
@@ -390,8 +476,15 @@ class CaseStore:
         return {
             "trail_count": summary.get("trail_count", len(trails)),
             "trails": trails,
+            "management_source": summary.get("management_source")
+            or meta.get("management_source")
+            or "",
+            "management_collection": config.get("management_collection")
+            or meta.get("management_collection")
+            or {},
             "event_coverage": config.get("event_coverage") or meta.get("event_coverage") or {},
             "s3_collection": config.get("s3_collection") or meta.get("s3_collection") or {},
+            "log_validation": config.get("log_validation") or meta.get("log_validation") or {},
             "events": {
                 "lookup_api": {
                     "management": live.get("lookup_management") or lookup.get("management", 0),
@@ -400,6 +493,7 @@ class CaseStore:
                 },
                 "s3": {
                     "total": live.get("s3_total") or s3.get("total", 0),
+                    "management": s3.get("management", 0),
                     "data": s3.get("data", 0),
                     "insight": s3.get("insight", 0),
                     "network_activity": s3.get("network_activity", 0),

@@ -24,6 +24,7 @@ MAX_CATEGORY_RECORDS = 200_000
 DATA_CATEGORIES = frozenset({"Data"})
 NETWORK_CATEGORIES = frozenset({"NetworkActivity"})
 INSIGHT_CATEGORIES = frozenset({"Insight"})
+MANAGEMENT_CATEGORIES = frozenset({"Management"})
 
 # CloudTrail delivers each event category to its own folder under AWSLogs/<account>/
 # (see "Finding your CloudTrail log files" in the CloudTrail user guide):
@@ -31,6 +32,7 @@ INSIGHT_CATEGORIES = frozenset({"Insight"})
 #   insights            -> CloudTrail-Insight/
 #   network activity    -> CloudTrail-NetworkActivity/
 CATEGORY_SUBFOLDERS: dict[frozenset[str], str] = {
+    MANAGEMENT_CATEGORIES: "CloudTrail",
     DATA_CATEGORIES: "CloudTrail",
     INSIGHT_CATEGORIES: "CloudTrail-Insight",
     NETWORK_CATEGORIES: "CloudTrail-NetworkActivity",
@@ -89,6 +91,28 @@ def network_activity_configured(trail: dict[str, Any]) -> bool:
             if fs.get("Field") == "eventCategory" and "NetworkActivity" in (fs.get("Equals") or []):
                 return True
     return False
+
+
+def management_events_configured(trail: dict[str, Any]) -> bool:
+    """True if the trail delivers management events.
+
+    Management events are logged by default; only an explicit selector turns them off. With
+    classic selectors, any selector that includes management events counts. With advanced
+    selectors, a ``eventCategory == Management`` field selector counts. When no selector data
+    is available (a default trail, or selectors we could not fetch), assume the default — ON.
+    """
+    es = trail.get("EventSelectors") or {}
+    classic = es.get("EventSelectors")
+    advanced = es.get("AdvancedEventSelectors")
+    if classic:
+        return any(sel.get("IncludeManagementEvents", True) for sel in classic)
+    if advanced:
+        for adv in advanced:
+            for fs in adv.get("FieldSelectors") or []:
+                if fs.get("Field") == "eventCategory" and "Management" in (fs.get("Equals") or []):
+                    return True
+        return False
+    return True
 
 
 def insight_events_configured(trail: dict[str, Any]) -> bool:

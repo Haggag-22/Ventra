@@ -23,7 +23,7 @@ main
 echo
 echo "⚓ Ventra collection — case=${CASE_ID}"
 
-ARGS=(collect aws --case "$CASE_ID" --out "$OUT_DIR")
+ARGS=(collect aws --case "$CASE_ID" --out "$OUT_DIR" --no-ingest)
 [ -n "$SINCE" ]   && ARGS+=(--since "$SINCE")
 [ -n "$REGIONS" ] && ARGS+=(--regions "$REGIONS")
 

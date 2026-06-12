@@ -32,7 +32,7 @@ const PANELS = [
   { href: "search", label: "Security Findings", icon: ShieldAlert },
   { href: "identity", label: "Identity & Access", icon: Fingerprint },
   { href: "network", label: "Network Activity", icon: Network },
-  { href: "collection", label: "Collection Coverage", icon: Gauge },
+  { href: "collection", label: "Logs Coverage", icon: Gauge },
 ];
 
 export function CommandPalette({

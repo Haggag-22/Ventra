@@ -116,6 +116,7 @@ def run_aws_collection(cfg: AwsRunConfig, *, factory: AwsClientFactory | None = 
             operator=Operator(principal_arn=identity.arn, user_id=identity.user_id),
             started_at=started,
             completed_at="",  # filled below
+            time_window=cfg.time_window,
             profile_name="all",
             profile_overrides=[],
             host_environment=_detect_environment(),

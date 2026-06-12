@@ -1,4 +1,4 @@
-// Collection Coverage helpers — gap roll-up and manifest resolution.
+// Logs coverage helpers — gap roll-up and manifest resolution.
 
 import { CATALOG, type CatalogItem, type Cloud } from "./catalog";
 
@@ -17,7 +17,8 @@ export type CoverageState =
   | "empty"
   | "denied"
   | "not_enabled"
-  | "not_run";
+  | "not_run"
+  | "planned";
 
 export interface ManifestGap {
   name: string;
@@ -61,20 +62,30 @@ export function catalogItems(cloud: Cloud): CatalogItem[] {
   return (CATALOG[cloud] ?? []).flatMap((g) => g.items);
 }
 
-const AWS_BASELINE_COLLECTORS = new Set([
-  "account",
-  "iam",
-  "sts",
+/** Log sources with a Ventra collector today (maps to manifest `sources[].name`). */
+export const IMPLEMENTED_LOG_COLLECTORS = new Set([
   "cloudtrail",
+  "config",
   "vpc_flow",
-  "waf",
   "guardduty",
+  "securityhub",
+  "detective",
+  "macie",
+  "waf",
+]);
+
+const AWS_LOGS_BASELINE = new Set([
+  "cloudtrail",
+  "config",
+  "vpc_flow",
+  "guardduty",
+  "waf",
 ]);
 
 export function baselineCollectorIds(cloud: Cloud): string[] {
   const items = catalogItems(cloud);
   if (cloud === "aws") {
-    return items.filter((i) => AWS_BASELINE_COLLECTORS.has(i.id)).map((i) => i.id);
+    return items.filter((i) => AWS_LOGS_BASELINE.has(i.id)).map((i) => i.id);
   }
   return items.map((i) => i.id);
 }

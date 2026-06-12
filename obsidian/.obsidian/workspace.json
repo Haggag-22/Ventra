@@ -68,7 +68,7 @@
               "type": "markdown",
               "state": {
                 "file": "To Do.md",
-                "mode": "preview",
+                "mode": "source",
                 "source": false
               },
               "icon": "lucide-file",
@@ -238,16 +238,16 @@
   },
   "active": "61a70f575dabb228",
   "lastOpenFiles": [
+    "Tool Testers.md",
+    "Artifacts Cheat Sheet/AWS/All AWS Artifacts.canvas",
+    "To Do.md",
     "Questions the tool should ask before collecting.md",
     "Artifacts Cheat Sheet/AWS/Specific AWS Artifacts (Erblind).png",
-    "To Do.md",
     "Artifacts Cheat Sheet/AWS/AWS IR Cheat Sheet (Erblind).png",
     "Artifacts Cheat Sheet/AWS/EC2 & EBS Logs.md",
     "Artifacts Cheat Sheet/AWS/Database Logs.md",
-    "Tool Testers.md",
     "Artifacts Cheat Sheet/AWS/Application Logs.md",
     "Pasted image 20260611152917.png",
-    "Artifacts Cheat Sheet/AWS/All AWS Artifacts.canvas",
     "Collectors/Kubernetes Collectors.md",
     "Artifacts Cheat Sheet/Kubernetes",
     "Artifacts Cheat Sheet/GCP/GCP IR Cheat Sheet (Erblind).png",

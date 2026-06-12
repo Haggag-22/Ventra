@@ -150,6 +150,7 @@
               "region_opted_out",
               "not_present",
               "collector_error",
+              "log_integrity_failed",
               "out_of_scope"
             ]
           },

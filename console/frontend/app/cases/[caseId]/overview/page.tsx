@@ -33,6 +33,7 @@ const REASON_LABEL: Record<string, string> = {
   region_opted_out: "Region opted out",
   not_present: "Not present",
   collector_error: "Collector error",
+  log_integrity_failed: "Log integrity failed",
   out_of_scope: "Out of scope",
 };
 
@@ -83,7 +84,7 @@ export default function OverviewPage() {
           {/* Collection completeness — read this first */}
           <Card className="lg:col-span-1">
             <CardHeader
-              title="Collection completeness"
+              title="Logs completeness"
               subtitle="A disabled or empty source changes how you read everything else"
               icon={CheckCircle2}
             />

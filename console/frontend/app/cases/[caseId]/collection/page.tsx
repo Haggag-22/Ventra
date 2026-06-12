@@ -4,12 +4,12 @@ import { useCase } from "@/components/case-context";
 import { PanelBody, PanelHeader } from "@/components/panel";
 import { Card, LoadingPanel } from "@/components/ui";
 import { api } from "@/lib/api";
-import { CATALOG, CLOUD_IMPLEMENTED, type Cloud } from "@/lib/catalog";
+import { CLOUD_IMPLEMENTED, type Cloud } from "@/lib/catalog";
 import {
   aggregateManifestSources,
   catalogItems,
+  IMPLEMENTED_LOG_COLLECTORS,
   resolveCollectorCoverage,
-  unmappedGaps,
   type CoverageState,
 } from "@/lib/collection-coverage";
 import { fmtNum } from "@/lib/format";
@@ -34,7 +34,27 @@ const STATE_META: Record<
   not_enabled: { label: "Not available", icon: Square, tone: "text-warn-amber", collected: false },
   denied: { label: "Access denied", icon: XSquare, tone: "text-bad-red", collected: false },
   not_run: { label: "Not run", icon: Square, tone: "text-fg-subtle", collected: false },
+  planned: { label: "Not yet implemented", icon: Square, tone: "text-fg-subtle", collected: false },
 };
+
+function displayState(id: string, state: CoverageState): CoverageState {
+  if (state === "not_run" && !IMPLEMENTED_LOG_COLLECTORS.has(id)) return "planned";
+  return state;
+}
+
+function rowDetail(
+  state: CoverageState,
+  display: CoverageState,
+  detail: string,
+  gaps: { name: string; detail: string }[],
+): string {
+  if (display === "planned") return "";
+  if (state === "partial" && gaps.length) {
+    return gaps.map((g) => g.detail).join(" ");
+  }
+  if (state !== "collected" && detail) return detail;
+  return "";
+}
 
 export default function CollectionPage() {
   const { caseId } = useCase();
@@ -42,41 +62,38 @@ export default function CollectionPage() {
   const summaryQ = useQuery({ queryKey: ["summary", caseId], queryFn: () => api.summary(caseId) });
 
   if (manifestQ.isLoading || summaryQ.isLoading || !manifestQ.data || !summaryQ.data)
-    return <LoadingPanel label="Loading collection status…" />;
+    return <LoadingPanel label="Loading logs coverage…" />;
 
   const manifest = manifestQ.data;
   const cloud = (manifest.cloud ?? "aws") as Cloud;
-  const groups = CATALOG[cloud] ?? [];
   const bySource = aggregateManifestSources(manifest.sources ?? []);
   const gaps: { name: string; reason: string; detail: string }[] = manifest.gaps ?? [];
-  const catalogIds = new Set(catalogItems(cloud).map((i) => i.id));
 
   const resolve = (id: string) => resolveCollectorCoverage(id, bySource, gaps);
 
-  const allItems = groups.flatMap((g) => g.items);
+  const allItems = catalogItems(cloud);
   const resolved = allItems.map((it) => ({ it, r: resolve(it.id) }));
 
   const collectedCount = resolved.filter(
     (x) => x.r.state === "collected" || x.r.state === "partial",
   ).length;
 
-  const extraGaps = unmappedGaps(gaps, catalogIds);
   const coveragePct = Math.round((collectedCount / Math.max(allItems.length, 1)) * 100);
 
   return (
     <>
       <PanelHeader
         icon={ListChecks}
-        title="Collection Coverage"
+        title="Logs Coverage"
         panel="collection"
         actions={
           <span className="text-xs text-fg-subtle">
             <span className="text-ok-green font-medium">{collectedCount}</span> / {allItems.length}{" "}
-            collectors
+            log sources
           </span>
         }
       />
-      <PanelBody className="space-y-5">
+      <PanelBody className="cloudtrail-view space-y-5">
         {!CLOUD_IMPLEMENTED[cloud] && (
           <div className="rounded-lg border border-warn-amber/30 bg-warn-amber/10 px-4 py-3 text-xs text-warn-amber">
             {cloud.toUpperCase()} collectors are scaffolded but not yet implemented — these
@@ -86,7 +103,7 @@ export default function CollectionPage() {
 
         <Card className="p-4">
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-fg-subtle">
-            <span className="stat-label">Collector coverage</span>
+            <span className="stat-label">Logs coverage</span>
             <span className="mono">{coveragePct}%</span>
           </div>
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-surface-2">
@@ -95,81 +112,59 @@ export default function CollectionPage() {
               style={{ width: `${coveragePct}%` }}
             />
           </div>
-          <div className="mt-2 text-2xs text-fg-subtle">
-            Ventra runs every registered {cloud.toUpperCase()} collector; gaps show what was
-            unavailable or empty in this account.
-          </div>
           <div className="mt-3 flex flex-wrap gap-3 text-2xs text-fg-subtle">
             <Legend icon={CheckSquare} tone="text-ok-green" label="Collected" />
             <Legend icon={AlertTriangle} tone="text-warn-amber" label="Partial" />
             <Legend icon={MinusSquare} tone="text-warn-amber" label="No records" />
             <Legend icon={Square} tone="text-warn-amber" label="Not available" />
             <Legend icon={XSquare} tone="text-bad-red" label="Access denied" />
+            <Legend icon={Square} tone="text-fg-subtle" label="Not yet implemented" />
           </div>
         </Card>
 
-        {groups.map((group) => (
-          <Card key={group.category} className="overflow-hidden">
-            <div className="border-b border-border px-4 py-2.5 text-sm font-semibold">
-              {group.category}
-            </div>
-            <div className="divide-y divide-border">
-              {group.items.map((item) => {
-                const r = resolve(item.id);
-                const meta = STATE_META[r.state];
-                const Icon = meta.icon;
-                return (
-                  <div key={item.id} className="flex items-start gap-3 px-4 py-3">
-                    <Icon className={cn("mt-0.5 h-5 w-5 shrink-0", meta.tone)} />
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium text-fg">{item.label}</div>
-                      <div className="mt-0.5 text-xs text-fg-subtle">{item.description}</div>
-                      {r.detail && r.state !== "collected" && (
-                        <div className="mt-1 text-2xs text-fg-subtle/80 italic">{r.detail}</div>
-                      )}
-                      {r.gaps.length > 0 && r.state === "partial" && (
-                        <ul className="mt-1.5 space-y-0.5 text-2xs text-warn-amber/90">
-                          {r.gaps.map((g) => (
-                            <li key={g.name}>
-                              <span className="mono">{g.name}</span>: {g.detail}
-                            </li>
-                          ))}
-                        </ul>
-                      )}
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <div className={cn("text-xs font-medium", meta.tone)}>{meta.label}</div>
-                      {(r.state === "collected" || r.state === "partial") && r.records > 0 && (
-                        <div className="mono text-2xs text-fg-subtle">
-                          {fmtNum(r.records)} records
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-        ))}
+        <div>
+          <h2 className="mb-2 text-sm font-semibold text-fg">Logs Checked</h2>
+          <div className="ct-panel">
+            <div className="ct-table-wrap overflow-x-auto overflow-y-auto">
+              <table className="ct-table ct-table-no-row-click w-full border-collapse text-left">
+                <thead className="sticky top-0 z-10">
+                  <tr>
+                    <th className="w-[38%]">Log source</th>
+                    <th className="w-[14%]">Status</th>
+                    <th className="w-[10%]">Records</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {resolved.map(({ it, r }) => {
+                    const display = displayState(it.id, r.state);
+                    const meta = STATE_META[display];
+                    const Icon = meta.icon;
+                    const notes = rowDetail(r.state, display, r.detail, r.gaps);
+                    const records =
+                      (r.state === "collected" || r.state === "partial") && r.records > 0
+                        ? fmtNum(r.records)
+                        : "—";
 
-        {extraGaps.length > 0 && (
-          <Card className="overflow-hidden">
-            <div className="border-b border-border px-4 py-2.5 text-sm font-semibold">
-              Additional notes
+                    return (
+                      <tr key={it.id}>
+                        <td className="font-medium text-fg">{it.label}</td>
+                        <td>
+                          <span className={cn("inline-flex items-center gap-1.5", meta.tone)}>
+                            <Icon className="h-4 w-4 shrink-0" />
+                            {meta.label}
+                          </span>
+                        </td>
+                        <td className="mono text-fg-subtle">{records}</td>
+                        <td className="text-fg-subtle">{notes || "—"}</td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
             </div>
-            <div className="divide-y divide-border">
-              {extraGaps.map((g, i) => (
-                <div key={i} className="flex items-start gap-3 px-4 py-2.5">
-                  <Square className="mt-0.5 h-4 w-4 shrink-0 text-warn-amber" />
-                  <div className="min-w-0 flex-1">
-                    <span className="mono text-xs text-fg">{g.name}</span>
-                    <span className="ml-2 text-2xs text-fg-subtle">{g.detail}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </Card>
-        )}
+          </div>
+        </div>
       </PanelBody>
     </>
   );

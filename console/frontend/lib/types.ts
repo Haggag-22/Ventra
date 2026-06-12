@@ -153,6 +153,7 @@ export interface CloudTrailTrailSummary {
   is_multi_region: boolean;
   is_organization: boolean;
   log_file_validation: boolean;
+  management_events_configured?: boolean;
   data_events_configured?: boolean;
   network_activity_configured?: boolean;
   insight_events_configured?: boolean;
@@ -162,6 +163,7 @@ export interface CloudTrailBucketSummary {
   bucket: string;
   trail_arns: string[];
   events: {
+    management?: number;
     data?: number;
     insight?: number;
     network_activity?: number;
@@ -171,15 +173,60 @@ export interface CloudTrailBucketSummary {
   truncated?: boolean;
 }
 
+export interface CloudTrailLogValidationTrail {
+  trail_arn: string;
+  trail_name: string;
+  status: "valid" | "invalid" | "skipped" | "error";
+  skip_reason?: string;
+  digest_valid?: number;
+  digest_total?: number;
+  digest_invalid?: number;
+  log_valid?: number;
+  log_total?: number;
+  log_invalid?: number;
+  invalid_details?: string[];
+}
+
+export interface CloudTrailLogValidation {
+  window?: Record<string, unknown>;
+  trails?: CloudTrailLogValidationTrail[];
+  any_invalid?: boolean;
+  any_validated?: boolean;
+}
+
+export interface CloudTrailManagementTrail {
+  trail_name: string;
+  trail_arn: string;
+  bucket: string;
+  status: "collected" | "denied" | "empty";
+  records: number;
+  objects_read?: number;
+  reason?: string;
+}
+
+export interface CloudTrailManagementCollection {
+  mode: "trails" | "event_history";
+  trails: CloudTrailManagementTrail[];
+  trails_total: number;
+  trails_collected: number;
+  buckets: string[];
+  records: number;
+  fallback_reason?: string;
+}
+
 export interface CloudTrailCollection {
   trail_count: number;
   trails: CloudTrailTrailSummary[];
+  management_source?: "s3_logs" | "lookup_events" | "";
+  management_collection?: CloudTrailManagementCollection;
   event_coverage: Record<string, unknown>;
   s3_collection: Record<string, unknown>;
+  log_validation?: CloudTrailLogValidation;
   events: {
     lookup_api: { management: number; insight: number; total: number };
     s3: {
       total: number;
+      management?: number;
       data?: number;
       insight?: number;
       network_activity?: number;
@@ -187,4 +234,19 @@ export interface CloudTrailCollection {
     };
   };
   meta: Record<string, unknown>;
+}
+
+export interface InventoryResourceItem {
+  id: string;
+  label: string;
+  source: string;
+  key: string;
+  count: number | null;
+  collected: boolean;
+}
+
+export interface InventorySummary {
+  sources: string[];
+  categories: { name: string; items: InventoryResourceItem[] }[];
+  total_resources: number;
 }

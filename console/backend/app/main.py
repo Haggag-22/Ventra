@@ -202,13 +202,12 @@ def network(case_id: str, _: Role = Depends(_check("view_case"))) -> dict:
 
 @app.get("/api/cases/{case_id}/resources")
 def resources(case_id: str, _: Role = Depends(_check("view_case"))) -> dict:
-    sources = store.inventory_sources(case_id)
-    return {
-        "sources": sources,
-        "ec2": store.inventory(case_id, "ec2"),
-        "s3": store.inventory(case_id, "s3"),
-        "account": store.inventory(case_id, "account"),
-    }
+    return store.inventory_summary(case_id)
+
+
+@app.get("/api/cases/{case_id}/inventory/summary")
+def inventory_summary(case_id: str, _: Role = Depends(_check("view_case"))) -> dict:
+    return store.inventory_summary(case_id)
 
 
 @app.get("/api/cases/{case_id}/inventory/{source}")
