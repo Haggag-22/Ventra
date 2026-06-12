@@ -1,9 +1,12 @@
-"""Ventra collector command-line interface.
+"""Ventra command-line interface.
 
     ventra collect aws --case CASE-2026-0042 \
         --since 2026-05-11 --regions us-east-1,us-west-2 --out ./ventra-evidence
 
-``ventra-collect aws …`` is accepted as shorthand for the same command.
+    ventra dev     # local console with hot reload (development)
+    ventra gui     # production console (Docker Compose or --local build)
+
+``ventra-collect aws …`` is accepted as shorthand for the same collect command.
 
 Runs every registered collector for the cloud. The CLI is deliberately thin: it parses
 arguments, builds an AwsRunConfig, and delegates to the runner.
@@ -41,14 +44,54 @@ def _add_aws_parser(sub: argparse._SubParsersAction) -> None:
 def build_parser(*, prog: str = "ventra") -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog=prog,
-        description="Read-only cloud forensic triage collector (Ventra).",
+        description="Ventra — cloud forensic triage: collect, develop, and investigate.",
     )
-    p.add_argument("--version", action="version", version=f"ventra-collector {__version__}")
+    p.add_argument("--version", action="version", version=f"ventra {__version__}")
     sub = p.add_subparsers(dest="command", required=True)
 
     collect = sub.add_parser("collect", help="Collect forensic evidence from a cloud.")
     clouds = collect.add_subparsers(dest="cloud", required=True)
     _add_aws_parser(clouds)
+
+    dev = sub.add_parser(
+        "dev",
+        help="Run the analyst console locally with hot reload (development).",
+    )
+    dev.add_argument("--port", type=int, default=8080, help="Frontend port (default: 8080).")
+    dev.add_argument(
+        "--backend-port", type=int, default=8000, help="Backend port (default: 8000)."
+    )
+    dev.add_argument("--no-open", action="store_true", help="Do not open a browser tab.")
+    dev.add_argument(
+        "--setup",
+        action="store_true",
+        help="Re-run pip/npm install even if dependencies look current.",
+    )
+
+    gui = sub.add_parser(
+        "gui",
+        help="Run the production analyst console (Docker Compose or local build).",
+    )
+    gui.add_argument(
+        "--local",
+        action="store_true",
+        help="Build and run locally instead of Docker Compose.",
+    )
+    gui.add_argument(
+        "--rebuild",
+        action="store_true",
+        help="With --local, force a fresh frontend build.",
+    )
+    gui.add_argument("--port", type=int, default=8080, help="Frontend port (default: 8080).")
+    gui.add_argument(
+        "--backend-port", type=int, default=8000, help="Backend port (default: 8000)."
+    )
+    gui.add_argument("--no-open", action="store_true", help="Do not open a browser tab.")
+    gui.add_argument(
+        "--setup",
+        action="store_true",
+        help="Re-run pip/npm install even if dependencies look current.",
+    )
     return p
 
 
@@ -56,7 +99,7 @@ def _normalize_argv(argv: list[str]) -> list[str]:
     """Accept legacy ``ventra aws …`` and ``ventra-collect aws …`` invocations."""
     if not argv:
         return argv
-    if argv[0] == "collect":
+    if argv[0] in ("collect", "dev", "gui"):
         return argv
     if argv[0] == "aws":
         return ["collect", *argv]
@@ -253,6 +296,14 @@ def main(argv: list[str] | None = None) -> int:
     argv = _normalize_argv(list(argv if argv is not None else sys.argv[1:]))
     args = build_parser().parse_args(argv)
 
+    if args.command == "dev":
+        from .devgui import cmd_dev
+
+        return cmd_dev(args)
+    if args.command == "gui":
+        from .devgui import cmd_gui
+
+        return cmd_gui(args)
     if args.command != "collect":
         print(f"Unknown command {args.command!r}.", file=sys.stderr)
         return 2

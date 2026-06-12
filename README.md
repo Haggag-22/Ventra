@@ -74,8 +74,20 @@ ventra collect aws --case CASE-2026-0042 --out ~/ventra-evidence
 
 ### Ingester + Console (on the IR workstation)
 
+From a clone — one command, no prior setup:
+
 ```bash
-docker compose -f deploy/compose/ventra.yml up        # console at http://localhost:8080
+cd Ventra
+python3 -m collector dev    # first run installs .venv + deps + npm, opens browser
+# or, after any pip install of ventra:
+ventra dev                  # same thing
+ventra gui                  # production — Docker Compose (or ventra gui --local)
+```
+
+`ventra dev` creates `.venv`, installs Python and npm dependencies if needed, then starts
+the console with hot reload. Edit code, save, refresh the browser.
+
+```bash
 # then drag the evidence package into the Cases panel, or:
 ventra-ingest ./case-CASE-2026-0042-*.tar.zst --case-store ./cases
 ```
@@ -94,7 +106,7 @@ schemas/     JSON Schemas: manifest, package, unified event
 docs/        EPF spec, IAM policies, runbooks, threat coverage
 deploy/      Docker, Compose, Terraform reference forensics environment
 tests/       Fixtures + unit/integration/e2e
-pyproject.toml   ventra-collector package (pip install from repo root)
+pyproject.toml   ventra package (pip install from repo root)
 ```
 
 ### Collector layout

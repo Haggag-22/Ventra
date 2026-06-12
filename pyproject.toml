@@ -3,9 +3,9 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "ventra-collector"
+name = "ventra"
 version = "0.1.0"
-description = "Read-only cloud forensic triage collector — runs in the client's cloud shell."
+description = "Cloud forensic triage — read-only collector, ingester, and analyst console."
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
@@ -19,11 +19,27 @@ dependencies = [
 
 [project.optional-dependencies]
 zstd = ["zstandard>=0.22"]
+console = [
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "duckdb>=0.10",
+    "pyarrow>=15.0",
+    "PyYAML>=6.0",
+    "pydantic>=2.6",
+    "python-multipart>=0.0.9",
+]
 dev = [
     "pytest>=8.0",
     "moto>=5.0",
     "ruff>=0.4",
     "mypy>=1.10",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "duckdb>=0.10",
+    "pyarrow>=15.0",
+    "PyYAML>=6.0",
+    "pydantic>=2.6",
+    "python-multipart>=0.0.9",
 ]
 
 [project.scripts]
