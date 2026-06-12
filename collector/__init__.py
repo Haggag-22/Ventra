@@ -8,4 +8,4 @@ Forensic invariant: nothing in this package may call a mutating cloud API. See
 ``collector.tools.verify_readonly`` and the ``readonly-guard`` CI check.
 """
 
-__version__ = "0.1.0"
+__version__ = "0.1.1"
