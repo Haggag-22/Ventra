@@ -96,6 +96,12 @@ def ingest_package(
                 store.write_inventory("cloudtrail", snapshot)
                 inventory_loaded.append("cloudtrail")
 
+        if source == "vpc_flow":
+            snapshot = _load_vpc_flow_inventory(pkg, files)
+            if snapshot is not None:
+                store.write_inventory("vpc_flow", snapshot)
+                inventory_loaded.append("vpc_flow")
+
         # Inventory sources -> snapshot JSON + a few derived state events.
         if source in INVENTORY_SOURCES:
             snapshot = _load_inventory(pkg, files)
@@ -134,6 +140,17 @@ def _load_cloudtrail_artifacts(pkg: EvidencePackage, files) -> Any:
     for sf in files:
         if sf.kind == "config":
             out["config"] = pkg.read_json(sf.arcname)
+        elif sf.kind == "meta":
+            out["meta"] = pkg.read_json(sf.arcname)
+    return out or None
+
+
+def _load_vpc_flow_inventory(pkg: EvidencePackage, files) -> Any:
+    """Persist VPC / flow-log config for the resource inventory panel (no flow records)."""
+    out: dict[str, Any] = {}
+    for sf in files:
+        if sf.kind == "config":
+            out["_config"] = pkg.read_json(sf.arcname)
         elif sf.kind == "meta":
             out["meta"] = pkg.read_json(sf.arcname)
     return out or None

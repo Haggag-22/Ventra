@@ -69,6 +69,9 @@ def test_full_collection_produces_valid_package(tmp_path: Path) -> None:
     assert manifest["operator"]["principal_arn"]
     assert manifest["schema_version"] == "1.0.0"
     assert manifest["profile"]["name"] == "all"
+    assert manifest["time_window"]["mode"] == "window"
+    assert manifest["time_window"]["since"] == "2026-01-01T00:00:00Z"
+    assert manifest["time_window"]["until"] is None
     assert {s["name"] for s in manifest["sources"]}
 
     sig = _read_member(package.path, "manifest.json.sig")
@@ -91,3 +94,4 @@ def test_gap_is_recorded_not_fatal(tmp_path: Path) -> None:
     package = run_aws_collection(cfg, factory=AwsClientFactory(boto3.Session()))
     manifest = json.loads(_read_member(package.path, "manifest.json"))
     assert "gaps" in manifest
+    assert manifest["time_window"]["mode"] == "full_available"

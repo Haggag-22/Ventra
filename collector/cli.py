@@ -3,6 +3,10 @@
     ventra collect aws --case CASE-2026-0042 \
         --since 2026-05-11 --regions us-east-1,us-west-2 --out ./ventra-evidence
 
+By default the sealed package is ingested into ./cases (or $VENTRA_CASE_STORE) so the
+console can open the case immediately. Use ``--no-ingest`` for package-only acquisition
+(e.g. AWS CloudShell before handoff to the IR workstation).
+
     ventra dev     # local console with hot reload (development)
     ventra gui     # production console (Docker Compose or --local build)
 
@@ -38,6 +42,16 @@ def _add_aws_parser(sub: argparse._SubParsersAction) -> None:
     aws.add_argument("--out", default="./ventra-evidence", help="Output directory for the package.")
     aws.add_argument("--transport", default="local", help="local | s3-presigned:<url> | sftp:...")
     aws.add_argument("--key", default=None, help="Signing key path for cosign/minisign.")
+    aws.add_argument(
+        "--case-store",
+        default=None,
+        help="Case store for auto-ingest after collect (default: $VENTRA_CASE_STORE or ./cases).",
+    )
+    aws.add_argument(
+        "--no-ingest",
+        action="store_true",
+        help="Seal the package only; do not load into the case store.",
+    )
     aws.add_argument("--list-collectors", action="store_true", help="List collectors and exit.")
 
 
@@ -397,7 +411,15 @@ def _run_aws(args) -> int:
         print(f"Transport failed ({args.transport}): {exc}", file=sys.stderr)
         print(f"Package remains at {package.path}", file=sys.stderr)
         return 1
-    return 0
+
+    if args.no_ingest:
+        return 0
+
+    from .lib.ingest import default_case_store, ingest_after_collect
+
+    case_store = Path(args.case_store) if args.case_store else default_case_store()
+    say = console.print if console else print
+    return ingest_after_collect(package.path, case_store, reporter=say)
 
 
 if __name__ == "__main__":  # pragma: no cover

@@ -8,6 +8,7 @@ import type {
   Facets,
   IdentityResponse,
   IntegrityReport,
+  InventorySummary,
   NetworkResponse,
   TimelineResponse,
 } from "./types";
@@ -76,8 +77,8 @@ export const api = {
     get<TimelineResponse>(`/cases/${c}/timeline${qs(p)}`),
   identity: (c: string) => get<IdentityResponse>(`/cases/${c}/identity`),
   network: (c: string) => get<NetworkResponse>(`/cases/${c}/network`),
-  resources: (c: string) =>
-    get<{ sources: string[]; ec2: any; s3: any; account: any }>(`/cases/${c}/resources`),
+  resources: (c: string) => get<InventorySummary>(`/cases/${c}/resources`),
+  inventorySummary: (c: string) => get<InventorySummary>(`/cases/${c}/inventory/summary`),
   inventory: (c: string, source: string) =>
     get<{ source: string; data: any }>(`/cases/${c}/inventory/${source}`),
   cloudtrailCollection: (c: string) =>

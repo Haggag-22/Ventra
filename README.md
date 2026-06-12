@@ -87,10 +87,9 @@ ventra gui                  # production — Docker Compose (or ventra gui --loc
 `ventra dev` creates `.venv`, installs Python and npm dependencies if needed, then starts
 the console with hot reload. Edit code, save, refresh the browser.
 
-```bash
-# then drag the evidence package into the Cases panel, or:
-ventra-ingest ./case-CASE-2026-0042-*.tar.zst --case-store ./cases
-```
+`ventra collect aws …` seals a package and **automatically ingests** it into `./cases`
+(unless you pass `--no-ingest`). You can also import a package from the Cases screen, or
+run `ventra-ingest` manually on a package from another machine.
 
 See the [Operator Runbook](docs/runbooks/operator.md) and
 [Analyst Runbook](docs/runbooks/analyst.md) for full walkthroughs.

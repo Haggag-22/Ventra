@@ -2,10 +2,19 @@
 
 from __future__ import annotations
 
+import gzip
+import io
+import json
+from datetime import UTC, datetime
+from typing import Any
+
 from collector.aws.control_plane.cloudtrail_s3 import (
+    MANAGEMENT_CATEGORIES,
+    collect_s3_trail_records,
     data_events_configured,
     insight_events_configured,
     lookup_event_category,
+    management_events_configured,
     merge_dedupe,
     network_activity_configured,
     trail_is_logging_to_s3,
@@ -95,3 +104,122 @@ def test_merge_dedupe_by_event_id() -> None:
     c = [{"eventID": "other-id"}]
     merged = merge_dedupe(a, b, c)
     assert len(merged) == 2
+
+
+def test_management_events_configured_default_is_on() -> None:
+    # A default trail with no fetched selectors logs management events.
+    assert management_events_configured({}) is True
+
+
+def test_management_events_configured_classic_include_flag() -> None:
+    on = {"EventSelectors": {"EventSelectors": [{"IncludeManagementEvents": True}]}}
+    off = {
+        "EventSelectors": {
+            "EventSelectors": [{"IncludeManagementEvents": False, "DataResources": [{}]}]
+        }
+    }
+    assert management_events_configured(on) is True
+    assert management_events_configured(off) is False
+
+
+def test_management_events_configured_advanced_selectors() -> None:
+    mgmt = {
+        "EventSelectors": {
+            "AdvancedEventSelectors": [
+                {"FieldSelectors": [{"Field": "eventCategory", "Equals": ["Management"]}]}
+            ]
+        }
+    }
+    data_only = {
+        "EventSelectors": {
+            "AdvancedEventSelectors": [
+                {"FieldSelectors": [{"Field": "eventCategory", "Equals": ["Data"]}]}
+            ]
+        }
+    }
+    assert management_events_configured(mgmt) is True
+    assert management_events_configured(data_only) is False
+
+
+class _FakeBody:
+    def __init__(self, data: bytes) -> None:
+        self._data = data
+
+    def read(self) -> bytes:
+        return self._data
+
+
+class _FakeS3:
+    def __init__(self, objects: dict[str, bytes]) -> None:
+        self._objects = objects
+
+    def get_object(self, Bucket: str, Key: str) -> dict[str, Any]:  # noqa: N803
+        return {"Body": _FakeBody(self._objects[Key])}
+
+
+class _FakeCf:
+    """Minimal client-factory stub for the S3 log reader."""
+
+    def __init__(self, listing: list[dict[str, str]], objects: dict[str, bytes]) -> None:
+        self._listing = listing
+        self._s3 = _FakeS3(objects)
+
+    def client(self, service: str, region: str) -> _FakeS3:
+        return self._s3
+
+    def paginate(self, service, region, operation, result_key, **kwargs):  # noqa: ANN001
+        prefix = kwargs.get("Prefix", "")
+        for obj in self._listing:
+            if obj["Key"].startswith(prefix):
+                yield obj
+
+    def call(self, *args: Any, **kwargs: Any) -> dict[str, Any]:
+        return {}
+
+
+def _gz(payload: dict[str, Any]) -> bytes:
+    buf = io.BytesIO()
+    with gzip.GzipFile(fileobj=buf, mode="wb", mtime=0) as gz:
+        gz.write(json.dumps(payload).encode("utf-8"))
+    return buf.getvalue()
+
+
+def test_collect_management_from_shared_folder_filters_out_data() -> None:
+    """Management collection reads the shared CloudTrail/ folder and drops data events."""
+    key = "AWSLogs/123456789012/CloudTrail/us-east-1/2026/06/11/log.json.gz"
+    payload = {
+        "Records": [
+            {
+                "eventCategory": "Management",
+                "eventID": "m1",
+                "eventTime": "2026-06-11T12:00:00Z",
+                "eventName": "ConsoleLogin",
+            },
+            {
+                "eventCategory": "Data",
+                "eventID": "d1",
+                "eventTime": "2026-06-11T12:01:00Z",
+                "eventName": "GetObject",
+            },
+        ]
+    }
+    cf = _FakeCf([{"Key": key}], {key: _gz(payload)})
+    trail = {
+        "S3BucketName": "trail-bucket",
+        "S3KeyPrefix": "",
+        "HomeRegion": "us-east-1",
+        "IsMultiRegionTrail": False,
+        "Status": {"IsLogging": True},
+    }
+    start = datetime(2026, 6, 11, 0, 0, 0, tzinfo=UTC)
+    end = datetime(2026, 6, 11, 23, 59, 59, tzinfo=UTC)
+    gaps: list[tuple[str, Any, str]] = []
+
+    records, stats = collect_s3_trail_records(
+        cf, trail, "123456789012", ["us-east-1"], start, end, MANAGEMENT_CATEGORIES, gaps
+    )
+
+    assert [r["eventID"] for r in records] == ["m1"]
+    assert records[0]["_ventra_collect_source"] == "s3_logs"
+    assert records[0]["_ventra_s3_bucket"] == "trail-bucket"
+    assert stats["records"] == 1

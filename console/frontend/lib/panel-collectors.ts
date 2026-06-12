@@ -1,8 +1,15 @@
 // Maps each investigation panel to the Ventra collectors that feed it.
 
-import { CATALOG, type CatalogItem, type Cloud } from "./catalog";
+import { catalogItemForId, type CatalogItem, type Cloud } from "./catalog";
 
-export type PanelId = "overview" | "cloudtrail" | "findings" | "identity" | "network" | "collection";
+export type PanelId =
+  | "overview"
+  | "cloudtrail"
+  | "findings"
+  | "identity"
+  | "network"
+  | "collection"
+  | "resources";
 
 export interface PanelCollectorRef {
   id: string;
@@ -57,15 +64,24 @@ export const PANEL_COLLECTORS: Record<PanelId, PanelCollectorDef> = {
     ],
   },
   collection: {
-    blurb: "Full collector catalog for this cloud — what ran, what was skipped, and why.",
+    blurb: "Log sources from the IR cheat sheet — what ran, what was missing, and why.",
     collectors: [],
+  },
+  resources: {
+    blurb: "Resources",
+    collectors: [
+      { id: "ec2" },
+      { id: "s3" },
+      { id: "lambda" },
+      { id: "vpc_flow", note: "VPC and flow-log config" },
+      { id: "waf" },
+      { id: "kms" },
+      { id: "secrets" },
+      { id: "iam", note: "principal counts" },
+    ],
   },
 };
 
 export function catalogItem(cloud: Cloud, id: string): CatalogItem | undefined {
-  for (const group of CATALOG[cloud] ?? []) {
-    const hit = group.items.find((it) => it.id === id);
-    if (hit) return hit;
-  }
-  return undefined;
+  return catalogItemForId(cloud, id);
 }

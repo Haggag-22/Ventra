@@ -180,7 +180,7 @@ export default function SearchPage() {
             emptyHint={
               params.q
                 ? `No findings match “${params.q}”.`
-                : "No threat or compliance findings in this case — check Collection Coverage for collector gaps."
+                : "No threat or compliance findings in this case — check Logs Coverage for source gaps."
             }
           />
         </div>

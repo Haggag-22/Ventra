@@ -75,10 +75,22 @@ const INVESTIGATE: NavEntry[] = [
 const PACKAGE: NavEntry[] = [
   {
     href: "collection",
-    label: "Collection Coverage",
+    label: "Logs Coverage",
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden>
         <path d="M4 12l5 5L20 6" />
+      </svg>
+    ),
+  },
+  {
+    href: "resources",
+    label: "Resource Inventory",
+    icon: (
+      <svg viewBox="0 0 24 24" aria-hidden>
+        <rect x="3" y="3" width="7" height="7" rx="1.5" />
+        <rect x="14" y="3" width="7" height="7" rx="1.5" />
+        <rect x="3" y="14" width="7" height="7" rx="1.5" />
+        <rect x="14" y="14" width="7" height="7" rx="1.5" />
       </svg>
     ),
   },
