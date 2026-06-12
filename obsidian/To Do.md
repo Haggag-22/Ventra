@@ -8,3 +8,5 @@
 - Add resources tab to show resources collected like EC2 instances if theres any like resource collector tab becasue collection coverate workload and storage part says collected but doesnt show anything that was collected
 - Remove the word tiers
 - What is ingesting doing and does it happen automatically in collect command?
+- Check if Erblind logs cheat sheet are included in the collector
+- Add time range option to the CLI
