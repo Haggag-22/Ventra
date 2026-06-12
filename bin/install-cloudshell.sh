@@ -16,10 +16,10 @@ VENV="${HARBOR_VENV:-$HOME/.harbor-venv}"
 INSTALL_SPEC="${HARBOR_INSTALL_SPEC:-git+https://github.com/Haggag-22/Harbor.git}"
 PATH_LINE='export PATH="$HOME/.harbor-venv/bin:$PATH"'
 
-# ``curl … | bash`` leaves BASH_SOURCE unset under ``set -u``; detect source vs run safely.
-_harbor_direct_run() {
-  [[ "${#BASH_SOURCE[@]}" -gt 1 && "${BASH_SOURCE[0]}" != "${0}" ]] && return 1
-  return 0
+# When aws_cloudshell.sh sources this file it sets HARBOR_INSTALL_SOURCED=1.
+# Do not use BASH_SOURCE here — it is unset under ``set -u`` for ``curl | bash``.
+_harbor_show_hints() {
+  [ "${HARBOR_INSTALL_SOURCED:-}" != "1" ]
 }
 
 _harbor_bin() {
@@ -73,7 +73,7 @@ main() {
   if [ "${HARBOR_FORCE_INSTALL:-}" != "1" ] && harbor_ready; then
     echo "Harbor already installed: $(_harbor_bin) $(_harbor_bin --version 2>&1 | tail -1)"
     ensure_path
-    if _harbor_direct_run; then
+    if _harbor_show_hints; then
       echo
       echo "Ready. Example:"
       echo "  harbor collect aws --case CASE-2026-0042 --since 2026-05-11 --out ~/harbor-evidence"
@@ -90,7 +90,7 @@ main() {
     exit 1
   fi
 
-  if _harbor_direct_run; then
+  if _harbor_show_hints; then
     echo
     echo "Harbor installed: $(_harbor_bin) $(_harbor_bin --version 2>&1 | tail -1)"
     echo
@@ -102,6 +102,6 @@ main() {
   fi
 }
 
-if _harbor_direct_run; then
+if [ "${HARBOR_INSTALL_SOURCED:-}" != "1" ]; then
   main "$@"
 fi
