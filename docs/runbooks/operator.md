@@ -15,16 +15,32 @@ outbound on its own.
 
 ## Running in AWS CloudShell
 
-CloudShell already has credentials for the signed-in principal. From the shell:
+CloudShell already has credentials for the signed-in principal.
+
+### One-time setup (skips if Harbor is already installed)
 
 ```bash
-pip install --user harbor-collector
+curl -fsSL https://raw.githubusercontent.com/Haggag-22/Harbor/main/bin/install-cloudshell.sh | bash
+```
 
+This creates `~/.harbor-venv`, installs Harbor once, and adds it to your PATH. Re-running
+the script is safe — it detects an existing install and does not re-download packages.
+
+### Collect evidence
+
+```bash
 harbor collect aws \
   --case CASE-2026-0042 \
   --since 2026-05-11 \
   --regions us-east-1,us-west-2 \
-  --out ./harbor-evidence
+  --out ~/harbor-evidence
+```
+
+Or install and collect in one step:
+
+```bash
+HARBOR_CASE=CASE-2026-0042 HARBOR_SINCE=2026-05-11 \
+  bash bin/aws_cloudshell.sh
 ```
 
 The collector prints a live progress table, then writes a sealed package:

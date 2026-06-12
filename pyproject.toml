@@ -28,6 +28,7 @@ dev = [
 
 [project.scripts]
 harbor = "collector.cli:main"
+harbor-collect = "collector.cli:main_legacy"
 
 [tool.setuptools.packages.find]
 where = ["."]

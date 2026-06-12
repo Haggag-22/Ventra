@@ -1,7 +1,9 @@
 """Harbor collector command-line interface.
 
-    harbor-collect aws --case CASE-2026-0042 \
+    harbor collect aws --case CASE-2026-0042 \
         --since 2026-05-11 --regions us-east-1,us-west-2 --out ./harbor-evidence
+
+``harbor-collect aws …`` is accepted as shorthand for the same command.
 
 Runs every registered collector for the cloud. The CLI is deliberately thin: it parses
 arguments, builds an AwsRunConfig, and delegates to the runner.
@@ -23,14 +25,7 @@ from .lib.models import SourceStatus, utcnow_iso
 from .lib.transport import get_transport
 
 
-def build_parser() -> argparse.ArgumentParser:
-    p = argparse.ArgumentParser(
-        prog="harbor-collect",
-        description="Read-only cloud forensic triage collector (Harbor).",
-    )
-    p.add_argument("--version", action="version", version=f"harbor-collector {__version__}")
-    sub = p.add_subparsers(dest="cloud", required=True)
-
+def _add_aws_parser(sub: argparse._SubParsersAction) -> None:
     aws = sub.add_parser("aws", help="Collect from AWS (the first supported cloud).")
     aws.add_argument("--case", help="Case identifier, e.g. CASE-2026-0042.")
     aws.add_argument("--engagement", default="", help="Optional engagement/matter id.")
@@ -41,7 +36,31 @@ def build_parser() -> argparse.ArgumentParser:
     aws.add_argument("--transport", default="local", help="local | s3-presigned:<url> | sftp:...")
     aws.add_argument("--key", default=None, help="Signing key path for cosign/minisign.")
     aws.add_argument("--list-collectors", action="store_true", help="List collectors and exit.")
+
+
+def build_parser(*, prog: str = "harbor") -> argparse.ArgumentParser:
+    p = argparse.ArgumentParser(
+        prog=prog,
+        description="Read-only cloud forensic triage collector (Harbor).",
+    )
+    p.add_argument("--version", action="version", version=f"harbor-collector {__version__}")
+    sub = p.add_subparsers(dest="command", required=True)
+
+    collect = sub.add_parser("collect", help="Collect forensic evidence from a cloud.")
+    clouds = collect.add_subparsers(dest="cloud", required=True)
+    _add_aws_parser(clouds)
     return p
+
+
+def _normalize_argv(argv: list[str]) -> list[str]:
+    """Accept legacy ``harbor aws …`` and ``harbor-collect aws …`` invocations."""
+    if not argv:
+        return argv
+    if argv[0] == "collect":
+        return argv
+    if argv[0] == "aws":
+        return ["collect", *argv]
+    return ["collect", *argv]
 
 
 # Per-source severity. Drives the PASS/FAIL/INFO classification: a *missing* High source
@@ -231,12 +250,21 @@ def _cli_reporter():
 
 
 def main(argv: list[str] | None = None) -> int:
+    argv = _normalize_argv(list(argv if argv is not None else sys.argv[1:]))
     args = build_parser().parse_args(argv)
 
+    if args.command != "collect":
+        print(f"Unknown command {args.command!r}.", file=sys.stderr)
+        return 2
     if args.cloud == "aws":
         return _run_aws(args)
     print(f"Cloud {args.cloud!r} is scaffolded but not yet implemented.", file=sys.stderr)
     return 2
+
+
+def main_legacy(argv: list[str] | None = None) -> int:
+    """Entry point for the ``harbor-collect`` console script."""
+    return main(_normalize_argv(list(argv if argv is not None else sys.argv[1:])))
 
 
 def _run_aws(args) -> int:

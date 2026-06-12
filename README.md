@@ -67,8 +67,9 @@ and standard DFIR practice:
 
 ```bash
 # Review the read-only IAM policy first: docs/iam-policies/aws-collector-readonly.json
-pip install harbor-collector            # or: pip install -e . from a git checkout; or bin/aws_cloudshell.sh
-harbor collect aws --case CASE-2026-0042 --out ./harbor-evidence
+# AWS CloudShell — one-time install (skips if already set up):
+curl -fsSL https://raw.githubusercontent.com/Haggag-22/Harbor/main/bin/install-cloudshell.sh | bash
+harbor collect aws --case CASE-2026-0042 --out ~/harbor-evidence
 ```
 
 ### Ingester + Console (on the IR workstation)
@@ -85,7 +86,7 @@ See the [Operator Runbook](docs/runbooks/operator.md) and
 ## Repository layout
 
 ```
-bin/         CloudShell bootstrap scripts (aws_cloudshell.sh, verify_signature.sh)
+bin/         CloudShell scripts (install-cloudshell.sh, aws_cloudshell.sh, verify_signature.sh)
 collector/   Acquisition tool (Python, boto3) — runs in the client cloud shell
 ingester/    Verify → parse → normalize → load (Python, DuckDB/Parquet)
 console/     Analyst GUI — FastAPI backend + Next.js frontend
