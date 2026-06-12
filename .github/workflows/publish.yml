@@ -1,17 +1,16 @@
-# Publish the ventra package to PyPI via trusted publishing (OIDC).
+# Automatically publish ventra to PyPI on every push to main (after tests pass).
 #
-# Setup on pypi.org → Publishing → Add a new pending publisher:
-#   PyPI project name: ventra
+# PyPI trusted publisher (pypi.org → ventra → Publishing):
 #   Owner: Haggag-22   Repository: Ventra   Workflow: publish.yml   Environment: pypi
 #
-# Release:
-#   git tag v0.1.0 && git push origin v0.1.0
+# Bump version in pyproject.toml when you want a new release on PyPI.
+# If the version is already published, the upload is skipped (no failure).
 name: Publish to PyPI
 
 on:
   push:
-    tags:
-      - "v*"
+    branches: [main]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -50,3 +49,5 @@ jobs:
           python -m build
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          skip-existing: true
