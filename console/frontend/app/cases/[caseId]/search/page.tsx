@@ -12,7 +12,7 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Bookmark, Search, ShieldAlert, Star } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-const FINDING_SOURCES = ["guardduty", "securityhub", "macie", "detective"];
+const FINDING_SOURCES = ["guardduty", "securityhub", "inspector2", "macie", "detective"];
 
 function filtersFromParams(params: EventParams): FindingsFilters {
   return {

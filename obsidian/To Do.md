@@ -8,7 +8,7 @@
 - [x] Add resources tab to show resources collected like EC2 instances if theres any like resource collector tab becasue collection coverate workload and storage part says collected but doesnt show anything that was collected
 - [x] Remove the word tiers
 - [x] What is ingesting doing and does it happen automatically in collect command?
-- [ ] Check if Erblind logs cheat sheet are included in the collector
+- [x] Check if Erblind logs cheat sheet are included in the collector
 - [x] Make the Collection Coverage look exact the same are Erblind Logs Cheat Sheet with same names
-- [ ] Understand how cloudtrail works and what is the best way to collect it and show it and how to make the tool to understand if this bucket is trail logs or not
+- [x] Understand how cloudtrail works and what is the best way to collect it and show it and how to make the tool to understand if this bucket is trail logs or not
 - [ ] Add time range option to the CLI

@@ -83,13 +83,9 @@ export function IamPolicyDrawer({
               {principalType === "user" ? "IAM user" : "IAM role"}
             </div>
             <h3 className="mt-1 text-sm font-semibold text-fg break-words">{principal}</h3>
-            <p className="mt-1 text-2xs text-fg-subtle">
-              {policies.length === 0
-                ? "No policies in snapshot"
-                : active
-                  ? policyKindLabel(active.kind)
-                  : `${policies.length} polic${policies.length === 1 ? "y" : "ies"} — click to view`}
-            </p>
+            {active && (
+              <p className="mt-1 text-2xs text-fg-subtle">{policyKindLabel(active.kind)}</p>
+            )}
           </div>
           <button
             type="button"

@@ -126,7 +126,6 @@ def _normalize_argv(argv: list[str]) -> list[str]:
 _SEVERITY: dict[str, str] = {
     "account": "Low",
     "cloudtrail": "High",
-    "sts": "Low",
     "iam": "High",
     "vpc_flow": "High",
     "waf": "Medium",
@@ -140,6 +139,13 @@ _SEVERITY: dict[str, str] = {
     "ec2": "Medium",
     "s3": "Medium",
     "lambda": "Low",
+    "inspector2": "Medium",
+    "elb_alb": "Medium",
+    "cloudfront": "Medium",
+    "s3_access": "Medium",
+    "route53_resolver": "Medium",
+    "eks_audit": "Medium",
+    "log_posture": "Low",
 }
 
 _SEV_COLOR = {"High": "red", "Medium": "yellow", "Low": "cyan"}

@@ -1,4 +1,4 @@
-"""GuardDuty, Security Hub, Macie, Detective, and Config normalizers → finding events."""
+"""GuardDuty, Security Hub, Inspector2, Macie, Detective, Config normalizers → findings."""
 
 from __future__ import annotations
 
@@ -131,6 +131,46 @@ def normalize_securityhub(records: list[dict], ctx: NormalizeContext) -> Iterato
             message=f.get("Title", "Security Hub finding"),
             case_id=ctx.case_id,
             ventra_source="securityhub",
+            raw=f,
+        )
+
+
+_INSPECTOR_SEVERITY = {
+    "CRITICAL": "critical",
+    "HIGH": "high",
+    "MEDIUM": "medium",
+    "LOW": "low",
+    "INFORMATIONAL": "info",
+    "UNTRIAGED": "info",
+}
+
+
+@register("inspector2")
+def normalize_inspector2(records: list[dict], ctx: NormalizeContext) -> Iterator[UnifiedEvent]:
+    """Inspector2 vulnerability / network-reachability findings."""
+    for f in records:
+        resources = f.get("resources", []) or []
+        res = resources[0] if resources else {}
+        res_id = res.get("id", "")
+        vuln = (f.get("packageVulnerabilityDetails", {}) or {}).get("vulnerabilityId", "")
+        yield UnifiedEvent(
+            timestamp=str(f.get("updatedAt", f.get("firstObservedAt", ""))),
+            event_kind="finding",
+            event_category=["threat"],
+            event_action=vuln or f.get("type", ""),
+            event_outcome="unknown",
+            event_severity=_INSPECTOR_SEVERITY.get(str(f.get("severity", "")).upper(), "info"),
+            event_provider="inspector2",
+            cloud_account=f.get("awsAccountId", ctx.account_id),
+            cloud_region=res.get("region", f.get("_ventra_region", "")),
+            cloud_service="inspector2",
+            resource_type=res.get("type", ""),
+            resource_id=res_id.split("/")[-1] if res_id else "",
+            resource_arn=res_id if res_id.startswith("arn:") else "",
+            related_resource=[r.get("id", "") for r in resources if r.get("id")],
+            message=f.get("title", vuln or "Inspector2 finding"),
+            case_id=ctx.case_id,
+            ventra_source="inspector2",
             raw=f,
         )
 
