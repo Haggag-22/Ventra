@@ -125,6 +125,9 @@ def _normalize_argv(argv: list[str]) -> list[str]:
     """Accept legacy ``ventra aws …`` and ``ventra-collect aws …`` invocations."""
     if not argv:
         return argv
+    # Top-level flags must not be rewritten to ``collect --version`` etc.
+    if argv[0] in ("--version", "-V", "-h", "--help"):
+        return argv
     if argv[0] in ("collect", "dev", "gui"):
         return argv
     if argv[0] == "aws":

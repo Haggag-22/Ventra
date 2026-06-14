@@ -51,6 +51,12 @@ ensure_path() {
 }
 
 ensure_venv() {
+  if ! python3 -c 'import sys; raise SystemExit(0 if sys.version_info >= (3, 11) else 1)' 2>/dev/null; then
+    echo "error: Ventra requires Python 3.11 or newer (found $(python3 --version 2>&1))." >&2
+    echo "  CloudShell: try VENTRA_INSTALL_SPEC='git+https://github.com/Haggag-22/Ventra.git' after upgrading," >&2
+    echo "  or use a CloudShell region/runtime with Python 3.11+." >&2
+    exit 1
+  fi
   if [ ! -d "$VENV" ]; then
     echo "Creating Ventra environment at ${VENV}…"
     python3 -m venv "$VENV"
@@ -86,7 +92,12 @@ main() {
   ensure_path
 
   if ! ventra_ready; then
+    bin="$(_ventra_bin || echo "$VENV/bin/ventra")"
     echo "error: Ventra install finished but \`ventra collect aws\` is not available." >&2
+    echo "  bin: ${bin}" >&2
+    "${bin}" --version 2>&1 | sed 's/^/  /' >&2 || true
+    "${bin}" collect aws --help 2>&1 | head -3 | sed 's/^/  /' >&2 || true
+    echo "  Try: VENTRA_FORCE_INSTALL=1 VENTRA_INSTALL_SPEC='git+https://github.com/Haggag-22/Ventra.git' bash -c \"\$(curl -fsSL .../install-cloudshell.sh)\"" >&2
     exit 1
   fi
 

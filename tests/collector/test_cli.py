@@ -18,6 +18,15 @@ def test_parser_has_collect_dev_gui() -> None:
     assert parser.parse_args(["gui", "--local"])
 
 
+def test_normalize_argv_preserves_global_flags() -> None:
+    from collector.cli import _normalize_argv
+
+    assert _normalize_argv(["--version"]) == ["--version"]
+    assert _normalize_argv(["-h"]) == ["-h"]
+    assert _normalize_argv(["collect", "aws"]) == ["collect", "aws"]
+    assert _normalize_argv(["aws", "--case", "X"]) == ["collect", "aws", "--case", "X"]
+
+
 def test_find_repo_root_from_cwd() -> None:
     from collector.devgui import find_repo_root
 
