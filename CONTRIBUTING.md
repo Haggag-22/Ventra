@@ -72,7 +72,7 @@ validation, secret-scan, and `readonly-guard`. Keep PRs focused.
 
 ## Versioning & releases
 
-The version is derived from git by setuptools-scm — never hand-edit a version string. Every
-push to `main` is published to PyPI as a `0.1.1.postN` version (continuous delivery), and a
-`v*` tag publishes a clean `X.Y.Z` plus a GitHub Release for a milestone. See
+The version is derived from git tags by setuptools-scm — never hand-edit a version string.
+PyPI holds only tagged releases: a `v*` tag publishes a clean `X.Y.Z` plus a GitHub Release.
+Ordinary pushes to `main` publish nothing; test them in CloudShell by installing from git. See
 [RELEASING.md](RELEASING.md).
