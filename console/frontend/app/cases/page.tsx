@@ -4,12 +4,12 @@ import { IntegrityBadge } from "@/components/badges";
 import { CloudProviderIcon } from "@/components/cloud-provider-icon";
 import { ImportDialog } from "@/components/import-dialog";
 import { Button, Card, EmptyState, LoadingPanel } from "@/components/ui";
-import { api } from "@/lib/api";
+import { api, deleteCase } from "@/lib/api";
 import { CLOUDS, CLOUD_LABELS, type Cloud } from "@/lib/catalog";
 import type { CaseSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { useQuery } from "@tanstack/react-query";
-import { Anchor, FolderOpen, ShieldAlert, Upload } from "lucide-react";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { Anchor, FolderOpen, ShieldAlert, Trash2, Upload } from "lucide-react";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 
@@ -154,9 +154,21 @@ const CLOUD_BADGE: Record<string, string> = {
 };
 
 function CaseCard({ c }: { c: CaseSummary }) {
+  const queryClient = useQueryClient();
+  const [confirming, setConfirming] = useState(false);
+  const del = useMutation({
+    mutationFn: () => deleteCase(c.case_id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["cases"] }),
+  });
+
+  const stop = (e: React.MouseEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
   return (
     <Link href={`/cases/${encodeURIComponent(c.case_id)}/overview`}>
-      <Card className="group p-3 transition-colors hover:border-accent/40">
+      <Card className="group relative p-3 transition-colors hover:border-accent/40">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
             <div className="flex min-w-0 items-baseline gap-2">
@@ -178,8 +190,49 @@ function CaseCard({ c }: { c: CaseSummary }) {
               <span className="text-2xs font-medium uppercase text-fg-subtle">{c.cloud}</span>
             </span>
           </div>
-          <IntegrityBadge value={c.integrity} />
+          <div className="flex items-center gap-2">
+            <IntegrityBadge value={c.integrity} />
+            <button
+              type="button"
+              aria-label="Delete case"
+              onClick={(e) => {
+                stop(e);
+                setConfirming(true);
+              }}
+              className="rounded p-1 text-fg-subtle opacity-0 transition-opacity hover:bg-bad-red/10 hover:text-bad-red group-hover:opacity-100"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          </div>
         </div>
+
+        {confirming && (
+          <div
+            onClick={stop}
+            className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-[inherit] bg-surface/95 px-4 text-center backdrop-blur-sm"
+          >
+            <p className="text-sm text-fg">
+              Delete <span className="mono font-semibold">{c.case_id}</span> and all its evidence?
+            </p>
+            {del.error && (
+              <p className="text-xs text-bad-red">{(del.error as Error).message}</p>
+            )}
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" onClick={(e) => { stop(e); setConfirming(false); }}>
+                Cancel
+              </Button>
+              <Button
+                variant="danger"
+                icon={Trash2}
+                loading={del.isPending}
+                disabled={del.isPending}
+                onClick={(e) => { stop(e); del.mutate(); }}
+              >
+                {del.isPending ? "Deleting…" : "Delete"}
+              </Button>
+            </div>
+          </div>
+        )}
       </Card>
     </Link>
   );

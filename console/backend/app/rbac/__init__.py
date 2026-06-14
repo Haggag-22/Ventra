@@ -39,15 +39,6 @@ def current_role(x_ventra_role: str | None = Header(default=None)) -> Role:
         raise HTTPException(status_code=403, detail=f"Unknown role: {x_ventra_role}")
 
 
-def require(capability: str):
-    def _dep(role: Role = None):  # type: ignore[assignment]
-        from fastapi import Depends
-
-        return Depends(_check(capability))
-
-    return _check(capability)
-
-
 def _check(capability: str):
     from fastapi import Depends
 

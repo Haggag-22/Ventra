@@ -85,6 +85,20 @@ export const api = {
     get<CloudTrailCollection>(`/cases/${c}/cloudtrail/collection`),
 };
 
+export async function deleteCase(caseId: string): Promise<{ deleted: string }> {
+  // Deleting a case is a Data Custodian action. In a real deployment the role is set by the
+  // upstream auth proxy; locally the single analyst holds every role, so we assert it here.
+  const res = await fetch(`/api/cases/${encodeURIComponent(caseId)}`, {
+    method: "DELETE",
+    headers: { "X-Ventra-Role": "data_custodian" },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(body.detail || "Delete failed");
+  }
+  return res.json();
+}
+
 export async function importPackage(file: File, caseId?: string): Promise<any> {
   const form = new FormData();
   form.append("file", file);

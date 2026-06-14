@@ -22,4 +22,4 @@ All notable changes to Ventra are documented here. Format follows
 - Docker Compose stack for the analyst workstation; Terraform reference forensics
   environment.
 
-[Unreleased]: https://example.com/ventra/compare/main...HEAD
+[Unreleased]: https://github.com/Haggag-22/Ventra/commits/main

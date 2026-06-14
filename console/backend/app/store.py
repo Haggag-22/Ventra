@@ -135,6 +135,20 @@ class CaseStore:
             raise CaseNotFound(case_id)
         return d
 
+    def delete_case(self, case_id: str) -> None:
+        """Remove a case directory and everything under it.
+
+        Resolves the target and confirms it stays within the case store before deleting, so a
+        crafted ``case_id`` can never escape the root even if upstream validation changes.
+        """
+        import shutil
+
+        target = self.case_dir(case_id).resolve()
+        root = self.root.resolve()
+        if root not in target.parents:
+            raise CaseNotFound(case_id)
+        shutil.rmtree(target)
+
     def _events_path(self, case_id: str) -> str:
         return str(self.case_dir(case_id) / "events.parquet")
 

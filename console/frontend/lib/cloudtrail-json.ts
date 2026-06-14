@@ -1,6 +1,6 @@
 import type { UnifiedEvent } from "@/lib/types";
 
-/** LookupEvents-shaped record (matches old-gui ``cloudtrail_event`` payload). */
+/** LookupEvents-shaped record (matches the CloudTrail ``cloudtrail_event`` payload). */
 export function toLookupEventRecord(event: UnifiedEvent): Record<string, unknown> {
   const detail = { ...(event.raw ?? {}) } as Record<string, unknown>;
   const ui = (detail.userIdentity as Record<string, unknown> | undefined) ?? {};
@@ -45,7 +45,7 @@ export interface JsonHighlightSegment {
   text: string;
 }
 
-/** Tokenize JSON for syntax highlighting (ported from old-gui ``highlightJson``). */
+/** Tokenize JSON for syntax highlighting. */
 export function highlightJsonSegments(obj: unknown): JsonHighlightSegment[] {
   const text = typeof obj === "string" ? obj : JSON.stringify(obj, null, 2);
   const segments: JsonHighlightSegment[] = [];

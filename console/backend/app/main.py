@@ -7,6 +7,7 @@ endpoint, which runs the ingester. No outbound calls, no telemetry.
 from __future__ import annotations
 
 import re
+from pathlib import Path
 from typing import Any
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Query, UploadFile
@@ -229,8 +230,8 @@ async def import_case(
     from ventra_ingester.pipeline import ingest_package
 
     override = _normalize_case_id(case_id)
-    dest = settings.upload_dir / (file.filename or "package.tar.zst")
-    dest.write_bytes(await file.read())
+    dest = settings.upload_dir / _safe_upload_name(file.filename)
+    await _stream_upload(file, dest)
     try:
         result = ingest_package(dest, settings.case_store, case_id_override=override)
     except Exception as exc:  # noqa: BLE001
@@ -243,6 +244,54 @@ async def import_case(
         "inventory_loaded": result.inventory_loaded,
         "warnings": result.warnings,
     }
+
+
+# -- delete (RBAC: delete_case — Data Custodian only) ------------------------------------
+
+@app.delete("/api/cases/{case_id}")
+def delete_case(case_id: str, _: Role = Depends(_check("delete_case"))) -> dict:
+    store.case_dir(case_id)  # raises CaseNotFound -> 404 if absent
+    store.delete_case(case_id)
+    return {"deleted": case_id}
+
+
+def _safe_upload_name(filename: str | None) -> str:
+    """Reduce a client-supplied filename to a safe basename inside the upload dir.
+
+    Strips any directory components (defeats ``../`` path traversal) and keeps only a
+    conservative character set, so a malicious ``filename`` can never write outside
+    ``settings.upload_dir``.
+    """
+    from pathlib import PurePosixPath, PureWindowsPath
+
+    raw = (filename or "").strip()
+    # Take the last path component under either separator convention.
+    base = PureWindowsPath(PurePosixPath(raw).name).name
+    base = re.sub(r"[^A-Za-z0-9._-]", "_", base).lstrip(".")
+    return base or "package.tar.zst"
+
+
+async def _stream_upload(file: UploadFile, dest: Path) -> None:
+    """Stream an upload to ``dest`` in chunks, rejecting anything over the size cap.
+
+    Reading the whole body into memory (``await file.read()``) lets a single request
+    exhaust RAM; streaming with a running total bounds both memory and disk use.
+    """
+    limit = settings.max_upload_mb * 1024 * 1024
+    written = 0
+    try:
+        with dest.open("wb") as out:
+            while chunk := await file.read(1024 * 1024):
+                written += len(chunk)
+                if written > limit:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"Package exceeds the {settings.max_upload_mb} MB upload limit.",
+                    )
+                out.write(chunk)
+    except HTTPException:
+        dest.unlink(missing_ok=True)
+        raise
 
 
 def _normalize_case_id(raw: str | None) -> str | None:
