@@ -1,11 +1,9 @@
-"""Local console development (``ventra dev``) and production GUI (``ventra gui``).
+"""Run the Ventra console GUI (``ventra gui``; ``ventra dev`` is an alias).
 
-``ventra dev`` bootstraps everything on first run — venv, Python packages, and npm
-dependencies — then starts the FastAPI backend with ``--reload`` and the Next.js dev
-server. Save files and refresh the browser; no repackaging.
-
-``ventra gui`` runs the production stack (Docker Compose by default, or a local build with
-``next start`` when ``--local`` is passed).
+``ventra gui`` bootstraps everything on first run — venv, Python packages, and npm
+dependencies — then starts the FastAPI backend with ``--reload`` and the Next.js dev server.
+Save files and refresh the browser; no repackaging, no Docker. (A packaged desktop app is
+planned for the v1 release; until then this is how you run and develop the GUI.)
 """
 
 from __future__ import annotations
@@ -284,8 +282,8 @@ def cmd_dev(args: Namespace) -> int:
     signal.signal(signal.SIGTERM, on_signal)
 
     print()
-    print("Ventra dev — save files, refresh the browser to see changes.")
-    print(f"  Frontend (hot reload): http://127.0.0.1:{frontend_port}")
+    print("Ventra console — save files, refresh the browser to see changes.")
+    print(f"  Console (hot reload):  http://127.0.0.1:{frontend_port}")
     print(f"  Backend  (--reload):     http://127.0.0.1:{backend_port}")
     print(f"  Cases:                   {env['VENTRA_CASE_STORE']}")
     if frontend_port != args.port:
@@ -351,91 +349,5 @@ def cmd_dev(args: Namespace) -> int:
 
 
 def cmd_gui(args: Namespace) -> int:
-    """Production GUI — Docker Compose by default, or a local build with ``--local``."""
-    root = find_repo_root()
-    compose = root / "deploy/compose/ventra.yml"
-
-    if not args.local and shutil.which("docker") and compose.is_file():
-        print("Ventra gui — production stack (Docker Compose).")
-        print("  Console: http://127.0.0.1:8080")
-        print("  Stop with Ctrl+C or: docker compose -f deploy/compose/ventra.yml down")
-        print()
-        if not args.no_open:
-            time.sleep(3)
-            webbrowser.open("http://127.0.0.1:8080")
-        return subprocess.call(
-            ["docker", "compose", "-f", str(compose), "up", "--build"],
-            cwd=root,
-        )
-
-    if not args.local:
-        print(
-            "Docker not available — falling back to local production mode.\n"
-            "  Pass --local explicitly to skip this message next time.",
-            file=sys.stderr,
-        )
-
-    return _gui_local(root, args)
-
-
-def _gui_local(root: Path, args: Namespace) -> int:
-    backend_dir = root / "console/backend"
-    frontend_dir = root / "console/frontend"
-
-    venv_python = ensure_dev_environment(root, force=args.setup or args.rebuild)
-    _verify_python_deps(venv_python)
-    venv_bin = venv_python.parent
-
-    env = _dev_env(root, venv_bin)
-    frontend_port = _pick_port(args.port, bind_host="::")
-    backend_port = _pick_port(args.backend_port, bind_host="127.0.0.1")
-    env["PORT"] = str(frontend_port)
-    env["VENTRA_API"] = f"http://127.0.0.1:{backend_port}"
-
-    if args.rebuild or not (frontend_dir / ".next").is_dir():
-        print("Building frontend…")
-        subprocess.run(["npm", "run", "build"], cwd=frontend_dir, env=env, check=True)
-
-    procs: list[subprocess.Popen[bytes]] = []
-
-    def on_signal(signum: int, _frame: object) -> None:
-        _terminate(procs)
-        raise SystemExit(128 + signum)
-
-    signal.signal(signal.SIGINT, on_signal)
-    signal.signal(signal.SIGTERM, on_signal)
-
-    print("Ventra gui — local production (no hot reload).")
-    print(f"  Frontend: http://127.0.0.1:{frontend_port}")
-    print(f"  Backend:  http://127.0.0.1:{backend_port}")
-    print()
-
-    procs.append(
-        subprocess.Popen(
-            [
-                str(venv_python),
-                "-m",
-                "uvicorn",
-                "app.main:app",
-                "--host",
-                "127.0.0.1",
-                f"--port={backend_port}",
-            ],
-            cwd=backend_dir,
-            env=env,
-        )
-    )
-    time.sleep(1)
-
-    procs.append(
-        subprocess.Popen(
-            ["npm", "run", "start"],
-            cwd=frontend_dir,
-            env=env,
-        )
-    )
-
-    if not args.no_open and _wait_for_http(f"http://127.0.0.1:{frontend_port}"):
-        webbrowser.open(f"http://127.0.0.1:{frontend_port}")
-
-    return _wait_procs(procs)
+    """Open the Ventra console GUI (hot reload). Alias: ``ventra dev``."""
+    return cmd_dev(args)

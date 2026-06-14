@@ -69,3 +69,10 @@ cd console/frontend && npm install && npm run dev
 
 Use the PR template. CI must be green: lint, type-check, unit, integration, e2e, schema
 validation, secret-scan, and `readonly-guard`. Keep PRs focused.
+
+## Versioning & releases
+
+The version is derived from git by setuptools-scm — never hand-edit a version string. Every
+push to `main` is published to PyPI as a `0.1.1.postN` version (continuous delivery), and a
+`v*` tag publishes a clean `X.Y.Z` plus a GitHub Release for a milestone. See
+[RELEASING.md](RELEASING.md).
