@@ -1,76 +1,78 @@
 # Releasing & versioning Ventra
 
-The model is **continuous delivery**: every push to `main` publishes a new version of the
-`ventra` collector to PyPI, so you (or a client) can always fetch the latest with a plain
-`pipx install ventra` / `pipx upgrade ventra`. No tagging needed for day-to-day work.
+PyPI holds **only clean, tagged releases** (`0.1.0`, `0.1.1`, `1.0.0`). Day-to-day testing pulls
+your latest code straight from **git** — so the public PyPI page stays tidy while you can still
+fetch any push with one command.
 
 | Who | Runs | Gets |
 |-----|------|------|
-| **You** | the repo | `ventra gui` (hot reload) + run the collector locally or in CloudShell |
-| **Client / your AWS test account** | `ventra` in CloudShell | latest pushed version, via `pipx install`/`upgrade ventra` |
+| **You** | the repo | `ventra gui` (hot reload) + run the collector locally or from git in CloudShell |
+| **Client** | `ventra` in CloudShell | the latest **tagged** release from PyPI |
 | **Analyst (v1+)** | a packaged desktop app | the console GUI (not built here yet) |
 
 ## How versioning works
 
 The version comes from git — there's no version string to hand-edit.
 
-- **Push to `main`** → `0.1.1.post1`, `0.1.1.post2`, … (one per commit). A *normal* version, so
-  `pip`/`pipx` install and upgrade to it by default.
-- **Tag `vX.Y.Z`** → a clean `X.Y.Z` plus a GitHub Release with notes. Optional — use it to mark
-  a milestone (e.g. `v1.0.0`); it does not change the day-to-day flow.
+- **Tag `vX.Y.Z`** → builds exactly `X.Y.Z`. This is what gets published to PyPI.
+- **A working tree / git install between tags** → a dev version like `0.1.2.dev4+g1a2b3c4`. The
+  `+g<hash>` is the exact commit, so you always know what you're testing — and it lands in the
+  evidence package's `manifest.tool_version`.
 
-Either way the version lands in every evidence package's `manifest.tool_version`, so a package
-always shows exactly which build collected it.
+Dev versions never go to PyPI; only tags do.
 
 ## Your day-to-day loop
 
 1. **Edit code.** `ventra gui` shows the console with hot reload.
-2. **Test the collector.** Easiest is locally against your AWS test account (boto3 uses your
-   local creds, same as CloudShell uses its role):
+2. **Test the collector** — easiest is locally against your AWS test account (boto3 uses your
+   local creds, same as CloudShell uses its role); editable install runs your working tree, so
+   no push needed:
    ```bash
    aws sso login                  # or a profile
    ventra collect aws --case TEST-001 --out ~/ventra-evidence --no-ingest
    ```
-   Editable install = your working-tree code runs immediately, no push needed.
-3. **Push** when you want it available in CloudShell. CI publishes it to PyPI automatically.
+3. **Push** whenever you like — pushing to `main` does **not** publish anything.
 
-## Testing in CloudShell
+## Testing your latest push in CloudShell
 
-After a push, CI publishes within a minute or two. Then in CloudShell:
+Install ventra from your `main` branch (not PyPI), then re-pull after each push:
 
 ```bash
 # first time in a fresh CloudShell:
-pipx install ventra
+pipx install "ventra @ git+https://github.com/Haggag-22/Ventra.git@main"
 
-# already have it (fetch your latest push):
-pipx upgrade ventra
+# after each push — fetches your latest code:
+pipx reinstall ventra
 
 # then:
 ventra collect aws --case TEST-001 --out ~/ventra-evidence
 ```
 
 > CloudShell may not ship `pipx`. Once per environment: `python3 -m pip install --user pipx &&
-> python3 -m pipx ensurepath`, then reopen the shell. (The `curl … install-cloudshell.sh | bash`
-> one-liner also still works and self-upgrades from PyPI.)
+> python3 -m pipx ensurepath`, then reopen the shell.
 
-## Cutting a milestone (optional)
+## Cutting a release (what clients get)
 
-When you want a clean version number and release notes (e.g. for v1):
+When something is ready for clients, tag it:
 
 ```bash
 git tag v1.0.0
 git push origin v1.0.0
 ```
 
-That publishes `1.0.0` to PyPI and creates a GitHub Release. Workflow:
-[`.github/workflows/publish.yml`](.github/workflows/publish.yml).
+That publishes `1.0.0` to PyPI and creates a GitHub Release. Then a client's
+`pipx install ventra` / `pipx upgrade ventra` (or the `install-cloudshell.sh` one-liner) gets
+it. Workflow: [`.github/workflows/publish.yml`](.github/workflows/publish.yml).
 
 ## First-time setup (once)
 
-- Push a baseline tag so versions read `0.1.1.postN` rather than `0.0.postN`:
-  `git tag v0.1.1 && git push origin v0.1.1`.
 - PyPI: configure the trusted publisher (owner `Haggag-22`, repo `Ventra`, workflow
-  `publish.yml`, environment left blank / "(any)").
+  `publish.yml`, environment left blank / "(any)"). Already done.
+- Push a baseline tag so dev versions read `0.1.2.devN` rather than `0.0.0.devN`:
+  `git tag v0.1.1 && git push origin v0.1.1` (matches the `0.1.1` already on PyPI; the publish
+  step skips it via `skip-existing`).
+- Tidy up any stray `0.0.0.post*` dev builds on PyPI (Options → delete on that row) — those came
+  from the brief continuous-publish experiment and aren't real releases.
 
 ## The console GUI
 

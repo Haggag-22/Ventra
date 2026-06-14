@@ -1,20 +1,15 @@
-# Publish Ventra to PyPI. Continuous delivery: every push to main publishes a new version, so
-# in CloudShell `pipx install ventra` (fresh) and `pipx upgrade ventra` (existing) always fetch
-# your latest pushed code — no tagging needed for day-to-day testing.
+# Release Ventra to PyPI — only when you push a version tag. Ordinary commits to main do NOT
+# publish (that keeps the public PyPI page to clean releases). For day-to-day CloudShell
+# testing you install from git instead — see RELEASING.md.
 #
-#   * push to main           → 0.1.1.postN published to PyPI (after tests pass)
-#   * push a tag `vX.Y.Z`    → clean X.Y.Z published + a GitHub Release (milestone)
-#
-# Both are normal versions that `pip`/`pipx` upgrade to by default. Tags are optional and just
-# give a tidy version number + release notes for a milestone (e.g. v1.0.0).
+#   git tag v1.0.0 && git push origin v1.0.0   # publishes 1.0.0 to PyPI + a GitHub Release
 #
 # PyPI trusted publisher (pypi.org → ventra → Publishing):
 #   Owner: Haggag-22   Repository: Ventra   Workflow: publish.yml   Environment: (any)
-name: Publish
+name: Release
 
 on:
   push:
-    branches: ["main"]
     tags: ["v*"]
   workflow_dispatch: {}
 

@@ -51,15 +51,12 @@ where = ["."]
 include = ["collector*"]
 namespaces = true
 
-# Version is derived from git — no version string to hand-edit. A tag `vX.Y.Z` builds exactly
-# X.Y.Z; each commit after a tag builds X.Y.Z.postN (post1, post2, …). Both are *normal*
-# versions that `pip`/`pipx install` and `pipx upgrade` pick up by default, which is what lets
-# every push to main flow straight to PyPI and be fetched with a plain `pipx upgrade ventra`.
-#   * version_scheme="post-release"  → 0.1.1.post3 instead of a 0.1.2.dev3 pre-release
-#   * local_scheme="no-local-version" → drops the +g<hash> segment PyPI refuses to accept
+# Version is derived from git tags — no version string to hand-edit. A tag `vX.Y.Z` builds
+# exactly X.Y.Z (these are what get published to PyPI). A working tree or a git install between
+# tags builds a dev version like `X.Y.(Z+1).devN+g<hash>` — the +g<hash> tells you the exact
+# commit you're testing, which also lands in the evidence package's tool_version.
+# `fallback_version` is only used when building from a source tree with no git metadata.
 [tool.setuptools_scm]
-version_scheme = "post-release"
-local_scheme = "no-local-version"
 fallback_version = "0.0.0"
 
 [tool.ruff]

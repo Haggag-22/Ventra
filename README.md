@@ -72,10 +72,9 @@ curl -fsSL https://raw.githubusercontent.com/Haggag-22/Ventra/main/bin/install-c
 ventra collect aws --case CASE-2026-0042 --out ~/ventra-evidence
 ```
 
-Clients always get the latest collector — the installer upgrades from PyPI on every run. Pin an
-engagement with `VENTRA_INSTALL_SPEC='ventra==1.0.0'`. Maintainers: every push to `main` is
-published to PyPI automatically, so `pipx upgrade ventra` in CloudShell fetches your latest
-code — see [RELEASING.md](RELEASING.md).
+Clients always get the latest **released** collector — the installer upgrades from PyPI on every
+run. Pin an engagement with `VENTRA_INSTALL_SPEC='ventra==1.0.0'`. Maintainers: PyPI holds only
+tagged releases; for day-to-day testing you install from git — see [RELEASING.md](RELEASING.md).
 
 ### Ingester + Console (on the IR workstation)
 
