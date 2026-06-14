@@ -14,8 +14,8 @@ def test_parser_has_collect_dev_gui() -> None:
     with pytest.raises(SystemExit):
         parser.parse_args([])
     assert parser.parse_args(["collect", "aws", "--list-collectors"])
-    assert parser.parse_args(["dev"])
-    assert parser.parse_args(["gui", "--local"])
+    assert parser.parse_args(["gui"])
+    assert parser.parse_args(["dev"])  # alias of gui
 
 
 def test_normalize_argv_preserves_global_flags() -> None:

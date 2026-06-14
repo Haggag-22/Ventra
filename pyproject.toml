@@ -1,10 +1,10 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
+requires = ["setuptools>=68", "wheel", "setuptools-scm>=8"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "ventra"
-version = "0.1.1"
+dynamic = ["version"]
 description = "Cloud forensic triage — read-only collector, ingester, and analyst console."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -50,6 +50,17 @@ ventra-collect = "collector.cli:main_legacy"
 where = ["."]
 include = ["collector*"]
 namespaces = true
+
+# Version is derived from git — no version string to hand-edit. A tag `vX.Y.Z` builds exactly
+# X.Y.Z; each commit after a tag builds X.Y.Z.postN (post1, post2, …). Both are *normal*
+# versions that `pip`/`pipx install` and `pipx upgrade` pick up by default, which is what lets
+# every push to main flow straight to PyPI and be fetched with a plain `pipx upgrade ventra`.
+#   * version_scheme="post-release"  → 0.1.1.post3 instead of a 0.1.2.dev3 pre-release
+#   * local_scheme="no-local-version" → drops the +g<hash> segment PyPI refuses to accept
+[tool.setuptools_scm]
+version_scheme = "post-release"
+local_scheme = "no-local-version"
+fallback_version = "0.0.0"
 
 [tool.ruff]
 line-length = 110

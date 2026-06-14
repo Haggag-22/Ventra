@@ -19,7 +19,6 @@ All notable changes to Ventra are documented here. Format follows
 - **Analyst console**: FastAPI backend + Next.js frontend with Cases, Overview, Timeline,
   CloudTrail Analyzer, Identity, Network, Resources, Findings, Search, Report, and Settings.
 - Demo case fixtures and an end-to-end collect → ingest → render path.
-- Docker Compose stack for the analyst workstation; Terraform reference forensics
-  environment.
+- Terraform reference forensics environment for the analyst workstation.
 
 [Unreleased]: https://github.com/Haggag-22/Ventra/commits/main

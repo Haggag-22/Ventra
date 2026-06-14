@@ -6,11 +6,11 @@ IR workstation (or forensic VPC) and makes no outbound calls.
 ## 1. Start the console
 
 ```bash
-docker compose -f deploy/compose/ventra.yml up
-# Console: http://localhost:8080
+ventra gui        # http://localhost:8080  (hot reload; first run sets up .venv + npm)
 ```
 
-Or run the pieces directly during development — see [`console/README.md`](../../console/README.md).
+No Docker — a packaged desktop app is planned for the v1 release. To run the pieces by hand
+during development, see [`console/README.md`](../../console/README.md).
 
 ## 2. Import the evidence package
 

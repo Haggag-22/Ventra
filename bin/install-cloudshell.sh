@@ -1,15 +1,21 @@
 #!/usr/bin/env bash
-# Idempotent Ventra install for AWS CloudShell.
+# Ventra installer for AWS CloudShell — installs the latest release and self-upgrades.
 #
-# Safe to run every session — skips work when Ventra is already on PATH and working.
+# Safe to run every session: it upgrades to the newest released version on PyPI each time, so a
+# client always gets the latest collector (CloudShell's $HOME persists between sessions, so a
+# one-time install would otherwise pin them to an old build forever).
+#
 # One-liner for clients:
 #   curl -fsSL https://raw.githubusercontent.com/Haggag-22/Ventra/main/bin/install-cloudshell.sh | bash
 #
 # Then collect:
 #   ventra collect aws --case CASE-2026-0042 --since 2026-05-11 --out ~/ventra-evidence
 #
-# Override install source (default: PyPI):
-#   VENTRA_INSTALL_SPEC='git+https://github.com/Haggag-22/Ventra.git' bash bin/install-cloudshell.sh
+# Knobs:
+#   VENTRA_INSTALL_SPEC='ventra==0.2.0'    pin to a specific released version
+#   VENTRA_INSTALL_SPEC='git+https://github.com/Haggag-22/Ventra.git@main'
+#                                          test UNRELEASED code (force-reinstalls from git)
+#   VENTRA_SKIP_UPGRADE=1                  use the already-installed build, skip the upgrade check
 set -euo pipefail
 
 VENV="${VENTRA_VENV:-$HOME/.ventra-venv}"
@@ -30,6 +36,14 @@ _ventra_bin() {
   else
     return 1
   fi
+}
+
+# Installed version string ("0.2.0", a dev build, or "" if not installed). `ventra --version`
+# prints "ventra X.Y.Z"; take the last field.
+_ventra_installed_version() {
+  local bin
+  bin="$(_ventra_bin)" || { echo ""; return 0; }
+  "$bin" --version 2>/dev/null | awk '{print $NF}'
 }
 
 ventra_ready() {
@@ -66,30 +80,34 @@ ensure_venv() {
 }
 
 install_ventra() {
-  echo "Installing Ventra from ${INSTALL_SPEC}…"
   pip install --quiet --upgrade pip
   if [[ "$INSTALL_SPEC" == git+* ]] || [[ "$INSTALL_SPEC" == http* ]]; then
-    pip install --quiet "ventra @ ${INSTALL_SPEC}"
+    # Installing from a git ref (e.g. testing unreleased code): the version string may not
+    # change between pushes, so force a reinstall to guarantee the working code is replaced.
+    echo "Installing Ventra from ${INSTALL_SPEC} (forced reinstall)…"
+    pip install --quiet --upgrade --force-reinstall "ventra @ ${INSTALL_SPEC}"
   else
-    pip install --quiet "${INSTALL_SPEC}"
+    # Installing from PyPI: upgrade to the latest released version.
+    echo "Installing/upgrading Ventra from PyPI (${INSTALL_SPEC})…"
+    pip install --quiet --upgrade "${INSTALL_SPEC}"
   fi
 }
 
 main() {
-  if [ "${VENTRA_FORCE_INSTALL:-}" != "1" ] && ventra_ready; then
-    echo "Ventra already installed: $(_ventra_bin) $(_ventra_bin --version 2>&1 | tail -1)"
-    ensure_path
-    if _ventra_show_hints; then
-      echo
-      echo "Ready. Example:"
-      echo "  ventra collect aws --case CASE-2026-0042 --since 2026-05-11 --out ~/ventra-evidence"
-    fi
-    return 0
-  fi
-
   ensure_venv
-  install_ventra
-  ensure_path
+
+  local before after
+  before="$(_ventra_installed_version)"
+
+  # Use the already-installed build only when explicitly asked (offline / repeat runs); the
+  # default is to upgrade so a persisted CloudShell home always lands on the latest release.
+  if [ "${VENTRA_SKIP_UPGRADE:-}" = "1" ] && ventra_ready; then
+    ensure_path
+    echo "Ventra ${before} (upgrade skipped: VENTRA_SKIP_UPGRADE=1)."
+  else
+    install_ventra
+    ensure_path
+  fi
 
   if ! ventra_ready; then
     bin="$(_ventra_bin || echo "$VENV/bin/ventra")"
@@ -97,13 +115,20 @@ main() {
     echo "  bin: ${bin}" >&2
     "${bin}" --version 2>&1 | sed 's/^/  /' >&2 || true
     "${bin}" collect aws --help 2>&1 | head -3 | sed 's/^/  /' >&2 || true
-    echo "  Try: VENTRA_FORCE_INSTALL=1 VENTRA_INSTALL_SPEC='git+https://github.com/Haggag-22/Ventra.git' bash -c \"\$(curl -fsSL .../install-cloudshell.sh)\"" >&2
+    echo "  Try: VENTRA_INSTALL_SPEC='git+https://github.com/Haggag-22/Ventra.git@main' bash -c \"\$(curl -fsSL .../install-cloudshell.sh)\"" >&2
     exit 1
   fi
 
+  after="$(_ventra_installed_version)"
+  if [ -n "$before" ] && [ "$before" != "$after" ]; then
+    echo "Ventra upgraded: ${before} → ${after}"
+  elif [ -n "$before" ]; then
+    echo "Ventra already up to date: ${after}"
+  else
+    echo "Ventra installed: ${after}"
+  fi
+
   if _ventra_show_hints; then
-    echo
-    echo "Ventra installed: $(_ventra_bin) $(_ventra_bin --version 2>&1 | tail -1)"
     echo
     echo "Collect evidence:"
     echo "  ventra collect aws --case CASE-2026-0042 --since 2026-05-11 --out ~/ventra-evidence"

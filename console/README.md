@@ -9,14 +9,14 @@ The analyst investigation GUI. Two parts:
 
 ## Run it
 
-### Docker (recommended)
+From a clone, one command starts both halves with hot reload (no Docker):
 
 ```bash
-docker compose -f ../deploy/compose/ventra.yml up
-# Console: http://localhost:8080
+ventra gui        # http://localhost:8080  (first run sets up .venv + npm)
 ```
 
-### Development
+A packaged desktop app is planned for the v1 release. To run the pieces by hand during
+development:
 
 ```bash
 # Backend (serves the case store the ingester writes to)

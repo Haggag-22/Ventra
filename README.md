@@ -67,10 +67,15 @@ and standard DFIR practice:
 
 ```bash
 # Review the read-only IAM policy first: docs/iam-policies/aws-collector-readonly.json
-# AWS CloudShell — one-time install (skips if already set up):
+# AWS CloudShell — run any session; it self-upgrades to the latest release each time:
 curl -fsSL https://raw.githubusercontent.com/Haggag-22/Ventra/main/bin/install-cloudshell.sh | bash
 ventra collect aws --case CASE-2026-0042 --out ~/ventra-evidence
 ```
+
+Clients always get the latest collector — the installer upgrades from PyPI on every run. Pin an
+engagement with `VENTRA_INSTALL_SPEC='ventra==1.0.0'`. Maintainers: every push to `main` is
+published to PyPI automatically, so `pipx upgrade ventra` in CloudShell fetches your latest
+code — see [RELEASING.md](RELEASING.md).
 
 ### Ingester + Console (on the IR workstation)
 
@@ -78,14 +83,14 @@ From a clone — one command, no prior setup:
 
 ```bash
 cd Ventra
-python3 -m collector dev    # first run installs .venv + deps + npm, opens browser
+python3 -m collector gui    # first run installs .venv + deps + npm, opens browser
 # or, after any pip install of ventra:
-ventra dev                  # same thing
-ventra gui                  # production — Docker Compose (or ventra gui --local)
+ventra gui                  # same thing
 ```
 
-`ventra dev` creates `.venv`, installs Python and npm dependencies if needed, then starts
-the console with hot reload. Edit code, save, refresh the browser.
+`ventra gui` creates `.venv`, installs Python and npm dependencies if needed, then starts the
+console with hot reload. Edit code, save, refresh the browser. No Docker — a packaged desktop
+app is planned for the v1 release.
 
 `ventra collect aws …` seals a package and **automatically ingests** it into `./cases`
 (unless you pass `--no-ingest`). You can also import a package from the Cases screen, or
@@ -103,7 +108,7 @@ ingester/    Verify → parse → normalize → load (Python, DuckDB/Parquet)
 console/     Analyst GUI — FastAPI backend + Next.js frontend
 schemas/     JSON Schemas: manifest, package, unified event
 docs/        EPF spec, IAM policies, runbooks, threat coverage
-deploy/      Docker, Compose, Terraform reference forensics environment
+deploy/      Terraform reference forensics environment
 tests/       Fixtures + unit/integration/e2e
 pyproject.toml   ventra package (pip install from repo root)
 ```

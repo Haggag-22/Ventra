@@ -1,17 +1,16 @@
 # Ventra developer convenience targets.
 export PYTHONDONTWRITEBYTECODE := 1
 
-.PHONY: help install dev-setup demo ingest backend frontend dev console test lint readonly-guard clean clean-pycache ensure-no-pycache install-hooks
+.PHONY: help install dev-setup demo ingest backend frontend dev gui test lint readonly-guard clean clean-pycache ensure-no-pycache install-hooks
 
 help:
 	@echo "Ventra targets:"
 	@echo "  make install        Install collector + ingester + backend (editable)"
-	@echo "  make dev            Same as: ventra dev (auto-setup + hot reload)"
+	@echo "  make gui            Same as: ventra gui (auto-setup + hot reload, no Docker)"
 	@echo "  make demo           Generate a synthetic evidence package into tests/fixtures/"
 	@echo "  make ingest         Ingest the demo package into ./cases"
 	@echo "  make backend        Run the console backend (uvicorn :8000, reload)"
 	@echo "  make frontend       Run the console frontend (next dev :8080)"
-	@echo "  make console        docker compose up the full stack"
 	@echo "  make test           Run the Python test suite"
 	@echo "  make lint           ruff + frontend typecheck"
 	@echo "  make readonly-guard Verify the collector is read-only"
@@ -24,8 +23,11 @@ dev-setup: install clean-pycache ensure-no-pycache install-hooks
 	mkdir -p cases .ventra-uploads
 	cd console/frontend && npm install
 
-dev: clean-pycache
-	ventra dev
+gui: clean-pycache
+	ventra gui
+
+# Alias of `gui`, kept for muscle memory.
+dev: gui
 
 demo:
 	python tests/fixtures/generate_demo_case.py --out tests/fixtures/
@@ -39,9 +41,6 @@ backend: clean-pycache
 
 frontend:
 	cd console/frontend && npm run dev
-
-console:
-	docker compose -f deploy/compose/ventra.yml up --build
 
 test: clean-pycache
 	pytest tests/ -q

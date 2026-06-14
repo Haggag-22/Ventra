@@ -7,8 +7,7 @@ By default the sealed package is ingested into ./cases (or $VENTRA_CASE_STORE) s
 console can open the case immediately. Use ``--no-ingest`` for package-only acquisition
 (e.g. AWS CloudShell before handoff to the IR workstation).
 
-    ventra dev     # local console with hot reload (development)
-    ventra gui     # production console (Docker Compose or --local build)
+    ventra gui     # open the analyst console GUI locally (hot reload; no Docker)
 
 ``ventra-collect aws …`` is accepted as shorthand for the same collect command.
 
@@ -79,45 +78,27 @@ def build_parser(*, prog: str = "ventra") -> argparse.ArgumentParser:
     clouds = collect.add_subparsers(dest="cloud", required=True)
     _add_aws_parser(clouds)
 
-    dev = sub.add_parser(
-        "dev",
-        help="Run the analyst console locally with hot reload (development).",
-    )
-    dev.add_argument("--port", type=int, default=8080, help="Frontend port (default: 8080).")
-    dev.add_argument(
-        "--backend-port", type=int, default=8000, help="Backend port (default: 8000)."
-    )
-    dev.add_argument("--no-open", action="store_true", help="Do not open a browser tab.")
-    dev.add_argument(
-        "--setup",
-        action="store_true",
-        help="Re-run pip/npm install even if dependencies look current.",
-    )
+    def _add_gui_args(parser: argparse.ArgumentParser) -> None:
+        parser.add_argument("--port", type=int, default=8080, help="Frontend port (default: 8080).")
+        parser.add_argument(
+            "--backend-port", type=int, default=8000, help="Backend port (default: 8000)."
+        )
+        parser.add_argument("--no-open", action="store_true", help="Do not open a browser tab.")
+        parser.add_argument(
+            "--setup",
+            action="store_true",
+            help="Re-run pip/npm install even if dependencies look current.",
+        )
 
     gui = sub.add_parser(
         "gui",
-        help="Run the production analyst console (Docker Compose or local build).",
+        help="Open the Ventra console GUI locally (hot reload). No Docker.",
     )
-    gui.add_argument(
-        "--local",
-        action="store_true",
-        help="Build and run locally instead of Docker Compose.",
-    )
-    gui.add_argument(
-        "--rebuild",
-        action="store_true",
-        help="With --local, force a fresh frontend build.",
-    )
-    gui.add_argument("--port", type=int, default=8080, help="Frontend port (default: 8080).")
-    gui.add_argument(
-        "--backend-port", type=int, default=8000, help="Backend port (default: 8000)."
-    )
-    gui.add_argument("--no-open", action="store_true", help="Do not open a browser tab.")
-    gui.add_argument(
-        "--setup",
-        action="store_true",
-        help="Re-run pip/npm install even if dependencies look current.",
-    )
+    _add_gui_args(gui)
+
+    # ``dev`` is kept as an alias of ``gui`` so older muscle memory and `make dev` keep working.
+    dev = sub.add_parser("dev", help="Alias of `gui`.")
+    _add_gui_args(dev)
     return p
 
 
