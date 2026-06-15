@@ -13,3 +13,9 @@
 - [x] Understand how cloudtrail works and what is the best way to collect it and show it and how to make the tool to understand if this bucket is trail logs or not
 - [ ] Add time range option to the CLI
 - [ ] Why al S3 buckets was collected and if collected where do they load do they load as resource inventory or timeline in cloudtrail?
+- [ ] secutityt findings raw logs show automatic without dropdow
+- [ ] does security hub findings all the same? if yes fix the duplicates. how does security hub work
+- [ ] remove this S3 log integrity (validate-logs) from cloudtrail timeline
+- [ ] make the trail show arrow to the s3 bucket its storing logs in in cloudtrail timeline gui more visual if trail doesnt have s3 storing in then doesnt show arrow to something something like table coulmn for trail naem and coulmm for s3 logging that trail
+- [ ] reomve all dahses from gui and fix descriptions 
+- [ ] remove the word partial or full from cases gui
