@@ -129,6 +129,15 @@ main() {
   fi
 
   if _ventra_show_hints; then
+    # When this script is run via ``curl | bash`` / ``bash -c``, the PATH export above lives in a
+    # subshell that exits immediately, so the caller's current shell can't see ``ventra`` yet.
+    # ``~/.bashrc`` was updated for new shells; tell the user how to use it right now.
+    if ! command -v ventra >/dev/null 2>&1; then
+      echo
+      echo "Activate \`ventra\` in THIS shell (new shells get it automatically):"
+      echo "  source ~/.bashrc"
+      echo "  # or run it directly: $VENV/bin/ventra ..."
+    fi
     echo
     echo "Collect evidence:"
     echo "  ventra collect aws --case CASE-2026-0042 --since 2026-05-11 --out ~/ventra-evidence"
