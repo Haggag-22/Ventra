@@ -6,7 +6,6 @@ import type { UnifiedEvent } from "@/lib/types";
 import { usePins } from "@/lib/usePins";
 import { cn } from "@/lib/utils";
 import { Pin, PinOff, X } from "lucide-react";
-import { useState } from "react";
 import { useCase } from "./case-context";
 import { OutcomeBadge, SeverityBadge } from "./badges";
 import { Entity } from "./pivot";
@@ -31,7 +30,6 @@ export function ContextDrawer({
 }) {
   const { caseId } = useCase();
   const { add, remove, has } = usePins(caseId);
-  const [showRaw, setShowRaw] = useState(false);
   if (!event) return null;
 
   const pinId = `event-${event.message}-${event.timestamp}`;
@@ -152,17 +150,10 @@ export function ContextDrawer({
           )}
 
           <div className="my-3">
-            <button
-              onClick={() => setShowRaw((v) => !v)}
-              className="text-2xs uppercase tracking-wide text-fg-subtle hover:text-fg"
-            >
-              {showRaw ? "▾ Hide raw record" : "▸ Show raw record"}
-            </button>
-            {showRaw && (
-              <pre className="mono mt-2 max-h-72 overflow-auto rounded-md border border-border bg-bg p-3 text-2xs leading-relaxed text-fg-subtle">
-                {JSON.stringify(event.raw, null, 2)}
-              </pre>
-            )}
+            <div className="text-2xs uppercase tracking-wide text-fg-subtle">Raw record</div>
+            <pre className="mono mt-2 max-h-72 overflow-auto rounded-md border border-border bg-bg p-3 text-2xs leading-relaxed text-fg-subtle">
+              {JSON.stringify(event.raw, null, 2)}
+            </pre>
           </div>
         </div>
       </aside>

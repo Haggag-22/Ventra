@@ -456,6 +456,39 @@ body {
     @apply border-border bg-surface text-fg-subtle;
   }
 
+  .cloudtrail-view .ct-flow {
+    @apply flex items-stretch gap-2;
+  }
+
+  .cloudtrail-view .ct-flow-node {
+    @apply min-w-0 flex-1 rounded-md border border-border bg-surface-2 px-2.5 py-2;
+  }
+
+  .cloudtrail-view .ct-flow-node--dest {
+    border-color: rgb(var(--ok-green) / 0.3);
+    background: rgb(var(--ok-green) / 0.07);
+  }
+
+  .cloudtrail-view .ct-flow-node-label {
+    @apply flex items-center gap-1 text-2xs font-medium uppercase tracking-wide text-fg-subtle;
+  }
+
+  .cloudtrail-view .ct-flow-node-value {
+    @apply mt-1 text-xs text-fg;
+  }
+
+  .cloudtrail-view .ct-flow-node-sub {
+    @apply mt-0.5 text-2xs text-fg-subtle;
+  }
+
+  .cloudtrail-view .ct-flow-arrow {
+    @apply flex shrink-0 items-center justify-center px-0.5 text-accent;
+  }
+
+  .cloudtrail-view .ct-flow-empty {
+    @apply flex flex-1 items-center justify-center gap-1.5 rounded-md border border-dashed border-border px-2.5 py-2 text-center text-2xs text-fg-subtle;
+  }
+
   .cloudtrail-view .ct-panel {
     overflow: hidden;
     border: 1px solid rgb(var(--border));

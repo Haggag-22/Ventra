@@ -191,7 +191,7 @@ function CaseCard({ c }: { c: CaseSummary }) {
             </span>
           </div>
           <div className="flex items-center gap-2">
-            <IntegrityBadge value={c.integrity} />
+            <IntegrityBadge value={c.integrity} showLabel={false} />
             <button
               type="button"
               aria-label="Delete case"
