@@ -6,7 +6,6 @@ import {
   CLOUDTRAIL_COLS,
   type CloudTrailColKey,
 } from "@/lib/cloudtrail-columns";
-import { fmtNum } from "@/lib/format";
 import type { Facets } from "@/lib/types";
 import { Columns3, Filter, Search } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -22,16 +21,17 @@ export interface CloudTrailFilters {
   services?: string[];
   regions?: string[];
   users?: string[];
+  trailCategories?: string[];
   order?: string;
   user?: string;
   ip?: string;
 }
 
+const TRAIL_CATEGORY_OPTIONS = ["Management", "Data", "Insight", "Network"] as const;
+
 export function CloudTrailToolbar({
   facets,
   filters,
-  total,
-  matched,
   visibleColumns,
   onChange,
   onColumnsChange,
@@ -40,8 +40,6 @@ export function CloudTrailToolbar({
 }: {
   facets?: Facets;
   filters: CloudTrailFilters;
-  total: number;
-  matched: number;
   visibleColumns: CloudTrailColKey[];
   onChange: (next: Partial<CloudTrailFilters>) => void;
   onColumnsChange: (cols: CloudTrailColKey[]) => void;
@@ -72,6 +70,10 @@ export function CloudTrailToolbar({
     value: f.value,
     count: f.count,
   }));
+  const categoryOptions = TRAIL_CATEGORY_OPTIONS.map((value) => ({
+    value,
+    count: facets?.trail_category?.find((f) => f.value === value)?.count ?? 0,
+  }));
 
   const columnOptions = CLOUDTRAIL_COLS.map((c) => ({
     value: c.key,
@@ -91,17 +93,6 @@ export function CloudTrailToolbar({
 
   return (
     <div className="ct-filter-bar">
-      <div className="ct-filter-stats">
-        <span className="ct-status-badge">
-          <span className="ct-status-dot bg-ok-green" />
-          Total: {fmtNum(total)}
-        </span>
-        <span className="ct-status-badge">
-          <span className="ct-status-dot bg-accent" />
-          Matched: {fmtNum(matched)}
-        </span>
-      </div>
-
       <div className="ct-filter-controls">
         <div className="ct-search-wrap">
           <Search className="ct-search-icon" aria-hidden />
@@ -155,6 +146,20 @@ export function CloudTrailToolbar({
             onChange({ regions: next.length ? next : undefined });
           }}
           onClear={() => onChange({ regions: undefined })}
+          variant="cloudtrail"
+        />
+
+        <MultiSelect
+          label="Category"
+          icon={Filter}
+          options={categoryOptions}
+          selected={filters.trailCategories ?? []}
+          onToggle={(v) => {
+            const cur = filters.trailCategories ?? [];
+            const next = cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v];
+            onChange({ trailCategories: next.length ? next : undefined });
+          }}
+          onClear={() => onChange({ trailCategories: undefined })}
           variant="cloudtrail"
         />
 

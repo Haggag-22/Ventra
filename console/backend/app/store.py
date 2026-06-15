@@ -28,6 +28,42 @@ SORTABLE = {"timestamp", "event_severity", "event_action", "user_name", "source_
 
 SEVERITY_RANK = {"critical": 5, "high": 4, "medium": 3, "low": 2, "info": 1}
 
+# CloudTrail ``eventCategory`` lives in the raw JSON payload; normalize to the labels the UI shows.
+TRAIL_CATEGORY_SQL = (
+    "CASE json_extract_string(raw, '$.eventCategory') "
+    "WHEN 'NetworkActivity' THEN 'Network' "
+    "WHEN 'Insight' THEN 'Insight' "
+    "WHEN 'Data' THEN 'Data' "
+    "ELSE 'Management' END"
+)
+
+# Classify a finding by what its raw payload represents (compliance control, vulnerability,
+# threat detection, sensitive-data, etc.) so the Findings panel can column/filter on it. Mirrored
+# client-side in ``lib/finding-class.ts`` for the table cell — keep the two in sync.
+FINDING_CLASS_SQL = (
+    "CASE "
+    "WHEN ventra_source = 'inspector2' "
+    "  OR json_extract_string(raw, '$.packageVulnerabilityDetails.vulnerabilityId') IS NOT NULL "
+    "  THEN 'Vulnerability' "
+    "WHEN json_extract_string(raw, '$.Compliance.SecurityControlId') IS NOT NULL "
+    "  OR json_extract_string(raw, '$.Types[0]') LIKE 'Software and Configuration Checks/Industry and Regulatory Standards%' "
+    "  THEN 'Compliance' "
+    "WHEN ventra_source = 'macie' "
+    "  OR json_extract_string(raw, '$.Types[0]') LIKE 'Sensitive Data Identifications%' "
+    "  THEN 'Sensitive data' "
+    "WHEN json_extract_string(raw, '$.Types[0]') LIKE 'Effects/Data Exposure%' "
+    "  THEN 'Data exposure' "
+    "WHEN ventra_source = 'guardduty' "
+    "  OR json_extract_string(raw, '$.Type') IS NOT NULL "
+    "  OR json_extract_string(raw, '$.Types[0]') LIKE 'TTPs%' "
+    "  OR json_extract_string(raw, '$.Types[0]') LIKE 'Unusual Behaviors%' "
+    "  OR json_extract_string(raw, '$.Types[0]') LIKE 'Effects%' "
+    "  THEN 'Threat' "
+    "WHEN json_extract_string(raw, '$.Types[0]') LIKE 'Software and Configuration Checks%' "
+    "  THEN 'Configuration' "
+    "ELSE 'Other' END"
+)
+
 # Resource inventory roll-ups: (category title, item specs).
 # Each spec maps an inventory JSON source + key to a human label. Keys may use
 # dot paths; ``_config.*`` reads nested collector config (waf, vpc_flow).
@@ -92,6 +128,8 @@ class EventQuery:
     severities: list[str] = field(default_factory=list)
     sources: list[str] = field(default_factory=list)
     categories: list[str] = field(default_factory=list)
+    trail_categories: list[str] = field(default_factory=list)
+    finding_classes: list[str] = field(default_factory=list)
     actions: list[str] = field(default_factory=list)
     regions: list[str] = field(default_factory=list)
     services: list[str] = field(default_factory=list)
@@ -297,6 +335,14 @@ class CaseStore:
                 cat_clauses.append("event_category LIKE ?")
                 params.append(f'%"{c}"%')
             clauses.append("(" + " OR ".join(cat_clauses) + ")")
+        if q.trail_categories:
+            placeholders = ",".join("?" for _ in q.trail_categories)
+            clauses.append(f"({TRAIL_CATEGORY_SQL}) IN ({placeholders})")
+            params.extend(q.trail_categories)
+        if q.finding_classes:
+            placeholders = ",".join("?" for _ in q.finding_classes)
+            clauses.append(f"({FINDING_CLASS_SQL}) IN ({placeholders})")
+            params.extend(q.finding_classes)
         if q.since:
             clauses.append("timestamp >= ?")
             params.append(q.since)
@@ -380,9 +426,53 @@ class CaseStore:
                 "cloud_region": agg("cloud_region"),
                 "cloud_service": agg("cloud_service"),
                 "ua_category": agg("ua_category"),
+                "trail_category": self._trail_category_facets(con, events, where, params, path),
+                "finding_class": self._finding_class_facets(con, events, where, params, path),
             }
         finally:
             con.close()
+
+    def _trail_category_facets(
+        self,
+        con: duckdb.DuckDBPyConnection,
+        events: str,
+        where: str,
+        params: list[Any],
+        path: str,
+    ) -> list[dict[str, Any]]:
+        """Aggregate CloudTrail Management / Data / Insight / Network counts from raw JSON."""
+        ct_where = (
+            f"{where} AND ventra_source = 'cloudtrail'"
+            if where
+            else " WHERE ventra_source = 'cloudtrail'"
+        )
+        rows = con.execute(
+            f"SELECT {TRAIL_CATEGORY_SQL} AS k, count(*) AS c FROM {events}{ct_where} "
+            "GROUP BY 1 ORDER BY c DESC",
+            [path, *params],
+        ).fetchall()
+        return [{"value": r[0], "count": r[1]} for r in rows]
+
+    def _finding_class_facets(
+        self,
+        con: duckdb.DuckDBPyConnection,
+        events: str,
+        where: str,
+        params: list[Any],
+        path: str,
+    ) -> list[dict[str, Any]]:
+        """Aggregate finding classes (Compliance / Vulnerability / Threat / ...) from raw JSON."""
+        f_where = (
+            f"{where} AND event_kind = 'finding'"
+            if where
+            else " WHERE event_kind = 'finding'"
+        )
+        rows = con.execute(
+            f"SELECT {FINDING_CLASS_SQL} AS k, count(*) AS c FROM {events}{f_where} "
+            "GROUP BY 1 ORDER BY c DESC",
+            [path, *params],
+        ).fetchall()
+        return [{"value": r[0], "count": r[1]} for r in rows]
 
     def timeline_buckets(self, case_id: str, q: EventQuery, buckets: int = 80) -> dict[str, Any]:
         """Bucketed event counts over the case time span, split by severity, for the Timeline."""

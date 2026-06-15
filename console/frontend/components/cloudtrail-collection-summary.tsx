@@ -6,8 +6,6 @@ import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
   Archive,
-  ArrowRight,
-  CheckCircle2,
   Cloud,
   Database,
   FolderOpen,
@@ -15,8 +13,6 @@ import {
   CloudOff,
   Route,
   ScrollText,
-  ShieldCheck,
-  ShieldAlert,
 } from "lucide-react";
 
 export function CloudTrailCollectionSummary({ data }: { data: CloudTrailCollection }) {
@@ -27,6 +23,26 @@ export function CloudTrailCollectionSummary({ data }: { data: CloudTrailCollecti
   const logValidation = data.log_validation;
   const validationTrails = logValidation?.trails ?? [];
   const mgmt = data.management_collection;
+
+  // Index validation results by trail ARN and name so each trail in the flow below can show
+  // its integrity status inline (instead of a separate, bulky section).
+  const validationByKey = new Map<string, (typeof validationTrails)[number]>();
+  for (const v of validationTrails) {
+    if (v.trail_arn) validationByKey.set(v.trail_arn, v);
+    if (v.trail_name) validationByKey.set(v.trail_name, v);
+  }
+
+  // Index management-collection status (Collected / events / log objects) by trail.
+  const mgmtTrails = mgmt?.trails ?? [];
+  const mgmtByKey = new Map<string, (typeof mgmtTrails)[number]>();
+  for (const t of mgmtTrails) {
+    if (t.trail_arn) mgmtByKey.set(t.trail_arn, t);
+    if (t.trail_name) mgmtByKey.set(t.trail_name, t);
+  }
+
+  // Index S3-event totals by destination bucket name.
+  const bucketByName = new Map<string, (typeof buckets)[number]>();
+  for (const b of buckets) bucketByName.set(b.bucket, b);
 
   return (
     <div className="ct-collection-summary space-y-4">
@@ -40,25 +56,8 @@ export function CloudTrailCollectionSummary({ data }: { data: CloudTrailCollecti
           icon={Database}
           label="LookupEvents API"
           value={fmtNum(lookup.total)}
-          sub={`${fmtNum(lookup.management)} mgmt · ${fmtNum(lookup.insight)} insight`}
         />
-        <SummaryStat
-          icon={Archive}
-          label="S3 log files"
-          value={fmtNum(s3.total)}
-          sub={
-            s3.management || s3.data || s3.insight || s3.network_activity
-              ? [
-                  s3.management ? `${fmtNum(s3.management)} mgmt` : null,
-                  s3.data ? `${fmtNum(s3.data)} data` : null,
-                  s3.insight ? `${fmtNum(s3.insight)} insight` : null,
-                  s3.network_activity ? `${fmtNum(s3.network_activity)} network` : null,
-                ]
-                  .filter(Boolean)
-                  .join(" · ")
-              : undefined
-          }
-        />
+        <SummaryStat icon={Archive} label="Trail events" value={fmtNum(s3.total)} />
         <SummaryStat
           icon={FolderOpen}
           label="S3 buckets"
@@ -70,75 +69,30 @@ export function CloudTrailCollectionSummary({ data }: { data: CloudTrailCollecti
         <ManagementCollectionSection mgmt={mgmt} />
       )}
 
-      {validationTrails.length > 0 && (
-        <section className="ct-resource-section">
-          <h3 className="ct-resource-heading">
-            {logValidation?.any_invalid ? (
-              <ShieldAlert className="h-4 w-4 text-danger" />
-            ) : (
-              <ShieldCheck className="h-4 w-4 text-success" />
-            )}
-            S3 log integrity (validate-logs)
-          </h3>
-          {logValidation?.any_invalid && (
-            <p className="mb-3 text-xs text-danger">
-              One or more trails failed digest/log validation — possible tampering or gaps in the
-              digest chain. Treat as a forensic finding.
-            </p>
-          )}
-          <div className="grid gap-3 lg:grid-cols-2">
-            {validationTrails.map((v) => (
-              <article key={v.trail_arn || v.trail_name} className="ct-resource-block">
-                <div className="ct-resource-block-title">{v.trail_name}</div>
-                <div className="mt-2">
-                  <ValidationStatusBadge status={v.status} />
-                </div>
-                {v.status === "valid" && (
-                  <div className="mt-2 text-xs text-fg-subtle">
-                    {fmtNum(v.digest_valid ?? 0)}/{fmtNum(v.digest_total ?? 0)} digest files ·{" "}
-                    {fmtNum(v.log_valid ?? 0)}/{fmtNum(v.log_total ?? 0)} log files valid
-                  </div>
-                )}
-                {v.status === "invalid" && (
-                  <div className="mt-2 space-y-1 text-xs text-danger">
-                    {(v.digest_invalid ?? 0) > 0 && (
-                      <div>
-                        {fmtNum(v.digest_invalid)}/{fmtNum(v.digest_total ?? 0)} digest files
-                        INVALID
-                      </div>
-                    )}
-                    {(v.log_invalid ?? 0) > 0 && (
-                      <div>
-                        {fmtNum(v.log_invalid)}/{fmtNum(v.log_total ?? 0)} log files INVALID
-                      </div>
-                    )}
-                    {v.invalid_details?.slice(0, 3).map((line) => (
-                      <div key={line} className="mono text-2xs break-all opacity-90">
-                        {line}
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {v.status === "error" && v.skip_reason && (
-                  <div className="mt-2 text-xs text-fg-subtle">{v.skip_reason}</div>
-                )}
-              </article>
-            ))}
-          </div>
-          <p className="mt-3 text-2xs text-fg-subtle">
-            LookupEvents records are API-sourced and not covered by S3 digest validation.
-          </p>
-        </section>
-      )}
-
       {trails.length > 0 && (
         <section className="ct-resource-section">
           <h3 className="ct-resource-heading">
             <Route className="h-4 w-4" />
             Trails ({trails.length})
           </h3>
+          {logValidation?.any_invalid && (
+            <p className="text-xs text-danger">
+              One or more trails failed digest/log validation, indicating possible tampering or gaps
+              in the digest chain. Treat as a forensic finding.
+            </p>
+          )}
           <div className="grid gap-3">
-            {trails.map((trail) => (
+            {trails.map((trail) => {
+              const v =
+                (trail.arn && validationByKey.get(trail.arn)) ||
+                (trail.name && validationByKey.get(trail.name)) ||
+                undefined;
+              const m =
+                (trail.arn && mgmtByKey.get(trail.arn)) ||
+                (trail.name && mgmtByKey.get(trail.name)) ||
+                undefined;
+              const b = trail.s3_bucket ? bucketByName.get(trail.s3_bucket) : undefined;
+              return (
               // Visual delivery mapping: trail → S3 bucket (arrow only when a bucket exists)
               <div key={trail.arn || trail.name} className="ct-flow">
                 <div className="ct-flow-node">
@@ -153,12 +107,49 @@ export function CloudTrailCollectionSummary({ data }: { data: CloudTrailCollecti
                   {trail.home_region && (
                     <div className="ct-flow-node-sub">{trail.home_region}</div>
                   )}
+                  {(v || m) && (
+                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      {m && <TrailCollectStatus status={m.status} />}
+                      {v && <ValidationStatusBadge status={v.status} />}
+                    </div>
+                  )}
+                  {(v?.status === "valid" || v?.status === "invalid") && (
+                    <div className="ct-flow-stats">
+                      {v?.status === "valid" ? (
+                        <>
+                          <FlowStat
+                            label="Digest files valid"
+                            value={`${fmtNum(v.digest_valid ?? 0)}/${fmtNum(v.digest_total ?? 0)}`}
+                          />
+                          <FlowStat
+                            label="Log files valid"
+                            value={`${fmtNum(v.log_valid ?? 0)}/${fmtNum(v.log_total ?? 0)}`}
+                          />
+                        </>
+                      ) : null}
+                      {v?.status === "invalid" ? (
+                        <>
+                          <FlowStat
+                            label="Digest files invalid"
+                            value={`${fmtNum(v.digest_invalid ?? 0)}/${fmtNum(v.digest_total ?? 0)}`}
+                          />
+                          <FlowStat
+                            label="Log files invalid"
+                            value={`${fmtNum(v.log_invalid ?? 0)}/${fmtNum(v.log_total ?? 0)}`}
+                          />
+                        </>
+                      ) : null}
+                    </div>
+                  )}
+                  {v?.status === "error" && v.skip_reason && (
+                    <div className="ct-flow-node-sub">{v.skip_reason}</div>
+                  )}
                 </div>
 
                 {trail.s3_bucket ? (
                   <>
-                    <div className="ct-flow-arrow" title="delivers logs to">
-                      <ArrowRight className="h-4 w-4" />
+                    <div className="ct-flow-arrow" title="delivers logs to" aria-hidden="true">
+                      <span className="ct-flow-arrow-line" />
                     </div>
                     <div className="ct-flow-node ct-flow-node--dest">
                       <div className="ct-flow-node-label">
@@ -174,71 +165,46 @@ export function CloudTrailCollectionSummary({ data }: { data: CloudTrailCollecti
                           prefix: {trail.s3_key_prefix}
                         </div>
                       )}
+                      {b && (
+                        <div className="ct-flow-stats">
+                          <FlowStat label="Events from S3" value={fmtNum(b.events?.total ?? 0)} />
+                          {b.events?.management ? (
+                            <FlowStat
+                              label="Management events"
+                              value={fmtNum(b.events.management)}
+                            />
+                          ) : null}
+                          {b.events?.data ? (
+                            <FlowStat label="Data events" value={fmtNum(b.events.data)} />
+                          ) : null}
+                          {b.events?.insight ? (
+                            <FlowStat label="Insight events" value={fmtNum(b.events.insight)} />
+                          ) : null}
+                          {b.events?.network_activity ? (
+                            <FlowStat
+                              label="Network activity events"
+                              value={fmtNum(b.events.network_activity)}
+                            />
+                          ) : null}
+                          {b.objects_read != null && b.objects_read > 0 ? (
+                            <FlowStat
+                              label={b.truncated ? "Log objects read (truncated)" : "Log objects read"}
+                              value={fmtNum(b.objects_read)}
+                            />
+                          ) : null}
+                        </div>
+                      )}
                     </div>
                   </>
                 ) : (
                   <div className="ct-flow-empty">
                     <CloudOff className="h-3.5 w-3.5 shrink-0" />
-                    No S3 delivery · Event History only
+                    No S3 delivery (Event History only)
                   </div>
                 )}
               </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {buckets.length > 0 && (
-        <section className="ct-resource-section">
-          <h3 className="ct-resource-heading">
-            <Archive className="h-4 w-4" />
-            S3 buckets — events collected
-          </h3>
-          <div className="grid gap-3 lg:grid-cols-2">
-            {buckets.map((b) => (
-              <article key={b.bucket} className="ct-resource-block">
-                <div className="ct-resource-block-title">{b.bucket}</div>
-                <div className="mt-1 text-2xl font-semibold tabular-nums text-fg">
-                  {fmtNum(b.events?.total ?? 0)}
-                  <span className="ml-1.5 text-xs font-normal text-fg-subtle">events from S3</span>
-                </div>
-                {(b.events?.management ||
-                  b.events?.data ||
-                  b.events?.insight ||
-                  b.events?.network_activity) && (
-                  <div className="mt-1 text-2xs text-fg-subtle">
-                    {[
-                      b.events.management ? `${fmtNum(b.events.management)} mgmt` : null,
-                      b.events.data ? `${fmtNum(b.events.data)} data` : null,
-                      b.events.insight ? `${fmtNum(b.events.insight)} insight` : null,
-                      b.events.network_activity
-                        ? `${fmtNum(b.events.network_activity)} network`
-                        : null,
-                    ]
-                      .filter(Boolean)
-                      .join(" · ")}
-                  </div>
-                )}
-                {b.trail_arns?.length > 0 && (
-                  <div className="mt-2 border-t border-border pt-2">
-                    <div className="text-2xs text-fg-subtle">Linked trails</div>
-                    <ul className="mt-1 space-y-0.5">
-                      {b.trail_arns.map((arn) => (
-                        <li key={arn} className="mono text-2xs text-fg-subtle break-all">
-                          {arn}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                {b.objects_read != null && b.objects_read > 0 && (
-                  <div className="mt-1 text-2xs text-fg-subtle">
-                    {fmtNum(b.objects_read)} log objects read
-                    {b.truncated ? " (truncated)" : ""}
-                  </div>
-                )}
-              </article>
-            ))}
+              );
+            })}
           </div>
         </section>
       )}
@@ -257,29 +223,18 @@ export function CloudTrailCollectionSummary({ data }: { data: CloudTrailCollecti
             <div className="mt-2 text-2xl font-semibold tabular-nums text-fg">
               {fmtNum(lookup.total)}
             </div>
-            <div className="mt-1 text-xs text-fg-subtle">
-              {data.management_source === "s3_logs"
-                ? "Fallback path only — management events were read from S3 logs for this case."
-                : "Portable management and insight events (~90-day API lookback)."}
-            </div>
-            <div className="mt-2 flex flex-wrap gap-2 text-2xs text-fg-subtle">
-              <span>{fmtNum(lookup.management)} management</span>
-              <span>·</span>
-              <span>{fmtNum(lookup.insight)} insight</span>
+            <div className="ct-flow-node-stats">
+              <span>{fmtNum(lookup.management)} Management events</span>
+              <span>{fmtNum(lookup.insight)} Insight events</span>
             </div>
           </article>
           <article className="ct-resource-block">
             <div className="flex items-center gap-2">
               <Archive className="h-4 w-4 text-accent" />
-              <div className="ct-resource-block-title">Trail S3 log files</div>
+              <div className="ct-resource-block-title">Trail events</div>
             </div>
             <div className="mt-2 text-2xl font-semibold tabular-nums text-fg">
               {fmtNum(s3.total)}
-            </div>
-            <div className="mt-1 text-xs text-fg-subtle">
-              {s3.management
-                ? "Management, data, insight, and network-activity events read from trail delivery buckets."
-                : "Data, insight, and network-activity events read from trail delivery buckets."}
             </div>
             {buckets.length > 0 && (
               <div className="mt-2 text-2xs text-fg-subtle">
@@ -301,12 +256,6 @@ function fallbackMessage(reason?: string): string {
   return "Trail S3 logs were unavailable.";
 }
 
-function trailReasonLabel(reason?: string): string {
-  if (reason === "access_denied") return "Access denied to bucket";
-  if (reason === "no_logs_in_window") return "No log objects in window";
-  return "Not collected";
-}
-
 function TrailCollectStatus({ status }: { status: string }) {
   const label =
     status === "collected" ? "Collected" : status === "denied" ? "Access denied" : "No logs";
@@ -321,25 +270,13 @@ function ManagementCollectionSection({ mgmt }: { mgmt: CloudTrailManagementColle
   const collectedFromTrails = mgmt.mode === "trails";
   const noS3Trail = mgmt.fallback_reason === "no_s3_trail";
 
+  // The per-trail collection status is now shown inline in the Trails flow above, so the
+  // success summary ("All trails collected") is redundant. Only surface the fallback states.
+  if (collectedFromTrails) return null;
+
   return (
     <section className="ct-resource-section">
-      {collectedFromTrails ? (
-        <>
-          <h3 className="ct-resource-heading">
-            <CheckCircle2 className="h-4 w-4 text-ok-green" />
-            {mgmt.trails_collected >= mgmt.trails_total
-              ? "All trails collected"
-              : "Collected from trails"}
-          </h3>
-          <p className="mb-3 text-xs text-fg-subtle">
-            Management events were read straight from{" "}
-            <span className="font-medium text-fg">{fmtNum(mgmt.trails_collected)}</span> of{" "}
-            {fmtNum(mgmt.trails_total)} trail{mgmt.trails_total === 1 ? "" : "s"} across{" "}
-            {fmtNum(mgmt.buckets.length)} bucket{mgmt.buckets.length === 1 ? "" : "s"} — the
-            authoritative log files. CloudTrail Event History was not needed.
-          </p>
-        </>
-      ) : noS3Trail ? (
+      {noS3Trail ? (
         <>
           <h3 className="ct-resource-heading">
             <Info className="h-4 w-4 text-accent" />
@@ -354,32 +291,13 @@ function ManagementCollectionSection({ mgmt }: { mgmt: CloudTrailManagementColle
         <>
           <h3 className="ct-resource-heading">
             <AlertTriangle className="h-4 w-4 text-warn-amber" />
-            Trail collection failed — using Event History
+            Trail collection failed, using Event History
           </h3>
           <p className="mb-3 text-xs text-warn-amber">
             {fallbackMessage(mgmt.fallback_reason)} Management events were collected from
             CloudTrail Event History (LookupEvents, ~90-day API lookback) instead.
           </p>
         </>
-      )}
-
-      {mgmt.trails.length > 0 && (
-        <div className="grid gap-3 lg:grid-cols-2">
-          {mgmt.trails.map((t) => (
-            <article key={t.trail_arn || t.trail_name} className="ct-resource-block">
-              <div className="flex items-center justify-between gap-2">
-                <div className="ct-resource-block-title">{t.trail_name || "Unnamed trail"}</div>
-                <TrailCollectStatus status={t.status} />
-              </div>
-              {t.bucket && <div className="mono ct-resource-meta break-all">{t.bucket}</div>}
-              <div className="mt-2 text-2xs text-fg-subtle">
-                {t.status === "collected"
-                  ? `${fmtNum(t.records)} events · ${fmtNum(t.objects_read ?? 0)} log objects`
-                  : trailReasonLabel(t.reason)}
-              </div>
-            </article>
-          ))}
-        </div>
       )}
     </section>
   );
@@ -405,6 +323,15 @@ function ValidationStatusBadge({ status }: { status: string }) {
     >
       {label}
     </span>
+  );
+}
+
+function FlowStat({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="ct-flow-stat">
+      <span className="ct-flow-stat-value">{value}</span>
+      <span className="ct-flow-stat-label">{label}</span>
+    </div>
   );
 }
 

@@ -1,15 +1,45 @@
 "use client";
 
+import { highlightJsonSegments, type JsonHighlightKind } from "@/lib/cloudtrail-json";
 import { CATEGORY_COLORS } from "@/lib/severity";
 import { fmtBytes, fmtTime } from "@/lib/format";
 import type { UnifiedEvent } from "@/lib/types";
 import { usePins } from "@/lib/usePins";
 import { cn } from "@/lib/utils";
-import { Pin, PinOff, X } from "lucide-react";
+import { Braces, Pin, PinOff, X } from "lucide-react";
+import { useState } from "react";
 import { useCase } from "./case-context";
 import { OutcomeBadge, SeverityBadge } from "./badges";
 import { Entity } from "./pivot";
 import { Button } from "./ui";
+
+const JSON_CLASS: Record<JsonHighlightKind, string | undefined> = {
+  key: "j-key",
+  str: "j-str",
+  num: "j-num",
+  bool: "j-bool",
+  null: "j-null",
+  plain: undefined,
+};
+
+function JsonBlock({ value }: { value: unknown }) {
+  const segments = highlightJsonSegments(value);
+  return (
+    <pre className="ct-json">
+      <code>
+        {segments.map((seg, i) =>
+          seg.kind === "plain" ? (
+            <span key={i}>{seg.text}</span>
+          ) : (
+            <span key={i} className={JSON_CLASS[seg.kind]}>
+              {seg.text}
+            </span>
+          ),
+        )}
+      </code>
+    </pre>
+  );
+}
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   if (!children) return null;
@@ -30,6 +60,7 @@ export function ContextDrawer({
 }) {
   const { caseId } = useCase();
   const { add, remove, has } = usePins(caseId);
+  const [showRaw, setShowRaw] = useState(false);
   if (!event) return null;
 
   const pinId = `event-${event.message}-${event.timestamp}`;
@@ -48,7 +79,7 @@ export function ContextDrawer({
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/30 animate-fade-in" onClick={onClose} />
-      <aside className="fixed right-0 top-0 z-50 flex h-screen w-[460px] max-w-[92vw] flex-col border-l border-border bg-surface shadow-pop animate-slide-in">
+      <aside className="fixed right-0 top-0 z-50 flex h-screen w-[680px] max-w-[95vw] flex-col border-l border-border bg-surface shadow-pop animate-slide-in">
         <div className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -65,7 +96,15 @@ export function ContextDrawer({
           </Button>
         </div>
 
-        <div className="border-b border-border px-4 py-2">
+        <div className="flex items-center gap-2 border-b border-border px-4 py-2">
+          <Button
+            size="sm"
+            variant={showRaw ? "primary" : "secondary"}
+            icon={Braces}
+            onClick={() => setShowRaw((v) => !v)}
+          >
+            {showRaw ? "Hide raw log" : "Show raw log"}
+          </Button>
           <Button
             size="sm"
             variant={pinned ? "primary" : "secondary"}
@@ -150,10 +189,19 @@ export function ContextDrawer({
           )}
 
           <div className="my-3">
-            <div className="text-2xs uppercase tracking-wide text-fg-subtle">Raw record</div>
-            <pre className="mono mt-2 max-h-72 overflow-auto rounded-md border border-border bg-bg p-3 text-2xs leading-relaxed text-fg-subtle">
-              {JSON.stringify(event.raw, null, 2)}
-            </pre>
+            <Button
+              variant={showRaw ? "primary" : "secondary"}
+              icon={Braces}
+              onClick={() => setShowRaw((v) => !v)}
+              className="w-full justify-center"
+            >
+              {showRaw ? "Hide raw log" : "Show raw log"}
+            </Button>
+            {showRaw && (
+              <div className="mt-3">
+                <JsonBlock value={event.raw} />
+              </div>
+            )}
           </div>
         </div>
       </aside>
