@@ -27,6 +27,24 @@ def test_normalize_argv_preserves_global_flags() -> None:
     assert _normalize_argv(["aws", "--case", "X"]) == ["collect", "aws", "--case", "X"]
 
 
+def test_should_auto_ingest_skips_cloudshell(monkeypatch: pytest.MonkeyPatch) -> None:
+    from collector.cli import _should_auto_ingest
+
+    def parse(extra: list[str]) -> object:
+        return build_parser().parse_args(["collect", "aws", *extra])
+
+    # Workstation (no CloudShell env): auto-ingest by default.
+    monkeypatch.delenv("AWS_EXECUTION_ENV", raising=False)
+    assert _should_auto_ingest(parse([])) is True
+    assert _should_auto_ingest(parse(["--no-ingest"])) is False
+
+    # CloudShell: skip by default, but --ingest forces it.
+    monkeypatch.setenv("AWS_EXECUTION_ENV", "CloudShell")
+    assert _should_auto_ingest(parse([])) is False
+    assert _should_auto_ingest(parse(["--ingest"])) is True
+    assert _should_auto_ingest(parse(["--no-ingest"])) is False
+
+
 def test_find_repo_root_from_cwd() -> None:
     from collector.devgui import find_repo_root
 

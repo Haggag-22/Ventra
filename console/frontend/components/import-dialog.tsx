@@ -1,6 +1,7 @@
 "use client";
 
 import { importPackage } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import { useQueryClient } from "@tanstack/react-query";
 import { CheckCircle2, FileArchive, FolderOpen, X } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -16,12 +17,15 @@ function suggestCaseId(filename: string): string {
   return hit?.[1]?.toUpperCase() ?? "";
 }
 
+const ACCEPT_RE = /\.(tar\.zst|tar\.gz|zst|gz|tar)$/i;
+
 export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const [stage, setStage] = useState<Stage>("idle");
   const [caseName, setCaseName] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [result, setResult] = useState<any>(null);
   const [error, setError] = useState("");
+  const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const router = useRouter();
   const qc = useQueryClient();
@@ -33,6 +37,7 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
     setFile(null);
     setResult(null);
     setError("");
+    setDragOver(false);
   }, [open]);
 
   if (!open) return null;
@@ -48,19 +53,23 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
     }
   };
 
-  const handleImport = async () => {
-    if (!caseName.trim()) {
-      setError("Enter a case name.");
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const dropped = e.dataTransfer.files?.[0];
+    if (!dropped) return;
+    if (!ACCEPT_RE.test(dropped.name)) {
+      setError("Drop a Ventra evidence archive (.tar.zst or .tar.gz).");
       return;
     }
-    if (!file) {
-      setError("Choose an evidence package file.");
-      return;
-    }
+    onFileChange(dropped);
+  };
+
+  const startImport = async (theFile: File, theCase: string) => {
     setStage("uploading");
     setError("");
     try {
-      const res = await importPackage(file, caseName.trim());
+      const res = await importPackage(theFile, theCase.trim() || undefined);
       setResult(res);
       setStage("done");
       qc.invalidateQueries({ queryKey: ["cases"] });
@@ -68,6 +77,14 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
       setError(e.message || "Import failed");
       setStage("error");
     }
+  };
+
+  const handleImport = async () => {
+    if (!file) {
+      setError("Choose or drop an evidence package file.");
+      return;
+    }
+    await startImport(file, caseName);
   };
 
   const reset = () => {
@@ -100,26 +117,47 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
           {stage === "idle" && (
             <>
               <div className="space-y-4">
-                <label className="block space-y-1.5">
-                  <span className="text-xs font-medium text-fg">Case name</span>
-                  <Input
-                    value={caseName}
-                    onChange={(e) => setCaseName(e.target.value)}
-                    placeholder="e.g. CASE-2026-0042"
-                    required
-                    autoFocus
-                  />
-                </label>
-
                 <div className="space-y-1.5">
                   <span className="text-xs font-medium text-fg">Evidence package</span>
-                  <div className="flex items-center gap-2">
-                    <div className="min-w-0 flex-1 truncate rounded-md border border-border bg-surface-2 px-3 py-2 text-sm text-fg-subtle">
-                      {file ? file.name : "No file selected"}
-                    </div>
-                    <Button type="button" variant="secondary" icon={FolderOpen} onClick={pickFile}>
-                      Browse…
-                    </Button>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={pickFile}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || e.key === " ") pickFile();
+                    }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setDragOver(true);
+                    }}
+                    onDragLeave={() => setDragOver(false)}
+                    onDrop={onDrop}
+                    className={cn(
+                      "flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed px-4 py-8 text-center transition-colors",
+                      dragOver
+                        ? "border-accent bg-accent/10"
+                        : "border-border bg-surface-2 hover:border-accent/60",
+                    )}
+                  >
+                    {file ? (
+                      <>
+                        <FileArchive className="h-6 w-6 text-accent" />
+                        <span className="min-w-0 max-w-full truncate text-sm font-medium text-fg">
+                          {file.name}
+                        </span>
+                        <span className="text-2xs text-fg-subtle">Click or drop to replace</span>
+                      </>
+                    ) : (
+                      <>
+                        <FolderOpen className="h-6 w-6 text-fg-subtle" />
+                        <span className="text-sm text-fg">
+                          Drag &amp; drop a package here, or click to browse
+                        </span>
+                        <span className="text-2xs text-fg-subtle">
+                          Ventra evidence archive (.tar.zst or .tar.gz) — ingests automatically
+                        </span>
+                      </>
+                    )}
                   </div>
                   <input
                     ref={inputRef}
@@ -128,10 +166,18 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
                     className="hidden"
                     onChange={(e) => onFileChange(e.target.files?.[0] ?? null)}
                   />
-                  <span className="text-2xs text-fg-subtle">
-                    Ventra evidence archive (.tar.zst or .tar.gz)
-                  </span>
                 </div>
+
+                <label className="block space-y-1.5">
+                  <span className="text-xs font-medium text-fg">
+                    Case name <span className="text-fg-subtle">(optional)</span>
+                  </span>
+                  <Input
+                    value={caseName}
+                    onChange={(e) => setCaseName(e.target.value)}
+                    placeholder="Auto-detected from the package"
+                  />
+                </label>
               </div>
 
               {error && <p className="mt-3 text-sm text-bad-red">{error}</p>}
@@ -143,7 +189,7 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
                 <Button
                   type="button"
                   variant="primary-dark"
-                  disabled={!file || !caseName.trim()}
+                  disabled={!file}
                   onClick={handleImport}
                 >
                   Import

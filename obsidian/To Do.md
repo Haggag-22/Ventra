@@ -1,7 +1,7 @@
 - [x] Add to cloudtrail GUI how many trails were collected and from what buckets they were collected and how may events in each trail or bucket.
 - [x] Register with pip and discover the easiest way for packaging and exporting the logs to consulting make the process from installing the tool to exporting the logs to us easier research the best way
 - [x] Make pip registerd also to me and make when i push updates to the tool the tool in my work laptop cli gets updated figure out the best way for me insteak make dev-setup and make dev
-- [ ] Recheck CLI output and improve it
+- [x] Recheck CLI output and improve it
 - [x] Make the cloudtrail rows more like coud reach up to 500 in one page
 - [x] Add filtering by principal
 - [x] Fix IAM tab showing policies for roles and users
@@ -12,3 +12,4 @@
 - [x] Make the Collection Coverage look exact the same are Erblind Logs Cheat Sheet with same names
 - [x] Understand how cloudtrail works and what is the best way to collect it and show it and how to make the tool to understand if this bucket is trail logs or not
 - [ ] Add time range option to the CLI
+- [ ] Why al S3 buckets was collected and if collected where do they load do they load as resource inventory or timeline in cloudtrail?
