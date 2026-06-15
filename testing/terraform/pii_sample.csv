@@ -1,0 +1,5 @@
+name,email,ssn,credit_card,phone
+Jane Doe,jane.doe@example.com,123-45-6789,4111111111111111,555-0100
+John Smith,john.smith@example.com,987-65-4321,5500005555555559,555-0101
+Alice Walker,alice.walker@example.com,222-33-4444,340000000000009,555-0102
+Bob Martin,bob.martin@example.com,555-66-7777,6011000000000004,555-0103

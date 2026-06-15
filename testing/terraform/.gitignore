@@ -1,0 +1,16 @@
+# Terraform working files
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfplan
+crash.log
+crash.*.log
+
+# Build artifact produced by the archive provider
+.lambda.zip
+
+# Local var overrides
+*.tfvars
+!example.tfvars
+
+# Keep the provider lock file committed (.terraform.lock.hcl is intentionally NOT ignored)
