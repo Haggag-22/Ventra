@@ -3,9 +3,10 @@
     ventra collect aws --case CASE-2026-0042 \
         --since 2026-05-11 --regions us-east-1,us-west-2 --out ./ventra-evidence
 
-By default the sealed package is ingested into ./cases (or $VENTRA_CASE_STORE) so the
-console can open the case immediately. Use ``--no-ingest`` for package-only acquisition
-(e.g. AWS CloudShell before handoff to the IR workstation).
+On an IR workstation the sealed package is ingested into ./cases (or $VENTRA_CASE_STORE) so
+the console can open the case immediately. In AWS CloudShell — acquisition-only, before
+handoff to the IR workstation — ingest is skipped automatically; pass ``--ingest`` to force
+it, or ``--no-ingest`` to skip it anywhere.
 
     ventra gui     # open the analyst console GUI locally (hot reload; no Docker)
 
@@ -51,6 +52,11 @@ def _add_aws_parser(sub: argparse._SubParsersAction) -> None:
         "--no-ingest",
         action="store_true",
         help="Seal the package only; do not load into the case store.",
+    )
+    aws.add_argument(
+        "--ingest",
+        action="store_true",
+        help="Force auto-ingest into the case store, even in CloudShell.",
     )
     aws.add_argument(
         "--quiet",
@@ -100,6 +106,21 @@ def build_parser(*, prog: str = "ventra") -> argparse.ArgumentParser:
     dev = sub.add_parser("dev", help="Alias of `gui`.")
     _add_gui_args(dev)
     return p
+
+
+def _should_auto_ingest(args: argparse.Namespace) -> bool:
+    """Decide whether to load the sealed package into the case store after collect.
+
+    Explicit flags win; otherwise auto-ingest everywhere except CloudShell, which is
+    acquisition-only (the case store and console live on the IR workstation).
+    """
+    from .lib.ingest import running_in_cloudshell
+
+    if getattr(args, "no_ingest", False):
+        return False
+    if getattr(args, "ingest", False):
+        return True
+    return not running_in_cloudshell()
 
 
 def _normalize_argv(argv: list[str]) -> list[str]:
@@ -618,10 +639,10 @@ def _run_aws(args) -> int:
             print(f"Transport failed ({args.transport}): {exc}", file=sys.stderr)
             print(f"Package remains at {package.path}", file=sys.stderr)
 
-    # Auto-ingest unless asked not to, and only if the package was delivered.
+    # Auto-ingest only when applicable (skipped in CloudShell), and only if delivered.
     ingested: bool | None = None
     ingest_code = 0
-    if transport_error is None and not args.no_ingest:
+    if transport_error is None and _should_auto_ingest(args):
         from .lib.ingest import default_case_store, ingest_after_collect
 
         case_store = Path(args.case_store) if args.case_store else default_case_store()

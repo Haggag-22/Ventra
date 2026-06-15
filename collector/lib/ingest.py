@@ -13,6 +13,15 @@ def default_case_store() -> Path:
     return Path(os.environ.get("VENTRA_CASE_STORE", "./cases"))
 
 
+def running_in_cloudshell() -> bool:
+    """True when running inside AWS CloudShell.
+
+    CloudShell is acquisition-only — the case store and console live on the IR workstation —
+    so the collector seals the package there and skips ingest by default.
+    """
+    return os.environ.get("AWS_EXECUTION_ENV", "").lower().startswith("cloudshell")
+
+
 def ingest_after_collect(
     package_path: Path,
     case_store: Path,
