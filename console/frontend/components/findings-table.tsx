@@ -3,45 +3,110 @@
 import { ContextDrawer } from "@/components/context-drawer";
 import { Entity } from "@/components/pivot";
 import { Spinner } from "@/components/ui";
+import { findingClass, findingClassClass } from "@/lib/finding-class";
+import {
+  ALL_FINDING_COL_KEYS,
+  DEFAULT_FINDING_WIDTHS,
+  FINDING_COLS,
+  FINDING_WIDTHS_KEY,
+  loadFindingWidths,
+  orderedVisibleFindingCols,
+  type FindingColKey,
+} from "@/lib/findings-columns";
 import { findingOrigin, findingOriginClass } from "@/lib/finding-origin";
 import { fmtTimeCloudTrail } from "@/lib/format";
 import { SEVERITY_META } from "@/lib/severity";
 import type { UnifiedEvent } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-const COLS = [
-  { key: "timestamp", label: "Time (UTC)", min: 120 },
-  { key: "severity", label: "Severity", min: 80 },
-  { key: "finding_source", label: "Source", min: 100 },
-  { key: "event_action", label: "Action", min: 140 },
-  { key: "user_name", label: "Principal", min: 120 },
-  { key: "source_ip", label: "Source IP", min: 120 },
-  { key: "cloud_region", label: "Region", min: 80 },
-] as const;
-
-type ColKey = (typeof COLS)[number]["key"];
-
-const DEFAULT_WIDTHS: Record<ColKey, number> = {
-  timestamp: 180,
-  severity: 88,
-  finding_source: 110,
-  event_action: 240,
-  user_name: 180,
-  source_ip: 160,
-  cloud_region: 100,
-};
-
-const WIDTHS_KEY = "ventra.findings-table.widths.v2";
-
-function loadWidths(): Record<ColKey, number> {
-  if (typeof window === "undefined") return DEFAULT_WIDTHS;
-  try {
-    const raw = localStorage.getItem(WIDTHS_KEY);
-    if (!raw) return DEFAULT_WIDTHS;
-    return { ...DEFAULT_WIDTHS, ...JSON.parse(raw) };
-  } catch {
-    return DEFAULT_WIDTHS;
+function renderCell(
+  key: FindingColKey,
+  e: UnifiedEvent,
+  origin: ReturnType<typeof findingOrigin>,
+  cls: ReturnType<typeof findingClass>,
+) {
+  switch (key) {
+    case "timestamp":
+      return (
+        <td key={key} className="mono truncate text-fg-subtle">
+          {fmtTimeCloudTrail(e.timestamp)}
+        </td>
+      );
+    case "severity":
+      return (
+        <td key={key} className="truncate">
+          <span
+            className={cn(
+              "text-xs font-semibold",
+              (SEVERITY_META[e.event_severity] ?? SEVERITY_META.info).text,
+            )}
+          >
+            {(SEVERITY_META[e.event_severity] ?? SEVERITY_META.info).label}
+          </span>
+        </td>
+      );
+    case "finding_source":
+      return (
+        <td key={key} className="truncate">
+          <span
+            className={cn("finding-origin-badge", findingOriginClass(origin))}
+            title={`Collector: ${e.ventra_source}`}
+          >
+            {origin}
+          </span>
+        </td>
+      );
+    case "finding_class":
+      return (
+        <td key={key} className="truncate">
+          <span className={cn("finding-class-badge", findingClassClass(cls))}>{cls}</span>
+        </td>
+      );
+    case "event_action":
+      return (
+        <td key={key} className="truncate font-semibold text-fg" title={e.event_action || undefined}>
+          {e.event_action || e.message}
+        </td>
+      );
+    case "user_name":
+      return (
+        <td
+          key={key}
+          className="overflow-hidden whitespace-nowrap"
+          title={e.user_name || undefined}
+          onClick={(ev) => ev.stopPropagation()}
+        >
+          {e.user_name ? (
+            <Entity kind="user" value={e.user_name} className="max-w-full" />
+          ) : (
+            <span className="text-fg-subtle">—</span>
+          )}
+        </td>
+      );
+    case "source_ip":
+      return (
+        <td
+          key={key}
+          className="overflow-hidden whitespace-nowrap"
+          title={e.source_ip || undefined}
+          onClick={(ev) => ev.stopPropagation()}
+        >
+          {e.source_ip ? (
+            <Entity kind="ip" value={e.source_ip} className="max-w-full" />
+          ) : (
+            <span className="text-fg-subtle">—</span>
+          )}
+        </td>
+      );
+    case "cloud_region":
+      return (
+        <td key={key} className="mono truncate text-fg-subtle">
+          {e.cloud_region || "—"}
+        </td>
+      );
+    default:
+      return null;
   }
 }
 
@@ -49,34 +114,42 @@ export function FindingsTable({
   events,
   loading,
   emptyHint,
+  visibleColumns = ALL_FINDING_COL_KEYS,
 }: {
   events: UnifiedEvent[];
   loading?: boolean;
   emptyHint?: React.ReactNode;
+  visibleColumns?: FindingColKey[];
 }) {
   const [selected, setSelected] = useState<UnifiedEvent | null>(null);
-  const [widths, setWidths] = useState<Record<ColKey, number>>(DEFAULT_WIDTHS);
-  const resizing = useRef<{ key: ColKey; startX: number; startW: number } | null>(null);
+  const [widths, setWidths] = useState<Record<FindingColKey, number>>(DEFAULT_FINDING_WIDTHS);
+  const resizing = useRef<{ key: FindingColKey; startX: number; startW: number } | null>(null);
+
+  const cols = useMemo(() => orderedVisibleFindingCols(visibleColumns), [visibleColumns]);
 
   useEffect(() => {
-    setWidths(loadWidths());
+    setWidths(loadFindingWidths());
   }, []);
 
-  const persistWidths = useCallback((next: Record<ColKey, number>) => {
+  const persistWidths = useCallback((next: Record<FindingColKey, number>) => {
     try {
-      localStorage.setItem(WIDTHS_KEY, JSON.stringify(next));
+      localStorage.setItem(FINDING_WIDTHS_KEY, JSON.stringify(next));
     } catch {
       /* ignore */
     }
   }, []);
 
   const startResize = useCallback(
-    (key: ColKey, e: React.MouseEvent) => {
+    (key: FindingColKey, e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
-      const col = COLS.find((c) => c.key === key);
+      const col = FINDING_COLS.find((c) => c.key === key);
       const min = col?.min ?? 60;
-      resizing.current = { key, startX: e.clientX, startW: widths[key] ?? DEFAULT_WIDTHS[key] };
+      resizing.current = {
+        key,
+        startX: e.clientX,
+        startW: widths[key] ?? DEFAULT_FINDING_WIDTHS[key],
+      };
 
       const onMove = (ev: MouseEvent) => {
         if (!resizing.current) return;
@@ -105,10 +178,13 @@ export function FindingsTable({
     [widths, persistWidths],
   );
 
-  const totalWeight = COLS.reduce((sum, c) => sum + (widths[c.key] ?? DEFAULT_WIDTHS[c.key]), 0);
+  const totalWeight = cols.reduce(
+    (sum, c) => sum + (widths[c.key] ?? DEFAULT_FINDING_WIDTHS[c.key]),
+    0,
+  );
 
-  const colPct = (key: ColKey) =>
-    `${(((widths[key] ?? DEFAULT_WIDTHS[key]) / totalWeight) * 100).toFixed(4)}%`;
+  const colPct = (key: FindingColKey) =>
+    `${(((widths[key] ?? DEFAULT_FINDING_WIDTHS[key]) / totalWeight) * 100).toFixed(4)}%`;
 
   return (
     <div className="relative">
@@ -121,13 +197,13 @@ export function FindingsTable({
           <div className="ct-table-wrap overflow-x-auto overflow-y-auto">
             <table className="ct-table w-full border-collapse text-left" style={{ tableLayout: "fixed" }}>
               <colgroup>
-                {COLS.map((c) => (
+                {cols.map((c) => (
                   <col key={c.key} style={{ width: colPct(c.key) }} />
                 ))}
               </colgroup>
               <thead className="sticky top-0 z-10">
                 <tr>
-                  {COLS.map((c) => (
+                  {cols.map((c) => (
                     <th key={c.key} className="relative">
                       <span className="block truncate pr-2">{c.label}</span>
                       <span
@@ -145,55 +221,10 @@ export function FindingsTable({
               <tbody>
                 {events.map((e, i) => {
                   const origin = findingOrigin(e);
+                  const cls = findingClass(e);
                   return (
                     <tr key={`${e.timestamp}-${i}`} onClick={() => setSelected(e)}>
-                      <td className="mono truncate text-fg-subtle">
-                        {fmtTimeCloudTrail(e.timestamp)}
-                      </td>
-                      <td className="truncate">
-                        <span
-                          className={cn(
-                            "text-xs font-semibold",
-                            (SEVERITY_META[e.event_severity] ?? SEVERITY_META.info).text,
-                          )}
-                        >
-                          {(SEVERITY_META[e.event_severity] ?? SEVERITY_META.info).label}
-                        </span>
-                      </td>
-                      <td className="truncate">
-                        <span
-                          className={cn("finding-origin-badge", findingOriginClass(origin))}
-                          title={`Collector: ${e.ventra_source}`}
-                        >
-                          {origin}
-                        </span>
-                      </td>
-                      <td className="truncate font-semibold text-fg" title={e.event_action || undefined}>
-                        {e.event_action || e.message}
-                      </td>
-                      <td
-                        className="overflow-hidden whitespace-nowrap"
-                        title={e.user_name || undefined}
-                        onClick={(ev) => ev.stopPropagation()}
-                      >
-                        {e.user_name ? (
-                          <Entity kind="user" value={e.user_name} className="max-w-full" />
-                        ) : (
-                          <span className="text-fg-subtle">—</span>
-                        )}
-                      </td>
-                      <td
-                        className="overflow-hidden whitespace-nowrap"
-                        title={e.source_ip || undefined}
-                        onClick={(ev) => ev.stopPropagation()}
-                      >
-                        {e.source_ip ? (
-                          <Entity kind="ip" value={e.source_ip} className="max-w-full" />
-                        ) : (
-                          <span className="text-fg-subtle">—</span>
-                        )}
-                      </td>
-                      <td className="mono truncate text-fg-subtle">{e.cloud_region || "—"}</td>
+                      {cols.map((c) => renderCell(c.key, e, origin, cls))}
                     </tr>
                   );
                 })}

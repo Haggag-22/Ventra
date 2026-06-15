@@ -63,7 +63,7 @@ export function IamPolicyDrawer({
     <>
       <div className="fixed inset-0 z-40 bg-black/30 animate-fade-in" onClick={onClose} aria-hidden />
       <aside
-        className="fixed right-0 top-0 z-50 flex h-screen w-[520px] max-w-[92vw] flex-col border-l border-border bg-surface shadow-pop animate-slide-in"
+        className="fixed right-0 top-0 z-50 flex h-screen w-[680px] max-w-[95vw] flex-col border-l border-border bg-surface shadow-pop animate-slide-in"
         role="dialog"
         aria-label={`Policies for ${principal}`}
       >
