@@ -35,21 +35,21 @@ Dev versions never go to PyPI; only tags do.
 
 ## Testing your latest push in CloudShell
 
-Install ventra from your `main` branch (not PyPI), then re-pull after each push:
+CloudShell has `pip` but not `pipx`, so use the installer script — it sets up a private venv
+with pip (no pipx needed), installs ventra from your `main` branch, and puts `ventra` on PATH.
+Run the **same line** the first time and after every push; with the git spec it force-reinstalls
+the latest code:
 
 ```bash
-# first time in a fresh CloudShell:
-pipx install "ventra @ git+https://github.com/Haggag-22/Ventra.git@main"
+VENTRA_INSTALL_SPEC='git+https://github.com/Haggag-22/Ventra.git@main' \
+  bash -c "$(curl -fsSL https://raw.githubusercontent.com/Haggag-22/Ventra/main/bin/install-cloudshell.sh)"
 
-# after each push — fetches your latest code:
-pipx reinstall ventra
-
-# then:
 ventra collect aws --case TEST-001 --out ~/ventra-evidence
 ```
 
-> CloudShell may not ship `pipx`. Once per environment: `python3 -m pip install --user pipx &&
-> python3 -m pipx ensurepath`, then reopen the shell.
+> Prefer pipx? Install it once with `python3 -m pip install --user pipx && python3 -m pipx
+> ensurepath` (reopen the shell), then `pipx install "ventra @ git+https://github.com/Haggag-22/Ventra.git@main"`
+> and `pipx reinstall ventra` after each push.
 
 ## Cutting a release (what clients get)
 
@@ -60,9 +60,9 @@ git tag v1.0.0
 git push origin v1.0.0
 ```
 
-That publishes `1.0.0` to PyPI and creates a GitHub Release. Then a client's
-`pipx install ventra` / `pipx upgrade ventra` (or the `install-cloudshell.sh` one-liner) gets
-it. Workflow: [`.github/workflows/publish.yml`](.github/workflows/publish.yml).
+That publishes `1.0.0` to PyPI and creates a GitHub Release. Then a client gets it with the
+`install-cloudshell.sh` one-liner (it `pip install`s the latest release from PyPI — no pipx
+needed). Workflow: [`.github/workflows/publish.yml`](.github/workflows/publish.yml).
 
 ## First-time setup (once)
 
