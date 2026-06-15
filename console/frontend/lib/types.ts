@@ -60,6 +60,8 @@ export interface Facets {
   cloud_region: FacetValue[];
   cloud_service: FacetValue[];
   ua_category: FacetValue[];
+  trail_category: FacetValue[];
+  finding_class: FacetValue[];
 }
 
 export interface CaseSummary {

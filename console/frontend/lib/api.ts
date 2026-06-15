@@ -18,6 +18,8 @@ export type EventParams = {
   source?: string[];
   severity?: string[];
   category?: string[];
+  trail_category?: string[];
+  finding_class?: string[];
   actions?: string[];
   regions?: string[];
   services?: string[];

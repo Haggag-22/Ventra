@@ -226,6 +226,44 @@ body {
     @apply border-border bg-surface-2 text-fg-subtle;
   }
 
+  .finding-class-badge {
+    @apply inline-block max-w-full truncate rounded-md border px-2 py-0.5 text-2xs font-semibold;
+  }
+
+  .finding-class-threat {
+    border-color: rgb(var(--bad-red) / 0.3);
+    background: rgb(var(--bad-red) / 0.1);
+    color: rgb(var(--bad-red));
+  }
+
+  .finding-class-vuln {
+    border-color: rgb(var(--warn-amber) / 0.3);
+    background: rgb(var(--warn-amber) / 0.1);
+    color: rgb(var(--warn-amber));
+  }
+
+  .finding-class-compliance {
+    border-color: rgb(var(--accent) / 0.25);
+    background: rgb(var(--accent) / 0.1);
+    color: rgb(var(--accent));
+  }
+
+  .finding-class-data {
+    border-color: rgb(147 51 234 / 0.3);
+    background: rgb(147 51 234 / 0.1);
+    color: rgb(196 181 253);
+  }
+
+  .finding-class-config {
+    border-color: rgb(var(--ok-green) / 0.3);
+    background: rgb(var(--ok-green) / 0.1);
+    color: rgb(var(--ok-green));
+  }
+
+  .finding-class-other {
+    @apply border-border bg-surface-2 text-fg-subtle;
+  }
+
   .kbd {
     @apply inline-flex h-5 min-w-5 items-center justify-center rounded border border-border bg-surface-2 px-1 text-2xs font-medium text-fg-subtle;
   }
@@ -411,7 +449,7 @@ body {
 
   /* CloudTrail — Ventra / old-gui styling */
   .cloudtrail-view {
-    --ct-drawer-w: 560px;
+    --ct-drawer-w: 680px;
   }
 
   .cloudtrail-view .ct-collection-summary {
@@ -481,12 +519,53 @@ body {
     @apply mt-0.5 text-2xs text-fg-subtle;
   }
 
+  .cloudtrail-view .ct-flow-node-stats {
+    @apply mt-0.5 flex flex-wrap gap-x-3 gap-y-0.5 text-2xs text-fg-subtle;
+  }
+
+  .cloudtrail-view .ct-flow-stats {
+    @apply mt-2 grid grid-cols-2 gap-1.5;
+  }
+
+  .cloudtrail-view .ct-flow-stat {
+    @apply flex flex-col rounded-md border border-border/70 bg-surface/60 px-2 py-1.5;
+  }
+
+  .cloudtrail-view .ct-flow-stat-value {
+    @apply text-sm font-semibold tabular-nums text-fg;
+  }
+
+  .cloudtrail-view .ct-flow-stat-label {
+    @apply mt-0.5 text-2xs text-fg-subtle;
+  }
+
   .cloudtrail-view .ct-flow-arrow {
-    @apply flex shrink-0 items-center justify-center px-0.5 text-accent;
+    @apply flex shrink-0 items-center self-center text-accent;
+    width: 2rem;
+  }
+
+  .cloudtrail-view .ct-flow-arrow-line {
+    position: relative;
+    display: block;
+    width: 100%;
+    height: 2px;
+    background: currentColor;
+  }
+
+  .cloudtrail-view .ct-flow-arrow-line::after {
+    content: "";
+    position: absolute;
+    right: -1px;
+    top: 50%;
+    width: 7px;
+    height: 7px;
+    border-right: 2px solid currentColor;
+    border-top: 2px solid currentColor;
+    transform: translateY(-50%) rotate(45deg);
   }
 
   .cloudtrail-view .ct-flow-empty {
-    @apply flex flex-1 items-center justify-center gap-1.5 rounded-md border border-dashed border-border px-2.5 py-2 text-center text-2xs text-fg-subtle;
+    @apply flex flex-1 items-center justify-center gap-1.5 rounded-md border border-border px-2.5 py-2 text-center text-2xs text-fg-subtle;
   }
 
   .cloudtrail-view .ct-panel {
@@ -728,6 +807,20 @@ body {
   }
 
   /* JSON syntax tokens — shared by CloudTrail and IAM policy drawers */
+  pre.ct-json {
+    margin: 0;
+    overflow: auto;
+    max-height: 60vh;
+    border: 1px solid rgb(var(--border));
+    border-radius: 8px;
+    background: rgb(var(--bg));
+    padding: 14px 16px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    line-height: 1.65;
+    white-space: pre;
+  }
+
   .j-key {
     color: #7dd3fc;
   }
@@ -772,7 +865,7 @@ body {
     display: flex;
     flex-direction: column;
     width: var(--ct-drawer-w);
-    max-width: 92vw;
+    max-width: 95vw;
     height: 100vh;
     border-left: 1px solid rgb(var(--border-strong));
     background: rgb(var(--raised));
@@ -827,15 +920,15 @@ body {
   .cloudtrail-view .ct-table {
     width: 100%;
     border-collapse: collapse;
-    font-size: 12px;
+    font-size: 13px;
   }
 
   .cloudtrail-view .ct-table th {
     position: sticky;
     top: 0;
     z-index: 2;
-    padding: 5px 10px;
-    font-size: 10px;
+    padding: 8px 12px;
+    font-size: 10.5px;
     font-weight: 650;
     letter-spacing: 0.07em;
     text-transform: uppercase;
@@ -870,8 +963,8 @@ body {
   }
 
   .cloudtrail-view .ct-table td {
-    padding: 4px 10px;
-    font-size: 12px;
+    padding: 8px 12px;
+    font-size: 13px;
     background: rgb(var(--surface));
     border-bottom: 1px solid rgb(var(--border));
     border-right: 1px solid rgb(var(--border));
@@ -879,6 +972,13 @@ body {
     vertical-align: middle;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  /* Normalize plain cell text so every table matches the Findings size.
+     Badges keep their own size (excluded via the badge/chip class names). */
+  .cloudtrail-view .ct-table td span:not([class*="badge"]):not(.chip) {
+    font-size: 13px;
+    line-height: 1.45;
   }
 
   .cloudtrail-view .ct-table td:first-child {
@@ -914,26 +1014,26 @@ body {
   }
 
   .cloudtrail-view .ct-cat-management {
-    color: rgb(var(--fg-subtle));
-    background: rgb(var(--surface-2));
-    border: 1px solid rgb(var(--border));
-  }
-
-  .cloudtrail-view .ct-cat-insight {
-    color: rgb(147 51 234);
-    background: rgb(147 51 234 / 0.12);
-    border: 1px solid rgb(147 51 234 / 0.25);
+    color: rgb(var(--ok-green));
+    background: rgb(var(--ok-green) / 0.12);
+    border: 1px solid rgb(var(--ok-green) / 0.3);
   }
 
   .cloudtrail-view .ct-cat-data {
-    color: rgb(37 99 235);
-    background: rgb(37 99 235 / 0.12);
-    border: 1px solid rgb(37 99 235 / 0.25);
+    color: rgb(var(--warn-amber));
+    background: rgb(var(--warn-amber) / 0.12);
+    border: 1px solid rgb(var(--warn-amber) / 0.3);
+  }
+
+  .cloudtrail-view .ct-cat-insight {
+    color: rgb(var(--bad-red));
+    background: rgb(var(--bad-red) / 0.12);
+    border: 1px solid rgb(var(--bad-red) / 0.3);
   }
 
   .cloudtrail-view .ct-cat-network {
-    color: rgb(13 148 136);
-    background: rgb(13 148 136 / 0.12);
-    border: 1px solid rgb(13 148 136 / 0.25);
+    color: rgb(var(--warn-amber));
+    background: rgb(var(--warn-amber) / 0.12);
+    border: 1px solid rgb(var(--warn-amber) / 0.3);
   }
 }

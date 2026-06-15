@@ -2,10 +2,11 @@
 
 Flow logs are the exfiltration lens — top talkers, rejected flows, egress volume to public
 IPs. This collector first establishes *whether flow logging exists at all* (a very common
-gap), records where it lands (CloudWatch Logs vs S3), which VPCs have no VPC-level flow log,
-and pulls recent records from CloudWatch Logs when that's the destination. S3-resident flow
-logs are pulled by the S3 log path given the bucket; here we capture configuration +
-CloudWatch records for portability.
+gap), records where it lands (CloudWatch Logs vs S3), and which VPCs have no VPC-level flow
+log. It then pulls recent records from *both* destinations: CloudWatch Logs (via
+FilterLogEvents) and S3 (the default plain-text ``.log.gz`` delivery, parsed in
+``vpc_flow_s3``). Records from either destination merge into the same normalized network
+events.
 """
 
 from __future__ import annotations
@@ -15,6 +16,7 @@ from datetime import UTC, datetime, timedelta
 from ...lib.base import Collector
 from ...lib.models import GapReason, SourceResult, SourceStatus
 from ..client_factory import AccessDenied, ServiceNotEnabled
+from .vpc_flow_s3 import collect_s3_flow_records, flow_log_s3_target
 
 # Bound the in-memory CloudWatch pull so a chatty VPC can't exhaust a CloudShell.
 MAX_CW_RECORDS = 200_000
@@ -28,6 +30,8 @@ class VpcFlowCollector(Collector):
         "ec2:DescribeFlowLogs",
         "ec2:DescribeVpcs",
         "logs:FilterLogEvents",
+        "s3:ListBucket",
+        "s3:GetObject",
     )
 
     def collect(self) -> SourceResult:
@@ -126,6 +130,22 @@ class VpcFlowCollector(Collector):
                 )
             )
 
+        # Pull records from S3-delivering flow logs — the common production layout. The records
+        # are structured the same way the normalizer expects, so they merge with CW records.
+        account_id = self.ctx.account_id
+        s3_flow_logs = [fl for fl in flow_configs if flow_log_s3_target(fl)]
+        s3_records: list[dict] = []
+        s3_objects_read = 0
+        s3_truncated = False
+        for fl in s3_flow_logs:
+            self._log(f"Reading S3 flow logs for {fl.get('FlowLogId', '')}…")
+            recs, s3_stats = collect_s3_flow_records(
+                cf, fl, account_id, start, end, gaps, log=lambda msg: self._log(msg)
+            )
+            s3_records.extend(recs)
+            s3_objects_read += int(s3_stats.get("objects_read") or 0)
+            s3_truncated = s3_truncated or bool(s3_stats.get("truncated"))
+
         config_doc = {
             "flow_logs": flow_configs,
             "vpcs": vpcs,
@@ -134,9 +154,13 @@ class VpcFlowCollector(Collector):
         files = [self.write_json(config_doc, "config.json")]
         if records:
             files.append(self.write_jsonl(records, "events.jsonl.gz"))
-        status = SourceStatus.COLLECTED if records else SourceStatus.PARTIAL
-        if not records:
-            if cw_log_groups:
+        if s3_records:
+            files.append(self.write_jsonl(s3_records, "events_s3.jsonl.gz"))
+
+        total_records = len(records) + len(s3_records)
+        status = SourceStatus.COLLECTED if total_records else SourceStatus.PARTIAL
+        if not total_records:
+            if cw_log_groups and not s3_flow_logs:
                 gaps.append(
                     (
                         "vpc_flow",
@@ -144,12 +168,21 @@ class VpcFlowCollector(Collector):
                         "CloudWatch-destined flow logs exist but held no records in the window.",
                     )
                 )
+            elif s3_flow_logs:
+                gaps.append(
+                    (
+                        "vpc_flow",
+                        GapReason.NOT_PRESENT,
+                        "Flow logs deliver to S3 but no records were found in the window "
+                        "(delivery can lag ~10 min after creation; also check path/permissions).",
+                    )
+                )
             else:
                 gaps.append(
                     (
                         "vpc_flow",
                         GapReason.NOT_PRESENT,
-                        "Flow logs deliver to S3 only; pull records from the log bucket.",
+                        "Flow logs configured but no records found in CloudWatch or S3.",
                     )
                 )
         self.write_meta(
@@ -160,6 +193,10 @@ class VpcFlowCollector(Collector):
                 "vpcs_without_flow_logs": len(uncovered_vpcs),
                 "cloudwatch_records": len(records),
                 "cloudwatch_truncated": truncated,
+                "s3_records": len(s3_records),
+                "s3_objects_read": s3_objects_read,
+                "s3_truncated": s3_truncated,
+                "records": total_records,
                 "destinations": sorted({f.get("LogDestinationType") for f in flow_configs}),
             }
         )
@@ -167,10 +204,10 @@ class VpcFlowCollector(Collector):
             name=self.name,
             status=status,
             files=files,
-            record_count=len(records),
+            record_count=total_records,
             gaps=gaps,
             notes=(
-                f"{len(flow_configs)} flow-log config(s); {len(records)} CW records; "
-                f"{len(uncovered_vpcs)} VPC(s) uncovered."
+                f"{len(flow_configs)} flow-log config(s); {len(records)} CW + "
+                f"{len(s3_records)} S3 records; {len(uncovered_vpcs)} VPC(s) uncovered."
             ),
         )

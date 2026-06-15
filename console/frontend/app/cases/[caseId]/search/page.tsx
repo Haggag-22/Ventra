@@ -6,6 +6,12 @@ import { FindingsToolbar, type FindingsFilters } from "@/components/findings-too
 import { PanelHeader } from "@/components/panel";
 import { Button, Input, Spinner } from "@/components/ui";
 import { api, type EventParams } from "@/lib/api";
+import {
+  ALL_FINDING_COL_KEYS,
+  FINDING_VISIBLE_COLS_KEY,
+  loadVisibleFindingCols,
+  type FindingColKey,
+} from "@/lib/findings-columns";
 import { fmtNum } from "@/lib/format";
 import { useFilters } from "@/lib/useFilters";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -18,6 +24,7 @@ function filtersFromParams(params: EventParams): FindingsFilters {
   return {
     severity: params.severity,
     source: params.source,
+    findingClass: params.finding_class,
   };
 }
 
@@ -30,6 +37,7 @@ function paramsFromFilters(
     kind: "finding",
     source: filters.source?.length ? filters.source : FINDING_SOURCES,
     severity: filters.severity,
+    finding_class: filters.findingClass,
     sort: "timestamp",
     order: "desc",
   };
@@ -41,6 +49,20 @@ export default function SearchPage() {
   const [text, setText] = useState(params.q ?? "");
   const [saved, setSaved] = useState<string[]>([]);
   const [page, setPage] = useState(0);
+  const [visibleColumns, setVisibleColumns] = useState<FindingColKey[]>(ALL_FINDING_COL_KEYS);
+
+  useEffect(() => {
+    setVisibleColumns(loadVisibleFindingCols());
+  }, []);
+
+  const handleColumnsChange = useCallback((cols: FindingColKey[]) => {
+    setVisibleColumns(cols);
+    try {
+      localStorage.setItem(FINDING_VISIBLE_COLS_KEY, JSON.stringify(cols));
+    } catch {
+      /* ignore */
+    }
+  }, []);
 
   const filters = useMemo(() => filtersFromParams(params), [params]);
   const effective = useMemo(
@@ -96,6 +118,7 @@ export default function SearchPage() {
         kind: "finding",
         source: merged.source?.length ? merged.source : undefined,
         severity: merged.severity,
+        finding_class: merged.findingClass,
       });
       setPage(0);
     },
@@ -148,7 +171,9 @@ export default function SearchPage() {
             filters={filters}
             total={total}
             matched={matched}
+            visibleColumns={visibleColumns}
             onChange={handleChange}
+            onColumnsChange={handleColumnsChange}
             onReset={handleReset}
           />
         </div>
@@ -177,6 +202,7 @@ export default function SearchPage() {
           <FindingsTable
             events={eventsQ.data?.events ?? []}
             loading={eventsQ.isLoading}
+            visibleColumns={visibleColumns}
             emptyHint={
               params.q
                 ? `No findings match “${params.q}”.`

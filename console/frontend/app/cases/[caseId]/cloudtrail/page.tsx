@@ -45,6 +45,7 @@ function filtersFromParams(params: EventParams): CloudTrailFilters {
     services: params.services,
     regions: params.regions,
     users: params.users,
+    trailCategories: params.trail_category,
     order: params.order ?? "desc",
     user: params.user,
     ip: params.ip,
@@ -59,6 +60,7 @@ function paramsFromFilters(filters: CloudTrailFilters): EventParams {
     services: filters.services,
     regions: filters.regions,
     users: filters.users,
+    trail_category: filters.trailCategories,
     user: filters.user,
     ip: filters.ip,
     sort: "timestamp",
@@ -135,6 +137,7 @@ export default function CloudTrailPage() {
         services: merged.services,
         regions: merged.regions,
         users: merged.users,
+        trail_category: merged.trailCategories,
         user: merged.user,
         ip: merged.ip,
         order: merged.order ?? "desc",
@@ -174,8 +177,6 @@ export default function CloudTrailPage() {
         <CloudTrailToolbar
           facets={facetsQ.data}
           filters={filters}
-          total={total}
-          matched={matched}
           visibleColumns={visibleColumns}
           onChange={handleChange}
           onColumnsChange={handleColumnsChange}
