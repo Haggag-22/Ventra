@@ -26,13 +26,19 @@ export function SeverityDot({ severity }: { severity: Severity }) {
   );
 }
 
-export function IntegrityBadge({ value }: { value: Integrity }) {
+export function IntegrityBadge({
+  value,
+  showLabel = true,
+}: {
+  value: Integrity;
+  showLabel?: boolean;
+}) {
   const meta = INTEGRITY_META[value] ?? INTEGRITY_META.unknown;
   return (
     <Tooltip content={meta.help}>
       <Badge className={cn("border-border bg-surface-2", meta.text)}>
         <ShieldCheck className="h-3 w-3" />
-        {meta.label}
+        {showLabel && meta.label}
       </Badge>
     </Tooltip>
   );

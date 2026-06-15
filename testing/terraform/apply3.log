@@ -1,0 +1,573 @@
+random_id.suffix: Refreshing state... [id=JcG97g]
+data.archive_file.lambda: Reading...
+data.external.detection: Reading...
+data.archive_file.lambda: Read complete after 0s [id=7775e23809e4a3b3d8649794e0a13d4af3f0fbbc]
+data.aws_canonical_user_id.current: Reading...
+data.aws_region.current: Reading...
+aws_iam_user.main: Refreshing state... [id=logging-test-25c1bdee-user]
+aws_vpc.main: Refreshing state... [id=vpc-04901bc9b9511cbdf]
+aws_api_gateway_rest_api.main: Refreshing state... [id=05a4c9ve8e]
+aws_iam_role.lambda: Refreshing state... [id=logging-test-25c1bdee-lambda-role]
+data.aws_region.current: Read complete after 0s [id=us-east-1]
+aws_s3_bucket.log_archive: Refreshing state... [id=logging-test-25c1bdee-log-archive]
+aws_dynamodb_table.main: Refreshing state... [id=logging-test-25c1bdee-table]
+data.aws_caller_identity.current: Reading...
+data.aws_caller_identity.current: Read complete after 0s [id=194722414229]
+aws_secretsmanager_secret.main: Refreshing state... [id=arn:aws:secretsmanager:us-east-1:194722414229:secret:logging-test-25c1bdee-secret-GQlwby]
+aws_wafv2_web_acl.main: Refreshing state... [id=098c4de3-db14-4a37-8d9a-665f7d7f1078]
+data.aws_canonical_user_id.current: Read complete after 0s [id=6835a65b7078b0e32407b663847215ac318959a525940673541a97f1f62059b8]
+data.aws_partition.current: Reading...
+data.aws_partition.current: Read complete after 0s [id=aws]
+data.aws_elb_service_account.main: Reading...
+data.aws_elb_service_account.main: Read complete after 0s [id=127311923021]
+aws_cloudwatch_log_group.apigw[0]: Refreshing state... [id=/aws/apigateway/logging-test-25c1bdee]
+data.aws_availability_zones.available: Reading...
+aws_kms_key.main: Refreshing state... [id=c452112c-e079-4ceb-94e7-a971b783d0d8]
+aws_s3_bucket.cloudfront_logs: Refreshing state... [id=logging-test-25c1bdee-cf-logs]
+aws_s3_bucket.pii: Refreshing state... [id=logging-test-25c1bdee-pii]
+aws_s3_bucket.misconfig: Refreshing state... [id=logging-test-25c1bdee-public]
+aws_s3_bucket.alb_logs: Refreshing state... [id=logging-test-25c1bdee-alb-logs]
+data.aws_availability_zones.available: Read complete after 0s [id=us-east-1]
+aws_cloudwatch_log_group.waf[0]: Refreshing state... [id=aws-waf-logs-logging-test-25c1bdee]
+aws_s3_bucket.cloudtrail[0]: Refreshing state... [id=logging-test-25c1bdee-cloudtrail]
+aws_s3_bucket.app: Refreshing state... [id=logging-test-25c1bdee-app]
+data.aws_ami.al2023[0]: Reading...
+aws_iam_access_key.main: Refreshing state... [id=AKIAS2VS4H2KX5A3ROUM]
+aws_iam_user_policy.main: Refreshing state... [id=logging-test-25c1bdee-user:logging-test-25c1bdee-inline]
+aws_api_gateway_resource.ping: Refreshing state... [id=cf1lpp]
+aws_secretsmanager_secret_version.main: Refreshing state... [id=arn:aws:secretsmanager:us-east-1:194722414229:secret:logging-test-25c1bdee-secret-GQlwby|terraform-20260615161851010000000002]
+aws_lambda_function.main: Refreshing state... [id=logging-test-25c1bdee-fn]
+aws_kms_alias.main: Refreshing state... [id=alias/logging-test-25c1bdee]
+aws_wafv2_web_acl_logging_configuration.main[0]: Refreshing state... [id=arn:aws:wafv2:us-east-1:194722414229:regional/webacl/logging-test-25c1bdee-web-acl/098c4de3-db14-4a37-8d9a-665f7d7f1078]
+aws_s3_bucket_policy.log_archive: Refreshing state... [id=logging-test-25c1bdee-log-archive]
+aws_iam_role.app: Refreshing state... [id=logging-test-25c1bdee-app-role]
+aws_iam_role_policy_attachment.lambda_logs[0]: Refreshing state... [id=logging-test-25c1bdee-lambda-role-20260615161851350900000004]
+aws_security_group.alb: Refreshing state... [id=sg-0037f79108e2a9b12]
+aws_security_group.open: Refreshing state... [id=sg-0b71f0ff1e3056cf3]
+aws_internet_gateway.main: Refreshing state... [id=igw-04a2fd424208db881]
+aws_api_gateway_method.ping_get: Refreshing state... [id=agm-05a4c9ve8e-cf1lpp-GET]
+aws_subnet.public_b: Refreshing state... [id=subnet-02a89c6b99ee83f1c]
+aws_subnet.public_a: Refreshing state... [id=subnet-0e894390a4ef36e85]
+aws_subnet.firewall: Refreshing state... [id=subnet-09a2323cbae3adfa5]
+aws_ebs_volume.main[0]: Refreshing state... [id=vol-0a223573c48f1e36f]
+aws_s3_bucket_ownership_controls.cloudfront_logs: Refreshing state... [id=logging-test-25c1bdee-cf-logs]
+data.aws_ami.al2023[0]: Read complete after 0s [id=ami-083eb03ee8ae87bb1]
+aws_route53_resolver_query_log_config.main[0]: Refreshing state... [id=rqlc-469f8f21d1cd41a7]
+aws_flow_log.main[0]: Refreshing state... [id=fl-0e86c2b5ec85f9fea]
+aws_s3_object.pii: Refreshing state... [id=customers.csv]
+aws_s3_bucket_public_access_block.misconfig: Refreshing state... [id=logging-test-25c1bdee-public]
+aws_s3_bucket_policy.alb_logs: Refreshing state... [id=logging-test-25c1bdee-alb-logs]
+aws_s3_bucket_policy.cloudtrail[0]: Refreshing state... [id=logging-test-25c1bdee-cloudtrail]
+aws_route_table.public: Refreshing state... [id=rtb-0e37b6a026f3e720d]
+aws_api_gateway_integration.ping: Refreshing state... [id=agi-05a4c9ve8e-cf1lpp-GET]
+aws_api_gateway_method_response.ping_200: Refreshing state... [id=agmr-05a4c9ve8e-cf1lpp-GET-200]
+aws_s3_bucket_logging.app[0]: Refreshing state... [id=logging-test-25c1bdee-app]
+aws_instance.main[0]: Refreshing state... [id=i-03c8523c761287907]
+aws_lb.main: Refreshing state... [id=arn:aws:elasticloadbalancing:us-east-1:194722414229:loadbalancer/app/lt-25c1bdee-alb/cd205395f9e35919]
+aws_cloudtrail.main[0]: Refreshing state... [id=arn:aws:cloudtrail:us-east-1:194722414229:trail/logging-test-25c1bdee-trail]
+aws_ebs_snapshot.main[0]: Refreshing state... [id=snap-0caa6c702b31b5277]
+aws_api_gateway_deployment.main: Refreshing state... [id=z3t0s5]
+aws_route_table_association.public_b: Refreshing state... [id=rtbassoc-0bfadc9400e989968]
+aws_route_table_association.public_a: Refreshing state... [id=rtbassoc-0634c3b617f74237f]
+aws_api_gateway_integration_response.ping_200: Refreshing state... [id=agir-05a4c9ve8e-cf1lpp-GET-200]
+aws_api_gateway_stage.main: Refreshing state... [id=ags-05a4c9ve8e-test]
+aws_route53_resolver_query_log_config_association.main[0]: Refreshing state... [id=rqlca-7c25b7d2abcc4f11]
+aws_wafv2_web_acl_association.alb: Refreshing state... [id=arn:aws:wafv2:us-east-1:194722414229:regional/webacl/logging-test-25c1bdee-web-acl/098c4de3-db14-4a37-8d9a-665f7d7f1078,arn:aws:elasticloadbalancing:us-east-1:194722414229:loadbalancer/app/lt-25c1bdee-alb/cd205395f9e35919]
+aws_lb_listener.http: Refreshing state... [id=arn:aws:elasticloadbalancing:us-east-1:194722414229:listener/app/lt-25c1bdee-alb/cd205395f9e35919/c6698cdf95b62cf6]
+data.external.detection: Read complete after 3s [id=-]
+null_resource.detection_snapshot: Refreshing state... [id=1252849609852624033]
+aws_iam_role.config[0]: Refreshing state... [id=logging-test-25c1bdee-config-role]
+aws_s3_bucket.config[0]: Refreshing state... [id=logging-test-25c1bdee-config]
+aws_detective_graph.main[0]: Refreshing state... [id=arn:aws:detective:us-east-1:194722414229:graph:a4cf6b13e1054867bde4514229d94921]
+aws_iam_role_policy_attachment.config[0]: Refreshing state... [id=logging-test-25c1bdee-config-role-20260615161851632100000005]
+aws_s3_bucket_policy.config[0]: Refreshing state... [id=logging-test-25c1bdee-config]
+
+Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+  + create
+  - destroy
+-/+ destroy and then create replacement
+
+Terraform will perform the following actions:
+
+  # aws_api_gateway_account.main[0] will be created
+  + resource "aws_api_gateway_account" "main" {
+      + api_key_version     = (known after apply)
+      + cloudwatch_role_arn = (known after apply)
+      + features            = (known after apply)
+      + id                  = (known after apply)
+      + throttle_settings   = (known after apply)
+    }
+
+  # aws_api_gateway_stage.main is tainted, so must be replaced
+-/+ resource "aws_api_gateway_stage" "main" {
+      ~ arn                   = "arn:aws:apigateway:us-east-1::/restapis/05a4c9ve8e/stages/test" -> (known after apply)
+      - cache_cluster_enabled = false -> null
+      ~ execution_arn         = "arn:aws:execute-api:us-east-1:194722414229:05a4c9ve8e/test" -> (known after apply)
+      ~ id                    = "ags-05a4c9ve8e-test" -> (known after apply)
+      ~ invoke_url            = "https://05a4c9ve8e.execute-api.us-east-1.amazonaws.com/test" -> (known after apply)
+      - tags                  = {} -> null
+      - variables             = {} -> null
+      + web_acl_arn           = (known after apply)
+      - xray_tracing_enabled  = false -> null
+        # (8 unchanged attributes hidden)
+
+      + access_log_settings {
+          + destination_arn = "arn:aws:logs:us-east-1:194722414229:log-group:/aws/apigateway/logging-test-25c1bdee"
+          + format          = jsonencode(
+                {
+                  + httpMethod     = "$context.httpMethod"
+                  + ip             = "$context.identity.sourceIp"
+                  + requestId      = "$context.requestId"
+                  + resourcePath   = "$context.resourcePath"
+                  + responseLength = "$context.responseLength"
+                  + status         = "$context.status"
+                }
+            )
+        }
+    }
+
+  # aws_cloudfront_distribution.main will be created
+  + resource "aws_cloudfront_distribution" "main" {
+      + arn                             = (known after apply)
+      + caller_reference                = (known after apply)
+      + comment                         = "logging-test-25c1bdee logging test"
+      + continuous_deployment_policy_id = (known after apply)
+      + domain_name                     = (known after apply)
+      + enabled                         = true
+      + etag                            = (known after apply)
+      + hosted_zone_id                  = (known after apply)
+      + http_version                    = "http2"
+      + id                              = (known after apply)
+      + in_progress_validation_batches  = (known after apply)
+      + is_ipv6_enabled                 = false
+      + last_modified_time              = (known after apply)
+      + price_class                     = "PriceClass_100"
+      + retain_on_delete                = false
+      + staging                         = false
+      + status                          = (known after apply)
+      + tags                            = {
+          + "Name" = "logging-test-25c1bdee-cf"
+        }
+      + tags_all                        = {
+          + "Ephemeral" = "true"
+          + "ManagedBy" = "terraform"
+          + "Name"      = "logging-test-25c1bdee-cf"
+          + "Project"   = "logging-test"
+          + "Purpose"   = "ventra-dfir-collector-testing"
+        }
+      + trusted_key_groups              = (known after apply)
+      + trusted_signers                 = (known after apply)
+      + wait_for_deployment             = true
+        # (1 unchanged attribute hidden)
+
+      + default_cache_behavior {
+          + allowed_methods        = [
+              + "GET",
+              + "HEAD",
+            ]
+          + cached_methods         = [
+              + "GET",
+              + "HEAD",
+            ]
+          + compress               = false
+          + default_ttl            = (known after apply)
+          + max_ttl                = (known after apply)
+          + min_ttl                = 0
+          + target_origin_id       = "primary"
+          + trusted_key_groups     = (known after apply)
+          + trusted_signers        = (known after apply)
+          + viewer_protocol_policy = "redirect-to-https"
+
+          + forwarded_values {
+              + headers                 = (known after apply)
+              + query_string            = false
+              + query_string_cache_keys = (known after apply)
+
+              + cookies {
+                  + forward           = "none"
+                  + whitelisted_names = (known after apply)
+                }
+            }
+
+          + grpc_config (known after apply)
+        }
+
+      + logging_config {
+          + bucket          = "logging-test-25c1bdee-cf-logs.s3.amazonaws.com"
+          + include_cookies = false
+          + prefix          = "cloudfront/"
+        }
+
+      + origin {
+          + connection_attempts      = 3
+          + connection_timeout       = 10
+          + domain_name              = "example.com"
+          + origin_id                = "primary"
+            # (2 unchanged attributes hidden)
+
+          + custom_origin_config {
+              + http_port                = 80
+              + https_port               = 443
+              + origin_keepalive_timeout = 5
+              + origin_protocol_policy   = "https-only"
+              + origin_read_timeout      = 30
+              + origin_ssl_protocols     = [
+                  + "TLSv1.2",
+                ]
+            }
+        }
+
+      + restrictions {
+          + geo_restriction {
+              + locations        = (known after apply)
+              + restriction_type = "none"
+            }
+        }
+
+      + viewer_certificate {
+          + cloudfront_default_certificate = true
+          + minimum_protocol_version       = "TLSv1"
+        }
+    }
+
+  # aws_iam_role.apigw_cloudwatch[0] will be created
+  + resource "aws_iam_role" "apigw_cloudwatch" {
+      + arn                   = (known after apply)
+      + assume_role_policy    = jsonencode(
+            {
+              + Statement = [
+                  + {
+                      + Action    = "sts:AssumeRole"
+                      + Effect    = "Allow"
+                      + Principal = {
+                          + Service = "apigateway.amazonaws.com"
+                        }
+                    },
+                ]
+              + Version   = "2012-10-17"
+            }
+        )
+      + create_date           = (known after apply)
+      + force_detach_policies = false
+      + id                    = (known after apply)
+      + managed_policy_arns   = (known after apply)
+      + max_session_duration  = 3600
+      + name                  = "logging-test-25c1bdee-apigw-cw-role"
+      + name_prefix           = (known after apply)
+      + path                  = "/"
+      + tags_all              = {
+          + "Ephemeral" = "true"
+          + "ManagedBy" = "terraform"
+          + "Project"   = "logging-test"
+          + "Purpose"   = "ventra-dfir-collector-testing"
+        }
+      + unique_id             = (known after apply)
+
+      + inline_policy (known after apply)
+    }
+
+  # aws_iam_role.config[0] will be destroyed
+  # (because index [0] is out of range for count)
+  - resource "aws_iam_role" "config" {
+      - arn                   = "arn:aws:iam::194722414229:role/logging-test-25c1bdee-config-role" -> null
+      - assume_role_policy    = jsonencode(
+            {
+              - Statement = [
+                  - {
+                      - Action    = "sts:AssumeRole"
+                      - Effect    = "Allow"
+                      - Principal = {
+                          - Service = "config.amazonaws.com"
+                        }
+                    },
+                ]
+              - Version   = "2012-10-17"
+            }
+        ) -> null
+      - create_date           = "2026-06-15T16:18:50Z" -> null
+      - force_detach_policies = false -> null
+      - id                    = "logging-test-25c1bdee-config-role" -> null
+      - managed_policy_arns   = [
+          - "arn:aws:iam::aws:policy/service-role/AWS_ConfigRole",
+        ] -> null
+      - max_session_duration  = 3600 -> null
+      - name                  = "logging-test-25c1bdee-config-role" -> null
+      - path                  = "/" -> null
+      - tags                  = {} -> null
+      - tags_all              = {
+          - "Ephemeral" = "true"
+          - "ManagedBy" = "terraform"
+          - "Project"   = "logging-test"
+          - "Purpose"   = "ventra-dfir-collector-testing"
+        } -> null
+      - unique_id             = "AROAS2VS4H2KUZCYHKUTN" -> null
+        # (3 unchanged attributes hidden)
+    }
+
+  # aws_iam_role_policy_attachment.apigw_cloudwatch[0] will be created
+  + resource "aws_iam_role_policy_attachment" "apigw_cloudwatch" {
+      + id         = (known after apply)
+      + policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonAPIGatewayPushToCloudWatchLogs"
+      + role       = "logging-test-25c1bdee-apigw-cw-role"
+    }
+
+  # aws_iam_role_policy_attachment.config[0] will be destroyed
+  # (because index [0] is out of range for count)
+  - resource "aws_iam_role_policy_attachment" "config" {
+      - id         = "logging-test-25c1bdee-config-role-20260615161851632100000005" -> null
+      - policy_arn = "arn:aws:iam::aws:policy/service-role/AWS_ConfigRole" -> null
+      - role       = "logging-test-25c1bdee-config-role" -> null
+    }
+
+  # aws_s3_bucket.config[0] will be destroyed
+  # (because index [0] is out of range for count)
+  - resource "aws_s3_bucket" "config" {
+      - arn                         = "arn:aws:s3:::logging-test-25c1bdee-config" -> null
+      - bucket                      = "logging-test-25c1bdee-config" -> null
+      - bucket_domain_name          = "logging-test-25c1bdee-config.s3.amazonaws.com" -> null
+      - bucket_regional_domain_name = "logging-test-25c1bdee-config.s3.us-east-1.amazonaws.com" -> null
+      - force_destroy               = true -> null
+      - hosted_zone_id              = "Z3AQBSTGFYJSTF" -> null
+      - id                          = "logging-test-25c1bdee-config" -> null
+      - object_lock_enabled         = false -> null
+      - policy                      = jsonencode(
+            {
+              - Statement = [
+                  - {
+                      - Action    = "s3:GetBucketAcl"
+                      - Effect    = "Allow"
+                      - Principal = {
+                          - Service = "config.amazonaws.com"
+                        }
+                      - Resource  = "arn:aws:s3:::logging-test-25c1bdee-config"
+                      - Sid       = "AWSConfigBucketPermissionsCheck"
+                    },
+                  - {
+                      - Action    = "s3:PutObject"
+                      - Condition = {
+                          - StringEquals = {
+                              - "s3:x-amz-acl" = "bucket-owner-full-control"
+                            }
+                        }
+                      - Effect    = "Allow"
+                      - Principal = {
+                          - Service = "config.amazonaws.com"
+                        }
+                      - Resource  = "arn:aws:s3:::logging-test-25c1bdee-config/AWSLogs/194722414229/Config/*"
+                      - Sid       = "AWSConfigBucketDelivery"
+                    },
+                ]
+              - Version   = "2012-10-17"
+            }
+        ) -> null
+      - region                      = "us-east-1" -> null
+      - request_payer               = "BucketOwner" -> null
+      - tags                        = {
+          - "Name" = "logging-test-25c1bdee-config"
+        } -> null
+      - tags_all                    = {
+          - "Ephemeral" = "true"
+          - "ManagedBy" = "terraform"
+          - "Name"      = "logging-test-25c1bdee-config"
+          - "Project"   = "logging-test"
+          - "Purpose"   = "ventra-dfir-collector-testing"
+        } -> null
+        # (2 unchanged attributes hidden)
+
+      - grant {
+          - id          = "6835a65b7078b0e32407b663847215ac318959a525940673541a97f1f62059b8" -> null
+          - permissions = [
+              - "FULL_CONTROL",
+            ] -> null
+          - type        = "CanonicalUser" -> null
+            # (1 unchanged attribute hidden)
+        }
+
+      - server_side_encryption_configuration {
+          - rule {
+              - bucket_key_enabled = false -> null
+
+              - apply_server_side_encryption_by_default {
+                  - sse_algorithm     = "AES256" -> null
+                    # (1 unchanged attribute hidden)
+                }
+            }
+        }
+
+      - versioning {
+          - enabled    = false -> null
+          - mfa_delete = false -> null
+        }
+    }
+
+  # aws_s3_bucket_acl.cloudfront_logs will be created
+  + resource "aws_s3_bucket_acl" "cloudfront_logs" {
+      + bucket = "logging-test-25c1bdee-cf-logs"
+      + id     = (known after apply)
+
+      + access_control_policy {
+          + grant {
+              + permission = "FULL_CONTROL"
+
+              + grantee {
+                  + display_name  = (known after apply)
+                  + id            = "6835a65b7078b0e32407b663847215ac318959a525940673541a97f1f62059b8"
+                  + type          = "CanonicalUser"
+                    # (2 unchanged attributes hidden)
+                }
+            }
+          + grant {
+              + permission = "FULL_CONTROL"
+
+              + grantee {
+                  + display_name  = (known after apply)
+                  + id            = "c4c1ede66af53448b93c283ce9448c4ba468c9432aa01d700d3878632f77d2d0"
+                  + type          = "CanonicalUser"
+                    # (2 unchanged attributes hidden)
+                }
+            }
+          + owner {
+              + display_name = (known after apply)
+              + id           = "6835a65b7078b0e32407b663847215ac318959a525940673541a97f1f62059b8"
+            }
+        }
+    }
+
+  # aws_s3_bucket_policy.config[0] will be destroyed
+  # (because index [0] is out of range for count)
+  - resource "aws_s3_bucket_policy" "config" {
+      - bucket = "logging-test-25c1bdee-config" -> null
+      - id     = "logging-test-25c1bdee-config" -> null
+      - policy = jsonencode(
+            {
+              - Statement = [
+                  - {
+                      - Action    = "s3:GetBucketAcl"
+                      - Effect    = "Allow"
+                      - Principal = {
+                          - Service = "config.amazonaws.com"
+                        }
+                      - Resource  = "arn:aws:s3:::logging-test-25c1bdee-config"
+                      - Sid       = "AWSConfigBucketPermissionsCheck"
+                    },
+                  - {
+                      - Action    = "s3:PutObject"
+                      - Condition = {
+                          - StringEquals = {
+                              - "s3:x-amz-acl" = "bucket-owner-full-control"
+                            }
+                        }
+                      - Effect    = "Allow"
+                      - Principal = {
+                          - Service = "config.amazonaws.com"
+                        }
+                      - Resource  = "arn:aws:s3:::logging-test-25c1bdee-config/AWSLogs/194722414229/Config/*"
+                      - Sid       = "AWSConfigBucketDelivery"
+                    },
+                ]
+              - Version   = "2012-10-17"
+            }
+        ) -> null
+    }
+
+  # null_resource.config_snapshot will be created
+  + resource "null_resource" "config_snapshot" {
+      + id       = (known after apply)
+      + triggers = {
+          + "config" = "enabled"
+        }
+    }
+
+Plan: 7 to add, 0 to change, 5 to destroy.
+
+Changes to Outputs:
+  + api_invoke_url    = "https://05a4c9ve8e.execute-api.us-east-1.amazonaws.com/test/ping"
+  + cloudfront_domain = (known after apply)
+  ~ log_buckets       = {
+      ~ config     = "logging-test-25c1bdee-config" -> "(pre-existing / not managed)"
+        # (4 unchanged attributes hidden)
+    }
+null_resource.config_snapshot: Creating...
+null_resource.config_snapshot: Creation complete after 0s [id=3618156193450615152]
+aws_s3_bucket_policy.config[0]: Destroying... [id=logging-test-25c1bdee-config]
+aws_iam_role_policy_attachment.config[0]: Destroying... [id=logging-test-25c1bdee-config-role-20260615161851632100000005]
+aws_api_gateway_stage.main: Destroying... [id=ags-05a4c9ve8e-test]
+aws_s3_bucket_acl.cloudfront_logs: Creating...
+aws_iam_role_policy_attachment.config[0]: Destruction complete after 0s
+aws_iam_role.config[0]: Destroying... [id=logging-test-25c1bdee-config-role]
+aws_s3_bucket_policy.config[0]: Destruction complete after 1s
+aws_s3_bucket_acl.cloudfront_logs: Creation complete after 1s [id=logging-test-25c1bdee-cf-logs]
+aws_s3_bucket.config[0]: Destroying... [id=logging-test-25c1bdee-config]
+aws_cloudfront_distribution.main: Creating...
+aws_api_gateway_stage.main: Destruction complete after 1s
+aws_iam_role.apigw_cloudwatch[0]: Creating...
+aws_iam_role.config[0]: Destruction complete after 1s
+aws_s3_bucket.config[0]: Destruction complete after 0s
+aws_iam_role.apigw_cloudwatch[0]: Creation complete after 0s [id=logging-test-25c1bdee-apigw-cw-role]
+aws_iam_role_policy_attachment.apigw_cloudwatch[0]: Creating...
+aws_iam_role_policy_attachment.apigw_cloudwatch[0]: Creation complete after 0s [id=logging-test-25c1bdee-apigw-cw-role-20260615163057150700000002]
+aws_api_gateway_account.main[0]: Creating...
+aws_cloudfront_distribution.main: Still creating... [00m10s elapsed]
+aws_api_gateway_account.main[0]: Still creating... [00m10s elapsed]
+aws_cloudfront_distribution.main: Still creating... [00m20s elapsed]
+aws_api_gateway_account.main[0]: Still creating... [00m20s elapsed]
+aws_cloudfront_distribution.main: Still creating... [00m30s elapsed]
+aws_api_gateway_account.main[0]: Still creating... [00m30s elapsed]
+aws_cloudfront_distribution.main: Still creating... [00m40s elapsed]
+aws_api_gateway_account.main[0]: Still creating... [00m40s elapsed]
+aws_cloudfront_distribution.main: Still creating... [00m50s elapsed]
+aws_api_gateway_account.main[0]: Still creating... [00m50s elapsed]
+aws_api_gateway_account.main[0]: Creation complete after 57s [id=api-gateway-account]
+aws_api_gateway_stage.main: Creating...
+aws_api_gateway_stage.main: Creation complete after 1s [id=ags-05a4c9ve8e-test]
+aws_cloudfront_distribution.main: Still creating... [01m00s elapsed]
+aws_cloudfront_distribution.main: Still creating... [01m10s elapsed]
+aws_cloudfront_distribution.main: Still creating... [01m20s elapsed]
+aws_cloudfront_distribution.main: Still creating... [01m30s elapsed]
+aws_cloudfront_distribution.main: Still creating... [01m40s elapsed]
+aws_cloudfront_distribution.main: Still creating... [01m50s elapsed]
+aws_cloudfront_distribution.main: Still creating... [02m00s elapsed]
+aws_cloudfront_distribution.main: Still creating... [02m10s elapsed]
+aws_cloudfront_distribution.main: Still creating... [02m20s elapsed]
+aws_cloudfront_distribution.main: Still creating... [02m30s elapsed]
+aws_cloudfront_distribution.main: Still creating... [02m40s elapsed]
+aws_cloudfront_distribution.main: Creation complete after 2m46s [id=ETDPF4R99X6NN]
+
+Apply complete! Resources: 7 added, 0 changed, 5 destroyed.
+
+Outputs:
+
+account_id = "194722414229"
+alb_dns_name = "lt-25c1bdee-alb-773999996.us-east-1.elb.amazonaws.com"
+api_invoke_url = "https://05a4c9ve8e.execute-api.us-east-1.amazonaws.com/test/ping"
+cloudfront_domain = "d3vkv3wy726hjh.cloudfront.net"
+dynamodb_table = "logging-test-25c1bdee-table"
+enable_expensive = false
+enable_logging = true
+iam_user = "logging-test-25c1bdee-user"
+instance_id = "i-03c8523c761287907"
+inventory_buckets = {
+  "app" = "logging-test-25c1bdee-app"
+  "misconfig" = "logging-test-25c1bdee-public"
+  "pii" = "logging-test-25c1bdee-pii"
+}
+lambda_function = "logging-test-25c1bdee-fn"
+log_buckets = {
+  "alb" = "logging-test-25c1bdee-alb-logs"
+  "archive" = "logging-test-25c1bdee-log-archive"
+  "cloudfront" = "logging-test-25c1bdee-cf-logs"
+  "cloudtrail" = "logging-test-25c1bdee-cloudtrail"
+  "config" = "(pre-existing / not managed)"
+}
+name_prefix = "logging-test-25c1bdee"
+region = "us-east-1"
+snapshot_id = "snap-0caa6c702b31b5277"
+tier3_endpoints = {
+  "eks" = "(tier3 off)"
+  "firewall" = "(tier3 off)"
+  "opensearch" = "(tier3 off)"
+  "rds" = "(tier3 off)"
+}
+vpc_id = "vpc-04901bc9b9511cbdf"
+EXIT=0

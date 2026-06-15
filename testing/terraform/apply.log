@@ -1,0 +1,1831 @@
+data.external.detection: Reading...
+data.archive_file.lambda: Reading...
+data.archive_file.lambda: Read complete after 0s [id=7775e23809e4a3b3d8649794e0a13d4af3f0fbbc]
+data.aws_caller_identity.current: Reading...
+data.aws_availability_zones.available: Reading...
+data.aws_region.current: Reading...
+data.aws_region.current: Read complete after 0s [id=us-east-1]
+data.aws_elb_service_account.main: Reading...
+data.aws_elb_service_account.main: Read complete after 0s [id=127311923021]
+data.aws_partition.current: Reading...
+data.aws_partition.current: Read complete after 0s [id=aws]
+data.aws_ami.al2023[0]: Reading...
+data.aws_caller_identity.current: Read complete after 0s [id=194722414229]
+data.aws_availability_zones.available: Read complete after 0s [id=us-east-1]
+data.aws_ami.al2023[0]: Read complete after 0s [id=ami-083eb03ee8ae87bb1]
+data.external.detection: Read complete after 6s [id=-]
+
+Terraform used the selected providers to generate the following execution
+plan. Resource actions are indicated with the following symbols:
+  + create
+
+Terraform will perform the following actions:
+
+  # aws_api_gateway_deployment.main will be created
+  + resource "aws_api_gateway_deployment" "main" {
+      + created_date  = (known after apply)
+      + execution_arn = (known after apply)
+      + id            = (known after apply)
+      + invoke_url    = (known after apply)
+      + rest_api_id   = (known after apply)
+      + triggers      = (known after apply)
+    }
+
+  # aws_api_gateway_integration.ping will be created
+  + resource "aws_api_gateway_integration" "ping" {
+      + cache_namespace      = (known after apply)
+      + connection_type      = "INTERNET"
+      + http_method          = "GET"
+      + id                   = (known after apply)
+      + passthrough_behavior = (known after apply)
+      + request_templates    = {
+          + "application/json" = jsonencode(
+                {
+                  + statusCode = 200
+                }
+            )
+        }
+      + resource_id          = (known after apply)
+      + rest_api_id          = (known after apply)
+      + timeout_milliseconds = 29000
+      + type                 = "MOCK"
+    }
+
+  # aws_api_gateway_integration_response.ping_200 will be created
+  + resource "aws_api_gateway_integration_response" "ping_200" {
+      + http_method = "GET"
+      + id          = (known after apply)
+      + resource_id = (known after apply)
+      + rest_api_id = (known after apply)
+      + status_code = "200"
+    }
+
+  # aws_api_gateway_method.ping_get will be created
+  + resource "aws_api_gateway_method" "ping_get" {
+      + api_key_required = false
+      + authorization    = "NONE"
+      + http_method      = "GET"
+      + id               = (known after apply)
+      + resource_id      = (known after apply)
+      + rest_api_id      = (known after apply)
+    }
+
+  # aws_api_gateway_method_response.ping_200 will be created
+  + resource "aws_api_gateway_method_response" "ping_200" {
+      + http_method = "GET"
+      + id          = (known after apply)
+      + resource_id = (known after apply)
+      + rest_api_id = (known after apply)
+      + status_code = "200"
+    }
+
+  # aws_api_gateway_resource.ping will be created
+  + resource "aws_api_gateway_resource" "ping" {
+      + id          = (known after apply)
+      + parent_id   = (known after apply)
+      + path        = (known after apply)
+      + path_part   = "ping"
+      + rest_api_id = (known after apply)
+    }
+
+  # aws_api_gateway_rest_api.main will be created
+  + resource "aws_api_gateway_rest_api" "main" {
+      + api_key_source               = (known after apply)
+      + arn                          = (known after apply)
+      + binary_media_types           = (known after apply)
+      + created_date                 = (known after apply)
+      + description                  = "Ventra logging-test API"
+      + disable_execute_api_endpoint = (known after apply)
+      + execution_arn                = (known after apply)
+      + id                           = (known after apply)
+      + minimum_compression_size     = (known after apply)
+      + name                         = (known after apply)
+      + policy                       = (known after apply)
+      + root_resource_id             = (known after apply)
+      + tags_all                     = {
+          + "Ephemeral" = "true"
+          + "ManagedBy" = "terraform"
+          + "Project"   = "logging-test"
+          + "Purpose"   = "ventra-dfir-collector-testing"
+        }
+
+      + endpoint_configuration (known after apply)
+    }
+
+  # aws_api_gateway_stage.main will be created
+  + resource "aws_api_gateway_stage" "main" {
+      + arn           = (known after apply)
+      + deployment_id = (known after apply)
+      + execution_arn = (known after apply)
+      + id            = (known after apply)
+      + invoke_url    = (known after apply)
+      + rest_api_id   = (known after apply)
+      + stage_name    = "test"
+      + tags_all      = {
+          + "Ephemeral" = "true"
+          + "ManagedBy" = "terraform"
+          + "Project"   = "logging-test"
+          + "Purpose"   = "ventra-dfir-collector-testing"
+        }
+      + web_acl_arn   = (known after apply)
+
+      + access_log_settings {
+          + destination_arn = (known after apply)
+          + format          = jsonencode(
+                {
+                  + httpMethod     = "$context.httpMethod"
+                  + ip             = "$context.identity.sourceIp"
+                  + requestId      = "$context.requestId"
+                  + resourcePath   = "$context.resourcePath"
+                  + responseLength = "$context.responseLength"
+                  + status         = "$context.status"
+                }
+            )
+        }
+    }
+
+  # aws_cloudfront_distribution.main will be created
+  + resource "aws_cloudfront_distribution" "main" {
+      + arn                             = (known after apply)
+      + caller_reference                = (known after apply)
+      + comment                         = (known after apply)
+      + continuous_deployment_policy_id = (known after apply)
+      + domain_name                     = (known after apply)
+      + enabled                         = true
+      + etag                            = (known after apply)
+      + hosted_zone_id                  = (known after apply)
+      + http_version                    = "http2"
+      + id                              = (known after apply)
+      + in_progress_validation_batches  = (known after apply)
+      + is_ipv6_enabled                 = false
+      + last_modified_time              = (known after apply)
+      + price_class                     = "PriceClass_100"
+      + retain_on_delete                = false
+      + staging                         = false
+      + status                          = (known after apply)
+      + tags                            = (known after apply)
+      + tags_all                        = (known after apply)
+      + trusted_key_groups              = (known after apply)
+      + trusted_signers                 = (known after apply)
+      + wait_for_deployment             = true
+        # (1 unchanged attribute hidden)
+
+      + default_cache_behavior {
+          + allowed_methods        = [
+              + "GET",
+              + "HEAD",
+            ]
+          + cached_methods         = [
+              + "GET",
+              + "HEAD",
+            ]
+          + compress               = false
+          + default_ttl            = (known after apply)
+          + max_ttl                = (known after apply)
+          + min_ttl                = 0
+          + target_origin_id       = "primary"
+          + trusted_key_groups     = (known after apply)
+          + trusted_signers        = (known after apply)
+          + viewer_protocol_policy = "redirect-to-https"
+
+          + forwarded_values {
+              + headers                 = (known after apply)
+              + query_string            = false
+              + query_string_cache_keys = (known after apply)
+
+              + cookies {
+                  + forward           = "none"
+                  + whitelisted_names = (known after apply)
+                }
+            }
+
+          + grpc_config (known after apply)
+        }
+
+      + logging_config {
+          + bucket          = (known after apply)
+          + include_cookies = false
+          + prefix          = "cloudfront/"
+        }
+
+      + origin {
+          + connection_attempts      = 3
+          + connection_timeout       = 10
+          + domain_name              = "example.com"
+          + origin_id                = "primary"
+            # (2 unchanged attributes hidden)
+
+          + custom_origin_config {
+              + http_port                = 80
+              + https_port               = 443
+              + origin_keepalive_timeout = 5
+              + origin_protocol_policy   = "https-only"
+              + origin_read_timeout      = 30
+              + origin_ssl_protocols     = [
+                  + "TLSv1.2",
+                ]
+            }
+        }
+
+      + restrictions {
+          + geo_restriction {
+              + locations        = (known after apply)
+              + restriction_type = "none"
+            }
+        }
+
+      + viewer_certificate {
+          + cloudfront_default_certificate = true
+          + minimum_protocol_version       = "TLSv1"
+        }
+    }
+
+  # aws_cloudtrail.main[0] will be created
+  + resource "aws_cloudtrail" "main" {
+      + arn                           = (known after apply)
+      + enable_log_file_validation    = true
+      + enable_logging                = true
+      + home_region                   = (known after apply)
+      + id                            = (known after apply)
+      + include_global_service_events = true
+      + is_multi_region_trail         = true
+      + is_organization_trail         = false
+      + name                          = (known after apply)
+      + s3_bucket_name                = (known after apply)
+      + sns_topic_arn                 = (known after apply)
+      + tags_all                      = {
+          + "Ephemeral" = "true"
+          + "ManagedBy" = "terraform"
+          + "Project"   = "logging-test"
+          + "Purpose"   = "ventra-dfir-collector-testing"
+        }
+
+      + event_selector {
+          + include_management_events = true
+          + read_write_type           = "All"
+
+          + data_resource {
+              + type   = "AWS::S3::Object"
+              + values = [
+                  + "arn:aws:s3",
+                ]
+            }
+        }
+
+      + insight_selector {
+          + insight_type = "ApiCallRateInsight"
+        }
+    }
+
+  # aws_cloudwatch_log_group.apigw[0] will be created
+  + resource "aws_cloudwatch_log_group" "apigw" {
+      + arn               = (known after apply)
+      + id                = (known after apply)
+      + log_group_class   = (known after apply)
+      + name              = (known after apply)
+      + name_prefix       = (known after apply)
+      + retention_in_days = 1
+      + skip_destroy      = false
+      + tags_all          = {
+          + "Ephemeral" = "true"
+          + "ManagedBy" = "terraform"
+          + "Project"   = "logging-test"
+          + "Purpose"   = "ventra-dfir-collector-testing"
+        }
+    }
+
+  # aws_cloudwatch_log_group.waf[0] will be created
+  + resource "aws_cloudwatch_log_group" "waf" {
+      + arn               = (known after apply)
+      + id                = (known after apply)
+      + log_group_class   = (known after apply)
+      + name              = (known after apply)
+      + name_prefix       = (known after apply)
+      + retention_in_days = 1
+      + skip_destroy      = false
+      + tags_all          = {
+          + "Ephemeral" = "true"
+          + "ManagedBy" = "terraform"
+          + "Project"   = "logging-test"
+          + "Purpose"   = "ventra-dfir-collector-testing"
+        }
+    }
+
+  # aws_config_configuration_recorder.main[0] will be created
+  + resource "aws_config_configuration_recorder" "main" {
+      + id       = (known after apply)
+      + name     = (known after apply)
+      + role_arn = (known after apply)
+
+      + recording_group {
+          + all_supported = true
+
+          + exclusion_by_resource_types (known after apply)
+
+          + recording_strategy (known after apply)
+        }
+
+      + recording_mode (known after apply)
+    }
+
+  # aws_config_configuration_recorder_status.main[0] will be created
+  + resource "aws_config_configuration_recorder_status" "main" {
+      + id         = (known after apply)
+      + is_enabled = true
+      + name       = (known after apply)
+    }
+
+  # aws_config_delivery_channel.main[0] will be created
+  + resource "aws_config_delivery_channel" "main" {
+      + id             = (known after apply)
+      + name           = (known after apply)
+      + s3_bucket_name = (known after apply)
+    }
+
+  # aws_detective_graph.main[0] will be created
+  + resource "aws_detective_graph" "main" {
+      + created_time = (known after apply)
+      + graph_arn    = (known after apply)
+      + id           = (known after apply)
+      + tags         = (known after apply)
+      + tags_all     = (known after apply)
+    }
+
+  # aws_dynamodb_table.main will be created
+  + resource "aws_dynamodb_table" "main" {
+      + arn              = (known after apply)
+      + billing_mode     = "PAY_PER_REQUEST"
+      + hash_key         = "id"
+      + id               = (known after apply)
+      + name             = (known after apply)
+      + read_capacity    = (known after apply)
+      + stream_arn       = (known after apply)
+      + stream_enabled   = true
+      + stream_label     = (known after apply)
+      + stream_view_type = "NEW_AND_OLD_IMAGES"
+      + tags             = (known after apply)
+      + tags_all         = (known after apply)
+      + write_capacity   = (known after apply)
+
+      + attribute {
+          + name = "id"
+          + type = "S"
+        }
+
+      + point_in_time_recovery (known after apply)
+
+      + server_side_encryption (known after apply)
+
+      + ttl (known after apply)
+    }
+
+  # aws_ebs_snapshot.main[0] will be created
+  + resource "aws_ebs_snapshot" "main" {
+      + arn                    = (known after apply)
+      + data_encryption_key_id = (known after apply)
+      + encrypted              = (known after apply)
+      + id                     = (known after apply)
+      + kms_key_id             = (known after apply)
+      + owner_alias            = (known after apply)
+      + owner_id               = (known after apply)
+      + storage_tier           = (known after apply)
+      + tags                   = (known after apply)
+      + tags_all               = (known after apply)
+      + volume_id              = (known after apply)
+      + volume_size            = (known after apply)
+    }
+
+  # aws_ebs_volume.main[0] will be created
+  + resource "aws_ebs_volume" "main" {
+      + arn               = (known after apply)
+      + availability_zone = "us-east-1a"
+      + create_time       = (known after apply)
+      + encrypted         = (known after apply)
+      + final_snapshot    = false
+      + id                = (known after apply)
+      + iops              = (known after apply)
+      + kms_key_id        = (known after apply)
+      + size              = 1
+      + snapshot_id       = (known after apply)
+      + tags              = (known after apply)
+      + tags_all          = (known after apply)
+      + throughput        = (known after apply)
+      + type              = (known after apply)
+    }
+
+  # aws_flow_log.main[0] will be created
+  + resource "aws_flow_log" "main" {
+      + arn                      = (known after apply)
+      + id                       = (known after apply)
+      + log_destination          = (known after apply)
+      + log_destination_type     = "s3"
+      + log_format               = (known after apply)
+      + log_group_name           = (known after apply)
+      + max_aggregation_interval = 600
+      + tags_all                 = {
+          + "Ephemeral" = "true"
+          + "ManagedBy" = "terraform"
+          + "Project"   = "logging-test"
+          + "Purpose"   = "ventra-dfir-collector-testing"
+        }
+      + traffic_type             = "ALL"
+      + vpc_id                   = (known after apply)
+    }
+
+  # aws_iam_access_key.main will be created
+  + resource "aws_iam_access_key" "main" {
+      + create_date                    = (known after apply)
+      + encrypted_secret               = (known after apply)
+      + encrypted_ses_smtp_password_v4 = (known after apply)
+      + id                             = (known after apply)
+      + key_fingerprint                = (known after apply)
+      + secret                         = (sensitive value)
+      + ses_smtp_password_v4           = (sensitive value)
+      + status                         = "Active"
+      + user                           = (known after apply)
+    }
+
+  # aws_iam_role.app will be created
+  + resource "aws_iam_role" "app" {
+      + arn                   = (known after apply)
+      + assume_role_policy    = jsonencode(
+            {
+              + Statement = [
+                  + {
+                      + Action    = "sts:AssumeRole"
+                      + Effect    = "Allow"
+                      + Principal = {
+                          + AWS = "194722414229"
+                        }
+                    },
+                ]
+              + Version   = "2012-10-17"
+            }
+        )
+      + create_date           = (known after apply)
+      + force_detach_policies = false
+      + id                    = (known after apply)
+      + managed_policy_arns   = (known after apply)
+      + max_session_duration  = 3600
+      + name                  = (known after apply)
+      + name_prefix           = (known after apply)
+      + path                  = "/"
+      + tags_all              = {
+          + "Ephemeral" = "true"
+          + "ManagedBy" = "terraform"
+          + "Project"   = "logging-test"
+          + "Purpose"   = "ventra-dfir-collector-testing"
+        }
+      + unique_id             = (known after apply)
+
+      + inline_policy (known after apply)
+    }
+
+  # aws_iam_role.config[0] will be created
+  + resource "aws_iam_role" "config" {
+      + arn                   = (known after apply)
+      + assume_role_policy    = jsonencode(
+            {
+              + Statement = [
+                  + {
+                      + Action    = "sts:AssumeRole"
+                      + Effect    = "Allow"
+                      + Principal = {
+                          + Service = "config.amazonaws.com"
+                        }
+                    },
+                ]
+              + Version   = "2012-10-17"
+            }
+        )
+      + create_date           = (known after apply)
+      + force_detach_policies = false
+      + id                    = (known after apply)
+      + managed_policy_arns   = (known after apply)
+      + max_session_duration  = 3600
+      + name                  = (known after apply)
+      + name_prefix           = (known after apply)
+      + path                  = "/"
+      + tags_all              = {
+          + "Ephemeral" = "true"
+          + "ManagedBy" = "terraform"
+          + "Project"   = "logging-test"
+          + "Purpose"   = "ventra-dfir-collector-testing"
+        }
+      + unique_id             = (known after apply)
+
+      + inline_policy (known after apply)
+    }
+
+  # aws_iam_role.lambda will be created
+  + resource "aws_iam_role" "lambda" {
+      + arn                   = (known after apply)
+      + assume_role_policy    = jsonencode(
+            {
+              + Statement = [
+                  + {
+                      + Action    = "sts:AssumeRole"
+                      + Effect    = "Allow"
+                      + Principal = {
+                          + Service = "lambda.amazonaws.com"
+                        }
+                    },
+                ]
+              + Version   = "2012-10-17"
+            }
+        )
+      + create_date           = (known after apply)
+      + force_detach_policies = false
+      + id                    = (known after apply)
+      + managed_policy_arns   = (known after apply)
+      + max_session_duration  = 3600
+      + name                  = (known after apply)
+      + name_prefix           = (known after apply)
+      + path                  = "/"
+      + tags_all              = {
+          + "Ephemeral" = "true"
+          + "ManagedBy" = "terraform"
+          + "Project"   = "logging-test"
+          + "Purpose"   = "ventra-dfir-collector-testing"
+        }
+      + unique_id             = (known after apply)
+
+      + inline_policy (known after apply)
+    }
+
+  # aws_iam_role_policy_attachment.config[0] will be created
+  + resource "aws_iam_role_policy_attachment" "config" {
+      + id         = (known after apply)
+      + policy_arn = "arn:aws:iam::aws:policy/service-role/AWS_ConfigRole"
+      + role       = (known after apply)
+    }
+
+  # aws_iam_role_policy_attachment.lambda_logs[0] will be created
+  + resource "aws_iam_role_policy_attachment" "lambda_logs" {
+      + id         = (known after apply)
+      + policy_arn = "arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"
+      + role       = (known after apply)
+    }
+
+  # aws_iam_user.main will be created
+  + resource "aws_iam_user" "main" {
+      + arn           = (known after apply)
+      + force_destroy = true
+      + id            = (known after apply)
+      + name          = (known after apply)
+      + path          = "/"
+      + tags_all      = {
+          + "Ephemeral" = "true"
+          + "ManagedBy" = "terraform"
+          + "Project"   = "logging-test"
+          + "Purpose"   = "ventra-dfir-collector-testing"
+        }
+      + unique_id     = (known after apply)
+    }
+
+  # aws_iam_user_policy.main will be created
+  + resource "aws_iam_user_policy" "main" {
+      + id          = (known after apply)
+      + name        = (known after apply)
+      + name_prefix = (known after apply)
+      + policy      = jsonencode(
+            {
+              + Statement = [
+                  + {
+                      + Action   = [
+                          + "s3:*",
+                          + "iam:PassRole",
+                        ]
+                      + Effect   = "Allow"
+                      + Resource = "*"
+                    },
+                ]
+              + Version   = "2012-10-17"
+            }
+        )
+      + user        = (known after apply)
+    }
+
+  # aws_instance.main[0] will be created
+  + resource "aws_instance" "main" {
+      + ami                                  = "ami-083eb03ee8ae87bb1"
+      + arn                                  = (known after apply)
+      + associate_public_ip_address          = (known after apply)
+      + availability_zone                    = (known after apply)
+      + cpu_core_count                       = (known after apply)
+      + cpu_threads_per_core                 = (known after apply)
+      + disable_api_stop                     = (known after apply)
+      + disable_api_termination              = (known after apply)
+      + ebs_optimized                        = (known after apply)
+      + enable_primary_ipv6                  = (known after apply)
+      + get_password_data                    = false
+      + host_id                              = (known after apply)
+      + host_resource_group_arn              = (known after apply)
+      + iam_instance_profile                 = (known after apply)
+      + id                                   = (known after apply)
+      + instance_initiated_shutdown_behavior = (known after apply)
+      + instance_lifecycle                   = (known after apply)
+      + instance_state                       = (known after apply)
+      + instance_type                        = "t3.micro"
+      + ipv6_address_count                   = (known after apply)
+      + ipv6_addresses                       = (known after apply)
+      + key_name                             = (known after apply)
+      + monitoring                           = (known after apply)
+      + outpost_arn                          = (known after apply)
+      + password_data                        = (known after apply)
+      + placement_group                      = (known after apply)
+      + placement_partition_number           = (known after apply)
+      + primary_network_interface_id         = (known after apply)
+      + private_dns                          = (known after apply)
+      + private_ip                           = (known after apply)
+      + public_dns                           = (known after apply)
+      + public_ip                            = (known after apply)
+      + secondary_private_ips                = (known after apply)
+      + security_groups                      = (known after apply)
+      + source_dest_check                    = true
+      + spot_instance_request_id             = (known after apply)
+      + subnet_id                            = (known after apply)
+      + tags                                 = (known after apply)
+      + tags_all                             = (known after apply)
+      + tenancy                              = (known after apply)
+      + user_data                            = "4b0f6db88d6bc780ad62026dc75165fbc7ab761a"
+      + user_data_base64                     = (known after apply)
+      + user_data_replace_on_change          = false
+      + vpc_security_group_ids               = (known after apply)
+
+      + capacity_reservation_specification (known after apply)
+
+      + cpu_options (known after apply)
+
+      + ebs_block_device (known after apply)
+
+      + enclave_options (known after apply)
+
+      + ephemeral_block_device (known after apply)
+
+      + instance_market_options (known after apply)
+
+      + maintenance_options (known after apply)
+
+      + metadata_options (known after apply)
+
+      + network_interface (known after apply)
+
+      + private_dns_name_options (known after apply)
+
+      + root_block_device (known after apply)
+    }
+
+  # aws_internet_gateway.main will be created
+  + resource "aws_internet_gateway" "main" {
+      + arn      = (known after apply)
+      + id       = (known after apply)
+      + owner_id = (known after apply)
+      + tags     = (known after apply)
+      + tags_all = (known after apply)
+      + vpc_id   = (known after apply)
+    }
+
+  # aws_kms_alias.main will be created
+  + resource "aws_kms_alias" "main" {
+      + arn            = (known after apply)
+      + id             = (known after apply)
+      + name           = (known after apply)
+      + name_prefix    = (known after apply)
+      + target_key_arn = (known after apply)
+      + target_key_id  = (known after apply)
+    }
+
+  # aws_kms_key.main will be created
+  + resource "aws_kms_key" "main" {
+      + arn                                = (known after apply)
+      + bypass_policy_lockout_safety_check = false
+      + customer_master_key_spec           = "SYMMETRIC_DEFAULT"
+      + deletion_window_in_days            = 7
+      + description                        = (known after apply)
+      + enable_key_rotation                = false
+      + id                                 = (known after apply)
+      + is_enabled                         = true
+      + key_id                             = (known after apply)
+      + key_usage                          = "ENCRYPT_DECRYPT"
+      + multi_region                       = (known after apply)
+      + policy                             = (known after apply)
+      + rotation_period_in_days            = (known after apply)
+      + tags                               = (known after apply)
+      + tags_all                           = (known after apply)
+    }
+
+  # aws_lambda_function.main will be created
+  + resource "aws_lambda_function" "main" {
+      + architectures                  = (known after apply)
+      + arn                            = (known after apply)
+      + code_sha256                    = (known after apply)
+      + filename                       = "./.lambda.zip"
+      + function_name                  = (known after apply)
+      + handler                        = "index.handler"
+      + id                             = (known after apply)
+      + invoke_arn                     = (known after apply)
+      + last_modified                  = (known after apply)
+      + memory_size                    = 128
+      + package_type                   = "Zip"
+      + publish                        = false
+      + qualified_arn                  = (known after apply)
+      + qualified_invoke_arn           = (known after apply)
+      + reserved_concurrent_executions = -1
+      + role                           = (known after apply)
+      + runtime                        = "python3.12"
+      + signing_job_arn                = (known after apply)
+      + signing_profile_version_arn    = (known after apply)
+      + skip_destroy                   = false
+      + source_code_hash               = "3DfX/X2mykopT3NW65TPDorqrp8kybEuJ4btRLGv6uM="
+      + source_code_size               = (known after apply)
+      + tags                           = (known after apply)
+      + tags_all                       = (known after apply)
+      + timeout                        = 3
+      + version                        = (known after apply)
+
+      + environment {
+          + variables = {
+              + "API_TOKEN"   = "FAKE-not-real"
+              + "DB_PASSWORD" = "FAKE-not-real"
+              + "LOG_LEVEL"   = "INFO"
+            }
+        }
+
+      + ephemeral_storage (known after apply)
+
+      + logging_config (known after apply)
+
+      + tracing_config (known after apply)
+    }
+
+  # aws_lb.main will be created
+  + resource "aws_lb" "main" {
+      + arn                                                          = (known after apply)
+      + arn_suffix                                                   = (known after apply)
+      + client_keep_alive                                            = 3600
+      + desync_mitigation_mode                                       = "defensive"
+      + dns_name                                                     = (known after apply)
+      + drop_invalid_header_fields                                   = false
+      + enable_deletion_protection                                   = false
+      + enable_http2                                                 = true
+      + enable_tls_version_and_cipher_suite_headers                  = false
+      + enable_waf_fail_open                                         = false
+      + enable_xff_client_port                                       = false
+      + enable_zonal_shift                                           = false
+      + enforce_security_group_inbound_rules_on_private_link_traffic = (known after apply)
+      + id                                                           = (known after apply)
+      + idle_timeout                                                 = 60
+      + internal                                                     = false
+      + ip_address_type                                              = (known after apply)
+      + load_balancer_type                                           = "application"
+      + name                                                         = (known after apply)
+      + name_prefix                                                  = (known after apply)
+      + preserve_host_header                                         = false
+      + security_groups                                              = (known after apply)
+      + subnets                                                      = (known after apply)
+      + tags                                                         = (known after apply)
+      + tags_all                                                     = (known after apply)
+      + vpc_id                                                       = (known after apply)
+      + xff_header_processing_mode                                   = "append"
+      + zone_id                                                      = (known after apply)
+
+      + access_logs {
+          + bucket  = (known after apply)
+          + enabled = true
+          + prefix  = "alb"
+        }
+
+      + subnet_mapping (known after apply)
+    }
+
+  # aws_lb_listener.http will be created
+  + resource "aws_lb_listener" "http" {
+      + arn                                                                   = (known after apply)
+      + id                                                                    = (known after apply)
+      + load_balancer_arn                                                     = (known after apply)
+      + port                                                                  = 80
+      + protocol                                                              = "HTTP"
+      + routing_http_request_x_amzn_mtls_clientcert_header_name               = (known after apply)
+      + routing_http_request_x_amzn_mtls_clientcert_issuer_header_name        = (known after apply)
+      + routing_http_request_x_amzn_mtls_clientcert_leaf_header_name          = (known after apply)
+      + routing_http_request_x_amzn_mtls_clientcert_serial_number_header_name = (known after apply)
+      + routing_http_request_x_amzn_mtls_clientcert_subject_header_name       = (known after apply)
+      + routing_http_request_x_amzn_mtls_clientcert_validity_header_name      = (known after apply)
+      + routing_http_request_x_amzn_tls_cipher_suite_header_name              = (known after apply)
+      + routing_http_request_x_amzn_tls_version_header_name                   = (known after apply)
+      + routing_http_response_access_control_allow_credentials_header_value   = (known after apply)
+      + routing_http_response_access_control_allow_headers_header_value       = (known after apply)
+      + routing_http_response_access_control_allow_methods_header_value       = (known after apply)
+      + routing_http_response_access_control_allow_origin_header_value        = (known after apply)
+      + routing_http_response_access_control_expose_headers_header_value      = (known after apply)
+      + routing_http_response_access_control_max_age_header_value             = (known after apply)
+      + routing_http_response_content_security_policy_header_value            = (known after apply)
+      + routing_http_response_server_enabled                                  = (known after apply)
+      + routing_http_response_strict_transport_security_header_value          = (known after apply)
+      + routing_http_response_x_content_type_options_header_value             = (known after apply)
+      + routing_http_response_x_frame_options_header_value                    = (known after apply)
+      + ssl_policy                                                            = (known after apply)
+      + tags_all                                                              = {
+          + "Ephemeral" = "true"
+          + "ManagedBy" = "terraform"
+          + "Project"   = "logging-test"
+          + "Purpose"   = "ventra-dfir-collector-testing"
+        }
+      + tcp_idle_timeout_seconds                                              = (known after apply)
+
+      + default_action {
+          + order = (known after apply)
+          + type  = "fixed-response"
+
+          + fixed_response {
+              + content_type = "text/plain"
+              + message_body = "ventra-logging-test"
+              + status_code  = "200"
+            }
+        }
+
+      + mutual_authentication (known after apply)
+    }
+
+  # aws_route53_resolver_query_log_config.main[0] will be created
+  + resource "aws_route53_resolver_query_log_config" "main" {
+      + arn             = (known after apply)
+      + destination_arn = (known after apply)
+      + id              = (known after apply)
+      + name            = (known after apply)
+      + owner_id        = (known after apply)
+      + share_status    = (known after apply)
+      + tags_all        = {
+          + "Ephemeral" = "true"
+          + "ManagedBy" = "terraform"
+          + "Project"   = "logging-test"
+          + "Purpose"   = "ventra-dfir-collector-testing"
+        }
+    }
+
+  # aws_route53_resolver_query_log_config_association.main[0] will be created
+  + resource "aws_route53_resolver_query_log_config_association" "main" {
+      + id                           = (known after apply)
+      + resolver_query_log_config_id = (known after apply)
+      + resource_id                  = (known after apply)
+    }
+
+  # aws_route_table.public will be created
+  + resource "aws_route_table" "public" {
+      + arn              = (known after apply)
+      + id               = (known after apply)
+      + owner_id         = (known after apply)
+      + propagating_vgws = (known after apply)
+      + route            = [
+          + {
+              + cidr_block                 = "0.0.0.0/0"
+              + gateway_id                 = (known after apply)
+                # (11 unchanged attributes hidden)
+            },
+        ]
+      + tags             = (known after apply)
+      + tags_all         = (known after apply)
+      + vpc_id           = (known after apply)
+    }
+
+  # aws_route_table_association.public_a will be created
+  + resource "aws_route_table_association" "public_a" {
+      + id             = (known after apply)
+      + route_table_id = (known after apply)
+      + subnet_id      = (known after apply)
+    }
+
+  # aws_route_table_association.public_b will be created
+  + resource "aws_route_table_association" "public_b" {
+      + id             = (known after apply)
+      + route_table_id = (known after apply)
+      + subnet_id      = (known after apply)
+    }
+
+  # aws_s3_bucket.alb_logs will be created
+  + resource "aws_s3_bucket" "alb_logs" {
+      + acceleration_status         = (known after apply)
+      + acl                         = (known after apply)
+      + arn                         = (known after apply)
+      + bucket                      = (known after apply)
+      + bucket_domain_name          = (known after apply)
+      + bucket_prefix               = (known after apply)
+      + bucket_regional_domain_name = (known after apply)
+      + force_destroy               = true
+      + hosted_zone_id              = (known after apply)
+      + id                          = (known after apply)
+      + object_lock_enabled         = (known after apply)
+      + policy                      = (known after apply)
+      + region                      = (known after apply)
+      + request_payer               = (known after apply)
+      + tags                        = (known after apply)
+      + tags_all                    = (known after apply)
+      + website_domain              = (known after apply)
+      + website_endpoint            = (known after apply)
+
+      + cors_rule (known after apply)
+
+      + grant (known after apply)
+
+      + lifecycle_rule (known after apply)
+
+      + logging (known after apply)
+
+      + object_lock_configuration (known after apply)
+
+      + replication_configuration (known after apply)
+
+      + server_side_encryption_configuration (known after apply)
+
+      + versioning (known after apply)
+
+      + website (known after apply)
+    }
+
+  # aws_s3_bucket.app will be created
+  + resource "aws_s3_bucket" "app" {
+      + acceleration_status         = (known after apply)
+      + acl                         = (known after apply)
+      + arn                         = (known after apply)
+      + bucket                      = (known after apply)
+      + bucket_domain_name          = (known after apply)
+      + bucket_prefix               = (known after apply)
+      + bucket_regional_domain_name = (known after apply)
+      + force_destroy               = true
+      + hosted_zone_id              = (known after apply)
+      + id                          = (known after apply)
+      + object_lock_enabled         = (known after apply)
+      + policy                      = (known after apply)
+      + region                      = (known after apply)
+      + request_payer               = (known after apply)
+      + tags                        = (known after apply)
+      + tags_all                    = (known after apply)
+      + website_domain              = (known after apply)
+      + website_endpoint            = (known after apply)
+
+      + cors_rule (known after apply)
+
+      + grant (known after apply)
+
+      + lifecycle_rule (known after apply)
+
+      + logging (known after apply)
+
+      + object_lock_configuration (known after apply)
+
+      + replication_configuration (known after apply)
+
+      + server_side_encryption_configuration (known after apply)
+
+      + versioning (known after apply)
+
+      + website (known after apply)
+    }
+
+  # aws_s3_bucket.cloudfront_logs will be created
+  + resource "aws_s3_bucket" "cloudfront_logs" {
+      + acceleration_status         = (known after apply)
+      + acl                         = (known after apply)
+      + arn                         = (known after apply)
+      + bucket                      = (known after apply)
+      + bucket_domain_name          = (known after apply)
+      + bucket_prefix               = (known after apply)
+      + bucket_regional_domain_name = (known after apply)
+      + force_destroy               = true
+      + hosted_zone_id              = (known after apply)
+      + id                          = (known after apply)
+      + object_lock_enabled         = (known after apply)
+      + policy                      = (known after apply)
+      + region                      = (known after apply)
+      + request_payer               = (known after apply)
+      + tags                        = (known after apply)
+      + tags_all                    = (known after apply)
+      + website_domain              = (known after apply)
+      + website_endpoint            = (known after apply)
+
+      + cors_rule (known after apply)
+
+      + grant (known after apply)
+
+      + lifecycle_rule (known after apply)
+
+      + logging (known after apply)
+
+      + object_lock_configuration (known after apply)
+
+      + replication_configuration (known after apply)
+
+      + server_side_encryption_configuration (known after apply)
+
+      + versioning (known after apply)
+
+      + website (known after apply)
+    }
+
+  # aws_s3_bucket.cloudtrail[0] will be created
+  + resource "aws_s3_bucket" "cloudtrail" {
+      + acceleration_status         = (known after apply)
+      + acl                         = (known after apply)
+      + arn                         = (known after apply)
+      + bucket                      = (known after apply)
+      + bucket_domain_name          = (known after apply)
+      + bucket_prefix               = (known after apply)
+      + bucket_regional_domain_name = (known after apply)
+      + force_destroy               = true
+      + hosted_zone_id              = (known after apply)
+      + id                          = (known after apply)
+      + object_lock_enabled         = (known after apply)
+      + policy                      = (known after apply)
+      + region                      = (known after apply)
+      + request_payer               = (known after apply)
+      + tags                        = (known after apply)
+      + tags_all                    = (known after apply)
+      + website_domain              = (known after apply)
+      + website_endpoint            = (known after apply)
+
+      + cors_rule (known after apply)
+
+      + grant (known after apply)
+
+      + lifecycle_rule (known after apply)
+
+      + logging (known after apply)
+
+      + object_lock_configuration (known after apply)
+
+      + replication_configuration (known after apply)
+
+      + server_side_encryption_configuration (known after apply)
+
+      + versioning (known after apply)
+
+      + website (known after apply)
+    }
+
+  # aws_s3_bucket.config[0] will be created
+  + resource "aws_s3_bucket" "config" {
+      + acceleration_status         = (known after apply)
+      + acl                         = (known after apply)
+      + arn                         = (known after apply)
+      + bucket                      = (known after apply)
+      + bucket_domain_name          = (known after apply)
+      + bucket_prefix               = (known after apply)
+      + bucket_regional_domain_name = (known after apply)
+      + force_destroy               = true
+      + hosted_zone_id              = (known after apply)
+      + id                          = (known after apply)
+      + object_lock_enabled         = (known after apply)
+      + policy                      = (known after apply)
+      + region                      = (known after apply)
+      + request_payer               = (known after apply)
+      + tags                        = (known after apply)
+      + tags_all                    = (known after apply)
+      + website_domain              = (known after apply)
+      + website_endpoint            = (known after apply)
+
+      + cors_rule (known after apply)
+
+      + grant (known after apply)
+
+      + lifecycle_rule (known after apply)
+
+      + logging (known after apply)
+
+      + object_lock_configuration (known after apply)
+
+      + replication_configuration (known after apply)
+
+      + server_side_encryption_configuration (known after apply)
+
+      + versioning (known after apply)
+
+      + website (known after apply)
+    }
+
+  # aws_s3_bucket.log_archive will be created
+  + resource "aws_s3_bucket" "log_archive" {
+      + acceleration_status         = (known after apply)
+      + acl                         = (known after apply)
+      + arn                         = (known after apply)
+      + bucket                      = (known after apply)
+      + bucket_domain_name          = (known after apply)
+      + bucket_prefix               = (known after apply)
+      + bucket_regional_domain_name = (known after apply)
+      + force_destroy               = true
+      + hosted_zone_id              = (known after apply)
+      + id                          = (known after apply)
+      + object_lock_enabled         = (known after apply)
+      + policy                      = (known after apply)
+      + region                      = (known after apply)
+      + request_payer               = (known after apply)
+      + tags                        = (known after apply)
+      + tags_all                    = (known after apply)
+      + website_domain              = (known after apply)
+      + website_endpoint            = (known after apply)
+
+      + cors_rule (known after apply)
+
+      + grant (known after apply)
+
+      + lifecycle_rule (known after apply)
+
+      + logging (known after apply)
+
+      + object_lock_configuration (known after apply)
+
+      + replication_configuration (known after apply)
+
+      + server_side_encryption_configuration (known after apply)
+
+      + versioning (known after apply)
+
+      + website (known after apply)
+    }
+
+  # aws_s3_bucket.misconfig will be created
+  + resource "aws_s3_bucket" "misconfig" {
+      + acceleration_status         = (known after apply)
+      + acl                         = (known after apply)
+      + arn                         = (known after apply)
+      + bucket                      = (known after apply)
+      + bucket_domain_name          = (known after apply)
+      + bucket_prefix               = (known after apply)
+      + bucket_regional_domain_name = (known after apply)
+      + force_destroy               = true
+      + hosted_zone_id              = (known after apply)
+      + id                          = (known after apply)
+      + object_lock_enabled         = (known after apply)
+      + policy                      = (known after apply)
+      + region                      = (known after apply)
+      + request_payer               = (known after apply)
+      + tags                        = (known after apply)
+      + tags_all                    = (known after apply)
+      + website_domain              = (known after apply)
+      + website_endpoint            = (known after apply)
+
+      + cors_rule (known after apply)
+
+      + grant (known after apply)
+
+      + lifecycle_rule (known after apply)
+
+      + logging (known after apply)
+
+      + object_lock_configuration (known after apply)
+
+      + replication_configuration (known after apply)
+
+      + server_side_encryption_configuration (known after apply)
+
+      + versioning (known after apply)
+
+      + website (known after apply)
+    }
+
+  # aws_s3_bucket.pii will be created
+  + resource "aws_s3_bucket" "pii" {
+      + acceleration_status         = (known after apply)
+      + acl                         = (known after apply)
+      + arn                         = (known after apply)
+      + bucket                      = (known after apply)
+      + bucket_domain_name          = (known after apply)
+      + bucket_prefix               = (known after apply)
+      + bucket_regional_domain_name = (known after apply)
+      + force_destroy               = true
+      + hosted_zone_id              = (known after apply)
+      + id                          = (known after apply)
+      + object_lock_enabled         = (known after apply)
+      + policy                      = (known after apply)
+      + region                      = (known after apply)
+      + request_payer               = (known after apply)
+      + tags                        = (known after apply)
+      + tags_all                    = (known after apply)
+      + website_domain              = (known after apply)
+      + website_endpoint            = (known after apply)
+
+      + cors_rule (known after apply)
+
+      + grant (known after apply)
+
+      + lifecycle_rule (known after apply)
+
+      + logging (known after apply)
+
+      + object_lock_configuration (known after apply)
+
+      + replication_configuration (known after apply)
+
+      + server_side_encryption_configuration (known after apply)
+
+      + versioning (known after apply)
+
+      + website (known after apply)
+    }
+
+  # aws_s3_bucket_acl.cloudfront_logs will be created
+  + resource "aws_s3_bucket_acl" "cloudfront_logs" {
+      + bucket = (known after apply)
+      + id     = (known after apply)
+
+      + access_control_policy {
+          + grant {
+              + permission = "FULL_CONTROL"
+
+              + grantee {
+                  + display_name  = (known after apply)
+                  + id            = "194722414229"
+                  + type          = "CanonicalUser"
+                    # (2 unchanged attributes hidden)
+                }
+            }
+          + grant {
+              + permission = "FULL_CONTROL"
+
+              + grantee {
+                  + display_name  = (known after apply)
+                  + id            = "c4c1ede66af53448b93c283ce9448c4ba468c9432aa01d700d3878632f77d2d0"
+                  + type          = "CanonicalUser"
+                    # (2 unchanged attributes hidden)
+                }
+            }
+          + owner {
+              + display_name = (known after apply)
+              + id           = "194722414229"
+            }
+        }
+    }
+
+  # aws_s3_bucket_logging.app[0] will be created
+  + resource "aws_s3_bucket_logging" "app" {
+      + bucket        = (known after apply)
+      + id            = (known after apply)
+      + target_bucket = (known after apply)
+      + target_prefix = "s3-access-logs/app/"
+    }
+
+  # aws_s3_bucket_ownership_controls.cloudfront_logs will be created
+  + resource "aws_s3_bucket_ownership_controls" "cloudfront_logs" {
+      + bucket = (known after apply)
+      + id     = (known after apply)
+
+      + rule {
+          + object_ownership = "BucketOwnerPreferred"
+        }
+    }
+
+  # aws_s3_bucket_policy.alb_logs will be created
+  + resource "aws_s3_bucket_policy" "alb_logs" {
+      + bucket = (known after apply)
+      + id     = (known after apply)
+      + policy = (known after apply)
+    }
+
+  # aws_s3_bucket_policy.cloudtrail[0] will be created
+  + resource "aws_s3_bucket_policy" "cloudtrail" {
+      + bucket = (known after apply)
+      + id     = (known after apply)
+      + policy = (known after apply)
+    }
+
+  # aws_s3_bucket_policy.config[0] will be created
+  + resource "aws_s3_bucket_policy" "config" {
+      + bucket = (known after apply)
+      + id     = (known after apply)
+      + policy = (known after apply)
+    }
+
+  # aws_s3_bucket_policy.log_archive will be created
+  + resource "aws_s3_bucket_policy" "log_archive" {
+      + bucket = (known after apply)
+      + id     = (known after apply)
+      + policy = (known after apply)
+    }
+
+  # aws_s3_bucket_public_access_block.misconfig will be created
+  + resource "aws_s3_bucket_public_access_block" "misconfig" {
+      + block_public_acls       = false
+      + block_public_policy     = false
+      + bucket                  = (known after apply)
+      + id                      = (known after apply)
+      + ignore_public_acls      = false
+      + restrict_public_buckets = false
+    }
+
+  # aws_s3_object.pii will be created
+  + resource "aws_s3_object" "pii" {
+      + acl                    = (known after apply)
+      + arn                    = (known after apply)
+      + bucket                 = (known after apply)
+      + bucket_key_enabled     = (known after apply)
+      + checksum_crc32         = (known after apply)
+      + checksum_crc32c        = (known after apply)
+      + checksum_crc64nvme     = (known after apply)
+      + checksum_sha1          = (known after apply)
+      + checksum_sha256        = (known after apply)
+      + content_type           = (known after apply)
+      + etag                   = "8784a8d20bdc5526a4bbd03ad5e6ffd9"
+      + force_destroy          = false
+      + id                     = (known after apply)
+      + key                    = "customers.csv"
+      + kms_key_id             = (known after apply)
+      + server_side_encryption = (known after apply)
+      + source                 = "./pii_sample.csv"
+      + storage_class          = (known after apply)
+      + tags_all               = {
+          + "Ephemeral" = "true"
+          + "ManagedBy" = "terraform"
+          + "Project"   = "logging-test"
+          + "Purpose"   = "ventra-dfir-collector-testing"
+        }
+      + version_id             = (known after apply)
+    }
+
+  # aws_secretsmanager_secret.main will be created
+  + resource "aws_secretsmanager_secret" "main" {
+      + arn                            = (known after apply)
+      + force_overwrite_replica_secret = false
+      + id                             = (known after apply)
+      + name                           = (known after apply)
+      + name_prefix                    = (known after apply)
+      + policy                         = (known after apply)
+      + recovery_window_in_days        = 0
+      + tags_all                       = {
+          + "Ephemeral" = "true"
+          + "ManagedBy" = "terraform"
+          + "Project"   = "logging-test"
+          + "Purpose"   = "ventra-dfir-collector-testing"
+        }
+
+      + replica (known after apply)
+    }
+
+  # aws_secretsmanager_secret_version.main will be created
+  + resource "aws_secretsmanager_secret_version" "main" {
+      + arn                  = (known after apply)
+      + has_secret_string_wo = (known after apply)
+      + id                   = (known after apply)
+      + secret_id            = (known after apply)
+      + secret_string        = (sensitive value)
+      + secret_string_wo     = (write-only attribute)
+      + version_id           = (known after apply)
+      + version_stages       = (known after apply)
+    }
+
+  # aws_security_group.alb will be created
+  + resource "aws_security_group" "alb" {
+      + arn                    = (known after apply)
+      + description            = "ALB ingress for access-log testing"
+      + egress                 = [
+          + {
+              + cidr_blocks      = [
+                  + "0.0.0.0/0",
+                ]
+              + from_port        = 0
+              + ipv6_cidr_blocks = []
+              + prefix_list_ids  = []
+              + protocol         = "-1"
+              + security_groups  = []
+              + self             = false
+              + to_port          = 0
+                # (1 unchanged attribute hidden)
+            },
+        ]
+      + id                     = (known after apply)
+      + ingress                = [
+          + {
+              + cidr_blocks      = [
+                  + "0.0.0.0/0",
+                ]
+              + description      = "HTTP from anywhere"
+              + from_port        = 80
+              + ipv6_cidr_blocks = []
+              + prefix_list_ids  = []
+              + protocol         = "tcp"
+              + security_groups  = []
+              + self             = false
+              + to_port          = 80
+            },
+        ]
+      + name                   = (known after apply)
+      + name_prefix            = (known after apply)
+      + owner_id               = (known after apply)
+      + revoke_rules_on_delete = false
+      + tags                   = (known after apply)
+      + tags_all               = (known after apply)
+      + vpc_id                 = (known after apply)
+    }
+
+  # aws_security_group.open will be created
+  + resource "aws_security_group" "open" {
+      + arn                    = (known after apply)
+      + description            = "Intentionally open for DFIR testing"
+      + egress                 = [
+          + {
+              + cidr_blocks      = [
+                  + "0.0.0.0/0",
+                ]
+              + from_port        = 0
+              + ipv6_cidr_blocks = []
+              + prefix_list_ids  = []
+              + protocol         = "-1"
+              + security_groups  = []
+              + self             = false
+              + to_port          = 0
+                # (1 unchanged attribute hidden)
+            },
+        ]
+      + id                     = (known after apply)
+      + ingress                = [
+          + {
+              + cidr_blocks      = [
+                  + "0.0.0.0/0",
+                ]
+              + description      = "SSH from anywhere (intentional misconfig)"
+              + from_port        = 22
+              + ipv6_cidr_blocks = []
+              + prefix_list_ids  = []
+              + protocol         = "tcp"
+              + security_groups  = []
+              + self             = false
+              + to_port          = 22
+            },
+        ]
+      + name                   = (known after apply)
+      + name_prefix            = (known after apply)
+      + owner_id               = (known after apply)
+      + revoke_rules_on_delete = false
+      + tags                   = (known after apply)
+      + tags_all               = (known after apply)
+      + vpc_id                 = (known after apply)
+    }
+
+  # aws_subnet.firewall will be created
+  + resource "aws_subnet" "firewall" {
+      + arn                                            = (known after apply)
+      + assign_ipv6_address_on_creation                = false
+      + availability_zone                              = "us-east-1a"
+      + availability_zone_id                           = (known after apply)
+      + cidr_block                                     = "10.42.3.0/24"
+      + enable_dns64                                   = false
+      + enable_resource_name_dns_a_record_on_launch    = false
+      + enable_resource_name_dns_aaaa_record_on_launch = false
+      + id                                             = (known after apply)
+      + ipv6_cidr_block_association_id                 = (known after apply)
+      + ipv6_native                                    = false
+      + map_public_ip_on_launch                        = false
+      + owner_id                                       = (known after apply)
+      + private_dns_hostname_type_on_launch            = (known after apply)
+      + tags                                           = (known after apply)
+      + tags_all                                       = (known after apply)
+      + vpc_id                                         = (known after apply)
+    }
+
+  # aws_subnet.public_a will be created
+  + resource "aws_subnet" "public_a" {
+      + arn                                            = (known after apply)
+      + assign_ipv6_address_on_creation                = false
+      + availability_zone                              = "us-east-1a"
+      + availability_zone_id                           = (known after apply)
+      + cidr_block                                     = "10.42.1.0/24"
+      + enable_dns64                                   = false
+      + enable_resource_name_dns_a_record_on_launch    = false
+      + enable_resource_name_dns_aaaa_record_on_launch = false
+      + id                                             = (known after apply)
+      + ipv6_cidr_block_association_id                 = (known after apply)
+      + ipv6_native                                    = false
+      + map_public_ip_on_launch                        = true
+      + owner_id                                       = (known after apply)
+      + private_dns_hostname_type_on_launch            = (known after apply)
+      + tags                                           = (known after apply)
+      + tags_all                                       = (known after apply)
+      + vpc_id                                         = (known after apply)
+    }
+
+  # aws_subnet.public_b will be created
+  + resource "aws_subnet" "public_b" {
+      + arn                                            = (known after apply)
+      + assign_ipv6_address_on_creation                = false
+      + availability_zone                              = "us-east-1b"
+      + availability_zone_id                           = (known after apply)
+      + cidr_block                                     = "10.42.2.0/24"
+      + enable_dns64                                   = false
+      + enable_resource_name_dns_a_record_on_launch    = false
+      + enable_resource_name_dns_aaaa_record_on_launch = false
+      + id                                             = (known after apply)
+      + ipv6_cidr_block_association_id                 = (known after apply)
+      + ipv6_native                                    = false
+      + map_public_ip_on_launch                        = true
+      + owner_id                                       = (known after apply)
+      + private_dns_hostname_type_on_launch            = (known after apply)
+      + tags                                           = (known after apply)
+      + tags_all                                       = (known after apply)
+      + vpc_id                                         = (known after apply)
+    }
+
+  # aws_vpc.main will be created
+  + resource "aws_vpc" "main" {
+      + arn                                  = (known after apply)
+      + cidr_block                           = "10.42.0.0/16"
+      + default_network_acl_id               = (known after apply)
+      + default_route_table_id               = (known after apply)
+      + default_security_group_id            = (known after apply)
+      + dhcp_options_id                      = (known after apply)
+      + enable_dns_hostnames                 = true
+      + enable_dns_support                   = true
+      + enable_network_address_usage_metrics = (known after apply)
+      + id                                   = (known after apply)
+      + instance_tenancy                     = "default"
+      + ipv6_association_id                  = (known after apply)
+      + ipv6_cidr_block                      = (known after apply)
+      + ipv6_cidr_block_network_border_group = (known after apply)
+      + main_route_table_id                  = (known after apply)
+      + owner_id                             = (known after apply)
+      + tags                                 = (known after apply)
+      + tags_all                             = (known after apply)
+    }
+
+  # aws_wafv2_web_acl.main will be created
+  + resource "aws_wafv2_web_acl" "main" {
+      + application_integration_url = (known after apply)
+      + arn                         = (known after apply)
+      + capacity                    = (known after apply)
+      + description                 = "Ventra logging-test regional web ACL"
+      + id                          = (known after apply)
+      + lock_token                  = (known after apply)
+      + name                        = (known after apply)
+      + name_prefix                 = (known after apply)
+      + scope                       = "REGIONAL"
+      + tags                        = (known after apply)
+      + tags_all                    = (known after apply)
+
+      + default_action {
+          + allow {
+            }
+        }
+
+      + visibility_config {
+          + cloudwatch_metrics_enabled = true
+          + metric_name                = "ventraLoggingTest"
+          + sampled_requests_enabled   = true
+        }
+    }
+
+  # aws_wafv2_web_acl_association.alb will be created
+  + resource "aws_wafv2_web_acl_association" "alb" {
+      + id           = (known after apply)
+      + resource_arn = (known after apply)
+      + web_acl_arn  = (known after apply)
+    }
+
+  # aws_wafv2_web_acl_logging_configuration.main[0] will be created
+  + resource "aws_wafv2_web_acl_logging_configuration" "main" {
+      + id                      = (known after apply)
+      + log_destination_configs = (known after apply)
+      + resource_arn            = (known after apply)
+    }
+
+  # null_resource.detection_snapshot will be created
+  + resource "null_resource" "detection_snapshot" {
+      + id       = (known after apply)
+      + triggers = {
+          + "detective"   = "disabled"
+          + "guardduty"   = "enabled"
+          + "inspector2"  = "enabled"
+          + "macie"       = "enabled"
+          + "securityhub" = "enabled"
+        }
+    }
+
+  # random_id.suffix will be created
+  + resource "random_id" "suffix" {
+      + b64_std     = (known after apply)
+      + b64_url     = (known after apply)
+      + byte_length = 4
+      + dec         = (known after apply)
+      + hex         = (known after apply)
+      + id          = (known after apply)
+    }
+
+Plan: 70 to add, 0 to change, 0 to destroy.
+
+Changes to Outputs:
+  + account_id        = "194722414229"
+  + alb_dns_name      = (known after apply)
+  + api_invoke_url    = (known after apply)
+  + cloudfront_domain = (known after apply)
+  + dynamodb_table    = (known after apply)
+  + enable_expensive  = false
+  + enable_logging    = true
+  + iam_user          = (known after apply)
+  + instance_id       = (known after apply)
+  + inventory_buckets = {
+      + app       = (known after apply)
+      + misconfig = (known after apply)
+      + pii       = (known after apply)
+    }
+  + lambda_function   = (known after apply)
+  + log_buckets       = {
+      + alb        = (known after apply)
+      + archive    = (known after apply)
+      + cloudfront = (known after apply)
+      + cloudtrail = (known after apply)
+      + config     = (known after apply)
+    }
+  + name_prefix       = (known after apply)
+  + region            = "us-east-1"
+  + snapshot_id       = (known after apply)
+  + tier3_endpoints   = {
+      + eks        = "(tier3 off)"
+      + firewall   = "(tier3 off)"
+      + opensearch = "(tier3 off)"
+      + rds        = "(tier3 off)"
+    }
+  + vpc_id            = (known after apply)
+random_id.suffix: Creating...
+null_resource.detection_snapshot: Creating...
+random_id.suffix: Creation complete after 0s [id=JcG97g]
+null_resource.detection_snapshot: Creation complete after 0s [id=1252849609852624033]
+aws_cloudwatch_log_group.waf[0]: Creating...
+aws_vpc.main: Creating...
+aws_api_gateway_rest_api.main: Creating...
+aws_dynamodb_table.main: Creating...
+aws_s3_bucket.pii: Creating...
+aws_s3_bucket.app: Creating...
+aws_s3_bucket.misconfig: Creating...
+aws_s3_bucket.cloudfront_logs: Creating...
+aws_s3_bucket.alb_logs: Creating...
+aws_s3_bucket.log_archive: Creating...
+aws_cloudwatch_log_group.waf[0]: Creation complete after 1s [id=aws-waf-logs-logging-test-25c1bdee]
+aws_kms_key.main: Creating...
+aws_api_gateway_rest_api.main: Creation complete after 1s [id=05a4c9ve8e]
+aws_s3_bucket.cloudtrail[0]: Creating...
+aws_s3_bucket.cloudfront_logs: Creation complete after 3s [id=logging-test-25c1bdee-cf-logs]
+aws_s3_bucket.misconfig: Creation complete after 3s [id=logging-test-25c1bdee-public]
+aws_cloudwatch_log_group.apigw[0]: Creating...
+aws_wafv2_web_acl.main: Creating...
+aws_cloudwatch_log_group.apigw[0]: Creation complete after 0s [id=/aws/apigateway/logging-test-25c1bdee]
+aws_iam_role.config[0]: Creating...
+aws_s3_bucket.alb_logs: Creation complete after 3s [id=logging-test-25c1bdee-alb-logs]
+aws_s3_bucket.cloudtrail[0]: Creation complete after 2s [id=logging-test-25c1bdee-cloudtrail]
+aws_secretsmanager_secret.main: Creating...
+aws_s3_bucket.app: Creation complete after 3s [id=logging-test-25c1bdee-app]
+aws_detective_graph.main[0]: Creating...
+aws_iam_role.lambda: Creating...
+aws_s3_bucket.pii: Creation complete after 3s [id=logging-test-25c1bdee-pii]
+aws_s3_bucket.config[0]: Creating...
+aws_s3_bucket.log_archive: Creation complete after 3s [id=logging-test-25c1bdee-log-archive]
+aws_iam_user.main: Creating...
+aws_secretsmanager_secret.main: Creation complete after 1s [id=arn:aws:secretsmanager:us-east-1:194722414229:secret:logging-test-25c1bdee-secret-GQlwby]
+aws_api_gateway_resource.ping: Creating...
+aws_iam_role.lambda: Creation complete after 1s [id=logging-test-25c1bdee-lambda-role]
+aws_iam_user.main: Creation complete after 1s [id=logging-test-25c1bdee-user]
+aws_s3_bucket_ownership_controls.cloudfront_logs: Creating...
+aws_s3_bucket_public_access_block.misconfig: Creating...
+aws_wafv2_web_acl.main: Creation complete after 1s [id=098c4de3-db14-4a37-8d9a-665f7d7f1078]
+aws_s3_bucket_policy.alb_logs: Creating...
+aws_iam_role.config[0]: Creation complete after 1s [id=logging-test-25c1bdee-config-role]
+aws_iam_role.app: Creating...
+aws_api_gateway_resource.ping: Creation complete after 0s [id=cf1lpp]
+aws_s3_bucket_policy.cloudtrail[0]: Creating...
+aws_s3_bucket_public_access_block.misconfig: Creation complete after 0s [id=logging-test-25c1bdee-public]
+aws_s3_object.pii: Creating...
+aws_s3_bucket_ownership_controls.cloudfront_logs: Creation complete after 0s [id=logging-test-25c1bdee-cf-logs]
+aws_s3_bucket_policy.log_archive: Creating...
+aws_s3_bucket_policy.alb_logs: Creation complete after 0s [id=logging-test-25c1bdee-alb-logs]
+aws_secretsmanager_secret_version.main: Creating...
+aws_iam_role.app: Creation complete after 0s [id=logging-test-25c1bdee-app-role]
+aws_ebs_volume.main[0]: Creating...
+aws_s3_bucket_policy.cloudtrail[0]: Creation complete after 0s [id=logging-test-25c1bdee-cloudtrail]
+aws_lambda_function.main: Creating...
+aws_secretsmanager_secret_version.main: Creation complete after 0s [id=arn:aws:secretsmanager:us-east-1:194722414229:secret:logging-test-25c1bdee-secret-GQlwby|terraform-20260615161851010000000002]
+aws_iam_role_policy_attachment.lambda_logs[0]: Creating...
+aws_s3_object.pii: Creation complete after 0s [id=customers.csv]
+aws_iam_access_key.main: Creating...
+aws_s3_bucket_policy.log_archive: Creation complete after 0s [id=logging-test-25c1bdee-log-archive]
+aws_iam_user_policy.main: Creating...
+aws_iam_access_key.main: Creation complete after 0s [id=AKIAS2VS4H2KX5A3ROUM]
+aws_wafv2_web_acl_logging_configuration.main[0]: Creating...
+aws_iam_role_policy_attachment.lambda_logs[0]: Creation complete after 0s [id=logging-test-25c1bdee-lambda-role-20260615161851350900000004]
+aws_config_configuration_recorder.main[0]: Creating...
+aws_detective_graph.main[0]: Creation complete after 2s [id=arn:aws:detective:us-east-1:194722414229:graph:a4cf6b13e1054867bde4514229d94921]
+aws_iam_role_policy_attachment.config[0]: Creating...
+aws_iam_user_policy.main: Creation complete after 1s [id=logging-test-25c1bdee-user:logging-test-25c1bdee-inline]
+aws_api_gateway_method.ping_get: Creating...
+aws_wafv2_web_acl_logging_configuration.main[0]: Creation complete after 1s [id=arn:aws:wafv2:us-east-1:194722414229:regional/webacl/logging-test-25c1bdee-web-acl/098c4de3-db14-4a37-8d9a-665f7d7f1078]
+aws_s3_bucket_acl.cloudfront_logs: Creating...
+aws_api_gateway_method.ping_get: Creation complete after 0s [id=agm-05a4c9ve8e-cf1lpp-GET]
+aws_cloudtrail.main[0]: Creating...
+aws_iam_role_policy_attachment.config[0]: Creation complete after 0s [id=logging-test-25c1bdee-config-role-20260615161851632100000005]
+aws_route53_resolver_query_log_config.main[0]: Creating...
+aws_s3_bucket_logging.app[0]: Creating...
+aws_api_gateway_method_response.ping_200: Creating...
+aws_api_gateway_method_response.ping_200: Creation complete after 0s [id=agmr-05a4c9ve8e-cf1lpp-GET-200]
+aws_api_gateway_integration.ping: Creating...
+aws_api_gateway_integration.ping: Creation complete after 0s [id=agi-05a4c9ve8e-cf1lpp-GET]
+aws_api_gateway_deployment.main: Creating...
+aws_s3_bucket_logging.app[0]: Creation complete after 0s [id=logging-test-25c1bdee-app]
+aws_api_gateway_integration_response.ping_200: Creating...
+aws_api_gateway_integration_response.ping_200: Creation complete after 0s [id=agir-05a4c9ve8e-cf1lpp-GET-200]
+aws_s3_bucket.config[0]: Creation complete after 2s [id=logging-test-25c1bdee-config]
+aws_s3_bucket_policy.config[0]: Creating...
+aws_api_gateway_deployment.main: Creation complete after 0s [id=z3t0s5]
+aws_api_gateway_stage.main: Creating...
+aws_route53_resolver_query_log_config.main[0]: Creation complete after 1s [id=rqlc-469f8f21d1cd41a7]
+aws_s3_bucket_policy.config[0]: Creation complete after 1s [id=logging-test-25c1bdee-config]
+aws_cloudtrail.main[0]: Creation complete after 1s [id=arn:aws:cloudtrail:us-east-1:194722414229:trail/logging-test-25c1bdee-trail]
+aws_kms_key.main: Creation complete after 5s [id=c452112c-e079-4ceb-94e7-a971b783d0d8]
+aws_kms_alias.main: Creating...
+aws_kms_alias.main: Creation complete after 0s [id=alias/logging-test-25c1bdee]
+aws_vpc.main: Still creating... [00m10s elapsed]
+aws_dynamodb_table.main: Still creating... [00m10s elapsed]
+aws_vpc.main: Creation complete after 13s [id=vpc-04901bc9b9511cbdf]
+aws_subnet.firewall: Creating...
+aws_subnet.public_a: Creating...
+aws_internet_gateway.main: Creating...
+aws_security_group.open: Creating...
+aws_flow_log.main[0]: Creating...
+aws_subnet.public_b: Creating...
+aws_security_group.alb: Creating...
+aws_internet_gateway.main: Creation complete after 0s [id=igw-04a2fd424208db881]
+aws_route53_resolver_query_log_config_association.main[0]: Creating...
+aws_flow_log.main[0]: Creation complete after 1s [id=fl-0e86c2b5ec85f9fea]
+aws_route_table.public: Creating...
+aws_subnet.firewall: Creation complete after 1s [id=subnet-09a2323cbae3adfa5]
+aws_ebs_volume.main[0]: Still creating... [00m10s elapsed]
+aws_lambda_function.main: Still creating... [00m10s elapsed]
+aws_dynamodb_table.main: Creation complete after 14s [id=logging-test-25c1bdee-table]
+aws_ebs_volume.main[0]: Creation complete after 11s [id=vol-0a223573c48f1e36f]
+aws_ebs_snapshot.main[0]: Creating...
+aws_route_table.public: Creation complete after 1s [id=rtb-0e37b6a026f3e720d]
+aws_security_group.alb: Creation complete after 3s [id=sg-0037f79108e2a9b12]
+aws_security_group.open: Creation complete after 3s [id=sg-0b71f0ff1e3056cf3]
+aws_lambda_function.main: Creation complete after 15s [id=logging-test-25c1bdee-fn]
+aws_route53_resolver_query_log_config_association.main[0]: Creation complete after 7s [id=rqlca-7c25b7d2abcc4f11]
+aws_subnet.public_a: Still creating... [00m10s elapsed]
+aws_subnet.public_b: Still creating... [00m10s elapsed]
+aws_subnet.public_a: Creation complete after 11s [id=subnet-0e894390a4ef36e85]
+aws_route_table_association.public_a: Creating...
+aws_instance.main[0]: Creating...
+aws_subnet.public_b: Creation complete after 11s [id=subnet-02a89c6b99ee83f1c]
+aws_route_table_association.public_b: Creating...
+aws_lb.main: Creating...
+aws_route_table_association.public_b: Creation complete after 1s [id=rtbassoc-0bfadc9400e989968]
+aws_route_table_association.public_a: Creation complete after 1s [id=rtbassoc-0634c3b617f74237f]
+aws_ebs_snapshot.main[0]: Still creating... [00m10s elapsed]
+aws_instance.main[0]: Still creating... [00m10s elapsed]
+aws_lb.main: Still creating... [00m10s elapsed]
+aws_ebs_snapshot.main[0]: Still creating... [00m20s elapsed]
+aws_instance.main[0]: Creation complete after 13s [id=i-03c8523c761287907]
+aws_lb.main: Still creating... [00m20s elapsed]
+aws_ebs_snapshot.main[0]: Still creating... [00m30s elapsed]
+aws_lb.main: Still creating... [00m30s elapsed]
+aws_ebs_snapshot.main[0]: Still creating... [00m40s elapsed]
+aws_lb.main: Still creating... [00m40s elapsed]
+aws_ebs_snapshot.main[0]: Still creating... [00m50s elapsed]
+aws_lb.main: Still creating... [00m50s elapsed]
+aws_ebs_snapshot.main[0]: Still creating... [01m00s elapsed]
+aws_lb.main: Still creating... [01m00s elapsed]
+aws_ebs_snapshot.main[0]: Still creating... [01m10s elapsed]
+aws_lb.main: Still creating... [01m10s elapsed]
+aws_ebs_snapshot.main[0]: Still creating... [01m20s elapsed]
+aws_ebs_snapshot.main[0]: Creation complete after 1m21s [id=snap-0caa6c702b31b5277]
+aws_lb.main: Still creating... [01m20s elapsed]
+aws_lb.main: Still creating... [01m30s elapsed]
+aws_lb.main: Still creating... [01m40s elapsed]
+aws_lb.main: Still creating... [01m50s elapsed]
+aws_lb.main: Still creating... [02m00s elapsed]
+aws_lb.main: Still creating... [02m10s elapsed]
+aws_lb.main: Still creating... [02m20s elapsed]
+aws_lb.main: Still creating... [02m30s elapsed]
+aws_lb.main: Still creating... [02m40s elapsed]
+aws_lb.main: Still creating... [02m50s elapsed]
+aws_lb.main: Still creating... [03m00s elapsed]
+aws_lb.main: Still creating... [03m10s elapsed]
+aws_lb.main: Still creating... [03m20s elapsed]
+aws_lb.main: Creation complete after 3m23s [id=arn:aws:elasticloadbalancing:us-east-1:194722414229:loadbalancer/app/lt-25c1bdee-alb/cd205395f9e35919]
+aws_lb_listener.http: Creating...
+aws_wafv2_web_acl_association.alb: Creating...
+aws_lb_listener.http: Creation complete after 0s [id=arn:aws:elasticloadbalancing:us-east-1:194722414229:listener/app/lt-25c1bdee-alb/cd205395f9e35919/c6698cdf95b62cf6]
+aws_wafv2_web_acl_association.alb: Creation complete after 2s [id=arn:aws:wafv2:us-east-1:194722414229:regional/webacl/logging-test-25c1bdee-web-acl/098c4de3-db14-4a37-8d9a-665f7d7f1078,arn:aws:elasticloadbalancing:us-east-1:194722414229:loadbalancer/app/lt-25c1bdee-alb/cd205395f9e35919]
+
+Error: creating S3 Bucket (logging-test-25c1bdee-cf-logs) ACL: operation error S3: PutBucketAcl, https response error StatusCode: 400, RequestID: 6TK3MVF02G6WY8TE, HostID: gPV0hc0tv+jhpxTVkBkO4471SCPaPqcadtVO5Lz9QyyxIEA2h/4xLcS/0NAy9VuCVxeNAWoVz4e9sZomq79dKvlXbbrkElGW, api error InvalidArgument: Invalid id
+
+  with aws_s3_bucket_acl.cloudfront_logs,
+  on buckets.tf line 133, in resource "aws_s3_bucket_acl" "cloudfront_logs":
+ 133: resource "aws_s3_bucket_acl" "cloudfront_logs" {
+
+
+Error: putting ConfigService Configuration Recorder (logging-test-25c1bdee-recorder): operation error Config Service: PutConfigurationRecorder, https response error StatusCode: 400, RequestID: e9eb7c03-d673-4d70-bb1f-0b47e45b33d0, MaxNumberOfConfigurationRecordersExceededException: Failed to put configuration recorder  because you have reached the limit for the maximum number of customer managed configuration records: (1)
+
+  with aws_config_configuration_recorder.main[0],
+  on tier1.tf line 88, in resource "aws_config_configuration_recorder" "main":
+  88: resource "aws_config_configuration_recorder" "main" {
+
+
+Error: updating API Gateway Stage (ags-05a4c9ve8e-test): operation error API Gateway: UpdateStage, https response error StatusCode: 400, RequestID: c5379561-4653-49de-8f9f-3fd1c89f9866, BadRequestException: CloudWatch Logs role ARN must be set in account settings to enable logging
+
+  with aws_api_gateway_stage.main,
+  on tier2.tf line 167, in resource "aws_api_gateway_stage" "main":
+ 167: resource "aws_api_gateway_stage" "main" {
+

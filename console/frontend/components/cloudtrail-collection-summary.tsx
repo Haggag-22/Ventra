@@ -6,30 +6,18 @@ import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
   Archive,
+  ArrowRight,
   CheckCircle2,
   Cloud,
   Database,
   FolderOpen,
   Info,
+  CloudOff,
   Route,
   ScrollText,
-  Server,
   ShieldCheck,
   ShieldAlert,
 } from "lucide-react";
-
-function BoolBadge({ ok, label }: { ok: boolean; label: string }) {
-  return (
-    <span
-      className={cn(
-        "ct-resource-badge",
-        ok ? "is-on" : "is-off",
-      )}
-    >
-      {label}
-    </span>
-  );
-}
 
 export function CloudTrailCollectionSummary({ data }: { data: CloudTrailCollection }) {
   const trails = data.trails ?? [];
@@ -149,50 +137,52 @@ export function CloudTrailCollectionSummary({ data }: { data: CloudTrailCollecti
             <Route className="h-4 w-4" />
             Trails ({trails.length})
           </h3>
-          <div className="grid gap-3 lg:grid-cols-2">
+          <div className="grid gap-3">
             {trails.map((trail) => (
-              <article key={trail.arn || trail.name} className="ct-resource-block">
-                <div className="ct-resource-block-title">{trail.name || "Unnamed trail"}</div>
-                {trail.arn && (
-                  <div className="mono ct-resource-meta break-all">{trail.arn}</div>
-                )}
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  <BoolBadge ok={trail.is_logging} label={trail.is_logging ? "Logging" : "Not logging"} />
-                  {trail.is_multi_region && <span className="ct-resource-badge is-on">Multi-region</span>}
-                  {trail.is_organization && (
-                    <span className="ct-resource-badge is-on">Organization</span>
+              // Visual delivery mapping: trail → S3 bucket (arrow only when a bucket exists)
+              <div key={trail.arn || trail.name} className="ct-flow">
+                <div className="ct-flow-node">
+                  <div className="ct-flow-node-label">
+                    <Route className="h-3.5 w-3.5 shrink-0" />
+                    Trail
+                  </div>
+                  <div className="ct-flow-node-value mono">{trail.name || "Unnamed trail"}</div>
+                  {trail.arn && (
+                    <div className="ct-flow-node-sub mono break-all">{trail.arn}</div>
                   )}
-                  {trail.log_file_validation && (
-                    <span className="ct-resource-badge is-on">Log validation</span>
-                  )}
-                  {trail.data_events_configured && (
-                    <span className="ct-resource-badge is-on">Data events</span>
-                  )}
-                  {trail.insight_events_configured && (
-                    <span className="ct-resource-badge is-on">Insights</span>
-                  )}
-                  {trail.network_activity_configured && (
-                    <span className="ct-resource-badge is-on">Network activity</span>
+                  {trail.home_region && (
+                    <div className="ct-flow-node-sub">{trail.home_region}</div>
                   )}
                 </div>
-                {trail.s3_bucket && (
-                  <div className="mt-3 border-t border-border pt-2">
-                    <div className="flex items-center gap-1.5 text-2xs text-fg-subtle">
-                      <Server className="h-3.5 w-3.5 shrink-0" />
-                      S3 delivery
+
+                {trail.s3_bucket ? (
+                  <>
+                    <div className="ct-flow-arrow" title="delivers logs to">
+                      <ArrowRight className="h-4 w-4" />
                     </div>
-                    <div className="mono mt-1 text-xs text-fg">{trail.s3_bucket}</div>
-                    {trail.s3_key_prefix && (
-                      <div className="mono mt-0.5 text-2xs text-fg-subtle">
-                        prefix: {trail.s3_key_prefix}
+                    <div className="ct-flow-node ct-flow-node--dest">
+                      <div className="ct-flow-node-label">
+                        <Archive className="h-3.5 w-3.5 shrink-0" />
+                        S3 bucket
                       </div>
-                    )}
-                    {trail.home_region && (
-                      <div className="mt-1 text-2xs text-fg-subtle">Home region: {trail.home_region}</div>
-                    )}
+                      <div className="ct-flow-node-value mono break-all">{trail.s3_bucket}</div>
+                      <div className="ct-flow-node-sub mono break-all">
+                        {`arn:aws:s3:::${trail.s3_bucket}`}
+                      </div>
+                      {trail.s3_key_prefix && (
+                        <div className="ct-flow-node-sub mono break-all">
+                          prefix: {trail.s3_key_prefix}
+                        </div>
+                      )}
+                    </div>
+                  </>
+                ) : (
+                  <div className="ct-flow-empty">
+                    <CloudOff className="h-3.5 w-3.5 shrink-0" />
+                    No S3 delivery · Event History only
                   </div>
                 )}
-              </article>
+              </div>
             ))}
           </div>
         </section>
