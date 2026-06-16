@@ -111,7 +111,7 @@ export function ContextDrawer({
             icon={pinned ? PinOff : Pin}
             onClick={togglePin}
           >
-            {pinned ? "Pinned to report" : "Pin to report"}
+            {pinned ? "Unpin from report" : "Pin to report"}
           </Button>
         </div>
 

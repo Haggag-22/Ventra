@@ -14,29 +14,15 @@ import {
   loadVisibleCloudTrailCols,
   type CloudTrailColKey,
 } from "@/lib/cloudtrail-columns";
-import { fmtNum } from "@/lib/format";
+import { usePagination } from "@/lib/pagination";
+import { TablePager } from "@/components/table-pager";
 import { useFilters } from "@/lib/useFilters";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ScrollText } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-const PAGE_SIZE_OPTIONS = [100, 250, 500] as const;
-const DEFAULT_PAGE_SIZE = 500;
 const PAGE_SIZE_KEY = "ventra.cloudtrail.page-size";
 const BASE_SOURCE = ["cloudtrail"];
-
-function loadPageSize(): number {
-  if (typeof window === "undefined") return DEFAULT_PAGE_SIZE;
-  try {
-    const raw = localStorage.getItem(PAGE_SIZE_KEY);
-    const n = raw ? Number.parseInt(raw, 10) : DEFAULT_PAGE_SIZE;
-    return PAGE_SIZE_OPTIONS.includes(n as (typeof PAGE_SIZE_OPTIONS)[number])
-      ? n
-      : DEFAULT_PAGE_SIZE;
-  } catch {
-    return DEFAULT_PAGE_SIZE;
-  }
-}
 
 function filtersFromParams(params: EventParams): CloudTrailFilters {
   return {
@@ -71,14 +57,12 @@ function paramsFromFilters(filters: CloudTrailFilters): EventParams {
 export default function CloudTrailPage() {
   const { caseId } = useCase();
   const { params, write, clearAll } = useFilters();
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(DEFAULT_PAGE_SIZE);
+  const { page, setPage, pageSize, setPageSize } = usePagination(PAGE_SIZE_KEY);
   const [visibleColumns, setVisibleColumns] = useState<CloudTrailColKey[]>(
     ALL_CLOUDTRAIL_COL_KEYS,
   );
 
   useEffect(() => {
-    setPageSize(loadPageSize());
     setVisibleColumns(loadVisibleCloudTrailCols());
   }, []);
 
@@ -111,21 +95,8 @@ export default function CloudTrailPage() {
     queryFn: () => api.facets(caseId, { source: BASE_SOURCE }),
   });
 
-  const total = totalQ.data?.total ?? 0;
   const matched = eventsQ.data?.total ?? 0;
   const eventsFailed = totalQ.isError || eventsQ.isError;
-  const offset = page * pageSize;
-  const pageEnd = Math.min(offset + pageSize, matched);
-
-  const handlePageSizeChange = useCallback((next: number) => {
-    setPageSize(next);
-    setPage(0);
-    try {
-      localStorage.setItem(PAGE_SIZE_KEY, String(next));
-    } catch {
-      /* ignore */
-    }
-  }, []);
 
   const handleChange = useCallback(
     (next: Partial<CloudTrailFilters>) => {
@@ -164,7 +135,7 @@ export default function CloudTrailPage() {
   return (
     <>
       <PanelHeader icon={ScrollText} title="CloudTrail Timeline" panel="cloudtrail" />
-      <PanelBody className="cloudtrail-view space-y-4">
+      <PanelBody className="cloudtrail-view cloudtrail-timeline space-y-4">
         <CloudTrailCollectionPanel caseId={caseId} />
 
         {eventsFailed && (
@@ -192,49 +163,14 @@ export default function CloudTrailPage() {
           />
         </div>
 
-        <div className="ct-pager">
-          {matched > pageSize && (
-            <>
-              <button
-                type="button"
-                className="ct-btn"
-                disabled={page === 0}
-                onClick={() => setPage((p) => p - 1)}
-              >
-                ← Prev
-              </button>
-              <span>
-                {fmtNum(offset + 1)}–{fmtNum(pageEnd)} of {fmtNum(matched)}
-              </span>
-              <button
-                type="button"
-                className="ct-btn"
-                disabled={pageEnd >= matched}
-                onClick={() => setPage((p) => p + 1)}
-              >
-                Next →
-              </button>
-            </>
-          )}
-          <label className="ml-auto flex items-center gap-2 text-xs text-fg-subtle">
-            Rows per page
-            <select
-              className="ct-select ct-page-size"
-              value={pageSize}
-              onChange={(e) => handlePageSizeChange(Number.parseInt(e.target.value, 10))}
-              aria-label="Rows per page"
-            >
-              {PAGE_SIZE_OPTIONS.map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
-          </label>
-          <span className="text-xs text-fg-subtle">
-            Showing {fmtNum(eventsQ.data?.events.length ?? 0)} rows
-          </span>
-        </div>
+        <TablePager
+          page={page}
+          pageSize={pageSize}
+          total={matched}
+          shown={eventsQ.data?.events.length ?? 0}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
       </PanelBody>
     </>
   );

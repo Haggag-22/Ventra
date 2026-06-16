@@ -23,10 +23,10 @@
   --accent-fg: 255 255 255;
 
   --sev-critical: 248 113 113;
-  --sev-high: 251 191 36;
-  --sev-medium: 251 191 36;
-  --sev-low: 91 155 255;
-  --sev-info: 129 140 248;
+  --sev-high: 251 146 60;
+  --sev-medium: 250 204 21;
+  --sev-low: 74 222 128;
+  --sev-info: 96 165 250;
 
   --ok-green: 52 211 153;
   --warn-amber: 251 191 36;
@@ -55,8 +55,8 @@
   --sev-critical: 220 38 60;
   --sev-high: 234 88 12;
   --sev-medium: 202 138 4;
-  --sev-low: 37 99 235;
-  --sev-info: 100 116 139;
+  --sev-low: 22 163 74;
+  --sev-info: 37 99 235;
 
   --ok-green: 16 160 110;
   --warn-amber: 202 138 4;
@@ -79,8 +79,8 @@
   --sev-critical: 255 80 110;
   --sev-high: 255 160 70;
   --sev-medium: 255 220 60;
-  --sev-low: 120 180 255;
-  --sev-info: 190 200 215;
+  --sev-low: 100 240 150;
+  --sev-info: 120 180 255;
   --ok-green: 80 240 160;
   --warn-amber: 255 210 60;
   --bad-red: 255 100 100;
@@ -766,6 +766,23 @@ body {
     overflow: auto;
   }
 
+  /* CloudTrail Timeline: give the events table more vertical room so more rows show. */
+  .cloudtrail-timeline .ct-table-wrap {
+    max-height: calc(100vh - 140px);
+  }
+
+  .edge-requests-timeline .ct-table-wrap {
+    max-height: calc(100vh - 320px);
+  }
+
+  .dns-queries-timeline .ct-table-wrap {
+    max-height: calc(100vh - 360px);
+  }
+
+  .vpc-flow-timeline .ct-table-wrap {
+    max-height: calc(100vh - 320px);
+  }
+
   .cloudtrail-view .ct-select.ct-page-size {
     width: auto;
     min-width: 4.5rem;
@@ -896,6 +913,64 @@ body {
     flex: 1;
     overflow: auto;
     padding: 18px 20px;
+  }
+
+  .ct-access-log-fields {
+    margin: 0;
+    overflow: hidden;
+    border: 1px solid rgb(var(--border));
+    border-radius: 8px;
+    background: rgb(var(--bg));
+  }
+
+  .ct-access-log-row {
+    display: grid;
+    grid-template-columns: minmax(7.5rem, 38%) 1fr;
+    gap: 8px 12px;
+    padding: 8px 12px;
+    border-bottom: 1px solid rgb(var(--border) / 0.55);
+    font-size: 11.5px;
+    line-height: 1.5;
+  }
+
+  .ct-access-log-row:last-child {
+    border-bottom: none;
+  }
+
+  .ct-access-log-label {
+    margin: 0;
+    color: rgb(var(--fg-subtle));
+    font-size: 10.5px;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+    word-break: break-word;
+  }
+
+  .ct-access-log-value {
+    margin: 0;
+    font-family: var(--font-mono);
+    color: rgb(var(--fg));
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    white-space: pre-wrap;
+  }
+
+  pre.ct-log-wrap {
+    margin: 0;
+    overflow: auto;
+    max-height: 40vh;
+    border: 1px solid rgb(var(--border));
+    border-radius: 8px;
+    background: rgb(var(--bg));
+    padding: 14px 16px;
+    font-family: var(--font-mono);
+    font-size: 11.5px;
+    line-height: 1.65;
+    white-space: pre-wrap;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    color: rgb(var(--fg));
   }
 
   .cloudtrail-view .ct-icon-btn {

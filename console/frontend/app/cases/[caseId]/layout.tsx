@@ -11,7 +11,7 @@ import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const GOTO: Record<string, string> = {
-  o: "overview",
+  c: "cloudtrail",
   a: "collection",
   i: "identity",
   n: "network",

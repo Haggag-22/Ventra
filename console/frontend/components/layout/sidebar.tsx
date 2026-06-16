@@ -16,18 +16,6 @@ type NavEntry = {
 
 const INVESTIGATE: NavEntry[] = [
   {
-    href: "overview",
-    label: "Overview",
-    icon: (
-      <svg viewBox="0 0 24 24" aria-hidden>
-        <rect x="3" y="3" width="7" height="9" rx="1.5" />
-        <rect x="14" y="3" width="7" height="5" rx="1.5" />
-        <rect x="14" y="12" width="7" height="9" rx="1.5" />
-        <rect x="3" y="16" width="7" height="5" rx="1.5" />
-      </svg>
-    ),
-  },
-  {
     href: "cloudtrail",
     label: "CloudTrail Timeline",
     icon: (
@@ -81,6 +69,17 @@ const INVESTIGATE: NavEntry[] = [
       </svg>
     ),
   },
+  {
+    href: "data-access",
+    label: "Data Access",
+    icon: (
+      <svg viewBox="0 0 24 24" aria-hidden>
+        <ellipse cx="12" cy="5" rx="8" ry="3" />
+        <path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5" />
+        <path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" />
+      </svg>
+    ),
+  },
 ];
 
 const PACKAGE: NavEntry[] = [
@@ -106,13 +105,13 @@ const PACKAGE: NavEntry[] = [
     ),
   },
   {
-    href: "data-access",
-    label: "Data Access",
+    href: "report",
+    label: "Report",
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden>
-        <ellipse cx="12" cy="5" rx="8" ry="3" />
-        <path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5" />
-        <path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" />
+        <path d="M7 3h7l5 5v13a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z" />
+        <path d="M14 3v5h5" />
+        <path d="M9 13h6M9 17h6" />
       </svg>
     ),
   },
@@ -176,10 +175,7 @@ export function Sidebar({ caseId }: { caseId: string }) {
             <path d="M9 12l2 2 4-4" />
           </svg>
         </div>
-        <div>
-          <div className="sb-brand-title">Ventra</div>
-          <div className="sb-brand-sub">Evidence Viewer</div>
-        </div>
+        <div className="sb-brand-title">Ventra</div>
       </Link>
 
       <BackToCases />

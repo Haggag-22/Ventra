@@ -31,7 +31,7 @@ const STATE_META: Record<
   collected: { label: "Collected", icon: CheckSquare, tone: "text-ok-green", collected: true },
   partial: { label: "Partial", icon: AlertTriangle, tone: "text-warn-amber", collected: true },
   empty: { label: "No records", icon: MinusSquare, tone: "text-warn-amber", collected: false },
-  not_enabled: { label: "Not enabled", icon: Square, tone: "text-warn-amber", collected: false },
+  not_enabled: { label: "Not enabled", icon: XSquare, tone: "text-bad-red", collected: false },
   denied: { label: "Access denied", icon: XSquare, tone: "text-bad-red", collected: false },
   not_run: { label: "Not run", icon: Square, tone: "text-fg-subtle", collected: false },
   planned: { label: "Detected only", icon: Square, tone: "text-fg-subtle", collected: false },
@@ -122,7 +122,7 @@ export default function CollectionPage() {
             <Legend icon={CheckSquare} tone="text-ok-green" label="Collected" />
             <Legend icon={AlertTriangle} tone="text-warn-amber" label="Partial" />
             <Legend icon={MinusSquare} tone="text-warn-amber" label="No records" />
-            <Legend icon={Square} tone="text-warn-amber" label="Not enabled" />
+            <Legend icon={XSquare} tone="text-bad-red" label="Not enabled" />
             <Legend icon={XSquare} tone="text-bad-red" label="Access denied" />
             <Legend icon={Square} tone="text-fg-subtle" label="Detected only (manual pull)" />
           </div>

@@ -284,11 +284,96 @@ def build_route53_resolver() -> list[dict]:
     for i in range(8):
         events.append(query(_t(1320 + i * 15), f"x{rng.randrange(16**8):08x}.biz", "NXDOMAIN",
                             None))
+    # DNS tunneling: long encoded labels under an attacker domain (trips the 'odd' flag).
+    for i in range(3):
+        label = "".join(rng.choice("abcdef0123456789") for _ in range(45))
+        events.append(query(_t(1340 + i * 12), f"{label}.tunnel.evil-c2.net", "NOERROR",
+                            "185.220.101.45"))
     # Baseline legit lookups.
     for i in range(15):
         events.append(query(_t(-3600 + i * 240), "api.payments-partner.com", "NOERROR",
                             "52.94.236.10"))
     return events
+
+
+def build_s3_access() -> list[dict]:
+    """S3 server access logs: DB-dump exfil, anonymous public reads, and cover-up deletes."""
+    owner = "79a59df900b949e55d96a1e698fbaced"
+
+    def _s3t(off: int) -> str:
+        return (BASE + timedelta(seconds=off)).strftime("%d/%b/%Y:%H:%M:%S +0000")
+
+    def line(off, ip, requester, op, key, status, sent, ua, err="-") -> dict:
+        verb = op.split(".")[1] if "." in op else "GET"
+        return {
+            "line": (
+                f'{owner} exfil-staging [{_s3t(off)}] {ip} {requester} 3E57427F3EXAMPLE '
+                f'{op} {key} "{verb} /exfil-staging/{key} HTTP/1.1" {status} {err} '
+                f'{sent} {sent} 45 12 "-" "{ua}" - sigkey= SigV4 '
+                f'ECDHE-RSA-AES128-GCM-SHA256 AuthHeader s3.amazonaws.com TLSv1.2'
+            ),
+            "_ventra_region": REGION,
+            "_ventra_s3_bucket": "exfil-staging",
+            "_ventra_log_key": "exfil-staging-logs/2026-06-08-01-20-00-ABCDEF01",
+        }
+
+    cli = "aws-cli/2.15.0 Python/3.11"
+    dbadmin = f"arn:aws:iam::{ACCOUNT}:user/{VICTIM_USER}"
+    out = []
+    # Attacker (stolen dbadmin creds) bulk-downloads the customer DB dump — exfil reads.
+    for i in range(15):
+        out.append(line(1300 + i * 8, ATTACKER_IP2, dbadmin, "REST.GET.OBJECT",
+                        "customer-db.sql.gz", 200, rng.randint(45_000_000, 60_000_000), cli))
+    # Anonymous reads of a misconfigured public object.
+    for i in range(6):
+        out.append(line(1500 + i * 5, EXFIL_IP, "-", "REST.GET.OBJECT",
+                        "public/quarterly-report.pdf", 200, 2_500_000, "Mozilla/5.0"))
+    # Destruction: deletes covering tracks.
+    for i in range(3):
+        out.append(line(1700 + i * 4, ATTACKER_IP2, dbadmin, "REST.DELETE.OBJECT",
+                        f"backups/db-{i}.bak", 204, 0, cli))
+    # Denied attempts at the secrets prefix (errors).
+    for i in range(4):
+        out.append(line(1720 + i * 3, ATTACKER_IP2, dbadmin, "REST.GET.OBJECT",
+                        "secrets/root-keys.json", 403, 0, cli, err="AccessDenied"))
+    return out
+
+
+def build_waf() -> list[dict]:
+    """WAF sampled requests: SQLi/XSS blocked from the attacker IP, legit traffic allowed."""
+    acl = f"arn:aws:wafv2:{REGION}:{ACCOUNT}:regional/webacl/prod-waf/abcd1234"
+
+    def sample(off, ip, country, method, uri, action, rule, ua) -> dict:
+        return {
+            "Action": action,
+            "Timestamp": _t(off),
+            "RuleNameWithinRuleGroup": rule,
+            "Request": {
+                "ClientIP": ip, "Country": country, "Method": method, "URI": uri,
+                "Headers": [
+                    {"Name": "Host", "Value": "shop.example.com"},
+                    {"Name": "User-Agent", "Value": ua},
+                ],
+            },
+            "_ventra_web_acl_arn": acl,
+            "_ventra_region": REGION,
+            "_ventra_rule_metric": rule,
+        }
+
+    scanner = "Mozilla/5.0 (compatible; Nuclei/3.1)"
+    browser = "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+    out = []
+    for i in range(8):
+        out.append(sample(-1700 + i * 20, ATTACKER_IP, "RU", "GET",
+                          "/products?id=1'%20OR%20'1'='1", "BLOCK", "SQLi_BODY", scanner))
+    for i in range(4):
+        out.append(sample(-1600 + i * 20, ATTACKER_IP, "RU", "POST",
+                          "/search?q=<script>alert(1)</script>", "BLOCK", "XSS_QUERYSTRING",
+                          scanner))
+    for i in range(10):
+        out.append(sample(-3000 + i * 120, LEGIT_IP, "US", "GET", "/products", "ALLOW", "",
+                          browser))
+    return out
 
 
 def build_guardduty() -> list[dict]:
@@ -580,7 +665,14 @@ def generate(out_dir: Path, case_id: str = "CASE-2026-0042") -> Path:
         src("route53_resolver",
             [("events.jsonl.gz", _write_gz_jsonl(sd / "route53_resolver/events.jsonl.gz",
                                                  build_route53_resolver()))],
-            notes="DNS query logs — C2 beaconing + NXDOMAIN burst.")
+            notes="DNS query logs — C2 beaconing + NXDOMAIN burst + tunneling.")
+        src("waf", [("events.jsonl.gz", _write_gz_jsonl(sd / "waf/events.jsonl.gz",
+                                                        build_waf()))],
+            notes="WAF sampled requests — SQLi/XSS blocked from attacker IP.")
+        src("s3_access",
+            [("events.jsonl.gz", _write_gz_jsonl(sd / "s3_access/events.jsonl.gz",
+                                                 build_s3_access()))],
+            notes="S3 server access logs — DB-dump exfil, anonymous reads, cover-up deletes.")
         # Inventory sources
         src("iam", [("snapshot.json", _write_json(sd / "iam/snapshot.json", build_iam_snapshot()))],
             notes="3 users, 2 roles.")
@@ -591,18 +683,10 @@ def generate(out_dir: Path, case_id: str = "CASE-2026-0042") -> Path:
         src("account", [("snapshot.json", _write_json(sd / "account/snapshot.json",
                                                        build_account_snapshot()))],
             notes="Environment context.")
-        # A deliberate gap: WAF not configured.
-        manifest.add_source_result(SourceResult(
-            name="waf", status=SourceStatus.EMPTY,
-            gaps=[("waf", GapReason.NOT_PRESENT, "No WAFv2 Web ACLs in scope.")],
-            notes="No WAF configured."))
         # Logging posture for sources Ventra detects but does not pull yet.
         manifest.add_source_result(SourceResult(
             name="log_posture", status=SourceStatus.COLLECTED,
             gaps=[
-                ("s3_access", GapReason.LOGGING_NOT_CONFIGURED,
-                 "Server access logging disabled on 3/3 bucket(s): "
-                 "client-data-prod, exfil-staging, client-lb-logs."),
                 ("cloudfront", GapReason.NOT_PRESENT, "No CloudFront distributions."),
                 ("eks_audit", GapReason.NOT_PRESENT, "No EKS clusters in scope."),
                 ("apigateway", GapReason.OUT_OF_SCOPE,

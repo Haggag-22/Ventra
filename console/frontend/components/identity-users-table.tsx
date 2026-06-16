@@ -1,8 +1,10 @@
 "use client";
 
 import { IdentityPrincipal } from "@/components/identity-principal";
+import { TablePager } from "@/components/table-pager";
 import { fmtDateOnly } from "@/lib/format";
 import { policiesForUser } from "@/lib/iam-policies";
+import { usePagination } from "@/lib/pagination";
 import { useResizableColumns } from "@/lib/resizable-columns";
 import { ShieldCheck, ShieldX } from "lucide-react";
 
@@ -33,7 +35,8 @@ export function IdentityUsersTable({
   groups: any[];
   policies: any[];
 }) {
-  const { startResize, colPct } = useResizableColumns(COLS, DEFAULT_WIDTHS, WIDTHS_KEY);
+  const { startResize, colWidth, totalWidth } = useResizableColumns(COLS, DEFAULT_WIDTHS, WIDTHS_KEY);
+  const { page, setPage, pageSize, setPageSize } = usePagination("ventra.identity-users.page-size");
 
   if (users.length === 0) {
     return (
@@ -41,15 +44,18 @@ export function IdentityUsersTable({
     );
   }
 
+  const paged = users.slice(page * pageSize, page * pageSize + pageSize);
+
   return (
+    <>
     <div className="ct-table-wrap overflow-x-auto overflow-y-auto">
       <table
         className="ct-table ct-table-no-row-click w-full border-collapse text-left"
-        style={{ tableLayout: "fixed" }}
+        style={{ tableLayout: "fixed", width: totalWidth, minWidth: "100%" }}
       >
         <colgroup>
           {COLS.map((c) => (
-            <col key={c.key} style={{ width: colPct(c.key) }} />
+            <col key={c.key} style={{ width: colWidth(c.key) }} />
           ))}
         </colgroup>
         <thead className="sticky top-0 z-10">
@@ -70,7 +76,7 @@ export function IdentityUsersTable({
           </tr>
         </thead>
         <tbody>
-          {users.map((u) => {
+          {paged.map((u) => {
             const keys = u.AccessKeys ?? [];
             const mfa = (u.MFADevices ?? []).length > 0;
 
@@ -115,5 +121,14 @@ export function IdentityUsersTable({
         </tbody>
       </table>
     </div>
+    <TablePager
+      page={page}
+      pageSize={pageSize}
+      total={users.length}
+      shown={paged.length}
+      onPageChange={setPage}
+      onPageSizeChange={setPageSize}
+    />
+    </>
   );
 }
