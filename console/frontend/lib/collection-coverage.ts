@@ -86,6 +86,11 @@ export const IMPLEMENTED_LOG_COLLECTORS = new Set([
   "s3_access",
   "route53_resolver",
   "eks_audit",
+  "activity_log",
+  "entra_signin",
+  "entra_audit",
+  "nsg_flow",
+  "defender",
 ]);
 
 const AWS_LOGS_BASELINE = new Set([
@@ -96,10 +101,21 @@ const AWS_LOGS_BASELINE = new Set([
   "waf",
 ]);
 
+const AZURE_LOGS_BASELINE = new Set([
+  "activity_log",
+  "entra_signin",
+  "entra_audit",
+  "nsg_flow",
+  "defender",
+]);
+
 export function baselineCollectorIds(cloud: Cloud): string[] {
   const items = catalogItems(cloud);
   if (cloud === "aws") {
     return items.filter((i) => AWS_LOGS_BASELINE.has(i.id)).map((i) => i.id);
+  }
+  if (cloud === "azure") {
+    return items.filter((i) => AZURE_LOGS_BASELINE.has(i.id)).map((i) => i.id);
   }
   return items.map((i) => i.id);
 }

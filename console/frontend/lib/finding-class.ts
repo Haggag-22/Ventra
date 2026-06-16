@@ -54,6 +54,7 @@ export function findingClass(event: UnifiedEvent): FindingClass {
 
   if (
     source === "guardduty" ||
+    source === "defender" ||
     raw.Type ||
     type0.startsWith("TTPs") ||
     type0.startsWith("Unusual Behaviors") ||

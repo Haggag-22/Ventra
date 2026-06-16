@@ -1,17 +1,10 @@
-"""Azure collectors — scaffolded for a later phase.
+"""Azure collectors — Activity Log, Entra ID, NSG flow, Defender, RBAC.
 
-Azure reuses the Evidence Package Format and the console unchanged; only the acquisition
-layer here is Azure-specific. Planned baseline sources mirror the AWS baseline set:
+Install Azure SDK dependencies::
 
-  * activity_log      — Azure Activity Log (control-plane, ~ CloudTrail)
-  * entra_signin      — Microsoft Entra ID sign-in logs (~ console logins / STS)
-  * entra_audit       — Entra ID audit logs (directory changes)
-  * nsg_flow          — NSG flow logs (~ VPC Flow Logs)
-  * defender          — Microsoft Defender for Cloud alerts (~ GuardDuty)
-  * rbac              — role assignments & definitions (~ IAM)
-
-Implement each as a Collector subclass under this package and register it in an
-``AZURE_REGISTRY``, exactly as the AWS package does.
+    pip install 'ventra[azure]'
 """
 
-# Intentionally empty until Phase 6. See docs/ROADMAP.md.
+from .registry import AZURE_REGISTRY, all_collector_names
+
+__all__ = ["AZURE_REGISTRY", "all_collector_names"]

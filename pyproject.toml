@@ -19,6 +19,15 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+azure = [
+    "azure-identity>=1.16",
+    "azure-mgmt-resource>=23.0",
+    "azure-mgmt-monitor>=6.0",
+    "azure-mgmt-network>=25.0",
+    "azure-mgmt-security>=7.0",
+    "azure-mgmt-authorization>=4.0",
+    "azure-storage-blob>=12.19",
+]
 console = [
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
@@ -33,6 +42,13 @@ dev = [
     "moto>=5.0",
     "ruff>=0.4",
     "mypy>=1.10",
+    "azure-identity>=1.16",
+    "azure-mgmt-resource>=23.0",
+    "azure-mgmt-monitor>=6.0",
+    "azure-mgmt-network>=25.0",
+    "azure-mgmt-security>=7.0",
+    "azure-mgmt-authorization>=4.0",
+    "azure-storage-blob>=12.19",
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
     "duckdb>=0.10",

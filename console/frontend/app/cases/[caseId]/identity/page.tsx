@@ -32,6 +32,7 @@ function countUnusedActiveKeys(users: any[]): number {
 export default function IdentityPage() {
   const { caseId, summary } = useCase();
   const collected = new Set(summary?.collection?.collected ?? []);
+  const hasIdentitySnapshot = collected.has("iam") || collected.has("rbac");
   const q = useQuery({ queryKey: ["identity", caseId], queryFn: () => api.identity(caseId) });
   const kmsQ = useQuery({
     queryKey: ["inventory", caseId, "kms"],
@@ -66,7 +67,7 @@ export default function IdentityPage() {
       />
       <PanelBody className="space-y-6">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          {collected.has("iam") && (
+          {hasIdentitySnapshot && (
             <>
               <StatCard label="Users" value={fmtNum(users.length)} icon={Users} />
               <StatCard label="Roles" value={fmtNum(roles.length)} icon={Shield} />

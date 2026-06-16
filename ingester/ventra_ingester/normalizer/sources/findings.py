@@ -253,3 +253,46 @@ def normalize_config(records: list[dict], ctx: NormalizeContext) -> Iterator[Uni
             ventra_source="config",
             raw=c,
         )
+
+
+_DEFENDER_SEVERITY = {
+    "High": "high",
+    "Medium": "medium",
+    "Low": "low",
+    "Informational": "info",
+}
+
+
+@register("defender")
+def normalize_defender(records: list[dict], ctx: NormalizeContext) -> Iterator[UnifiedEvent]:
+    for alert in records:
+        props = alert.get("properties") or alert.get("Properties") or alert
+        if not isinstance(props, dict):
+            props = alert
+        severity = _DEFENDER_SEVERITY.get(str(props.get("severity", "")).title(), "medium")
+        name = props.get("alertDisplayName") or props.get("compromisedEntity") or "Defender alert"
+        resource = props.get("compromisedEntity") or props.get("resourceIdentifiers", [{}])[0]
+        if isinstance(resource, dict):
+            resource_id = resource.get("azureResourceId") or resource.get("id") or ""
+        else:
+            resource_id = str(resource or "")
+        yield UnifiedEvent(
+            timestamp=props.get("startTimeUtc") or props.get("timeGeneratedUtc") or "",
+            event_kind="finding",
+            event_category=["threat"],
+            event_action=props.get("alertType") or props.get("systemAlertId") or "defender_alert",
+            event_outcome="unknown",
+            event_severity=severity,
+            event_provider="defender",
+            cloud_provider="azure",
+            cloud_account=ctx.account_id,
+            cloud_region=props.get("resourceLocation") or "",
+            cloud_service="defender",
+            resource_id=resource_id,
+            resource_arn=resource_id,
+            related_resource=[resource_id] if resource_id else [],
+            message=name,
+            case_id=ctx.case_id,
+            ventra_source="defender",
+            raw=alert,
+        )
