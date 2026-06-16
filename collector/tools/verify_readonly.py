@@ -20,22 +20,30 @@ from ..lib.base import assert_readonly
 def check_policy(path: Path) -> list[str]:
     policy = json.loads(path.read_text(encoding="utf-8"))
     actions: list[str] = []
-    statements = policy.get("Statement", [])
-    if isinstance(statements, dict):
-        statements = [statements]
-    for stmt in statements:
-        if stmt.get("Effect") != "Allow":
-            continue
-        act = stmt.get("Action", [])
+    if "Actions" in policy and "Statement" not in policy:
+        act = policy["Actions"]
         actions.extend([act] if isinstance(act, str) else act)
+    else:
+        statements = policy.get("Statement", [])
+        if isinstance(statements, dict):
+            statements = [statements]
+        for stmt in statements:
+            if stmt.get("Effect") != "Allow":
+                continue
+            act = stmt.get("Action", [])
+            actions.extend([act] if isinstance(act, str) else act)
     return assert_readonly(actions)
 
 
 def check_collectors() -> list[str]:
     from ..aws.registry import AWS_REGISTRY
+    from ..azure.registry import AZURE_REGISTRY
 
     offenders: list[str] = []
     for name, cls in AWS_REGISTRY.all().items():
+        bad = assert_readonly(cls.required_actions)
+        offenders.extend(f"{name}:{a}" for a in bad)
+    for name, cls in AZURE_REGISTRY.all().items():
         bad = assert_readonly(cls.required_actions)
         offenders.extend(f"{name}:{a}" for a in bad)
     return offenders

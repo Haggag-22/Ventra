@@ -14,6 +14,7 @@ def test_parser_has_collect_dev_gui() -> None:
     with pytest.raises(SystemExit):
         parser.parse_args([])
     assert parser.parse_args(["collect", "aws", "--list-collectors"])
+    assert parser.parse_args(["collect", "azure", "--list-collectors"])
     assert parser.parse_args(["gui"])
     assert parser.parse_args(["dev"])  # alias of gui
 
@@ -24,7 +25,7 @@ def test_normalize_argv_preserves_global_flags() -> None:
     assert _normalize_argv(["--version"]) == ["--version"]
     assert _normalize_argv(["-h"]) == ["-h"]
     assert _normalize_argv(["collect", "aws"]) == ["collect", "aws"]
-    assert _normalize_argv(["aws", "--case", "X"]) == ["collect", "aws", "--case", "X"]
+    assert _normalize_argv(["azure", "--case", "X"]) == ["collect", "azure", "--case", "X"]
 
 
 def test_should_auto_ingest_skips_cloudshell(monkeypatch: pytest.MonkeyPatch) -> None:

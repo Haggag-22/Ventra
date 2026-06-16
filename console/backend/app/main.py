@@ -204,8 +204,9 @@ def findings(case_id: str, _: Role = Depends(_check("view_case"))) -> dict:
 
 @app.get("/api/cases/{case_id}/identity")
 def identity(case_id: str, _: Role = Depends(_check("view_case"))) -> dict:
+    iam = store.inventory(case_id, "iam") or store.inventory(case_id, "rbac")
     return {
-        "iam": store.inventory(case_id, "iam"),
+        "iam": iam,
         "graph": store.role_assumption_graph(case_id),
     }
 

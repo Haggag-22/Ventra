@@ -15,6 +15,7 @@ import {
   type CloudTrailColKey,
 } from "@/lib/cloudtrail-columns";
 import { usePagination } from "@/lib/pagination";
+import { caseCloud, controlPlaneSources } from "@/lib/cloud-sources";
 import { TablePager } from "@/components/table-pager";
 import { useFilters } from "@/lib/useFilters";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -22,7 +23,10 @@ import { ScrollText } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
 const PAGE_SIZE_KEY = "ventra.cloudtrail.page-size";
-const BASE_SOURCE = ["cloudtrail"];
+
+function baseSources(cloud: ReturnType<typeof caseCloud>) {
+  return controlPlaneSources(cloud);
+}
 
 function filtersFromParams(params: EventParams): CloudTrailFilters {
   return {
@@ -38,10 +42,10 @@ function filtersFromParams(params: EventParams): CloudTrailFilters {
   };
 }
 
-function paramsFromFilters(filters: CloudTrailFilters): EventParams {
+function paramsFromFilters(filters: CloudTrailFilters, cloud: ReturnType<typeof caseCloud>): EventParams {
   return {
     q: filters.q,
-    source: BASE_SOURCE,
+    source: baseSources(cloud),
     actions: filters.actions,
     services: filters.services,
     regions: filters.regions,
@@ -55,7 +59,8 @@ function paramsFromFilters(filters: CloudTrailFilters): EventParams {
 }
 
 export default function CloudTrailPage() {
-  const { caseId } = useCase();
+  const { caseId, summary } = useCase();
+  const cloud = caseCloud(summary?.cloud);
   const { params, write, clearAll } = useFilters();
   const { page, setPage, pageSize, setPageSize } = usePagination(PAGE_SIZE_KEY);
   const [visibleColumns, setVisibleColumns] = useState<CloudTrailColKey[]>(
@@ -76,11 +81,11 @@ export default function CloudTrailPage() {
   }, []);
 
   const filters = useMemo(() => filtersFromParams(params), [params]);
-  const effective = useMemo(() => paramsFromFilters(filters), [filters]);
+  const effective = useMemo(() => paramsFromFilters(filters, cloud), [filters, cloud]);
 
   const totalQ = useQuery({
-    queryKey: ["ct-total", caseId],
-    queryFn: () => api.events(caseId, { source: BASE_SOURCE, limit: 1, offset: 0 }),
+    queryKey: ["ct-total", caseId, cloud],
+    queryFn: () => api.events(caseId, { source: baseSources(cloud), limit: 1, offset: 0 }),
   });
 
   const eventsQ = useQuery({
@@ -91,8 +96,8 @@ export default function CloudTrailPage() {
   });
 
   const facetsQ = useQuery({
-    queryKey: ["ct-facets", caseId],
-    queryFn: () => api.facets(caseId, { source: BASE_SOURCE }),
+    queryKey: ["ct-facets", caseId, cloud],
+    queryFn: () => api.facets(caseId, { source: baseSources(cloud) }),
   });
 
   const matched = eventsQ.data?.total ?? 0;
@@ -103,7 +108,7 @@ export default function CloudTrailPage() {
       const merged = { ...filters, ...next };
       write({
         q: merged.q,
-        source: BASE_SOURCE,
+        source: baseSources(cloud),
         actions: merged.actions,
         services: merged.services,
         regions: merged.regions,
@@ -116,7 +121,7 @@ export default function CloudTrailPage() {
       });
       setPage(0);
     },
-    [filters, write],
+    [filters, write, cloud],
   );
 
   const handleApply = useCallback(() => {
@@ -136,7 +141,7 @@ export default function CloudTrailPage() {
     <>
       <PanelHeader icon={ScrollText} title="CloudTrail Timeline" panel="cloudtrail" />
       <PanelBody className="cloudtrail-view cloudtrail-timeline space-y-4">
-        <CloudTrailCollectionPanel caseId={caseId} />
+        {cloud === "aws" && <CloudTrailCollectionPanel caseId={caseId} />}
 
         {eventsFailed && (
           <div className="rounded-lg border border-bad-red/30 bg-bad-red/10 px-4 py-3 text-sm text-bad-red">

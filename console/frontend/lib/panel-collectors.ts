@@ -85,6 +85,50 @@ export const PANEL_COLLECTORS: Record<PanelId, PanelCollectorDef> = {
   },
 };
 
+const PANEL_COLLECTORS_AZURE: Record<PanelId, PanelCollectorDef> = {
+  cloudtrail: {
+    blurb: "Control-plane activity across subscriptions and resources.",
+    collectors: [
+      { id: "activity_log" },
+      { id: "entra_signin", note: "sign-in logs" },
+      { id: "entra_audit", note: "directory audit" },
+    ],
+  },
+  findings: {
+    blurb: "Microsoft Defender for Cloud alerts.",
+    collectors: [{ id: "defender" }],
+  },
+  identity: {
+    blurb: "Entra ID and Azure RBAC posture.",
+    collectors: [{ id: "rbac", note: "role definitions and assignments" }],
+  },
+  network: {
+    blurb: "NSG flow logs (L3/L4) for exfiltration and lateral movement.",
+    collectors: [{ id: "nsg_flow", note: "NSG flow records" }],
+  },
+  web: {
+    blurb: "Edge and DNS logs (when configured).",
+    collectors: [],
+  },
+  "data-access": {
+    blurb: "Storage object-level access.",
+    collectors: [],
+  },
+  collection: {
+    blurb: "Log sources from the IR cheat sheet — what ran, what was missing, and why.",
+    collectors: [],
+  },
+  resources: {
+    blurb: "Resources",
+    collectors: [{ id: "subscription" }],
+  },
+};
+
+export function panelCollectors(cloud: Cloud): Record<PanelId, PanelCollectorDef> {
+  if (cloud === "azure") return PANEL_COLLECTORS_AZURE;
+  return PANEL_COLLECTORS;
+}
+
 export function catalogItem(cloud: Cloud, id: string): CatalogItem | undefined {
   return catalogItemForId(cloud, id);
 }

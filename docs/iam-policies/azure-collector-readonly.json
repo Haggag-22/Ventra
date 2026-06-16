@@ -1,0 +1,27 @@
+{
+  "Name": "Ventra Collector (Read Only)",
+  "Description": "Read-only permissions for Ventra Azure forensic collection.",
+  "Actions": [
+    "Microsoft.Resources/subscriptions/read",
+    "Microsoft.Resources/subscriptions/locations/read",
+    "Microsoft.Resources/subscriptions/resourceGroups/read",
+    "Microsoft.Insights/ActivityLogs/read",
+    "Microsoft.Insights/DiagnosticSettings/read",
+    "Microsoft.Network/networkWatchers/read",
+    "Microsoft.Network/networkWatchers/flowLogs/read",
+    "Microsoft.Network/networkSecurityGroups/read",
+    "Microsoft.Storage/storageAccounts/read",
+    "Microsoft.Storage/storageAccounts/blobServices/containers/read",
+    "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read",
+    "Microsoft.Authorization/roleAssignments/read",
+    "Microsoft.Authorization/roleDefinitions/read",
+    "Microsoft.Security/alerts/read",
+    "Microsoft.Security/locations/alerts/read"
+  ],
+  "NotActions": [],
+  "DataActions": [],
+  "NotDataActions": [],
+  "AssignableScopes": [
+    "/subscriptions/{subscription-id}"
+  ]
+}

@@ -11,6 +11,7 @@ import { VpcFlowToolbar, type VpcFlowFilters } from "@/components/vpc-flow-toolb
 import { api } from "@/lib/api";
 import { fmtBytes, fmtNum } from "@/lib/format";
 import { usePagination } from "@/lib/pagination";
+import { caseCloud, flowSources } from "@/lib/cloud-sources";
 import {
   ALL_VPC_FLOW_COL_KEYS,
   VPC_FLOW_VISIBLE_COLS_KEY,
@@ -21,8 +22,6 @@ import { cn } from "@/lib/utils";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ArrowUpFromLine, Ban, Network, Plug, Radio, Upload, Users } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
-
-const BASE_VPC_FLOW_SOURCE = ["vpc_flow"];
 
 // IANA / IR-relevant port → service. Risky = remote-access, admin, datastore, or known C2.
 const PORT_SERVICE: Record<number, string> = {
@@ -52,7 +51,7 @@ function Bar({ value, max, tone = "bg-accent/60" }: { value: number; max: number
   );
 }
 
-function VpcFlowTimeline({ caseId }: { caseId: string }) {
+function VpcFlowTimeline({ caseId, sources }: { caseId: string; sources: string[] }) {
   const [filters, setFilters] = useState<VpcFlowFilters>({ order: "desc" });
   const [visibleColumns, setVisibleColumns] = useState<VpcFlowColKey[]>(ALL_VPC_FLOW_COL_KEYS);
   const { page, setPage, pageSize, setPageSize } = usePagination("ventra.vpc-flow.page-size");
@@ -72,7 +71,7 @@ function VpcFlowTimeline({ caseId }: { caseId: string }) {
 
   const eventParams = useMemo(
     () => ({
-      source: BASE_VPC_FLOW_SOURCE,
+      source: sources,
       q: filters.q,
       actions: filters.actions,
       outcomes: filters.outcomes,
@@ -83,7 +82,7 @@ function VpcFlowTimeline({ caseId }: { caseId: string }) {
       sort: "timestamp" as const,
       order: filters.order ?? "desc",
     }),
-    [filters],
+    [filters, sources],
   );
 
   const eventsQ = useQuery({
@@ -98,8 +97,8 @@ function VpcFlowTimeline({ caseId }: { caseId: string }) {
   });
 
   const facetsQ = useQuery({
-    queryKey: ["vpc-flow-facets", caseId],
-    queryFn: () => api.facets(caseId, { source: BASE_VPC_FLOW_SOURCE }),
+    queryKey: ["vpc-flow-facets", caseId, sources],
+    queryFn: () => api.facets(caseId, { source: sources }),
   });
 
   const matched = eventsQ.data?.total ?? 0;
@@ -128,7 +127,7 @@ function VpcFlowTimeline({ caseId }: { caseId: string }) {
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold text-fg">Flow log</h2>
-          <p className="mt-0.5 text-xs text-fg-subtle">Every VPC Flow Log record in this case</p>
+          <p className="mt-0.5 text-xs text-fg-subtle">Every flow log record in this case</p>
         </div>
         <span className="mono text-xs text-fg-subtle">{fmtNum(matched)} flows</span>
       </div>
@@ -162,7 +161,9 @@ function VpcFlowTimeline({ caseId }: { caseId: string }) {
 }
 
 export default function NetworkPage() {
-  const { caseId } = useCase();
+  const { caseId, summary } = useCase();
+  const cloud = caseCloud(summary?.cloud);
+  const flowSource = flowSources(cloud);
   const q = useQuery({ queryKey: ["network", caseId], queryFn: () => api.network(caseId) });
 
   if (q.isLoading || !q.data) return <LoadingPanel label="Loading network…" />;
@@ -176,8 +177,12 @@ export default function NetworkPage() {
           <Card className="py-4">
             <EmptyState
               icon={Network}
-              title="No VPC Flow Logs in this case"
-              description="Flow logging was not configured, or its records are delivered to S3 and weren't in scope. Egress volume cannot be quantified for this window — this gap is recorded in the manifest."
+              title="No flow logs in this case"
+              description={
+                cloud === "azure"
+                  ? "NSG flow logging was not configured, or its records are in storage and weren't in scope. Egress volume cannot be quantified for this window — this gap is recorded in the manifest."
+                  : "Flow logging was not configured, or its records are delivered to S3 and weren't in scope. Egress volume cannot be quantified for this window — this gap is recorded in the manifest."
+              }
             />
           </Card>
         </PanelBody>
@@ -368,7 +373,7 @@ export default function NetworkPage() {
           </table>
         </Card>
 
-        <VpcFlowTimeline caseId={caseId} />
+        <VpcFlowTimeline caseId={caseId} sources={flowSource} />
       </PanelBody>
     </>
   );

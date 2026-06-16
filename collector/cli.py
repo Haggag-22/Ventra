@@ -72,6 +72,50 @@ def _add_aws_parser(sub: argparse._SubParsersAction) -> None:
     aws.add_argument("--list-collectors", action="store_true", help="List collectors and exit.")
 
 
+def _add_azure_parser(sub: argparse._SubParsersAction) -> None:
+    az = sub.add_parser("azure", help="Collect from Azure.")
+    az.add_argument("--case", help="Case identifier, e.g. CASE-2026-0042.")
+    az.add_argument("--engagement", default="", help="Optional engagement/matter id.")
+    az.add_argument(
+        "--subscription",
+        default="",
+        help="Azure subscription id (default: AZURE_SUBSCRIPTION_ID env).",
+    )
+    az.add_argument("--regions", default="", help="Comma-separated regions (default: all enabled).")
+    az.add_argument("--since", default=None, help="Window start (YYYY-MM-DD or RFC3339 UTC).")
+    az.add_argument("--until", default=None, help="Window end (YYYY-MM-DD or RFC3339 UTC).")
+    az.add_argument("--out", default="./ventra-evidence", help="Output directory for the package.")
+    az.add_argument("--transport", default="local", help="local | s3-presigned:<url> | sftp:...")
+    az.add_argument("--key", default=None, help="Signing key path for cosign/minisign.")
+    az.add_argument(
+        "--case-store",
+        default=None,
+        help="Case store for auto-ingest after collect (default: $VENTRA_CASE_STORE or ./cases).",
+    )
+    az.add_argument(
+        "--no-ingest",
+        action="store_true",
+        help="Seal the package only; do not load into the case store.",
+    )
+    az.add_argument(
+        "--ingest",
+        action="store_true",
+        help="Force auto-ingest into the case store.",
+    )
+    az.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Suppress the live matrix; print only the final summary.",
+    )
+    az.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Emit a machine-readable JSON summary to stdout (implies no live matrix).",
+    )
+    az.add_argument("--list-collectors", action="store_true", help="List collectors and exit.")
+
+
 def build_parser(*, prog: str = "ventra") -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog=prog,
@@ -83,6 +127,7 @@ def build_parser(*, prog: str = "ventra") -> argparse.ArgumentParser:
     collect = sub.add_parser("collect", help="Collect forensic evidence from a cloud.")
     clouds = collect.add_subparsers(dest="cloud", required=True)
     _add_aws_parser(clouds)
+    _add_azure_parser(clouds)
 
     def _add_gui_args(parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--port", type=int, default=8080, help="Frontend port (default: 8080).")
@@ -134,6 +179,8 @@ def _normalize_argv(argv: list[str]) -> list[str]:
         return argv
     if argv[0] == "aws":
         return ["collect", *argv]
+    if argv[0] == "azure":
+        return ["collect", *argv]
     return ["collect", *argv]
 
 
@@ -163,6 +210,13 @@ _SEVERITY: dict[str, str] = {
     "route53_resolver": "Medium",
     "eks_audit": "Medium",
     "log_posture": "Low",
+    "subscription": "Low",
+    "activity_log": "High",
+    "entra_signin": "High",
+    "entra_audit": "High",
+    "rbac": "High",
+    "nsg_flow": "High",
+    "defender": "High",
 }
 
 _SEV_COLOR = {"High": "red", "Medium": "yellow", "Low": "cyan"}
@@ -188,20 +242,16 @@ def _fmt_dur(seconds: float | None) -> str:
     return f"{m}m{s:02d}s"
 
 
-def _cli_reporter(*, quiet: bool = False, json_mode: bool = False):
-    """Build the live-matrix reporter. Returns (reporter, console_or_None).
+def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = "aws"):
+    """Build the live-matrix reporter. Returns (reporter, console_or_None)."""
+    if cloud == "azure":
+        from .azure.registry import AZURE_REGISTRY as REGISTRY
 
-    The matrix lists every planned collector up front and updates each row *in place* as the
-    run progresses — queued → collecting → pass/fail — rather than streaming rows on
-    completion. While a collector runs, its row shows the latest sub-step it reports (e.g.
-    "reading s3://…") and a live elapsed timer. The run header (account, case, regions) is
-    printed exactly once, above the live region.
+        cloud_title = "Azure"
+    else:
+        from .aws.registry import AWS_REGISTRY as REGISTRY
 
-    ``quiet`` suppresses the live matrix and prints only the final summary; ``json_mode``
-    suppresses all human output so the CLI can emit a single JSON document instead. Both still
-    record per-collector state for the summary, the CSV, and the JSON payload.
-    """
-    from .aws.registry import AWS_REGISTRY
+        cloud_title = "AWS"
     from .aws.runner.runner import RunReporter
 
     try:
@@ -262,7 +312,7 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False):
             return table
 
         def _severity_for(self, name: str) -> str:
-            cls = AWS_REGISTRY.get(name)
+            cls = REGISTRY.get(name)
             priority = getattr(cls, "priority", 2)
             return _SEVERITY.get(name, "High" if priority == 1 else "Medium")
 
@@ -306,7 +356,7 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False):
             if self._console:
                 self._spinner = Spinner("dots", style="yellow")
                 self._console.print()
-                self._console.rule("[bold cyan]VENTRA[/]  ·  AWS Evidence Collection")
+                self._console.rule(f"[bold cyan]VENTRA[/]  ·  {cloud_title} Evidence Collection")
                 self._console.print(
                     f"  [bright_black]Account[/] [bold]{self._masked}[/]"
                     f"   [bright_black]Case[/] [bold]{escape(case_id or '—')}[/]"
@@ -390,7 +440,7 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False):
             if result.status != SourceStatus.COLLECTED and result.gaps:
                 desc = result.gaps[0][2] or result.notes
             else:
-                cls = AWS_REGISTRY.get(name)
+                cls = REGISTRY.get(name)
                 desc = result.notes or (cls.description if cls else "")
 
             elapsed = None
@@ -557,6 +607,8 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if args.cloud == "aws":
         return _run_aws(args)
+    if args.cloud == "azure":
+        return _run_azure(args)
     print(f"Cloud {args.cloud!r} is scaffolded but not yet implemented.", file=sys.stderr)
     return 2
 
@@ -584,7 +636,7 @@ def _run_aws(args) -> int:
     window = parse_window(args.since, args.until)
 
     json_mode = args.json_output
-    reporter, console = _cli_reporter(quiet=args.quiet, json_mode=json_mode)
+    reporter, console = _cli_reporter(quiet=args.quiet, json_mode=json_mode, cloud="aws")
 
     cfg = AwsRunConfig(
         case_id=args.case,
@@ -640,6 +692,121 @@ def _run_aws(args) -> int:
             print(f"Package remains at {package.path}", file=sys.stderr)
 
     # Auto-ingest only when applicable (skipped in CloudShell), and only if delivered.
+    ingested: bool | None = None
+    ingest_code = 0
+    if transport_error is None and _should_auto_ingest(args):
+        from .lib.ingest import default_case_store, ingest_after_collect
+
+        case_store = Path(args.case_store) if args.case_store else default_case_store()
+        if json_mode:
+            ingest_code = ingest_after_collect(package.path, case_store, reporter=lambda _m: None)
+        else:
+            say = console.print if console else print
+            ingest_code = ingest_after_collect(package.path, case_store, reporter=say)
+        ingested = ingest_code == 0
+
+    if json_mode:
+        import json as _json
+
+        payload = {
+            "case_id": args.case,
+            "engagement_id": args.engagement or None,
+            "account_id": reporter._account,
+            "collectors": reporter.collectors_report(),
+            "coverage_gaps": reporter.coverage_gaps(),
+            "package": {
+                "path": str(package.path),
+                "compression": package.compression,
+                "bytes": package.bytes,
+                "sha256": package.sha256,
+            },
+            "matrix_csv": str(csv_path) if csv_path else None,
+            "transport": {
+                "target": args.transport,
+                "location": transport_location,
+                "error": transport_error,
+            },
+            "ingested": ingested,
+        }
+        print(_json.dumps(payload, indent=2))
+
+    return 1 if transport_error else ingest_code
+
+
+def _run_azure(args) -> int:
+    from .azure.registry import AZURE_REGISTRY, all_collector_names
+    from .azure.runner.runner import AzureRunConfig, parse_window, run_azure_collection
+
+    if args.list_collectors:
+        for name, cls in sorted(AZURE_REGISTRY.all().items()):
+            print(f"  {name:<16} {cls.description}")
+        return 0
+
+    if not args.case:
+        print("error: --case is required to run a collection.", file=sys.stderr)
+        return 2
+
+    collectors = all_collector_names()
+    regions = [r.strip() for r in args.regions.split(",") if r.strip()] or None
+    window = parse_window(args.since, args.until)
+    subscription = args.subscription.strip() or None
+
+    json_mode = args.json_output
+    reporter, console = _cli_reporter(quiet=args.quiet, json_mode=json_mode, cloud="azure")
+
+    cfg = AzureRunConfig(
+        case_id=args.case,
+        collectors=collectors,
+        regions=regions,
+        subscription_id=subscription,
+        time_window=window,
+        out_dir=Path(args.out),
+        engagement_id=args.engagement,
+        key_path=Path(args.key) if args.key else None,
+        reporter=reporter,
+    )
+
+    try:
+        package = run_azure_collection(cfg)
+    except Exception as exc:  # noqa: BLE001
+        reporter.stop()
+        if json_mode:
+            import json as _json
+
+            print(_json.dumps({"case_id": args.case, "error": str(exc)}, indent=2))
+        else:
+            print(f"\nCollection failed: {exc}", file=sys.stderr)
+        return 1
+
+    reporter.finalize()
+    try:
+        csv_path = reporter.write_matrix_csv(args.out)
+    except Exception:  # noqa: BLE001
+        csv_path = None
+
+    if not json_mode:
+        msg = (
+            f"\nSealed package: {package.path}\n"
+            f"  compression: {package.compression}\n"
+            f"  size:        {package.bytes:,} bytes\n"
+            f"  sha256:      {package.sha256}\n"
+        )
+        if csv_path:
+            msg += f"  matrix:      {csv_path}\n"
+        (console.print if console else print)(msg)
+
+    transport_location: str | None = None
+    transport_error: str | None = None
+    try:
+        transport_location = get_transport(args.transport).deliver(package.path)
+        if not json_mode:
+            print(f"Delivered: {transport_location}")
+    except Exception as exc:  # noqa: BLE001
+        transport_error = str(exc)
+        if not json_mode:
+            print(f"Transport failed ({args.transport}): {exc}", file=sys.stderr)
+            print(f"Package remains at {package.path}", file=sys.stderr)
+
     ingested: bool | None = None
     ingest_code = 0
     if transport_error is None and _should_auto_ingest(args):

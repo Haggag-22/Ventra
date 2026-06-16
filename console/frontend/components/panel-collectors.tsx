@@ -1,15 +1,15 @@
 "use client";
 
 import { useCase } from "@/components/case-context";
-import { catalogItem, PANEL_COLLECTORS, type PanelId } from "@/lib/panel-collectors";
+import { catalogItem, panelCollectors, type PanelId } from "@/lib/panel-collectors";
 import type { Cloud } from "@/lib/catalog";
 import { cn } from "@/lib/utils";
 import { Layers } from "lucide-react";
 
 export function PanelCollectors({ panel }: { panel: PanelId }) {
   const { summary } = useCase();
-  const def = PANEL_COLLECTORS[panel];
   const cloud = (summary?.cloud ?? "aws") as Cloud;
+  const def = panelCollectors(cloud)[panel];
   const collected = new Set(summary?.collection?.collected ?? []);
   const gapByName = new Map((summary?.collection?.gaps ?? []).map((g) => [g.name, g]));
 

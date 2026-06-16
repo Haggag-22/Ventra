@@ -8,6 +8,7 @@ const ORIGIN_LABELS: Record<string, string> = {
   detective: "Detective",
   inspector: "Inspector",
   inspector2: "Inspector",
+  defender: "Defender for Cloud",
   config: "AWS Config",
   iamaccessanalyzer: "IAM Access Analyzer",
   firewallmanager: "Firewall Manager",
@@ -58,6 +59,8 @@ export function findingOriginClass(origin: string): string {
       return "finding-origin-inspector";
     case "securityhub":
       return "finding-origin-securityhub";
+    case "defender":
+      return "finding-origin-defender";
     default:
       return "finding-origin-other";
   }
