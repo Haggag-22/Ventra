@@ -8,6 +8,8 @@ export type PanelId =
   | "findings"
   | "identity"
   | "network"
+  | "web"
+  | "data-access"
   | "collection"
   | "resources";
 
@@ -57,13 +59,23 @@ export const PANEL_COLLECTORS: Record<PanelId, PanelCollectorDef> = {
     ],
   },
   network: {
-    blurb: "Flow logs and edge traffic for exfiltration and lateral movement.",
+    blurb: "VPC flow logs (L3/L4) for exfiltration volume and lateral movement.",
+    collectors: [{ id: "vpc_flow", note: "VPC flow records" }],
+  },
+  web: {
+    blurb: "Edge requests, WAF verdicts, and DNS (L7) — what was requested, by whom, with what result.",
     collectors: [
-      { id: "vpc_flow", note: "VPC flow records" },
-      { id: "waf", note: "web ACL configs and sampled requests" },
       { id: "elb_alb", note: "load-balancer access logs" },
       { id: "cloudfront", note: "CDN edge access logs" },
+      { id: "waf", note: "web ACL sampled requests" },
       { id: "route53_resolver", note: "DNS query logs" },
+    ],
+  },
+  "data-access": {
+    blurb: "Object-level access — who read or wrote which S3 object, from where.",
+    collectors: [
+      { id: "s3_access", note: "S3 server access logs" },
+      { id: "cloudtrail", note: "S3 object-level (data) events" },
     ],
   },
   collection: {

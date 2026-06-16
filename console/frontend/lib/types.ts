@@ -145,6 +145,45 @@ export interface NetworkResponse {
   rejected: { source_ip: string; dest_ip: string; dest_port: number; count: number }[];
 }
 
+export interface WebDnsResponse {
+  edge: {
+    totals: { requests: number; clients: number; failures: number };
+    by_source: { source: string; count: number }[];
+    top_clients: {
+      source_ip: string;
+      requests: number;
+      failures: number;
+      last_seen: string;
+    }[];
+    methods: { method: string; count: number }[];
+    user_agents: { ua: string; count: number }[];
+    top_resources: {
+      source: string;
+      resource_id: string;
+      count: number;
+      failures: number;
+    }[];
+  };
+  waf: {
+    totals: { sampled: number; blocked: number; clients: number };
+    actions: { action: string; count: number }[];
+    top_ips: { source_ip: string; country: string; count: number; blocked: number }[];
+  };
+  dns: {
+    totals: { queries: number; domains: number; failures: number };
+    top_domains: { domain: string; count: number; failures: number; answer: string }[];
+    top_sources: { source_ip: string; count: number }[];
+  };
+}
+
+export interface DataAccessResponse {
+  totals: { events: number; objects: number; principals: number; failures: number };
+  by_source: { source: string; count: number }[];
+  top_objects: { resource_id: string; count: number; failures: number; ips: number }[];
+  top_principals: { principal: string; count: number; failures: number }[];
+  top_ips: { source_ip: string; count: number; failures: number }[];
+}
+
 export interface CloudTrailTrailSummary {
   name: string;
   arn: string;

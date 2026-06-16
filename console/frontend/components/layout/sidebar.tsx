@@ -70,6 +70,17 @@ const INVESTIGATE: NavEntry[] = [
       </svg>
     ),
   },
+  {
+    href: "web",
+    label: "Web & DNS",
+    icon: (
+      <svg viewBox="0 0 24 24" aria-hidden>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M3 12h18" />
+        <path d="M12 3c2.5 2.5 4 5.5 4 9s-1.5 6.5-4 9c-2.5-2.5-4-5.5-4-9s1.5-6.5 4-9z" />
+      </svg>
+    ),
+  },
 ];
 
 const PACKAGE: NavEntry[] = [
@@ -91,6 +102,17 @@ const PACKAGE: NavEntry[] = [
         <rect x="14" y="3" width="7" height="7" rx="1.5" />
         <rect x="3" y="14" width="7" height="7" rx="1.5" />
         <rect x="14" y="14" width="7" height="7" rx="1.5" />
+      </svg>
+    ),
+  },
+  {
+    href: "data-access",
+    label: "Data Access",
+    icon: (
+      <svg viewBox="0 0 24 24" aria-hidden>
+        <ellipse cx="12" cy="5" rx="8" ry="3" />
+        <path d="M4 5v6c0 1.7 3.6 3 8 3s8-1.3 8-3V5" />
+        <path d="M4 11v6c0 1.7 3.6 3 8 3s8-1.3 8-3v-6" />
       </svg>
     ),
   },

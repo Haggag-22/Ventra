@@ -34,6 +34,11 @@ function boolLabel(v: unknown, yes = "yes", no = "no"): string {
   return "—";
 }
 
+function tagName(row: ResourceRow): string {
+  const tags = row.Tags as { Key?: string; Value?: string }[] | undefined;
+  return str(tags?.find((t) => t.Key === "Name")?.Value);
+}
+
 export const RESOURCE_COLUMNS: Record<string, ResourceColumn[]> = {
   ec2_instances: [
     col("instance_id", "Instance ID", (r) => str(r.InstanceId), { mono: true, min: 130 }),
@@ -103,6 +108,7 @@ export const RESOURCE_COLUMNS: Record<string, ResourceColumn[]> = {
   ],
   vpc_count: [
     col("vpc_id", "VPC ID", (r) => str(r.VpcId), { mono: true, min: 140 }),
+    col("name", "Name", (r) => tagName(r), { min: 140 }),
     col("cidr", "CIDR", (r) => str(r.CidrBlock), { mono: true, min: 120 }),
     col("default", "Default", (r) => boolLabel(r.IsDefault), { min: 70 }),
     col("region", "Region", (r) => region(r), { min: 100 }),
