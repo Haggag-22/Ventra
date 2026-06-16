@@ -1,9 +1,0 @@
-- [ ] VPC Flow Logs
-- [ ] Route 53 Resolver query logs
-- [ ] ELB/ALB/NLB access logs
-- [ ] AWS WAF logs
-- [ ] CloudFront access logs, if CloudFront is used
-- [ ] API Gateway access and execution logs, if API Gateway is used
-- [ ] Transit Gateway Flow Logs, if Transit Gateway is used
-- [ ] VPN logs, if VPN is used
-- [ ] Network Firewall flow and alert logs, if Network Firewall is used
