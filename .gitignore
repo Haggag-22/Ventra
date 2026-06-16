@@ -20,6 +20,7 @@ out/
 .turbo/
 npm-debug.log*
 yarn-error.log*
+*.tsbuildinfo
 
 # Ventra runtime data — never commit real evidence (root store only)
 /cases/
@@ -35,10 +36,31 @@ ventra-evidence/
 *.pem
 *.key
 !docs/keys/*.pub
+secrets/
+credentials.json
+*.credentials
+.aws/
+
+# Environment (local only — never commit)
+.env
+.env.*
+!.env.example
+
+# Obsidian vault (private notes, not for the public repo)
+obsidian/
+.obsidian/
 
 # OS / editor
 .DS_Store
 .claude/
+.cursor/
 .idea/
 .vscode/
 *.swp
+*.swo
+*~
+
+# Local logs & scratch
+*.log
+scratch/
+tmp/
