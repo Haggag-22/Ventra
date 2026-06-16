@@ -74,6 +74,9 @@ FINDING_CLASS_SQL = (
     "  OR json_extract_string(raw, '$.Types[0]') LIKE 'Unusual Behaviors%' "
     "  OR json_extract_string(raw, '$.Types[0]') LIKE 'Effects%' "
     "  THEN 'Threat' "
+    "WHEN ventra_source = 'defender' "
+    "  OR json_extract_string(raw, '$.properties.alertType') IS NOT NULL "
+    "  THEN 'Threat' "
     "WHEN json_extract_string(raw, '$.Types[0]') LIKE 'Software and Configuration Checks%' "
     "  THEN 'Configuration' "
     "ELSE 'Other' END"
@@ -659,7 +662,7 @@ class CaseStore:
         """VPC flow analysis: public egress (exfil), destination ports, talkers, rejects."""
         path = self._events_path(case_id)
         con = self._connect()
-        base = "ventra_source='vpc_flow'"
+        base = "ventra_source IN ('vpc_flow', 'nsg_flow')"
         pub = _public_ip_sql("dest_ip")
         rej = "sum(CASE WHEN event_outcome='failure' THEN 1 ELSE 0 END)"
         try:

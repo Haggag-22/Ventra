@@ -96,11 +96,11 @@ def ingest_package(
                 store.write_inventory("cloudtrail", snapshot)
                 inventory_loaded.append("cloudtrail")
 
-        if source == "vpc_flow":
+        if source in ("vpc_flow", "nsg_flow"):
             snapshot = _load_vpc_flow_inventory(pkg, files)
             if snapshot is not None:
-                store.write_inventory("vpc_flow", snapshot)
-                inventory_loaded.append("vpc_flow")
+                store.write_inventory(source, snapshot)
+                inventory_loaded.append(source)
 
         # Inventory sources -> snapshot JSON + a few derived state events.
         if source in INVENTORY_SOURCES:

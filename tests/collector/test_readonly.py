@@ -26,6 +26,12 @@ def test_published_iam_policy_is_readonly() -> None:
     assert offenders == [], f"Mutating actions in published policy: {offenders}"
 
 
+def test_published_azure_policy_is_readonly() -> None:
+    policy = REPO / "docs" / "iam-policies" / "azure-collector-readonly.json"
+    offenders = check_policy(policy)
+    assert offenders == [], f"Mutating actions in Azure policy: {offenders}"
+
+
 def test_guard_detects_a_mutating_action() -> None:
     # Sanity: the guard must actually catch something obviously mutating.
     assert assert_readonly(["s3:DeleteObject"]) == ["s3:DeleteObject"]

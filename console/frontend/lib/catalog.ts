@@ -30,6 +30,8 @@ export const EXTRA_COLLECTOR_LABELS: Record<string, string> = {
   s3: "S3 surface",
   lambda: "Lambda",
   log_posture: "Logging posture",
+  rbac: "Azure RBAC",
+  subscription: "Subscription context",
 };
 
 // AWS — Erblind / IR logs cheat sheet. Ids match collector source names / posture gap names
@@ -97,7 +99,7 @@ export const CATALOG: Record<Cloud, CatalogGroup[]> = {
   gcp: GCP,
 };
 
-export const CLOUD_IMPLEMENTED: Record<Cloud, boolean> = { aws: true, azure: false, gcp: false };
+export const CLOUD_IMPLEMENTED: Record<Cloud, boolean> = { aws: true, azure: true, gcp: false };
 
 export function catalogItemForId(cloud: Cloud, id: string): CatalogItem | undefined {
   for (const group of CATALOG[cloud] ?? []) {

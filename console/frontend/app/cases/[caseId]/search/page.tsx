@@ -14,13 +14,16 @@ import {
 } from "@/lib/findings-columns";
 import { fmtNum } from "@/lib/format";
 import { usePagination } from "@/lib/pagination";
+import { caseCloud, findingSources } from "@/lib/cloud-sources";
 import { TablePager } from "@/components/table-pager";
 import { useFilters } from "@/lib/useFilters";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Bookmark, Search, ShieldAlert, Star } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-const FINDING_SOURCES = ["guardduty", "securityhub", "inspector2", "macie", "detective"];
+function defaultFindingSources(cloud: ReturnType<typeof caseCloud>) {
+  return findingSources(cloud);
+}
 
 function filtersFromParams(params: EventParams): FindingsFilters {
   return {
@@ -32,12 +35,14 @@ function filtersFromParams(params: EventParams): FindingsFilters {
 
 function paramsFromFilters(
   filters: FindingsFilters,
+  cloud: ReturnType<typeof caseCloud>,
   q?: string,
 ): EventParams {
+  const sources = defaultFindingSources(cloud);
   return {
     q,
     kind: "finding",
-    source: filters.source?.length ? filters.source : FINDING_SOURCES,
+    source: filters.source?.length ? filters.source : sources,
     severity: filters.severity,
     finding_class: filters.findingClass,
     sort: "timestamp",
@@ -46,7 +51,9 @@ function paramsFromFilters(
 }
 
 export default function SearchPage() {
-  const { caseId } = useCase();
+  const { caseId, summary } = useCase();
+  const cloud = caseCloud(summary?.cloud);
+  const sources = defaultFindingSources(cloud);
   const { params, write, clearAll } = useFilters();
   const [text, setText] = useState(params.q ?? "");
   const [saved, setSaved] = useState<string[]>([]);
@@ -68,8 +75,8 @@ export default function SearchPage() {
 
   const filters = useMemo(() => filtersFromParams(params), [params]);
   const effective = useMemo(
-    () => paramsFromFilters(filters, params.q),
-    [filters, params.q],
+    () => paramsFromFilters(filters, cloud, params.q),
+    [filters, cloud, params.q],
   );
 
   useEffect(() => setText(params.q ?? ""), [params.q]);
@@ -93,9 +100,9 @@ export default function SearchPage() {
   };
 
   const totalQ = useQuery({
-    queryKey: ["findings-total", caseId],
+    queryKey: ["findings-total", caseId, sources],
     queryFn: () =>
-      api.events(caseId, { kind: "finding", source: FINDING_SOURCES, limit: 1, offset: 0 }),
+      api.events(caseId, { kind: "finding", source: sources, limit: 1, offset: 0 }),
   });
 
   const eventsQ = useQuery({
@@ -105,8 +112,8 @@ export default function SearchPage() {
   });
 
   const facetsQ = useQuery({
-    queryKey: ["findings-facets", caseId],
-    queryFn: () => api.facets(caseId, { kind: "finding", source: FINDING_SOURCES }),
+    queryKey: ["findings-facets", caseId, sources],
+    queryFn: () => api.facets(caseId, { kind: "finding", source: sources }),
   });
 
   const total = totalQ.data?.total ?? 0;
