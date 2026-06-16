@@ -203,6 +203,16 @@ def network(case_id: str, _: Role = Depends(_check("view_case"))) -> dict:
     return store.network_overview(case_id)
 
 
+@app.get("/api/cases/{case_id}/web-dns")
+def web_dns(case_id: str, _: Role = Depends(_check("view_case"))) -> dict:
+    return store.web_dns_overview(case_id)
+
+
+@app.get("/api/cases/{case_id}/data-access")
+def data_access(case_id: str, _: Role = Depends(_check("view_case"))) -> dict:
+    return store.data_access_overview(case_id)
+
+
 # -- resources / inventory ---------------------------------------------------------------
 
 @app.get("/api/cases/{case_id}/resources")

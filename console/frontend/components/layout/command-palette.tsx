@@ -5,9 +5,11 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
   CornerDownLeft,
+  Database,
   Fingerprint,
   Gauge,
   Globe,
+  Globe2,
   Network,
   ScrollText,
   Search,
@@ -32,6 +34,8 @@ const PANELS = [
   { href: "search", label: "Security Findings", icon: ShieldAlert },
   { href: "identity", label: "Identity & Access", icon: Fingerprint },
   { href: "network", label: "Network Activity", icon: Network },
+  { href: "web", label: "Web & DNS", icon: Globe2 },
+  { href: "data-access", label: "Data Access", icon: Database },
   { href: "collection", label: "Logs Coverage", icon: Gauge },
 ];
 
