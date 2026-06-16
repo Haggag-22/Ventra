@@ -1,7 +1,9 @@
 "use client";
 
 import { useCase } from "@/components/case-context";
+import { IdentityKmsTable } from "@/components/identity-kms-table";
 import { IdentityRolesTable } from "@/components/identity-roles-table";
+import { IdentitySecretsTable } from "@/components/identity-secrets-table";
 import { IdentityUsersTable } from "@/components/identity-users-table";
 import { PanelBody, PanelHeader } from "@/components/panel";
 import { StatCard } from "@/components/stat";
@@ -50,8 +52,10 @@ export default function IdentityPage() {
   const policies: any[] = iam.policies ?? [];
   const noMfa = users.filter((u) => !(u.MFADevices ?? []).length).length;
   const unusedKeyUsers = countUnusedActiveKeys(users);
-  const kmsKeys = kmsQ.data?.data?.keys?.length;
-  const secretCount = secretsQ.data?.data?.secrets?.length;
+  const kmsKeyList: any[] = kmsQ.data?.data?.keys ?? [];
+  const secretsList: any[] = secretsQ.data?.data?.secrets ?? [];
+  const kmsKeys = kmsQ.data ? kmsKeyList.length : undefined;
+  const secretCount = secretsQ.data ? secretsList.length : undefined;
 
   return (
     <>
@@ -101,6 +105,30 @@ export default function IdentityPage() {
             </div>
             <IdentityRolesTable roles={roles} />
           </div>
+
+          {collected.has("kms") && (
+            <div className="ct-panel">
+              <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+                <Lock className="h-4 w-4 text-fg-subtle" />
+                <span className="text-sm font-semibold text-fg">
+                  KMS keys ({kmsKeyList.length})
+                </span>
+              </div>
+              <IdentityKmsTable keys={kmsKeyList} />
+            </div>
+          )}
+
+          {collected.has("secrets") && (
+            <div className="ct-panel">
+              <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
+                <KeyRound className="h-4 w-4 text-fg-subtle" />
+                <span className="text-sm font-semibold text-fg">
+                  Secrets ({secretsList.length})
+                </span>
+              </div>
+              <IdentitySecretsTable secrets={secretsList} />
+            </div>
+          )}
         </div>
       </PanelBody>
     </>

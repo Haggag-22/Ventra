@@ -564,6 +564,201 @@ class CaseStore:
             ],
         }
 
+    def web_dns_overview(self, case_id: str) -> dict[str, Any]:
+        """L7 edge (ELB/ALB + CloudFront), WAF, and DNS aggregations for the Web & DNS panel."""
+        path = self._events_path(case_id)
+        con = self._connect()
+        edge = "ventra_source IN ('elb_alb', 'cloudfront')"
+        fail = "sum(CASE WHEN event_outcome='failure' THEN 1 ELSE 0 END)"
+        try:
+            events = self._events_table(con, path)
+
+            edge_totals = con.execute(
+                f"SELECT count(*), count(DISTINCT NULLIF(source_ip,'')), {fail} "
+                f"FROM {events} WHERE {edge}",
+                [path],
+            ).fetchone()
+            edge_clients = con.execute(
+                f"SELECT source_ip, count(*) c, {fail} fails, max(timestamp) last_seen "
+                f"FROM {events} WHERE {edge} AND source_ip<>'' "
+                "GROUP BY 1 ORDER BY c DESC LIMIT 15",
+                [path],
+            ).fetchall()
+            edge_methods = con.execute(
+                f"SELECT event_action, count(*) c FROM {events} "
+                f"WHERE {edge} AND event_action<>'' GROUP BY 1 ORDER BY c DESC LIMIT 10",
+                [path],
+            ).fetchall()
+            edge_uas = con.execute(
+                f"SELECT ua_original, count(*) c FROM {events} "
+                f"WHERE {edge} AND ua_original<>'' GROUP BY 1 ORDER BY c DESC LIMIT 10",
+                [path],
+            ).fetchall()
+            edge_by_source = con.execute(
+                f"SELECT ventra_source, count(*) c FROM {events} WHERE {edge} "
+                "GROUP BY 1 ORDER BY c DESC",
+                [path],
+            ).fetchall()
+            edge_resources = con.execute(
+                f"SELECT ventra_source, resource_id, count(*) c, {fail} fails "
+                f"FROM {events} WHERE {edge} AND resource_id<>'' "
+                "GROUP BY 1,2 ORDER BY c DESC LIMIT 15",
+                [path],
+            ).fetchall()
+
+            waf_totals = con.execute(
+                f"SELECT count(*), {fail}, count(DISTINCT NULLIF(source_ip,'')) "
+                f"FROM {events} WHERE ventra_source='waf'",
+                [path],
+            ).fetchone()
+            waf_actions = con.execute(
+                f"SELECT event_action, count(*) c FROM {events} "
+                "WHERE ventra_source='waf' GROUP BY 1 ORDER BY c DESC",
+                [path],
+            ).fetchall()
+            waf_ips = con.execute(
+                f"SELECT source_ip, source_country, count(*) c, {fail} blocked "
+                f"FROM {events} WHERE ventra_source='waf' AND source_ip<>'' "
+                "GROUP BY 1,2 ORDER BY blocked DESC, c DESC LIMIT 15",
+                [path],
+            ).fetchall()
+
+            dns_totals = con.execute(
+                f"SELECT count(*), count(DISTINCT NULLIF(resource_id,'')), {fail} "
+                f"FROM {events} WHERE ventra_source='route53_resolver'",
+                [path],
+            ).fetchone()
+            dns_domains = con.execute(
+                f"SELECT resource_id, count(*) c, {fail} fails, max(dest_ip) answer "
+                f"FROM {events} WHERE ventra_source='route53_resolver' AND resource_id<>'' "
+                "GROUP BY 1 ORDER BY c DESC LIMIT 15",
+                [path],
+            ).fetchall()
+            dns_sources = con.execute(
+                f"SELECT source_ip, count(*) c FROM {events} "
+                "WHERE ventra_source='route53_resolver' AND source_ip<>'' "
+                "GROUP BY 1 ORDER BY c DESC LIMIT 15",
+                [path],
+            ).fetchall()
+        finally:
+            con.close()
+
+        return {
+            "edge": {
+                "totals": {
+                    "requests": edge_totals[0] or 0,
+                    "clients": edge_totals[1] or 0,
+                    "failures": edge_totals[2] or 0,
+                },
+                "by_source": [{"source": r[0], "count": r[1]} for r in edge_by_source],
+                "top_clients": [
+                    {"source_ip": r[0], "requests": r[1], "failures": int(r[2] or 0),
+                     "last_seen": r[3]}
+                    for r in edge_clients
+                ],
+                "methods": [{"method": r[0], "count": r[1]} for r in edge_methods],
+                "user_agents": [{"ua": r[0], "count": r[1]} for r in edge_uas],
+                "top_resources": [
+                    {"source": r[0], "resource_id": r[1], "count": r[2],
+                     "failures": int(r[3] or 0)}
+                    for r in edge_resources
+                ],
+            },
+            "waf": {
+                "totals": {
+                    "sampled": waf_totals[0] or 0,
+                    "blocked": waf_totals[1] or 0,
+                    "clients": waf_totals[2] or 0,
+                },
+                "actions": [{"action": r[0], "count": r[1]} for r in waf_actions],
+                "top_ips": [
+                    {"source_ip": r[0], "country": r[1], "count": r[2],
+                     "blocked": int(r[3] or 0)}
+                    for r in waf_ips
+                ],
+            },
+            "dns": {
+                "totals": {
+                    "queries": dns_totals[0] or 0,
+                    "domains": dns_totals[1] or 0,
+                    "failures": dns_totals[2] or 0,
+                },
+                "top_domains": [
+                    {"domain": r[0], "count": r[1], "failures": int(r[2] or 0),
+                     "answer": r[3]}
+                    for r in dns_domains
+                ],
+                "top_sources": [{"source_ip": r[0], "count": r[1]} for r in dns_sources],
+            },
+        }
+
+    def data_access_overview(self, case_id: str) -> dict[str, Any]:
+        """S3 server-access logs + CloudTrail S3 data events — the 'what data was touched' view."""
+        path = self._events_path(case_id)
+        con = self._connect()
+        # S3 server access logs OR CloudTrail S3 object-level (data) events.
+        scope = (
+            "(ventra_source='s3_access' OR (ventra_source='cloudtrail' "
+            "AND json_extract_string(raw, '$.eventCategory')='Data' "
+            "AND json_extract_string(raw, '$.eventSource')='s3.amazonaws.com'))"
+        )
+        principal = "COALESCE(NULLIF(user_arn,''), NULLIF(user_name,''), '')"
+        fail = "sum(CASE WHEN event_outcome='failure' THEN 1 ELSE 0 END)"
+        try:
+            events = self._events_table(con, path)
+            totals = con.execute(
+                f"SELECT count(*), count(DISTINCT NULLIF(resource_id,'')), "
+                f"count(DISTINCT NULLIF({principal},'')), {fail} "
+                f"FROM {events} WHERE {scope}",
+                [path],
+            ).fetchone()
+            by_source = con.execute(
+                f"SELECT ventra_source, count(*) c FROM {events} WHERE {scope} "
+                "GROUP BY 1 ORDER BY c DESC",
+                [path],
+            ).fetchall()
+            top_objects = con.execute(
+                f"SELECT resource_id, count(*) c, {fail} fails, "
+                "count(DISTINCT NULLIF(source_ip,'')) ips "
+                f"FROM {events} WHERE {scope} AND resource_id<>'' "
+                "GROUP BY 1 ORDER BY c DESC LIMIT 500",
+                [path],
+            ).fetchall()
+            top_principals = con.execute(
+                f"SELECT {principal} p, count(*) c, {fail} fails "
+                f"FROM {events} WHERE {scope} AND {principal}<>'' "
+                "GROUP BY 1 ORDER BY c DESC LIMIT 200",
+                [path],
+            ).fetchall()
+            top_ips = con.execute(
+                f"SELECT source_ip, count(*) c, {fail} fails FROM {events} "
+                f"WHERE {scope} AND source_ip<>'' GROUP BY 1 ORDER BY c DESC LIMIT 200",
+                [path],
+            ).fetchall()
+        finally:
+            con.close()
+        return {
+            "totals": {
+                "events": totals[0] or 0,
+                "objects": totals[1] or 0,
+                "principals": totals[2] or 0,
+                "failures": totals[3] or 0,
+            },
+            "by_source": [{"source": r[0], "count": r[1]} for r in by_source],
+            "top_objects": [
+                {"resource_id": r[0], "count": r[1], "failures": int(r[2] or 0), "ips": r[3]}
+                for r in top_objects
+            ],
+            "top_principals": [
+                {"principal": r[0], "count": r[1], "failures": int(r[2] or 0)}
+                for r in top_principals
+            ],
+            "top_ips": [
+                {"source_ip": r[0], "count": r[1], "failures": int(r[2] or 0)}
+                for r in top_ips
+            ],
+        }
+
     def cloudtrail_collection(self, case_id: str) -> dict[str, Any]:
         """CloudTrail collection resources — trails, S3 buckets, and event counts by source."""
         inv = self.inventory(case_id, "cloudtrail") or {}

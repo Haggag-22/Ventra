@@ -7,10 +7,12 @@ import type {
   EventsResponse,
   Facets,
   IdentityResponse,
+  DataAccessResponse,
   IntegrityReport,
   InventorySummary,
   NetworkResponse,
   TimelineResponse,
+  WebDnsResponse,
 } from "./types";
 
 export type EventParams = {
@@ -79,6 +81,8 @@ export const api = {
     get<TimelineResponse>(`/cases/${c}/timeline${qs(p)}`),
   identity: (c: string) => get<IdentityResponse>(`/cases/${c}/identity`),
   network: (c: string) => get<NetworkResponse>(`/cases/${c}/network`),
+  webDns: (c: string) => get<WebDnsResponse>(`/cases/${c}/web-dns`),
+  dataAccess: (c: string) => get<DataAccessResponse>(`/cases/${c}/data-access`),
   resources: (c: string) => get<InventorySummary>(`/cases/${c}/resources`),
   inventorySummary: (c: string) => get<InventorySummary>(`/cases/${c}/inventory/summary`),
   inventory: (c: string, source: string) =>
