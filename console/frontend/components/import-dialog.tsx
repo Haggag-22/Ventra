@@ -234,7 +234,7 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
                 </Button>
                 <Button
                   variant="primary-dark"
-                  onClick={() => router.push(`/cases/${encodeURIComponent(result.case_id)}/overview`)}
+                  onClick={() => router.push(`/cases/${encodeURIComponent(result.case_id)}/cloudtrail`)}
                 >
                   Open case
                 </Button>

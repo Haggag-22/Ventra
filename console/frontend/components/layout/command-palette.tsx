@@ -6,6 +6,7 @@ import {
   Activity,
   CornerDownLeft,
   Database,
+  FileText,
   Fingerprint,
   Gauge,
   Globe,
@@ -28,7 +29,6 @@ interface Item {
 }
 
 const PANELS = [
-  { href: "overview", label: "Overview", icon: Gauge },
   { href: "timeline", label: "Timeline", icon: Activity },
   { href: "cloudtrail", label: "CloudTrail Timeline", icon: ScrollText },
   { href: "search", label: "Security Findings", icon: ShieldAlert },
@@ -37,6 +37,7 @@ const PANELS = [
   { href: "web", label: "Web & DNS", icon: Globe2 },
   { href: "data-access", label: "Data Access", icon: Database },
   { href: "collection", label: "Logs Coverage", icon: Gauge },
+  { href: "report", label: "Report", icon: FileText },
 ];
 
 export function CommandPalette({

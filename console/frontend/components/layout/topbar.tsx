@@ -4,19 +4,24 @@ import { CloudPlatformLabel } from "@/components/cloud-provider-icon";
 import { CASES_HREF } from "@/lib/routes";
 import type { CaseSummary } from "@/lib/types";
 import { fmtDateOnly } from "@/lib/format";
+import { cn } from "@/lib/utils";
 import { ChevronDown } from "lucide-react";
 import Link from "next/link";
 
 function MetaSegment({
   label,
+  labelClassName,
   children,
 }: {
   label: string;
+  labelClassName?: string;
   children: React.ReactNode;
 }) {
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span className="text-2xs uppercase tracking-wide text-fg-subtle">{label}</span>
+      <span className={cn("text-2xs uppercase tracking-wide text-fg-subtle", labelClassName)}>
+        {label}
+      </span>
       {children}
     </span>
   );
@@ -62,7 +67,7 @@ export function TopBar({
           </MetaSegment>
           <MetaDivider />
           <MetaSegment label="Time range">
-            <span className="text-fg-subtle">{windowLabel}</span>
+            <span className="font-bold text-fg">{windowLabel}</span>
           </MetaSegment>
           <MetaDivider />
           <MetaSegment label="Account ID">

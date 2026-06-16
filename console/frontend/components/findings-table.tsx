@@ -183,8 +183,8 @@ export function FindingsTable({
     0,
   );
 
-  const colPct = (key: FindingColKey) =>
-    `${(((widths[key] ?? DEFAULT_FINDING_WIDTHS[key]) / totalWeight) * 100).toFixed(4)}%`;
+  const colWidth = (key: FindingColKey) =>
+    `${widths[key] ?? DEFAULT_FINDING_WIDTHS[key]}px`;
 
   return (
     <div className="relative">
@@ -195,10 +195,10 @@ export function FindingsTable({
       ) : (
         <>
           <div className="ct-table-wrap overflow-x-auto overflow-y-auto">
-            <table className="ct-table w-full border-collapse text-left" style={{ tableLayout: "fixed" }}>
+            <table className="ct-table w-full border-collapse text-left" style={{ tableLayout: "fixed", width: totalWeight, minWidth: "100%" }}>
               <colgroup>
                 {cols.map((c) => (
-                  <col key={c.key} style={{ width: colPct(c.key) }} />
+                  <col key={c.key} style={{ width: colWidth(c.key) }} />
                 ))}
               </colgroup>
               <thead className="sticky top-0 z-10">

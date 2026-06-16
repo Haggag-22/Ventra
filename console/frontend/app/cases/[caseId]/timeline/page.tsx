@@ -8,21 +8,20 @@ import { TimelineChart } from "@/components/timeline-chart";
 import { Button, Card, Spinner } from "@/components/ui";
 import { api } from "@/lib/api";
 import { fmtNum } from "@/lib/format";
+import { usePagination } from "@/lib/pagination";
+import { TablePager } from "@/components/table-pager";
 import { useFilters } from "@/lib/useFilters";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { Activity, ChevronLeft, ChevronRight, X } from "lucide-react";
-import { useState } from "react";
-
-const PAGE = 100;
+import { Activity, X } from "lucide-react";
 
 export default function TimelinePage() {
   const { caseId } = useCase();
   const { params, setParam } = useFilters();
-  const [page, setPage] = useState(0);
+  const { page, setPage, pageSize, setPageSize } = usePagination("ventra.timeline.page-size");
 
   const eventsQ = useQuery({
-    queryKey: ["events", caseId, params, page],
-    queryFn: () => api.events(caseId, { ...params, limit: PAGE, offset: page * PAGE }),
+    queryKey: ["events", caseId, params, page, pageSize],
+    queryFn: () => api.events(caseId, { ...params, limit: pageSize, offset: page * pageSize }),
     placeholderData: keepPreviousData,
   });
   const facetsQ = useQuery({
@@ -35,7 +34,6 @@ export default function TimelinePage() {
   });
 
   const total = eventsQ.data?.total ?? 0;
-  const pages = Math.ceil(total / PAGE);
   const hasWindow = params.since || params.until;
 
   return (
@@ -103,29 +101,14 @@ export default function TimelinePage() {
                 setParam("order", desc ? "desc" : "asc");
               }}
             />
-            {pages > 1 && (
-              <div className="flex items-center justify-between border-t border-border px-4 py-2 text-xs text-fg-subtle">
-                <span>
-                  Page {page + 1} of {fmtNum(pages)} · {fmtNum(total)} events
-                </span>
-                <div className="flex gap-1">
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    icon={ChevronLeft}
-                    disabled={page === 0}
-                    onClick={() => setPage((p) => Math.max(0, p - 1))}
-                  />
-                  <Button
-                    size="sm"
-                    variant="ghost"
-                    icon={ChevronRight}
-                    disabled={page >= pages - 1}
-                    onClick={() => setPage((p) => p + 1)}
-                  />
-                </div>
-              </div>
-            )}
+            <TablePager
+              page={page}
+              pageSize={pageSize}
+              total={total}
+              shown={eventsQ.data?.events.length ?? 0}
+              onPageChange={setPage}
+              onPageSizeChange={setPageSize}
+            />
           </Card>
         </div>
       </div>

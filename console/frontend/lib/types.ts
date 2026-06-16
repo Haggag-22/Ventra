@@ -55,13 +55,19 @@ export interface Facets {
   ventra_source: FacetValue[];
   event_severity: FacetValue[];
   event_action: FacetValue[];
+  event_outcome: FacetValue[];
   user_name: FacetValue[];
   source_ip: FacetValue[];
+  dest_ip: FacetValue[];
+  dest_port: FacetValue[];
   cloud_region: FacetValue[];
   cloud_service: FacetValue[];
   ua_category: FacetValue[];
   trail_category: FacetValue[];
   finding_class: FacetValue[];
+  resource_id: FacetValue[];
+  http_status: FacetValue[];
+  principal: FacetValue[];
 }
 
 export interface CaseSummary {
@@ -140,9 +146,20 @@ export interface IdentityResponse {
 }
 
 export interface NetworkResponse {
-  totals: { flows: number; bytes: number; rejects: number };
-  top_talkers: { dest_ip: string; bytes: number; flows: number }[];
+  totals: {
+    flows: number;
+    accepted: number;
+    rejects: number;
+    bytes: number;
+    public_bytes: number;
+    external_dests: number;
+    sources: number;
+  };
+  egress_public: { dest_ip: string; bytes: number; flows: number; ports: number }[];
+  top_talkers: { source_ip: string; bytes: number; flows: number }[];
+  top_ports: { port: number; flows: number; bytes: number; rejected: number }[];
   rejected: { source_ip: string; dest_ip: string; dest_port: number; count: number }[];
+  protocols: { protocol: string; count: number }[];
 }
 
 export interface WebDnsResponse {
@@ -163,6 +180,8 @@ export interface WebDnsResponse {
       count: number;
       failures: number;
     }[];
+    status_classes: { cls: string; count: number }[];
+    top_paths: { target: string; count?: number; failures?: number }[];
   };
   waf: {
     totals: { sampled: number; blocked: number; clients: number };
@@ -172,16 +191,36 @@ export interface WebDnsResponse {
   dns: {
     totals: { queries: number; domains: number; failures: number };
     top_domains: { domain: string; count: number; failures: number; answer: string }[];
-    top_sources: { source_ip: string; count: number }[];
+    qtypes: { qtype: string; count: number }[];
   };
 }
 
 export interface DataAccessResponse {
-  totals: { events: number; objects: number; principals: number; failures: number };
+  totals: {
+    events: number;
+    objects: number;
+    principals: number;
+    failures: number;
+    bytes_out: number;
+    deletes: number;
+    writes: number;
+  };
   by_source: { source: string; count: number }[];
-  top_objects: { resource_id: string; count: number; failures: number; ips: number }[];
-  top_principals: { principal: string; count: number; failures: number }[];
-  top_ips: { source_ip: string; count: number; failures: number }[];
+  operations: { op: string; count: number }[];
+  top_objects: {
+    resource_id: string;
+    count: number;
+    failures: number;
+    ips: number;
+    bytes: number;
+  }[];
+  top_principals: { principal: string; count: number; failures: number; bytes: number }[];
+  top_ips: {
+    source_ip: string;
+    count: number;
+    failures: number;
+    bytes: number;
+  }[];
 }
 
 export interface CloudTrailTrailSummary {

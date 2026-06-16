@@ -80,7 +80,7 @@ export const RESOURCE_COLUMNS: Record<string, ResourceColumn[]> = {
     col("runtime", "Runtime", (r) => str(r.Runtime), { min: 90 }),
     col("handler", "Handler", (r) => str(r.Handler), { min: 140 }),
     col("region", "Region", (r) => region(r), { min: 100 }),
-    col("arn", "ARN", (r) => str(r.FunctionArn), { mono: true, min: 220 }),
+    col("arn", "ARN", (r) => str(r.FunctionArn), { mono: true, min: 480 }),
   ],
   s3_buckets: [
     col("bucket", "Bucket", (r) => str(r.name), { min: 180 }),

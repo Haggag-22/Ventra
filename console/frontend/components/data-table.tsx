@@ -1,8 +1,10 @@
 "use client";
 
+import { usePagination } from "@/lib/pagination";
+import { TablePager } from "@/components/table-pager";
 import { cn } from "@/lib/utils";
 import { ArrowDown, ArrowUp, ChevronsUpDown, Search } from "lucide-react";
-import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 export type DataColumn<T> = {
   key: string;
@@ -31,6 +33,7 @@ export function DataTable<T>({
   initialSort,
   filterPlaceholder = "Filter…",
   emptyLabel = "Nothing to show.",
+  pageSizeKey,
 }: {
   columns: DataColumn<T>[];
   rows: T[];
@@ -38,9 +41,12 @@ export function DataTable<T>({
   initialSort?: SortState;
   filterPlaceholder?: string;
   emptyLabel?: string;
+  /** localStorage key to persist the chosen rows-per-page. */
+  pageSizeKey?: string;
 }) {
   const [sort, setSort] = useState<SortState | undefined>(initialSort);
   const [filter, setFilter] = useState("");
+  const { page, setPage, pageSize, setPageSize } = usePagination(pageSizeKey);
   const [widths, setWidths] = useState<Record<string, number>>(() =>
     Object.fromEntries(columns.map((c) => [c.key, c.width ?? c.min ?? 120])),
   );
@@ -107,9 +113,19 @@ export function DataTable<T>({
     });
   }, [filtered, columns, sort]);
 
+  // Reset to the first page whenever the filter narrows/changes the result set.
+  useEffect(() => setPage(0), [filter, setPage]);
+
+  const paged = useMemo(
+    () => sorted.slice(page * pageSize, page * pageSize + pageSize),
+    [sorted, page, pageSize],
+  );
+
   const totalWeight = columns.reduce((s, c) => s + (widths[c.key] ?? c.width ?? 120), 0);
-  const colPct = (key: string) =>
-    `${(((widths[key] ?? 120) / totalWeight) * 100).toFixed(4)}%`;
+  const colWidth = (key: string) => {
+    const col = columns.find((c) => c.key === key);
+    return `${widths[key] ?? col?.width ?? 120}px`;
+  };
 
   return (
     <div>
@@ -130,11 +146,11 @@ export function DataTable<T>({
       <div className="ct-table-wrap overflow-x-auto overflow-y-auto">
         <table
           className="ct-table ct-table-no-row-click w-full border-collapse text-left"
-          style={{ tableLayout: "fixed" }}
+          style={{ tableLayout: "fixed", width: totalWeight, minWidth: "100%" }}
         >
           <colgroup>
             {columns.map((c) => (
-              <col key={c.key} style={{ width: colPct(c.key) }} />
+              <col key={c.key} style={{ width: colWidth(c.key) }} />
             ))}
           </colgroup>
           <thead className="sticky top-0 z-10">
@@ -185,7 +201,7 @@ export function DataTable<T>({
             </tr>
           </thead>
           <tbody>
-            {sorted.map((row, i) => (
+            {paged.map((row, i) => (
               <tr key={getRowKey(row, i)}>
                 {columns.map((c) => {
                   const content = c.render ? c.render(row) : String(c.value(row));
@@ -217,6 +233,15 @@ export function DataTable<T>({
           </tbody>
         </table>
       </div>
+
+      <TablePager
+        page={page}
+        pageSize={pageSize}
+        total={sorted.length}
+        shown={paged.length}
+        onPageChange={setPage}
+        onPageSizeChange={setPageSize}
+      />
     </div>
   );
 }

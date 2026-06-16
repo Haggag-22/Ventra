@@ -38,6 +38,13 @@ export type EventParams = {
   related_ip?: string;
   related_user?: string;
   related_resource?: string;
+  resources?: string[];
+  http_status?: string[];
+  outcomes?: string[];
+  source_ips?: string[];
+  dest_ips?: string[];
+  dest_ports?: string[];
+  data_access?: boolean;
   since?: string;
   until?: string;
   sort?: string;

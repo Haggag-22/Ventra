@@ -86,8 +86,8 @@ export function CloudTrailTable({
     0,
   );
 
-  const colPct = (key: CloudTrailColKey) =>
-    `${(((widths[key] ?? DEFAULT_CLOUDTRAIL_WIDTHS[key]) / totalWeight) * 100).toFixed(4)}%`;
+  const colWidth = (key: CloudTrailColKey) =>
+    `${widths[key] ?? DEFAULT_CLOUDTRAIL_WIDTHS[key]}px`;
 
   const renderCell = (key: CloudTrailColKey, e: UnifiedEvent, category: CloudTrailCategory) => {
     switch (key) {
@@ -155,10 +155,10 @@ export function CloudTrailTable({
       ) : (
         <>
           <div className="ct-table-wrap overflow-x-auto overflow-y-auto">
-            <table className="ct-table w-full border-collapse text-left" style={{ tableLayout: "fixed" }}>
+            <table className="ct-table w-full border-collapse text-left" style={{ tableLayout: "fixed", width: totalWeight, minWidth: "100%" }}>
               <colgroup>
                 {cols.map((c) => (
-                  <col key={c.key} style={{ width: colPct(c.key) }} />
+                  <col key={c.key} style={{ width: colWidth(c.key) }} />
                 ))}
               </colgroup>
               <thead className="sticky top-0 z-10">

@@ -24,7 +24,10 @@ FILTERABLE = {
     "cloud_region", "cloud_service", "user_name", "user_arn", "user_type", "source_ip",
     "dest_ip", "resource_id", "resource_arn", "ventra_source", "ua_category", "source_country",
 }
-SORTABLE = {"timestamp", "event_severity", "event_action", "user_name", "source_ip"}
+SORTABLE = {
+    "timestamp", "event_severity", "event_action", "user_name", "source_ip",
+    "dest_ip", "dest_port", "dest_bytes",
+}
 
 SEVERITY_RANK = {"critical": 5, "high": 4, "medium": 3, "low": 2, "info": 1}
 
@@ -36,6 +39,18 @@ TRAIL_CATEGORY_SQL = (
     "WHEN 'Data' THEN 'Data' "
     "ELSE 'Management' END"
 )
+
+# HTTP status embedded in access-log messages (`GET /path → 404 (resource)`).
+HTTP_STATUS_SQL = "regexp_extract(message, '→ ([0-9]{3})', 1)"
+
+# S3 server access logs + CloudTrail S3 object-level data events.
+DATA_ACCESS_SCOPE = (
+    "(ventra_source='s3_access' OR (ventra_source='cloudtrail' "
+    "AND json_extract_string(raw, '$.eventCategory')='Data' "
+    "AND json_extract_string(raw, '$.eventSource')='s3.amazonaws.com'))"
+)
+
+DATA_ACCESS_PRINCIPAL_SQL = "COALESCE(NULLIF(user_arn,''), NULLIF(user_name,''), '')"
 
 # Classify a finding by what its raw payload represents (compliance control, vulnerability,
 # threat detection, sensitive-data, etc.) so the Findings panel can column/filter on it. Mirrored
@@ -137,6 +152,13 @@ class EventQuery:
     related_ip: str | None = None
     related_user: str | None = None
     related_resource: str | None = None
+    resources: list[str] = field(default_factory=list)
+    http_status: list[str] = field(default_factory=list)
+    outcomes: list[str] = field(default_factory=list)
+    source_ips: list[str] = field(default_factory=list)
+    dest_ips: list[str] = field(default_factory=list)
+    dest_ports: list[str] = field(default_factory=list)
+    data_access: bool = False
     sort: str = "timestamp"
     order: str = "asc"
     limit: int = 100
@@ -327,7 +349,10 @@ class CaseStore:
             params.extend(q.services)
         if q.users:
             placeholders = ",".join("?" for _ in q.users)
-            clauses.append(f"user_name IN ({placeholders})")
+            clauses.append(
+                f"(user_name IN ({placeholders}) OR user_arn IN ({placeholders}))"
+            )
+            params.extend(q.users)
             params.extend(q.users)
         if q.categories:
             cat_clauses = []
@@ -358,13 +383,46 @@ class CaseStore:
         if q.related_resource:
             clauses.append("related_resource LIKE ?")
             params.append(f'%{q.related_resource}%')
+        if q.resources:
+            placeholders = ",".join("?" for _ in q.resources)
+            clauses.append(f"resource_id IN ({placeholders})")
+            params.extend(q.resources)
+        if q.http_status:
+            placeholders = ",".join("?" for _ in q.http_status)
+            clauses.append(f"({HTTP_STATUS_SQL}) IN ({placeholders})")
+            params.extend(q.http_status)
+        if q.outcomes:
+            placeholders = ",".join("?" for _ in q.outcomes)
+            clauses.append(f"event_outcome IN ({placeholders})")
+            params.extend(q.outcomes)
+        if q.source_ips:
+            placeholders = ",".join("?" for _ in q.source_ips)
+            clauses.append(f"source_ip IN ({placeholders})")
+            params.extend(q.source_ips)
+        if q.dest_ips:
+            placeholders = ",".join("?" for _ in q.dest_ips)
+            clauses.append(f"dest_ip IN ({placeholders})")
+            params.extend(q.dest_ips)
+        if q.dest_ports:
+            ports: list[int] = []
+            for p in q.dest_ports:
+                try:
+                    ports.append(int(p))
+                except ValueError:
+                    continue
+            if ports:
+                placeholders = ",".join("?" for _ in ports)
+                clauses.append(f"dest_port IN ({placeholders})")
+                params.extend(ports)
+        if q.data_access:
+            clauses.append(DATA_ACCESS_SCOPE)
         if q.q:
             like = f"%{q.q}%"
             clauses.append(
                 "(message ILIKE ? OR event_action ILIKE ? OR user_name ILIKE ? "
-                "OR source_ip ILIKE ? OR user_arn ILIKE ? OR resource_arn ILIKE ?)"
+                "OR source_ip ILIKE ? OR dest_ip ILIKE ? OR user_arn ILIKE ? OR resource_arn ILIKE ?)"
             )
-            params.extend([like] * 6)
+            params.extend([like] * 7)
         where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
         return where, params
 
@@ -421,16 +479,86 @@ class CaseStore:
                 "ventra_source": agg("ventra_source"),
                 "event_severity": agg("event_severity"),
                 "event_action": agg("event_action"),
+                "event_outcome": agg("event_outcome"),
                 "user_name": agg("user_name"),
                 "source_ip": agg("source_ip"),
+                "dest_ip": agg("dest_ip"),
+                "dest_port": self._dest_port_facets(con, events, where, params, path),
                 "cloud_region": agg("cloud_region"),
                 "cloud_service": agg("cloud_service"),
                 "ua_category": agg("ua_category"),
+                "resource_id": agg("resource_id"),
+                "http_status": self._http_status_facets(con, events, where, params, path),
+                "principal": self._principal_facets(con, events, where, params, path)
+                if q.data_access
+                else [],
                 "trail_category": self._trail_category_facets(con, events, where, params, path),
                 "finding_class": self._finding_class_facets(con, events, where, params, path),
             }
         finally:
             con.close()
+
+    def _dest_port_facets(
+        self,
+        con: duckdb.DuckDBPyConnection,
+        events: str,
+        where: str,
+        params: list[Any],
+        path: str,
+    ) -> list[dict[str, Any]]:
+        port_where = (
+            f"{where} AND dest_port IS NOT NULL AND dest_port > 0"
+            if where
+            else " WHERE dest_port IS NOT NULL AND dest_port > 0"
+        )
+        rows = con.execute(
+            f"SELECT cast(dest_port AS VARCHAR) AS k, count(*) AS c FROM {events}{port_where} "
+            "GROUP BY 1 ORDER BY c DESC LIMIT 25",
+            [path, *params],
+        ).fetchall()
+        return [{"value": r[0], "count": r[1]} for r in rows]
+
+    def _http_status_facets(
+        self,
+        con: duckdb.DuckDBPyConnection,
+        events: str,
+        where: str,
+        params: list[Any],
+        path: str,
+    ) -> list[dict[str, Any]]:
+        """Aggregate HTTP status codes from access-log message text."""
+        status_where = (
+            f"{where} AND {HTTP_STATUS_SQL} <> ''"
+            if where
+            else f" WHERE {HTTP_STATUS_SQL} <> ''"
+        )
+        rows = con.execute(
+            f"SELECT {HTTP_STATUS_SQL} AS k, count(*) AS c FROM {events}{status_where} "
+            "GROUP BY 1 ORDER BY c DESC LIMIT 25",
+            [path, *params],
+        ).fetchall()
+        return [{"value": r[0], "count": r[1]} for r in rows]
+
+    def _principal_facets(
+        self,
+        con: duckdb.DuckDBPyConnection,
+        events: str,
+        where: str,
+        params: list[Any],
+        path: str,
+    ) -> list[dict[str, Any]]:
+        """Aggregate principals (ARN or username) for data-access filter dropdowns."""
+        pr_where = (
+            f"{where} AND {DATA_ACCESS_PRINCIPAL_SQL} <> ''"
+            if where
+            else f" WHERE {DATA_ACCESS_PRINCIPAL_SQL} <> ''"
+        )
+        rows = con.execute(
+            f"SELECT {DATA_ACCESS_PRINCIPAL_SQL} AS k, count(*) AS c FROM {events}{pr_where} "
+            "GROUP BY 1 ORDER BY c DESC LIMIT 25",
+            [path, *params],
+        ).fetchall()
+        return [{"value": r[0], "count": r[1]} for r in rows]
 
     def _trail_category_facets(
         self,
@@ -528,39 +656,84 @@ class CaseStore:
         return {"nodes": list(nodes.values()), "edges": edges}
 
     def network_overview(self, case_id: str) -> dict[str, Any]:
-        """Top talkers, rejected flows, and public egress for the Network panel."""
+        """VPC flow analysis: public egress (exfil), destination ports, talkers, rejects."""
         path = self._events_path(case_id)
         con = self._connect()
+        base = "ventra_source='vpc_flow'"
+        pub = _public_ip_sql("dest_ip")
+        rej = "sum(CASE WHEN event_outcome='failure' THEN 1 ELSE 0 END)"
         try:
             events = self._events_table(con, path)
-            top_talkers = con.execute(
-                "SELECT dest_ip, sum(coalesce(dest_bytes,0)) bytes, count(*) flows "
-                f"FROM {events} WHERE ventra_source='vpc_flow' AND dest_ip<>'' "
+            totals = con.execute(
+                f"SELECT count(*) flows, "
+                f"sum(CASE WHEN event_outcome='success' THEN 1 ELSE 0 END) accepted, "
+                f"{rej} rejected, "
+                f"sum(coalesce(dest_bytes,0)) bytes, "
+                f"sum(CASE WHEN {pub} THEN coalesce(dest_bytes,0) ELSE 0 END) public_bytes, "
+                f"count(DISTINCT CASE WHEN {pub} THEN dest_ip END) external_dests, "
+                f"count(DISTINCT NULLIF(source_ip,'')) sources "
+                f"FROM {events} WHERE {base}",
+                [path],
+            ).fetchone()
+            egress_public = con.execute(
+                f"SELECT dest_ip, sum(coalesce(dest_bytes,0)) bytes, count(*) flows, "
+                "count(DISTINCT dest_port) ports "
+                f"FROM {events} WHERE {base} AND {pub} "
                 "GROUP BY 1 ORDER BY bytes DESC LIMIT 15",
+                [path],
+            ).fetchall()
+            top_talkers = con.execute(
+                "SELECT source_ip, sum(coalesce(dest_bytes,0)) bytes, count(*) flows "
+                f"FROM {events} WHERE {base} AND source_ip<>'' "
+                "GROUP BY 1 ORDER BY bytes DESC LIMIT 15",
+                [path],
+            ).fetchall()
+            top_ports = con.execute(
+                f"SELECT dest_port, count(*) flows, sum(coalesce(dest_bytes,0)) bytes, {rej} rejected "
+                f"FROM {events} WHERE {base} AND dest_port IS NOT NULL AND dest_port > 0 "
+                "GROUP BY 1 ORDER BY flows DESC LIMIT 15",
                 [path],
             ).fetchall()
             rejected = con.execute(
                 f"SELECT source_ip, dest_ip, dest_port, count(*) c FROM {events} "
-                "WHERE ventra_source='vpc_flow' AND event_outcome='failure' "
+                f"WHERE {base} AND event_outcome='failure' "
                 "GROUP BY 1,2,3 ORDER BY c DESC LIMIT 15",
                 [path],
             ).fetchall()
-            totals = con.execute(
-                "SELECT count(*) flows, sum(coalesce(dest_bytes,0)) bytes, "
-                "sum(CASE WHEN event_outcome='failure' THEN 1 ELSE 0 END) rejects "
-                f"FROM {events} WHERE ventra_source='vpc_flow'",
+            protocols = con.execute(
+                "SELECT json_extract_string(raw,'$.protocol') proto, count(*) c "
+                f"FROM {events} WHERE {base} GROUP BY 1 ORDER BY c DESC LIMIT 6",
                 [path],
-            ).fetchone()
+            ).fetchall()
         finally:
             con.close()
         return {
-            "totals": {"flows": totals[0] or 0, "bytes": totals[1] or 0, "rejects": totals[2] or 0},
+            "totals": {
+                "flows": totals[0] or 0,
+                "accepted": totals[1] or 0,
+                "rejects": totals[2] or 0,
+                "bytes": int(totals[3] or 0),
+                "public_bytes": int(totals[4] or 0),
+                "external_dests": totals[5] or 0,
+                "sources": totals[6] or 0,
+            },
+            "egress_public": [
+                {"dest_ip": r[0], "bytes": int(r[1] or 0), "flows": r[2], "ports": r[3]}
+                for r in egress_public
+            ],
             "top_talkers": [
-                {"dest_ip": r[0], "bytes": int(r[1] or 0), "flows": r[2]} for r in top_talkers
+                {"source_ip": r[0], "bytes": int(r[1] or 0), "flows": r[2]} for r in top_talkers
+            ],
+            "top_ports": [
+                {"port": r[0], "flows": r[1], "bytes": int(r[2] or 0), "rejected": int(r[3] or 0)}
+                for r in top_ports
             ],
             "rejected": [
                 {"source_ip": r[0], "dest_ip": r[1], "dest_port": r[2], "count": r[3]}
                 for r in rejected
+            ],
+            "protocols": [
+                {"protocol": r[0] or "", "count": r[1]} for r in protocols if r[0]
             ],
         }
 
@@ -605,6 +778,23 @@ class CaseStore:
                 "GROUP BY 1,2 ORDER BY c DESC LIMIT 15",
                 [path],
             ).fetchall()
+            status_expr = "regexp_extract(message, '→ ([0-9]+)', 1)"
+            edge_status = con.execute(
+                f"SELECT CASE "
+                f"WHEN {status_expr} LIKE '2%' THEN '2xx' "
+                f"WHEN {status_expr} LIKE '3%' THEN '3xx' "
+                f"WHEN {status_expr} LIKE '4%' THEN '4xx' "
+                f"WHEN {status_expr} LIKE '5%' THEN '5xx' ELSE 'other' END cls, count(*) c "
+                f"FROM {events} WHERE {edge} AND {status_expr} <> '' GROUP BY 1 ORDER BY 1",
+                [path],
+            ).fetchall()
+            edge_paths = con.execute(
+                f"SELECT regexp_extract(message, '^\\S+ (.*) → ', 1) tgt, "
+                f"count(*) c, {fail} fails "
+                f"FROM {events} WHERE {edge} AND message LIKE '% → %' "
+                "GROUP BY 1 ORDER BY c DESC LIMIT 15",
+                [path],
+            ).fetchall()
 
             waf_totals = con.execute(
                 f"SELECT count(*), {fail}, count(DISTINCT NULLIF(source_ip,'')) "
@@ -631,13 +821,13 @@ class CaseStore:
             dns_domains = con.execute(
                 f"SELECT resource_id, count(*) c, {fail} fails, max(dest_ip) answer "
                 f"FROM {events} WHERE ventra_source='route53_resolver' AND resource_id<>'' "
-                "GROUP BY 1 ORDER BY c DESC LIMIT 15",
+                "GROUP BY 1 ORDER BY c DESC LIMIT 50",
                 [path],
             ).fetchall()
-            dns_sources = con.execute(
-                f"SELECT source_ip, count(*) c FROM {events} "
-                "WHERE ventra_source='route53_resolver' AND source_ip<>'' "
-                "GROUP BY 1 ORDER BY c DESC LIMIT 15",
+            dns_qtypes = con.execute(
+                "SELECT replace(event_action,'dns-query:','') qt, count(*) c "
+                f"FROM {events} WHERE ventra_source='route53_resolver' AND event_action<>'' "
+                "GROUP BY 1 ORDER BY c DESC LIMIT 8",
                 [path],
             ).fetchall()
         finally:
@@ -662,6 +852,12 @@ class CaseStore:
                     {"source": r[0], "resource_id": r[1], "count": r[2],
                      "failures": int(r[3] or 0)}
                     for r in edge_resources
+                ],
+                "status_classes": [{"cls": r[0], "count": r[1]} for r in edge_status],
+                "top_paths": [
+                    {"target": r[0], "count": r[1], "failures": int(r[2] or 0)}
+                    for r in edge_paths
+                    if r[0]
                 ],
             },
             "waf": {
@@ -688,7 +884,7 @@ class CaseStore:
                      "answer": r[3]}
                     for r in dns_domains
                 ],
-                "top_sources": [{"source_ip": r[0], "count": r[1]} for r in dns_sources],
+                "qtypes": [{"qtype": r[0] or "?", "count": r[1]} for r in dns_qtypes],
             },
         }
 
@@ -697,18 +893,28 @@ class CaseStore:
         path = self._events_path(case_id)
         con = self._connect()
         # S3 server access logs OR CloudTrail S3 object-level (data) events.
-        scope = (
-            "(ventra_source='s3_access' OR (ventra_source='cloudtrail' "
-            "AND json_extract_string(raw, '$.eventCategory')='Data' "
-            "AND json_extract_string(raw, '$.eventSource')='s3.amazonaws.com'))"
-        )
-        principal = "COALESCE(NULLIF(user_arn,''), NULLIF(user_name,''), '')"
+        scope = DATA_ACCESS_SCOPE
+        principal = DATA_ACCESS_PRINCIPAL_SQL
         fail = "sum(CASE WHEN event_outcome='failure' THEN 1 ELSE 0 END)"
+        nbytes = "sum(coalesce(dest_bytes,0))"
+        # Classify the access verb: exfil (read) vs ransomware/destruction (write/delete).
+        op_class = (
+            "CASE "
+            "WHEN upper(event_action) LIKE '%DELETE%' THEN 'delete' "
+            "WHEN upper(event_action) LIKE '%PUT%' OR upper(event_action) LIKE '%POST%' "
+            "  OR upper(event_action) LIKE '%COPY%' OR upper(event_action) LIKE '%CREATE%' THEN 'write' "
+            "WHEN upper(event_action) LIKE '%LIST%' THEN 'list' "
+            "WHEN upper(event_action) LIKE '%GET%' OR upper(event_action) LIKE '%HEAD%' "
+            "  OR upper(event_action) LIKE '%SELECT%' THEN 'read' "
+            "ELSE 'other' END"
+        )
         try:
             events = self._events_table(con, path)
             totals = con.execute(
                 f"SELECT count(*), count(DISTINCT NULLIF(resource_id,'')), "
-                f"count(DISTINCT NULLIF({principal},'')), {fail} "
+                f"count(DISTINCT NULLIF({principal},'')), {fail}, {nbytes}, "
+                f"sum(CASE WHEN {op_class}='delete' THEN 1 ELSE 0 END), "
+                f"sum(CASE WHEN {op_class}='write' THEN 1 ELSE 0 END) "
                 f"FROM {events} WHERE {scope}",
                 [path],
             ).fetchone()
@@ -717,21 +923,26 @@ class CaseStore:
                 "GROUP BY 1 ORDER BY c DESC",
                 [path],
             ).fetchall()
+            operations = con.execute(
+                f"SELECT {op_class} op, count(*) c FROM {events} WHERE {scope} "
+                "GROUP BY 1 ORDER BY c DESC",
+                [path],
+            ).fetchall()
             top_objects = con.execute(
                 f"SELECT resource_id, count(*) c, {fail} fails, "
-                "count(DISTINCT NULLIF(source_ip,'')) ips "
+                f"count(DISTINCT NULLIF(source_ip,'')) ips, {nbytes} bytes "
                 f"FROM {events} WHERE {scope} AND resource_id<>'' "
                 "GROUP BY 1 ORDER BY c DESC LIMIT 500",
                 [path],
             ).fetchall()
             top_principals = con.execute(
-                f"SELECT {principal} p, count(*) c, {fail} fails "
+                f"SELECT {principal} pr, count(*) c, {fail} fails, {nbytes} bytes "
                 f"FROM {events} WHERE {scope} AND {principal}<>'' "
                 "GROUP BY 1 ORDER BY c DESC LIMIT 200",
                 [path],
             ).fetchall()
             top_ips = con.execute(
-                f"SELECT source_ip, count(*) c, {fail} fails FROM {events} "
+                f"SELECT source_ip, count(*) c, {fail} fails, {nbytes} bytes FROM {events} "
                 f"WHERE {scope} AND source_ip<>'' GROUP BY 1 ORDER BY c DESC LIMIT 200",
                 [path],
             ).fetchall()
@@ -743,18 +954,25 @@ class CaseStore:
                 "objects": totals[1] or 0,
                 "principals": totals[2] or 0,
                 "failures": totals[3] or 0,
+                "bytes_out": int(totals[4] or 0),
+                "deletes": totals[5] or 0,
+                "writes": totals[6] or 0,
             },
             "by_source": [{"source": r[0], "count": r[1]} for r in by_source],
+            "operations": [{"op": r[0], "count": r[1]} for r in operations],
             "top_objects": [
-                {"resource_id": r[0], "count": r[1], "failures": int(r[2] or 0), "ips": r[3]}
+                {"resource_id": r[0], "count": r[1], "failures": int(r[2] or 0), "ips": r[3],
+                 "bytes": int(r[4] or 0)}
                 for r in top_objects
             ],
             "top_principals": [
-                {"principal": r[0], "count": r[1], "failures": int(r[2] or 0)}
+                {"principal": r[0], "count": r[1], "failures": int(r[2] or 0),
+                 "bytes": int(r[3] or 0)}
                 for r in top_principals
             ],
             "top_ips": [
-                {"source_ip": r[0], "count": r[1], "failures": int(r[2] or 0)}
+                {"source_ip": r[0], "count": r[1], "failures": int(r[2] or 0),
+                 "bytes": int(r[3] or 0)}
                 for r in top_ips
             ],
         }
@@ -850,6 +1068,19 @@ class CaseStore:
             "s3_total": int(s3_total or 0),
             "by_bucket": by_bucket,
         }
+
+
+def _public_ip_sql(col: str) -> str:
+    """SQL predicate: ``col`` is a routable public IPv4 (not RFC1918 / loopback / link-local)."""
+    return (
+        f"({col} <> '' "
+        f"AND regexp_full_match({col}, '\\d+\\.\\d+\\.\\d+\\.\\d+') "
+        f"AND {col} NOT LIKE '10.%' "
+        f"AND {col} NOT LIKE '192.168.%' "
+        f"AND {col} NOT LIKE '127.%' "
+        f"AND {col} NOT LIKE '169.254.%' "
+        f"AND NOT regexp_full_match({col}, '172\\.(1[6-9]|2[0-9]|3[01])\\..*'))"
+    )
 
 
 def _trail_from_config(trail: dict[str, Any]) -> dict[str, Any]:
