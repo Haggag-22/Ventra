@@ -77,7 +77,9 @@ def test_summary_reflects_collection_gap(demo_case) -> None:
     case_dir, _ = demo_case
     summary = json.loads((case_dir / "summary.json").read_text())
     gap_names = {g["name"] for g in summary["collection"]["gaps"]}
-    assert "waf" in gap_names  # the demo deliberately leaves WAF unconfigured
+    # The demo deliberately leaves several sources unconfigured (recorded via log_posture).
+    assert "eks_audit" in gap_names
+    assert "cloudfront" in gap_names
 
 
 def test_access_and_dns_logs_normalized(demo_case) -> None:

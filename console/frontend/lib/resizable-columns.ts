@@ -78,5 +78,10 @@ export function useResizableColumns<K extends string>(
   const colPct = (key: K) =>
     `${(((widths[key] ?? defaultWidths[key]) / totalWeight) * 100).toFixed(4)}%`;
 
-  return { widths, startResize, colPct };
+  // Absolute pixel width for a column, and the table's total width. Using pixels (rather than
+  // percentages that normalize to 100%) lets the table overflow its container so the wrapper's
+  // horizontal scrollbar engages — and resizing a column wider actually widens the table.
+  const colWidth = (key: K) => `${widths[key] ?? defaultWidths[key]}px`;
+
+  return { widths, startResize, colPct, colWidth, totalWidth: totalWeight };
 }

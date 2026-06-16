@@ -139,8 +139,53 @@ def test_network_overview(store_case) -> None:
     store, case_id = store_case
     net = store.network_overview(case_id)
     assert net["totals"]["flows"] > 0
-    assert net["totals"]["rejects"] >= 0
-    assert isinstance(net["top_talkers"], list)
+    assert net["totals"]["rejects"] > 0
+    # Exfil lens: large egress to a public IP is computed server-side.
+    assert net["totals"]["public_bytes"] > 0
+    assert net["egress_public"], "demo has egress to a public IP"
+    assert all(":" not in e["dest_ip"] for e in net["egress_public"])
+    # Recon hit risky ports (22/3389/445/23) — they appear in the port breakdown.
+    ports = {p["port"] for p in net["top_ports"]}
+    assert ports & {22, 3389, 445, 23}
+    # Protocol field parsed from the raw flow record.
+    assert any(p["protocol"] == "6" for p in net["protocols"])  # TCP
+
+
+def test_web_dns_overview(store_case) -> None:
+    store, case_id = store_case
+    web = store.web_dns_overview(case_id)
+    # Edge (ALB) requests with an HTTP status breakdown and URL paths.
+    assert web["edge"]["totals"]["requests"] > 0
+    assert web["edge"]["status_classes"], "status classes derived from the log lines"
+    assert any("/admin/login" in p["target"] for p in web["edge"]["top_paths"])
+    # WAF blocked the attacker's SQLi/XSS.
+    assert web["waf"]["totals"]["blocked"] > 0
+    # DNS: NXDOMAIN burst shows as failures; A is the dominant qtype.
+    assert web["dns"]["totals"]["failures"] > 0
+    assert any(t["qtype"] == "A" for t in web["dns"]["qtypes"])
+
+
+def test_data_access_overview(store_case) -> None:
+    store, case_id = store_case
+    da = store.data_access_overview(case_id)
+    assert da["totals"]["events"] > 0
+    assert da["totals"]["bytes_out"] > 0  # the DB-dump exfil reads
+    assert da["totals"]["deletes"] > 0  # cover-up deletes
+    ops = {o["op"] for o in da["operations"]}
+    assert {"read", "delete"} <= ops
+    assert any("customer-db.sql.gz" in o["resource_id"] for o in da["top_objects"])
+
+
+def test_data_access_event_query(store_case) -> None:
+    store, case_id = store_case
+    res = store.query_events(case_id, EventQuery(data_access=True, limit=50))
+    assert res["total"] > 0
+    sources = {e["ventra_source"] for e in res["events"]}
+    assert "s3_access" in sources
+    assert all(e.get("resource_id") for e in res["events"])
+    facets = store.facets(case_id, EventQuery(data_access=True))
+    assert facets["principal"]
+    assert facets["event_outcome"]
 
 
 # -- inventory ---------------------------------------------------------------------------

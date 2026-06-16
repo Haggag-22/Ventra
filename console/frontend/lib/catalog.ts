@@ -1,4 +1,4 @@
-// Logs coverage catalog (IR cheat sheet) and collector labels for chips / overview lookups.
+// Logs coverage catalog (IR cheat sheet) and collector labels for chips / panel lookups.
 
 export interface CatalogItem {
   id: string;

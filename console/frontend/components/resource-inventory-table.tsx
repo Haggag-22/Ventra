@@ -12,6 +12,8 @@ import {
   type ResourceRow,
 } from "@/lib/resource-inventory-detail";
 import { fmtNum } from "@/lib/format";
+import { usePagination } from "@/lib/pagination";
+import { TablePager } from "@/components/table-pager";
 import type { InventoryResourceItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -46,6 +48,11 @@ export function ResourceInventoryTable({
   const rows = getInventoryRows(data, item.key);
   const columns = useMemo(() => columnsForResource(item.id), [item.id]);
   const defaults = useMemo(() => defaultResourceWidths(columns), [columns]);
+  const { page, setPage, pageSize, setPageSize } = usePagination("ventra.resource-inventory.page-size");
+
+  useEffect(() => setPage(0), [item.id, setPage]);
+
+  const paged = rows.slice(page * pageSize, page * pageSize + pageSize);
 
   const [widths, setWidths] = useState(defaults);
   const resizing = useRef<{ key: string; startX: number; startW: number } | null>(null);
@@ -108,10 +115,10 @@ export function ResourceInventoryTable({
     0,
   );
 
-  const colPct = (key: string) => {
+  const colWidth = (key: string) => {
     const col = columns.find((c) => c.key === key);
     const w = widths[key] ?? defaults[key] ?? col?.min ?? 80;
-    return `${((w / totalWeight) * 100).toFixed(4)}%`;
+    return `${w}px`;
   };
 
   return (
@@ -130,11 +137,11 @@ export function ResourceInventoryTable({
           <div className="ct-table-wrap overflow-x-auto overflow-y-auto">
             <table
               className="ct-table ct-table-no-row-click w-full border-collapse text-left"
-              style={{ tableLayout: "fixed" }}
+              style={{ tableLayout: "fixed", width: totalWeight, minWidth: "100%" }}
             >
               <colgroup>
                 {columns.map((c) => (
-                  <col key={c.key} style={{ width: colPct(c.key) }} />
+                  <col key={c.key} style={{ width: colWidth(c.key) }} />
                 ))}
               </colgroup>
               <thead className="sticky top-0 z-10">
@@ -155,7 +162,7 @@ export function ResourceInventoryTable({
                 </tr>
               </thead>
               <tbody>
-                {rows.map((row: ResourceRow, i) => (
+                {paged.map((row: ResourceRow, i) => (
                   <tr key={resourcePrimaryId(item, row) + i}>
                     {columns.map((col, ci) => {
                       const text = col.cell(row);
@@ -178,6 +185,16 @@ export function ResourceInventoryTable({
               </tbody>
             </table>
           </div>
+        )}
+        {rows.length > 0 && (
+          <TablePager
+            page={page}
+            pageSize={pageSize}
+            total={rows.length}
+            shown={paged.length}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
+          />
         )}
       </div>
     </div>

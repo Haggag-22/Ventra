@@ -13,6 +13,8 @@ import {
   type FindingColKey,
 } from "@/lib/findings-columns";
 import { fmtNum } from "@/lib/format";
+import { usePagination } from "@/lib/pagination";
+import { TablePager } from "@/components/table-pager";
 import { useFilters } from "@/lib/useFilters";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Bookmark, Search, ShieldAlert, Star } from "lucide-react";
@@ -48,7 +50,7 @@ export default function SearchPage() {
   const { params, write, clearAll } = useFilters();
   const [text, setText] = useState(params.q ?? "");
   const [saved, setSaved] = useState<string[]>([]);
-  const [page, setPage] = useState(0);
+  const { page, setPage, pageSize, setPageSize } = usePagination("ventra.findings.page-size");
   const [visibleColumns, setVisibleColumns] = useState<FindingColKey[]>(ALL_FINDING_COL_KEYS);
 
   useEffect(() => {
@@ -97,8 +99,8 @@ export default function SearchPage() {
   });
 
   const eventsQ = useQuery({
-    queryKey: ["findings", caseId, effective, page],
-    queryFn: () => api.events(caseId, { ...effective, limit: 200, offset: page * 200 }),
+    queryKey: ["findings", caseId, effective, page, pageSize],
+    queryFn: () => api.events(caseId, { ...effective, limit: pageSize, offset: page * pageSize }),
     placeholderData: keepPreviousData,
   });
 
@@ -152,7 +154,7 @@ export default function SearchPage() {
               value={text}
               onChange={(e) => setText(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && run(text)}
-              placeholder="Search findings — title, type, resource, severity…"
+              placeholder="Search findings"
               className="pl-9"
               autoFocus
             />
@@ -208,6 +210,14 @@ export default function SearchPage() {
                 ? `No findings match “${params.q}”.`
                 : "No threat or compliance findings in this case — check Logs Coverage for source gaps."
             }
+          />
+          <TablePager
+            page={page}
+            pageSize={pageSize}
+            total={matched}
+            shown={eventsQ.data?.events.length ?? 0}
+            onPageChange={setPage}
+            onPageSizeChange={setPageSize}
           />
         </div>
       </div>

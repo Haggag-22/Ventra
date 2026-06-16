@@ -3,7 +3,6 @@
 import { catalogItemForId, type CatalogItem, type Cloud } from "./catalog";
 
 export type PanelId =
-  | "overview"
   | "cloudtrail"
   | "findings"
   | "identity"
@@ -24,17 +23,6 @@ export interface PanelCollectorDef {
 }
 
 export const PANEL_COLLECTORS: Record<PanelId, PanelCollectorDef> = {
-  overview: {
-    blurb: "Roll-up metrics from baseline sources in this case.",
-    collectors: [
-      { id: "account" },
-      { id: "cloudtrail" },
-      { id: "iam" },
-      { id: "vpc_flow" },
-      { id: "guardduty" },
-      { id: "waf" },
-    ],
-  },
   cloudtrail: {
     blurb: "API and control-plane activity across regions.",
     collectors: [{ id: "cloudtrail" }],

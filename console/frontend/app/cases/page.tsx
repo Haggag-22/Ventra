@@ -167,7 +167,7 @@ function CaseCard({ c }: { c: CaseSummary }) {
   };
 
   return (
-    <Link href={`/cases/${encodeURIComponent(c.case_id)}/overview`}>
+    <Link href={`/cases/${encodeURIComponent(c.case_id)}/cloudtrail`}>
       <Card className="group relative p-3 transition-colors hover:border-accent/40">
         <div className="flex items-center justify-between gap-3">
           <div className="min-w-0">
