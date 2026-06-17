@@ -217,6 +217,19 @@ _SEVERITY: dict[str, str] = {
     "rbac": "High",
     "nsg_flow": "High",
     "defender": "High",
+    "vnet_flow": "High",
+    "azure_firewall": "Medium",
+    "app_gateway": "Medium",
+    "front_door": "Medium",
+    "dns": "Medium",
+    "storage_access": "Medium",
+    "key_vault": "Medium",
+    "aks_audit": "Medium",
+    "entra_directory": "High",
+    "resource_graph": "Low",
+    "diag_posture": "Low",
+    "unified_audit": "High",
+    "oauth_consent": "High",
 }
 
 _SEV_COLOR = {"High": "red", "Medium": "yellow", "Low": "cyan"}

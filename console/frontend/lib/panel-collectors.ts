@@ -100,19 +100,34 @@ const PANEL_COLLECTORS_AZURE: Record<PanelId, PanelCollectorDef> = {
   },
   identity: {
     blurb: "Entra ID and Azure RBAC posture.",
-    collectors: [{ id: "rbac", note: "role definitions and assignments" }],
+    collectors: [
+      { id: "entra_directory", note: "users, groups, apps, service principals" },
+      { id: "rbac", note: "role definitions and assignments" },
+    ],
   },
   network: {
-    blurb: "NSG flow logs (L3/L4) for exfiltration and lateral movement.",
-    collectors: [{ id: "nsg_flow", note: "NSG flow records" }],
+    blurb: "VNet/NSG flow and firewall logs (L3/L4) for exfiltration and lateral movement.",
+    collectors: [
+      { id: "vnet_flow", note: "VNet flow records" },
+      { id: "nsg_flow", note: "NSG flow records (legacy)" },
+      { id: "azure_firewall", note: "firewall application/network rules" },
+    ],
   },
   web: {
-    blurb: "Edge and DNS logs (when configured).",
-    collectors: [],
+    blurb: "Edge requests, WAF verdicts, and DNS (L7) — what was requested, by whom, with what result.",
+    collectors: [
+      { id: "app_gateway", note: "Application Gateway access + WAF" },
+      { id: "front_door", note: "Front Door access + WAF" },
+      { id: "dns", note: "DNS query logs" },
+    ],
   },
   "data-access": {
-    blurb: "Storage object-level access.",
-    collectors: [],
+    blurb: "Object-level and secret access — storage blobs, Key Vault operations.",
+    collectors: [
+      { id: "storage_access", note: "storage read/write/delete" },
+      { id: "key_vault", note: "Key Vault audit events" },
+      { id: "aks_audit", note: "Kubernetes API audit (cloud-side)" },
+    ],
   },
   collection: {
     blurb: "Log sources from the IR cheat sheet — what ran, what was missing, and why.",
@@ -120,7 +135,10 @@ const PANEL_COLLECTORS_AZURE: Record<PanelId, PanelCollectorDef> = {
   },
   resources: {
     blurb: "Resources",
-    collectors: [{ id: "subscription" }],
+    collectors: [
+      { id: "subscription", note: "tenant + subscription context" },
+      { id: "resource_graph", note: "ARM inventory snapshot" },
+    ],
   },
 };
 

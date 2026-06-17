@@ -1,68 +1,79 @@
-"""Entra ID sign-in logs via Microsoft Graph."""
+"""Entra ID sign-in logs collector.
+
+Sign-in logs are the Azure equivalent of the authentication backbone — interactive and
+non-interactive auth, MFA, conditional-access verdicts, risky sign-ins, and the source
+IP/location/device behind each. Pulled via Microsoft Graph ``auditLogs/signIns``.
+
+Sign-in log access requires an Entra ID P1/P2 license; on a free/Office-365 tenant Graph
+rejects the endpoint. That is recorded as a gap (a visibility limit is evidence), not an error.
+"""
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
-
 from ...lib.base import Collector
 from ...lib.models import GapReason, SourceResult, SourceStatus
-from ..client_factory import AzureClientFactory
-from ..common.graph import GraphAccessDenied, GraphNotLicensed
+from ..client_factory import AzureAccessDenied, AzureServiceNotEnabled
+from ..common import graph_time_filter, window_bounds
+
+# Graph sign-in logs retain ~30 days on Entra P1.
+DEFAULT_WINDOW_DAYS = 30
+MAX_RECORDS = 200_000
 
 
-class EntraSigninCollector(Collector):
+class EntraSignInCollector(Collector):
     name = "entra_signin"
     priority = 1
-    description = "Entra ID sign-in logs (interactive, non-interactive, service principal)."
-    required_actions = (
-        "AuditLog.Read.All",
-        "Directory.Read.All",
-    )
+    description = "Entra ID sign-in logs (interactive + non-interactive) via Microsoft Graph."
+    required_actions = ("AuditLog.Read.All", "Directory.Read.All")
 
     def collect(self) -> SourceResult:
-        cf: AzureClientFactory = self.ctx.client_factory
+        cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
-        window = self.ctx.time_window
-        end = window.until or datetime.now(UTC)
-        start = window.since or (end - timedelta(days=30))
-
+        start, end = window_bounds(self.ctx.time_window, DEFAULT_WINDOW_DAYS)
         params = {
-            "$filter": (
-                f"createdDateTime ge {start.strftime('%Y-%m-%dT%H:%M:%SZ')} and "
-                f"createdDateTime le {end.strftime('%Y-%m-%dT%H:%M:%SZ')}"
-            ),
-            "$top": "999",
+            "$filter": graph_time_filter("createdDateTime", start, end),
+            "$top": 1000,
         }
 
         records: list[dict] = []
         try:
-            records = list(cf.graph_pages("/auditLogs/signIns", params=params))
-        except GraphAccessDenied as exc:
+            for ev in cf.graph_paginate("auditLogs/signIns", params=params, max_records=MAX_RECORDS):
+                records.append(ev)
+        except AzureAccessDenied as exc:
             gaps.append(("entra_signin", GapReason.ACCESS_DENIED, exc.message))
-        except GraphNotLicensed as exc:
-            gaps.append(("entra_signin", GapReason.SERVICE_NOT_ENABLED, exc.message))
-        except Exception as exc:
-            gaps.append(("entra_signin", GapReason.COLLECTOR_ERROR, str(exc)))
-
-        files = [self.write_json({"window": window.to_manifest()}, "config.json")]
-        if records:
-            files.append(self.write_jsonl(records, "events.jsonl.gz"))
-        self.write_meta({"source": self.name, "records": len(records)})
-
-        status = SourceStatus.COLLECTED if records else SourceStatus.EMPTY
-        if not records and not gaps:
+        except AzureServiceNotEnabled as exc:
             gaps.append(
                 (
                     "entra_signin",
                     GapReason.SERVICE_NOT_ENABLED,
-                    "No Entra sign-in logs returned (P1/P2 license or diagnostic setting may be required).",
+                    f"Sign-in logs unavailable (Entra ID P1/P2 required?): {exc.message}",
                 )
             )
+
+        files = []
+        if records:
+            files.append(self.write_jsonl(records, "events.jsonl.gz"))
+        self.write_meta(
+            {
+                "source": self.name,
+                "records": len(records),
+                "window": self.ctx.time_window.to_manifest(),
+            }
+        )
+
+        if records:
+            status = SourceStatus.PARTIAL if gaps else SourceStatus.COLLECTED
+        elif gaps:
+            status = SourceStatus.EMPTY
+        else:
+            status = SourceStatus.EMPTY
+            gaps.append(("entra_signin", GapReason.NOT_PRESENT, "No sign-in events in window."))
+
         return SourceResult(
             name=self.name,
             status=status,
             files=files,
             record_count=len(records),
             gaps=gaps,
-            notes=f"{len(records)} sign-in record(s).",
+            notes=f"{len(records)} sign-in event(s).",
         )

@@ -16,6 +16,7 @@ import {
 } from "@/lib/cloudtrail-columns";
 import { usePagination } from "@/lib/pagination";
 import { caseCloud, controlPlaneSources } from "@/lib/cloud-sources";
+import { panelLabel } from "@/lib/panel-labels";
 import { TablePager } from "@/components/table-pager";
 import { useFilters } from "@/lib/useFilters";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -139,7 +140,7 @@ export default function CloudTrailPage() {
 
   return (
     <>
-      <PanelHeader icon={ScrollText} title="CloudTrail Timeline" panel="cloudtrail" />
+      <PanelHeader icon={ScrollText} title={panelLabel(cloud, "cloudtrail")} panel="cloudtrail" />
       <PanelBody className="cloudtrail-view cloudtrail-timeline space-y-4">
         {cloud === "aws" && <CloudTrailCollectionPanel caseId={caseId} />}
 

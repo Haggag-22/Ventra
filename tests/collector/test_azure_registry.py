@@ -2,22 +2,40 @@
 
 from __future__ import annotations
 
-from collector.azure.registry import AZURE_REGISTRY, all_collector_names
+from collector.azure.registry import AZURE_REGISTRY, COLLECTOR_ORDER, all_collector_names
 
-EXPECTED = {
+EXPECTED = [
     "subscription",
-    "activity_log",
     "entra_signin",
     "entra_audit",
+    "entra_directory",
+    "activity_log",
     "rbac",
-    "nsg_flow",
+    "unified_audit",
+    "oauth_consent",
     "defender",
-}
+    "vnet_flow",
+    "nsg_flow",
+    "azure_firewall",
+    "app_gateway",
+    "front_door",
+    "dns",
+    "storage_access",
+    "key_vault",
+    "aks_audit",
+    "resource_graph",
+    "diag_posture",
+]
 
 
-def test_azure_registry_has_tier1_collectors() -> None:
+def test_azure_registry_order() -> None:
+    assert all_collector_names() == EXPECTED
+    assert COLLECTOR_ORDER == EXPECTED
+
+
+def test_azure_registry_has_all_collectors() -> None:
     names = set(all_collector_names())
-    assert names == EXPECTED
+    assert names == set(EXPECTED), f"missing: {set(EXPECTED) - names}"
 
 
 def test_azure_collectors_declare_readonly_actions() -> None:
