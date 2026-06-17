@@ -1,11 +1,19 @@
-"""Microsoft Defender for Cloud alerts collector."""
+"""Microsoft Defender for Cloud alerts collector.
+
+Pulls active and historical security alerts across in-scope subscriptions via the
+Microsoft.Security/alerts ARM API. Absence of alerts is not an error; a tenant without
+Defender enabled or without read permission is recorded as a gap.
+"""
 
 from __future__ import annotations
 
+from typing import Any
+
 from ...lib.base import Collector
 from ...lib.models import GapReason, SourceResult, SourceStatus
-from ..client_factory import AccessDenied, AzureClientFactory
-from ..common.serialize import to_dict
+from ..client_factory import AzureAccessDenied, AzureServiceNotEnabled
+
+MAX_RECORDS = 200_000
 
 
 class DefenderCollector(Collector):
@@ -18,48 +26,57 @@ class DefenderCollector(Collector):
     )
 
     def collect(self) -> SourceResult:
-        cf: AzureClientFactory = self.ctx.client_factory
+        cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
-        alerts: list[dict] = []
+        alerts: list[dict[str, Any]] = []
+        per_sub: list[dict[str, Any]] = []
 
-        try:
-            sec = cf.security()
-            for alert in sec.alerts.list():
-                item = to_dict(alert)
-                alerts.append(item)
-        except AccessDenied as exc:
-            gaps.append(("defender", GapReason.ACCESS_DENIED, exc.message))
-        except Exception as exc:
-            msg = str(exc)
-            if "AuthorizationFailed" in msg or "403" in msg:
-                gaps.append(("defender", GapReason.ACCESS_DENIED, msg))
-            else:
-                gaps.append(("defender", GapReason.COLLECTOR_ERROR, msg))
-
-        files = [self.write_json({"alert_count": len(alerts)}, "config.json")]
-        if alerts:
-            files.append(self.write_jsonl(alerts, "events.jsonl.gz"))
-        self.write_meta({"source": self.name, "alerts": len(alerts)})
-
-        if not alerts and not gaps:
+        subscriptions = self.ctx.subscription_ids
+        if not subscriptions:
             return SourceResult(
                 name=self.name,
                 status=SourceStatus.EMPTY,
-                gaps=[
-                    (
-                        "defender",
-                        GapReason.SERVICE_NOT_ENABLED,
-                        "Defender for Cloud returned no alerts (may be disabled or no findings).",
-                    )
-                ],
-                notes="No Defender alerts in scope.",
+                gaps=[("defender", GapReason.NOT_PRESENT, "No subscriptions in scope.")],
+                notes="No subscriptions discovered or specified.",
             )
+
+        for sub in subscriptions:
+            before = len(alerts)
+            try:
+                for alert in cf.security_alerts(sub, max_records=MAX_RECORDS - len(alerts)):
+                    alert["_ventra_subscription_id"] = sub
+                    alerts.append(alert)
+                    if len(alerts) >= MAX_RECORDS:
+                        break
+            except AzureAccessDenied as exc:
+                gaps.append(("defender", GapReason.ACCESS_DENIED, f"{sub}: {exc.message}"))
+            except AzureServiceNotEnabled as exc:
+                gaps.append(("defender", GapReason.SERVICE_NOT_ENABLED, f"{sub}: {exc.message}"))
+            per_sub.append({"subscription_id": sub, "alerts": len(alerts) - before})
+
+        files = [self.write_json({"subscriptions": per_sub}, "config.json")]
+        if alerts:
+            files.append(self.write_jsonl(alerts, "events.jsonl.gz"))
+        self.write_meta(
+            {
+                "source": self.name,
+                "alerts": len(alerts),
+                "subscriptions": per_sub,
+            }
+        )
+
+        if alerts:
+            status = SourceStatus.PARTIAL if gaps else SourceStatus.COLLECTED
+        else:
+            status = SourceStatus.EMPTY
+            if not gaps:
+                gaps.append(("defender", GapReason.NOT_PRESENT, "No Defender alerts in scope."))
 
         return SourceResult(
             name=self.name,
-            status=SourceStatus.COLLECTED if alerts else SourceStatus.EMPTY,
+            status=status,
             files=files,
             record_count=len(alerts),
             gaps=gaps,
-            notes=f"{len(alerts)} Defender alert(s).",
+            notes=f"{len(alerts)} Defender alert(s) across {len(subscriptions)} subscription(s).",
         )

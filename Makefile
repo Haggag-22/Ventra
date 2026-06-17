@@ -7,8 +7,10 @@ help:
 	@echo "Ventra targets:"
 	@echo "  make install        Install collector + ingester + backend (editable)"
 	@echo "  make gui            Same as: ventra gui (auto-setup + hot reload, no Docker)"
-	@echo "  make demo           Generate a synthetic evidence package into tests/fixtures/"
-	@echo "  make ingest         Ingest the demo package into ./cases"
+	@echo "  make demo           Generate AWS synthetic evidence package into tests/fixtures/"
+	@echo "  make demo-azure     Generate Azure synthetic evidence package into tests/fixtures/"
+	@echo "  make ingest         Ingest the AWS demo package into ./cases"
+	@echo "  make ingest-azure   Ingest the Azure demo package into ./cases"
 	@echo "  make backend        Run the console backend (uvicorn :8000, reload)"
 	@echo "  make frontend       Run the console frontend (next dev :8080)"
 	@echo "  make test           Run the Python test suite"
@@ -32,8 +34,14 @@ dev: gui
 demo:
 	python tests/fixtures/generate_demo_case.py --out tests/fixtures/
 
+demo-azure:
+	python tests/fixtures/generate_azure_demo_case.py --out tests/fixtures/
+
 ingest:
-	ventra-ingest tests/fixtures/case-*.tar.zst --case-store ./cases
+	ventra-ingest tests/fixtures/case-CASE-2026-0042-*.tar.zst --case-store ./cases
+
+ingest-azure:
+	ventra-ingest $$(ls -t tests/fixtures/case-CASE-2026-AZ42-*.tar.zst | head -1) --case-store ./cases
 
 backend: clean-pycache
 	VENTRA_CASE_STORE=./cases VENTRA_UPLOAD_DIR=./.ventra-uploads \

@@ -1,9 +1,15 @@
-"""Azure NSG flow logs → network events (same shape as VPC flow where possible)."""
+"""Azure VNet / NSG flow logs → network events.
+
+Both collectors flatten their (different) flow-tuple schemas into one shared shape
+(``srcaddr / dstaddr / dstport / action / bytes / timestamp / resource_id``), so a single
+normalizer serves both — only the ``ventra_source`` differs (``vnet_flow`` primary,
+``nsg_flow`` legacy fallback).
+"""
 
 from __future__ import annotations
 
 import ipaddress
-from typing import Any, Iterator
+from typing import Iterator
 
 from ..base import NormalizeContext, UnifiedEvent, register
 
@@ -16,8 +22,7 @@ def _is_public(ip: str) -> bool:
         return False
 
 
-@register("nsg_flow")
-def normalize_nsg_flow(records: list[dict], ctx: NormalizeContext) -> Iterator[UnifiedEvent]:
+def _flow_events(records: list[dict], ctx: NormalizeContext, source: str) -> Iterator[UnifiedEvent]:
     for rec in records:
         src = rec.get("srcaddr") or rec.get("source_ip") or ""
         dst = rec.get("dstaddr") or rec.get("dest_ip") or ""
@@ -41,7 +46,7 @@ def normalize_nsg_flow(records: list[dict], ctx: NormalizeContext) -> Iterator[U
             event_action=action.lower(),
             event_outcome=outcome,
             event_severity=severity,
-            event_provider="nsg_flow",
+            event_provider=source,
             cloud_provider="azure",
             cloud_account=ctx.account_id,
             cloud_region=rec.get("_ventra_region", ""),
@@ -54,6 +59,16 @@ def normalize_nsg_flow(records: list[dict], ctx: NormalizeContext) -> Iterator[U
             related_resource=[rec.get("resource_id", "")] if rec.get("resource_id") else [],
             message=f"{action} {src} -> {dst}:{dport}",
             case_id=ctx.case_id,
-            ventra_source="nsg_flow",
+            ventra_source=source,
             raw=rec,
         )
+
+
+@register("nsg_flow")
+def normalize_nsg_flow(records: list[dict], ctx: NormalizeContext) -> Iterator[UnifiedEvent]:
+    yield from _flow_events(records, ctx, "nsg_flow")
+
+
+@register("vnet_flow")
+def normalize_vnet_flow(records: list[dict], ctx: NormalizeContext) -> Iterator[UnifiedEvent]:
+    yield from _flow_events(records, ctx, "vnet_flow")

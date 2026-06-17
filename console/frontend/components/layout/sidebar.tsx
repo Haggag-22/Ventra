@@ -1,6 +1,9 @@
 "use client";
 
+import { useCase } from "@/components/case-context";
 import { BackToCases } from "@/components/layout/back-to-cases";
+import { caseCloud } from "@/lib/cloud-sources";
+import { panelLabel } from "@/lib/panel-labels";
 import { CASES_HREF } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
@@ -9,7 +12,8 @@ import type { ReactNode } from "react";
 
 type NavEntry = {
   href?: string;
-  label: string;
+  panel?: Parameters<typeof panelLabel>[1];
+  label?: string;
   icon: ReactNode;
   soon?: boolean;
 };
@@ -17,7 +21,7 @@ type NavEntry = {
 const INVESTIGATE: NavEntry[] = [
   {
     href: "cloudtrail",
-    label: "CloudTrail Timeline",
+    panel: "cloudtrail",
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden>
         <circle cx="12" cy="12" r="9" />
@@ -27,7 +31,7 @@ const INVESTIGATE: NavEntry[] = [
   },
   {
     href: "search",
-    label: "Security Findings",
+    panel: "search",
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden>
         <path d="M12 3l9 16H3l9-16z" />
@@ -38,7 +42,7 @@ const INVESTIGATE: NavEntry[] = [
   },
   {
     href: "identity",
-    label: "Identity & Access",
+    panel: "identity",
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden>
         <circle cx="12" cy="8" r="4" />
@@ -48,7 +52,7 @@ const INVESTIGATE: NavEntry[] = [
   },
   {
     href: "network",
-    label: "Network Activity",
+    panel: "network",
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden>
         <circle cx="5" cy="12" r="2.5" />
@@ -60,7 +64,7 @@ const INVESTIGATE: NavEntry[] = [
   },
   {
     href: "web",
-    label: "Web & DNS",
+    panel: "web",
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden>
         <circle cx="12" cy="12" r="9" />
@@ -71,7 +75,7 @@ const INVESTIGATE: NavEntry[] = [
   },
   {
     href: "data-access",
-    label: "Data Access",
+    panel: "data-access",
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden>
         <ellipse cx="12" cy="5" rx="8" ry="3" />
@@ -85,7 +89,7 @@ const INVESTIGATE: NavEntry[] = [
 const PACKAGE: NavEntry[] = [
   {
     href: "collection",
-    label: "Logs Coverage",
+    panel: "collection",
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden>
         <path d="M4 12l5 5L20 6" />
@@ -94,7 +98,7 @@ const PACKAGE: NavEntry[] = [
   },
   {
     href: "resources",
-    label: "Resource Inventory",
+    panel: "resources",
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden>
         <rect x="3" y="3" width="7" height="7" rx="1.5" />
@@ -106,7 +110,7 @@ const PACKAGE: NavEntry[] = [
   },
   {
     href: "report",
-    label: "Report",
+    panel: "report",
     icon: (
       <svg viewBox="0 0 24 24" aria-hidden>
         <path d="M7 3h7l5 5v13a1 1 0 01-1 1H7a1 1 0 01-1-1V4a1 1 0 011-1z" />
@@ -130,16 +134,20 @@ function NavItem({
   caseId,
   item,
   pathname,
+  cloud,
 }: {
   caseId: string;
   item: NavEntry;
   pathname: string;
+  cloud: ReturnType<typeof caseCloud>;
 }) {
+  const label = item.panel ? panelLabel(cloud, item.panel) : (item.label ?? "");
+
   if (item.soon || !item.href) {
     return (
       <span className="sb-nav-item sb-nav-item-soon" aria-disabled>
         {item.icon}
-        {item.label}
+        {label}
       </span>
     );
   }
@@ -150,13 +158,15 @@ function NavItem({
   return (
     <Link href={href} className={cn("sb-nav-item", active && "active")}>
       {item.icon}
-      {item.label}
+      {label}
     </Link>
   );
 }
 
 export function Sidebar({ caseId }: { caseId: string }) {
   const pathname = usePathname();
+  const { summary } = useCase();
+  const cloud = caseCloud(summary?.cloud);
 
   return (
     <aside className="app-sidebar">
@@ -183,12 +193,24 @@ export function Sidebar({ caseId }: { caseId: string }) {
       <nav className="sb-nav">
         <div className="sb-nav-section">Investigate</div>
         {INVESTIGATE.map((item) => (
-          <NavItem key={item.label} caseId={caseId} item={item} pathname={pathname} />
+          <NavItem
+            key={item.panel ?? item.label}
+            caseId={caseId}
+            item={item}
+            pathname={pathname}
+            cloud={cloud}
+          />
         ))}
 
         <div className="sb-nav-section">Package</div>
         {PACKAGE.map((item) => (
-          <NavItem key={item.label} caseId={caseId} item={item} pathname={pathname} />
+          <NavItem
+            key={item.panel ?? item.label}
+            caseId={caseId}
+            item={item}
+            pathname={pathname}
+            cloud={cloud}
+          />
         ))}
       </nav>
 

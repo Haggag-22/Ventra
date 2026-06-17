@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { caseCloud } from "@/lib/cloud-sources";
+import { panelLabel } from "@/lib/panel-labels";
 import { useCase } from "./case-context";
 
 type EntityKind = "ip" | "user" | "resource";
@@ -24,11 +26,11 @@ const PARAM: Record<EntityKind, string> = {
 
 // Where you can pivot to, and what each destination is good for.
 const TARGETS = [
-  { href: "timeline", label: "Timeline", icon: Activity },
-  { href: "cloudtrail", label: "CloudTrail", icon: ScrollText },
-  { href: "search", label: "Security Findings", icon: ShieldAlert },
-  { href: "identity", label: "Identity & Access", icon: Fingerprint },
-  { href: "network", label: "Network Activity", icon: Network },
+  { href: "timeline", panel: "timeline" as const, icon: Activity },
+  { href: "cloudtrail", panel: "cloudtrail" as const, icon: ScrollText },
+  { href: "search", panel: "search" as const, icon: ShieldAlert },
+  { href: "identity", panel: "identity" as const, icon: Fingerprint },
+  { href: "network", panel: "network" as const, icon: Network },
 ];
 
 /**
@@ -51,7 +53,8 @@ export function Entity({
   truncate?: boolean;
   excludeTargets?: string[];
 }) {
-  const { caseId } = useCase();
+  const { caseId, summary } = useCase();
+  const cloud = caseCloud(summary?.cloud);
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLSpanElement>(null);
   const targets = excludeTargets?.length
@@ -106,7 +109,7 @@ export function Entity({
                 className="flex items-center gap-2 rounded-md px-2 py-1.5 text-sm text-fg-subtle hover:bg-surface hover:text-fg"
               >
                 <Icon className="h-3.5 w-3.5" />
-                Show in {t.label}
+                Show in {panelLabel(cloud, t.panel)}
               </Link>
             );
           })}

@@ -211,7 +211,11 @@ class CollectionContext:
     time_window: TimeWindow
     staging: Path
     case_id: str
-    # Injected by the AWS runner; typed loosely to keep this module cloud-agnostic.
+    # Azure/M365 scope. ``account_id`` holds the tenant id for those clouds; ``subscription_ids``
+    # is the set of in-scope subscriptions an ARM-scoped collector iterates. Empty for AWS.
+    tenant_id: str = ""
+    subscription_ids: list[str] = field(default_factory=list)
+    # Injected by the runner; typed loosely to keep this module cloud-agnostic.
     client_factory: Any = None
     logger: Any = None
 

@@ -23,6 +23,35 @@ This produces `case-CASE-2026-0042-...-.tar.zst`, used by:
 - the console demo and e2e,
 - manual exploration of the GUI.
 
+## Azure demo case generator
+
+[`generate_azure_demo_case.py`](generate_azure_demo_case.py) builds a synthetic Azure/M365
+evidence package with `manifest.cloud = "azure"`. It encodes one coherent attack scenario:
+
+> A finance admin's Entra session is hijacked from a foreign IP — OAuth consent to a malicious
+> app, service-principal credential add, RBAC escalation, blob storage reads, mailbox access
+> (Unified Audit Log), and VNet flow exfiltration — with Defender alerts throughout. Several
+> log sources are deliberately missing (NSG flow, DNS, Key Vault, App Gateway) to show realistic
+> collection gaps.
+
+```bash
+make demo-azure
+make ingest-azure
+ventra gui
+```
+
+Open case **`CASE-2026-AZ42`** in the console to explore Azure-specific panels (Activity Log,
+Entra sign-in/audit, Defender, VNet flow, M365 UAL, etc.).
+
+Or run the generator directly:
+
+```bash
+python tests/fixtures/generate_azure_demo_case.py --out tests/fixtures/
+ventra-ingest tests/fixtures/case-CASE-2026-AZ42-*.tar.zst --case-store ./cases
+```
+
+Used by `tests/ingester/test_azure_pipeline.py`.
+
 ## Sanitization policy
 
 Any fixture derived from real telemetry must be scrubbed: replace account IDs, ARNs, IPs,
