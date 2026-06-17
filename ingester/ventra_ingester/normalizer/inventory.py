@@ -14,7 +14,10 @@ from typing import Any, Iterator
 
 from .base import NormalizeContext, UnifiedEvent
 
-INVENTORY_SOURCES = {"iam", "ec2", "s3", "kms", "secrets", "account", "waf", "lambda", "rbac", "subscription"}
+INVENTORY_SOURCES = {
+    "iam", "ec2", "s3", "kms", "secrets", "account", "waf", "lambda",
+    "rbac", "subscription", "entra_directory", "resource_graph",
+}
 
 
 def parse_credential_report(csv_bytes: bytes) -> list[dict[str, Any]]:

@@ -32,7 +32,7 @@ function countUnusedActiveKeys(users: any[]): number {
 export default function IdentityPage() {
   const { caseId, summary } = useCase();
   const collected = new Set(summary?.collection?.collected ?? []);
-  const hasIdentitySnapshot = collected.has("iam") || collected.has("rbac");
+  const hasIdentitySnapshot = collected.has("iam") || collected.has("rbac") || collected.has("entra_directory");
   const q = useQuery({ queryKey: ["identity", caseId], queryFn: () => api.identity(caseId) });
   const kmsQ = useQuery({
     queryKey: ["inventory", caseId, "kms"],

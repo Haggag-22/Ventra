@@ -1,6 +1,9 @@
 "use client";
 
+import { useCase } from "@/components/case-context";
 import { api } from "@/lib/api";
+import { caseCloud } from "@/lib/cloud-sources";
+import { panelLabel } from "@/lib/panel-labels";
 import { useQuery } from "@tanstack/react-query";
 import {
   Activity,
@@ -29,15 +32,15 @@ interface Item {
 }
 
 const PANELS = [
-  { href: "timeline", label: "Timeline", icon: Activity },
-  { href: "cloudtrail", label: "CloudTrail Timeline", icon: ScrollText },
-  { href: "search", label: "Security Findings", icon: ShieldAlert },
-  { href: "identity", label: "Identity & Access", icon: Fingerprint },
-  { href: "network", label: "Network Activity", icon: Network },
-  { href: "web", label: "Web & DNS", icon: Globe2 },
-  { href: "data-access", label: "Data Access", icon: Database },
-  { href: "collection", label: "Logs Coverage", icon: Gauge },
-  { href: "report", label: "Report", icon: FileText },
+  { href: "timeline", panel: "timeline" as const, icon: Activity },
+  { href: "cloudtrail", panel: "cloudtrail" as const, icon: ScrollText },
+  { href: "search", panel: "search" as const, icon: ShieldAlert },
+  { href: "identity", panel: "identity" as const, icon: Fingerprint },
+  { href: "network", panel: "network" as const, icon: Network },
+  { href: "web", panel: "web" as const, icon: Globe2 },
+  { href: "data-access", panel: "data-access" as const, icon: Database },
+  { href: "collection", panel: "collection" as const, icon: Gauge },
+  { href: "report", panel: "report" as const, icon: FileText },
 ];
 
 export function CommandPalette({
@@ -50,6 +53,8 @@ export function CommandPalette({
   onClose: () => void;
 }) {
   const router = useRouter();
+  const { summary } = useCase();
+  const cloud = caseCloud(summary?.cloud);
   const [q, setQ] = useState("");
   const [cursor, setCursor] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -75,7 +80,7 @@ export function CommandPalette({
     };
     const base: Item[] = PANELS.map((p) => ({
       id: `panel-${p.href}`,
-      label: p.label,
+      label: panelLabel(cloud, p.panel),
       hint: "Panel",
       icon: p.icon,
       run: go(p.href),
@@ -116,7 +121,7 @@ export function CommandPalette({
       },
     });
     return filtered;
-  }, [q, facets.data, caseId, router, onClose]);
+  }, [q, facets.data, caseId, router, onClose, cloud]);
 
   useEffect(() => {
     if (!open) return;

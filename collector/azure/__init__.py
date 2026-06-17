@@ -1,10 +1,7 @@
-"""Azure collectors — Activity Log, Entra ID, NSG flow, Defender, RBAC.
+"""Azure + Microsoft 365 collectors.
 
-Install Azure SDK dependencies::
-
-    pip install 'ventra[azure]'
+Mirrors the AWS tier: a client factory that abstracts auth and the two Azure collection
+paths (Graph / ARM management APIs, and diagnostic-settings-routed resource logs), a
+registry, a runner, and pure collectors that return ``SourceResult``. The evidence-package
+format, signing, and unified-event schema are shared with AWS unchanged.
 """
-
-from .registry import AZURE_REGISTRY, all_collector_names
-
-__all__ = ["AZURE_REGISTRY", "all_collector_names"]
