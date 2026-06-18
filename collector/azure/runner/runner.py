@@ -12,14 +12,16 @@ import json
 import platform
 import tempfile
 import traceback
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from ... import __version__
 from ...aws.runner.runner import RunReporter, parse_window  # shared, cloud-agnostic
+from ...lib.auth import azure_factory_kwargs, manifest_profile_overrides
 from ...lib.base import Collector
 from ...lib.chain_of_custody.signing import sign_manifest
 from ...lib.models import (
+    AzureAuthOptions,
     CollectionContext,
     GapReason,
     Manifest,
@@ -27,6 +29,7 @@ from ...lib.models import (
     SourceResult,
     SourceStatus,
     TimeWindow,
+    UalCollectOptions,
     utcnow_iso,
 )
 from ...lib.packaging.packager import PackageResult, seal_package
@@ -49,13 +52,15 @@ class AzureRunConfig:
     engagement_id: str = ""
     key_path: Path | None = None
     reporter: RunReporter | None = None
+    ual: UalCollectOptions = field(default_factory=UalCollectOptions)
+    auth: AzureAuthOptions = field(default_factory=AzureAuthOptions)
 
 
 def run_azure_collection(
     cfg: AzureRunConfig, *, factory: AzureClientFactory | None = None
 ) -> PackageResult:
     started = utcnow_iso()
-    cf = factory or AzureClientFactory(subscription_id=cfg.subscription_id)
+    cf = factory or AzureClientFactory(**azure_factory_kwargs(cfg.auth, subscription_id=cfg.subscription_id))
     identity = cf.caller_identity()
     subscriptions = cf.subscriptions()
 
@@ -77,6 +82,7 @@ def run_azure_collection(
             case_id=cfg.case_id,
             client_factory=cf,
             logger=reporter,
+            ual=cfg.ual,
         )
 
         manifest = Manifest(
@@ -95,7 +101,10 @@ def run_azure_collection(
             completed_at="",
             time_window=cfg.time_window,
             profile_name="all",
-            profile_overrides=[],
+            profile_overrides=manifest_profile_overrides(
+                azure_auth=cfg.auth,
+                subscription_id=cfg.subscription_id,
+            ),
             account_alias=identity.tenant_name,
             host_environment="local",
             host_os=platform.platform(),

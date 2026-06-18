@@ -37,6 +37,7 @@ export const EXTRA_COLLECTOR_LABELS: Record<string, string> = {
   diag_posture: "Diagnostic posture",
   vnet_flow: "VNet flow logs",
   unified_audit: "M365 Unified Audit",
+  unified_audit_search: "M365 UAL (Search)",
   oauth_consent: "OAuth consent grants",
   azure_firewall: "Azure Firewall",
   app_gateway: "Application Gateway",
@@ -45,6 +46,7 @@ export const EXTRA_COLLECTOR_LABELS: Record<string, string> = {
   storage_access: "Storage access logs",
   key_vault: "Key Vault audit",
   aks_audit: "AKS audit logs",
+  log_analytics: "Log Analytics diagnostics",
 };
 
 // AWS — Erblind / IR logs cheat sheet. Ids match collector source names / posture gap names
@@ -89,6 +91,7 @@ const AZURE: CatalogGroup[] = [
       { id: "entra_audit", label: "Entra ID audit", description: "" },
       { id: "activity_log", label: "Activity Log", description: "" },
       { id: "unified_audit", label: "M365 Unified Audit Log", description: "" },
+      { id: "unified_audit_search", label: "M365 UAL (Search-UnifiedAuditLog)", description: "" },
       { id: "oauth_consent", label: "OAuth consent grants", description: "" },
       { id: "vnet_flow", label: "VNet flow logs", description: "" },
       { id: "nsg_flow", label: "NSG flow logs", description: "" },
@@ -99,6 +102,7 @@ const AZURE: CatalogGroup[] = [
       { id: "storage_access", label: "Storage access logs", description: "" },
       { id: "key_vault", label: "Key Vault audit", description: "" },
       { id: "aks_audit", label: "AKS kube-audit logs", description: "" },
+      { id: "log_analytics", label: "Log Analytics (LA-routed diagnostics)", description: "" },
       { id: "defender", label: "Defender for Cloud", description: "" },
     ],
   },

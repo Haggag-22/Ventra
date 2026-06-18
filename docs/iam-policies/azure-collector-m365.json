@@ -1,0 +1,25 @@
+{
+  "Name": "Ventra Collector — Microsoft 365 / Exchange",
+  "Description": "Additional Entra and Exchange configuration for M365 Unified Audit Log Search (unified_audit_search). ARM and Graph permissions alone are not sufficient.",
+  "Type": "Microsoft365",
+  "ApplicationPermissions": [
+    {
+      "permission": "Exchange.ManageAsApp",
+      "resource": "Office 365 Exchange Online",
+      "collectors": ["unified_audit_search"],
+      "notes": "Application permission on the Exchange Online API. Required for Search-UnifiedAuditLog."
+    }
+  ],
+  "DirectoryRoles": [
+    {
+      "role": "Exchange Administrator",
+      "collectors": ["unified_audit_search"],
+      "notes": "Assign the Ventra service principal to Exchange Administrator (or a custom role with Search-UnifiedAuditLog) in Entra ID → Roles and administrators."
+    }
+  ],
+  "Prerequisites": [
+    "Unified Audit Log must be enabled in Microsoft Purview compliance portal.",
+    "Management Activity API content feeds must be enabled for unified_audit (ActivityFeed.Read).",
+    "Default unified_audit_search lookback is 90 days; tenant retention may be 180 or 365 days."
+  ]
+}

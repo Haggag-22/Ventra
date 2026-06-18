@@ -286,6 +286,63 @@ def build_unified_audit() -> list[dict]:
     ]
 
 
+def build_unified_audit_search() -> list[dict]:
+    return [
+        {
+            "CreationTime": _t(1500),
+            "UserId": VICTIM_USER,
+            "Operation": "MailItemsAccessed",
+            "RecordType": 2,
+            "ClientIP": ATTACKER_IP2,
+            "ResultStatus": "Succeeded",
+            "Workload": "Exchange",
+            "OrganizationId": TENANT_ID,
+            "ObjectId": "mbx-finance-001",
+        },
+        {
+            "CreationTime": _t(2400),
+            "UserId": VICTIM_USER,
+            "Operation": "FileDownloaded",
+            "RecordType": 6,
+            "ClientIP": ATTACKER_IP,
+            "ResultStatus": "Succeeded",
+            "Workload": "SharePoint",
+            "OrganizationId": TENANT_ID,
+            "ObjectId": "https://contoso.sharepoint.com/sites/finance/export.zip",
+        },
+    ]
+
+
+def build_log_analytics() -> list[dict]:
+    appgw = (f"/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/prod-rg/providers/"
+             f"Microsoft.Network/applicationGateways/prod-appgw")
+    return [
+        {
+            "TimeGenerated": _t(1700),
+            "ResourceId": appgw,
+            "Category": "ApplicationGatewayAccessLog",
+            "clientIP_s": ATTACKER_IP,
+            "httpMethod_s": "GET",
+            "requestUri_s": "/finance/export.csv",
+            "httpStatus_d": 200,
+            "_ventra_la_source": "app_gateway",
+            "_ventra_la_workspace": (
+                f"/subscriptions/{SUBSCRIPTION_ID}/resourceGroups/prod-rg/providers/"
+                f"Microsoft.OperationalInsights/workspaces/prod-la"
+            ),
+        },
+        {
+            "TimeGenerated": _t(1710),
+            "ResourceId": appgw,
+            "Category": "ApplicationGatewayFirewallLog",
+            "clientIP_s": ATTACKER_IP,
+            "action_s": "BLOCK",
+            "ruleId_s": "942100",
+            "_ventra_la_source": "app_gateway",
+        },
+    ]
+
+
 def build_oauth_consent() -> list[dict]:
     return [{
         "clientId": MALICIOUS_APP_ID,
@@ -547,6 +604,12 @@ def generate(out_dir: Path, case_id: str = "CASE-2026-AZ42") -> Path:
             ("_meta.json", _write_json(sd / "unified_audit/_meta.json",
                                         {"source": "unified_audit", "records": 4})),
         ], notes="UAL: consent + MailItemsAccessed + Send.")
+        src("unified_audit_search", [
+            ("events.jsonl.gz", _write_gz_jsonl(sd / "unified_audit_search/events.jsonl.gz",
+                                                build_unified_audit_search())),
+            ("_meta.json", _write_json(sd / "unified_audit_search/_meta.json",
+                                        {"source": "unified_audit_search", "records": 2})),
+        ], notes="Search-UnifiedAuditLog: older mail + SharePoint access.")
         src("oauth_consent", [
             ("events.jsonl.gz", _write_gz_jsonl(sd / "oauth_consent/events.jsonl.gz",
                                                  build_oauth_consent())),
@@ -557,6 +620,12 @@ def generate(out_dir: Path, case_id: str = "CASE-2026-AZ42") -> Path:
             ("events.jsonl.gz", _write_gz_jsonl(sd / "storage_access/events.jsonl.gz",
                                                build_storage_access())),
         ], notes="Blob read exfil from storage diagnostics.")
+        src("log_analytics", [
+            ("events.jsonl.gz", _write_gz_jsonl(sd / "log_analytics/events.jsonl.gz",
+                                                build_log_analytics())),
+            ("_meta.json", _write_json(sd / "log_analytics/_meta.json",
+                                        {"source": "log_analytics", "records": 2})),
+        ], notes="App Gateway access + WAF from Log Analytics workspace.")
         src("entra_directory", [("snapshot.json", _write_json(
             sd / "entra_directory/snapshot.json", build_entra_directory_snapshot()))],
             notes="Users, apps, malicious service principal.")
