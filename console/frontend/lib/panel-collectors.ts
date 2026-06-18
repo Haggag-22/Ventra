@@ -92,6 +92,9 @@ const PANEL_COLLECTORS_AZURE: Record<PanelId, PanelCollectorDef> = {
       { id: "activity_log" },
       { id: "entra_signin", note: "sign-in logs" },
       { id: "entra_audit", note: "directory audit" },
+      { id: "unified_audit", note: "M365 UAL (Management API, ~7d)" },
+      { id: "unified_audit_search", note: "M365 UAL Search (90d default)" },
+      { id: "oauth_consent", note: "standing OAuth grants" },
     ],
   },
   findings: {
@@ -111,6 +114,7 @@ const PANEL_COLLECTORS_AZURE: Record<PanelId, PanelCollectorDef> = {
       { id: "vnet_flow", note: "VNet flow records" },
       { id: "nsg_flow", note: "NSG flow records (legacy)" },
       { id: "azure_firewall", note: "firewall application/network rules" },
+      { id: "log_analytics", note: "LA-routed firewall / flow diagnostics" },
     ],
   },
   web: {
@@ -119,6 +123,7 @@ const PANEL_COLLECTORS_AZURE: Record<PanelId, PanelCollectorDef> = {
       { id: "app_gateway", note: "Application Gateway access + WAF" },
       { id: "front_door", note: "Front Door access + WAF" },
       { id: "dns", note: "DNS query logs" },
+      { id: "log_analytics", note: "LA-routed App Gateway / Front Door / DNS" },
     ],
   },
   "data-access": {
@@ -127,6 +132,7 @@ const PANEL_COLLECTORS_AZURE: Record<PanelId, PanelCollectorDef> = {
       { id: "storage_access", note: "storage read/write/delete" },
       { id: "key_vault", note: "Key Vault audit events" },
       { id: "aks_audit", note: "Kubernetes API audit (cloud-side)" },
+      { id: "log_analytics", note: "LA-routed storage / Key Vault / AKS audit" },
     ],
   },
   collection: {

@@ -16,6 +16,13 @@ from collector.azure.identity.entra_signin import EntraSignInCollector
 from collector.lib.models import CollectionContext, GapReason, SourceStatus, TimeWindow
 
 
+def _single_day_window(day: str = "2026-06-08") -> TimeWindow:
+    from datetime import UTC, datetime, timedelta
+
+    since = datetime.fromisoformat(f"{day}T00:00:00").replace(tzinfo=UTC)
+    return TimeWindow(since=since, until=since + timedelta(days=1))
+
+
 class _FakeCf:
     """Fake AzureClientFactory: canned Graph pages / Activity Log events, or a raised error."""
 
@@ -29,6 +36,7 @@ class _FakeCf:
         self._graph = graph or {}
         self._graph_error = graph_error
         self._activity = activity or {}
+        self._activity_chunks: set[tuple[str, str]] = set()
 
     def graph_paginate(self, path, *, params=None, max_records=200_000):  # noqa: ANN001
         if self._graph_error is not None:
@@ -36,17 +44,32 @@ class _FakeCf:
         yield from self._graph.get(path, [])
 
     def activity_log_events(self, subscription_id, filter_str, *, max_records=200_000):  # noqa: ANN001
-        yield from self._activity.get(subscription_id, [])
+        key = (subscription_id, filter_str)
+        if key in self._activity_chunks:
+            return
+        self._activity_chunks.add(key)
+        emitted = 0
+        for ev in self._activity.get(subscription_id, []):
+            if emitted >= max_records:
+                return
+            yield ev
+            emitted += 1
 
 
-def _ctx(tmp_path: Path, cf: _FakeCf, *, subscriptions: list[str] | None = None) -> CollectionContext:
+def _ctx(
+    tmp_path: Path,
+    cf: _FakeCf,
+    *,
+    subscriptions: list[str] | None = None,
+    window: TimeWindow | None = None,
+) -> CollectionContext:
     staging = tmp_path / "staging"
     staging.mkdir(exist_ok=True)
     return CollectionContext(
         cloud="azure",
         account_id="tenant-abc",
         regions=[],
-        time_window=TimeWindow(),
+        time_window=window or TimeWindow(),
         staging=staging,
         case_id="CASE-AZ",
         tenant_id="tenant-abc",
@@ -87,7 +110,9 @@ def test_activity_log_collects_across_subscriptions(tmp_path: Path) -> None:
                    "subscriptionId": "sub-1", "eventTimestamp": "2026-06-08T01:05:00Z"}],
         "sub-2": [],
     })
-    result = ActivityLogCollector(_ctx(tmp_path, cf, subscriptions=["sub-1", "sub-2"])).collect()
+    result = ActivityLogCollector(
+        _ctx(tmp_path, cf, subscriptions=["sub-1", "sub-2"], window=_single_day_window()),
+    ).collect()
     assert result.status == SourceStatus.COLLECTED
     assert result.record_count == 1
 
@@ -96,3 +121,47 @@ def test_activity_log_no_subscriptions_is_a_gap(tmp_path: Path) -> None:
     result = ActivityLogCollector(_ctx(tmp_path, _FakeCf(), subscriptions=[])).collect()
     assert result.status == SourceStatus.EMPTY
     assert any(g[1] == GapReason.NOT_PRESENT for g in result.gaps)
+
+
+def test_activity_log_writes_per_subscription_files(tmp_path: Path) -> None:
+    cf = _FakeCf(activity={
+        "sub-aaa": [{"operationName": {"value": "Microsoft.Compute/virtualMachines/write"},
+                     "status": {"value": "Succeeded"}, "caller": "admin@corp.com",
+                     "eventTimestamp": "2026-06-08T01:05:00Z", "resourceId": "/subscriptions/sub-aaa/r"}],
+        "sub-bbb": [{"operationName": {"value": "Microsoft.Storage/storageAccounts/delete"},
+                     "status": {"value": "Succeeded"}, "caller": "admin@corp.com",
+                     "eventTimestamp": "2026-06-08T02:05:00Z", "resourceId": "/subscriptions/sub-bbb/r"}],
+    })
+    win = _single_day_window("2026-06-08")
+    result = ActivityLogCollector(_ctx(tmp_path, cf, subscriptions=["sub-aaa", "sub-bbb"], window=win)).collect()
+    assert result.record_count == 2
+    paths = {f.path for f in result.files}
+    assert any("events-sub-aaa.jsonl.gz" in p for p in paths)
+    assert any("events-sub-bbb.jsonl.gz" in p for p in paths)
+    assert any(p.endswith("events.jsonl.gz") for p in paths)
+
+
+def test_activity_log_truncation_warning(tmp_path: Path) -> None:
+    from collector.azure.control_plane import activity_log as mod
+
+    class _CountingCf(_FakeCf):
+        def activity_log_events(self, subscription_id, filter_str, *, max_records=200_000):  # noqa: ANN001
+            for i in range(100):
+                yield {
+                    "operationName": {"value": "Microsoft.Test/write"},
+                    "eventTimestamp": f"2026-06-08T01:{i:02d}:00Z",
+                    "subscriptionId": subscription_id,
+                }
+                if i + 1 >= max_records:
+                    return
+
+    old_max = mod.MAX_RECORDS
+    mod.MAX_RECORDS = 5
+    try:
+        result = ActivityLogCollector(
+            _ctx(tmp_path, _CountingCf(), subscriptions=["sub-1"], window=_single_day_window()),
+        ).collect()
+    finally:
+        mod.MAX_RECORDS = old_max
+    assert result.record_count == 5
+    assert any("truncated" in g[2].lower() for g in result.gaps)

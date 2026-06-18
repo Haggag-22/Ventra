@@ -197,6 +197,29 @@ class Manifest:
 
 
 @dataclass
+class UalCollectOptions:
+    """Optional filters for M365 Unified Audit Log collectors (Management API + Search cmdlet)."""
+
+    users: list[str] = field(default_factory=list)
+    operations: list[str] = field(default_factory=list)
+    record_types: list[str] = field(default_factory=list)
+    ip_addresses: list[str] = field(default_factory=list)
+    target_events_per_window: int = 3000
+    audit_data_only: bool = False
+
+
+@dataclass
+class AzureAuthOptions:
+    """Service-principal credentials for host-side Azure collection (CLI flags or env vars)."""
+
+    tenant_id: str = ""
+    client_id: str = ""
+    client_secret: str = ""
+    client_certificate_path: str = ""
+    client_certificate_password: str = ""
+
+
+@dataclass
 class CollectionContext:
     """Everything a collector needs to do its job, passed by the runner.
 
@@ -218,6 +241,7 @@ class CollectionContext:
     # Injected by the runner; typed loosely to keep this module cloud-agnostic.
     client_factory: Any = None
     logger: Any = None
+    ual: UalCollectOptions = field(default_factory=UalCollectOptions)
 
     def source_dir(self, name: str) -> Path:
         d = self.staging / "sources" / name

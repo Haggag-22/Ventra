@@ -4,9 +4,10 @@ Wraps azure-identity + the ARM management SDKs + a thin Microsoft Graph REST cli
 collectors never import an Azure SDK directly (which keeps them unit-testable with a fake
 factory, exactly like the AWS ``AwsClientFactory`` pattern).
 
-Two collection paths, one factory:
+Two collection paths, one factory (plus a third for long-lookback M365 UAL):
   * **Graph** — Entra sign-in/audit, OAuth grants, directory objects (``graph_paginate``).
   * **ARM management** — Activity Log, Defender, Resource Graph, RBAC, flow-log config.
+  * **Exchange Online Admin API** — ``Search-UnifiedAuditLog`` for 90–365 day UAL lookback.
 
 Auth is an app-registration service principal read from the environment. Both client-secret
 and **certificate** credentials are supported, because many client tenants forbid long-lived
@@ -31,6 +32,11 @@ ARM_SCOPE = "https://management.azure.com/.default"
 # Microsoft 365 Unified Audit Log — Office 365 Management Activity API.
 MANAGE_BASE = "https://manage.office.com/api/v1.0"
 MANAGE_SCOPE = "https://manage.office.com/.default"
+# Search-UnifiedAuditLog — Exchange Online Admin API (90–365 day UAL retention).
+EXO_ADMIN_BASE = "https://outlook.office365.com/adminapi/beta"
+EXO_SCOPE = "https://outlook.office365.com/.default"
+
+from .m365.ual_common import API_CAP_PER_SEARCH_CALL
 
 # Bound in-memory pulls so a large tenant can't exhaust the workstation (mirrors AWS caps).
 MAX_RECORDS = 200_000
@@ -67,9 +73,24 @@ class AzureIdentity:
 class AzureClientFactory:
     """Creates credentials, Graph requests, and ARM SDK clients from one service principal."""
 
-    def __init__(self, credential: Any = None, *, subscription_id: str | None = None) -> None:
+    def __init__(
+        self,
+        credential: Any = None,
+        *,
+        subscription_id: str | None = None,
+        tenant_id: str | None = None,
+        client_id: str | None = None,
+        client_secret: str | None = None,
+        client_certificate_path: str | None = None,
+        client_certificate_password: str | None = None,
+    ) -> None:
         self._credential = credential
         self._subscription_id = subscription_id
+        self._tenant_id_override = tenant_id
+        self._client_id_override = client_id
+        self._client_secret_override = client_secret
+        self._cert_path_override = client_certificate_path
+        self._cert_password_override = client_certificate_password
         self._tokens: dict[str, tuple[str, float]] = {}
         self._session = requests.Session()
 
@@ -85,10 +106,15 @@ class AzureClientFactory:
         """
         if self._credential is not None:
             return self._credential
-        tenant = os.environ.get("AZURE_TENANT_ID")
-        client = os.environ.get("AZURE_CLIENT_ID")
-        cert_path = os.environ.get("AZURE_CLIENT_CERTIFICATE_PATH")
-        secret = os.environ.get("AZURE_CLIENT_SECRET")
+        tenant = self._tenant_id_override or os.environ.get("AZURE_TENANT_ID")
+        client = self._client_id_override or os.environ.get("AZURE_CLIENT_ID")
+        cert_path = self._cert_path_override or os.environ.get("AZURE_CLIENT_CERTIFICATE_PATH")
+        secret = self._client_secret_override or os.environ.get("AZURE_CLIENT_SECRET")
+        cert_password = (
+            self._cert_password_override
+            or os.environ.get("AZURE_CLIENT_CERTIFICATE_PASSWORD")
+            or None
+        )
         try:
             if tenant and client and cert_path:
                 from azure.identity import CertificateCredential
@@ -97,7 +123,7 @@ class AzureClientFactory:
                     tenant_id=tenant,
                     client_id=client,
                     certificate_path=cert_path,
-                    password=os.environ.get("AZURE_CLIENT_CERTIFICATE_PASSWORD") or None,
+                    password=cert_password,
                 )
             elif tenant and client and secret:
                 from azure.identity import ClientSecretCredential
@@ -128,7 +154,8 @@ class AzureClientFactory:
     # -- identity / scope -----------------------------------------------------------------
 
     def caller_identity(self) -> AzureIdentity:
-        tenant_id = os.environ.get("AZURE_TENANT_ID", "")
+        tenant_id = self._tenant_id_override or os.environ.get("AZURE_TENANT_ID", "")
+        client_id = self._client_id_override or os.environ.get("AZURE_CLIENT_ID", "")
         tenant_name = ""
         try:
             org = self.graph_get("organization")
@@ -140,7 +167,7 @@ class AzureClientFactory:
             pass  # Directory.Read.All may be absent; tenant id from env is enough for the manifest
         return AzureIdentity(
             tenant_id=tenant_id,
-            principal=os.environ.get("AZURE_CLIENT_ID", "service-principal"),
+            principal=client_id or "service-principal",
             tenant_name=tenant_name,
         )
 
@@ -213,6 +240,35 @@ class AzureClientFactory:
         except Exception as exc:  # noqa: BLE001
             _raise_typed_azure(exc, f"monitor:activity_logs:{subscription_id}")
 
+    def log_analytics_query(
+        self,
+        workspace_id: str,
+        query: str,
+        *,
+        timespan: str | None = None,
+        max_records: int = MAX_RECORDS,
+    ) -> list[dict[str, Any]]:
+        """Run a KQL query against a Log Analytics workspace (ARM query API)."""
+        url = f"https://management.azure.com{workspace_id}/api/query"
+        body: dict[str, Any] = {"query": query}
+        if timespan:
+            body["timespan"] = timespan
+        try:
+            result = self._arm_request(
+                "POST", url, params={"api-version": "2020-08-01"}, json_body=body
+            )
+        except Exception as exc:  # noqa: BLE001
+            _raise_typed_azure(exc, f"loganalytics:query:{workspace_id}")
+            return []
+        out: list[dict[str, Any]] = []
+        for table in result.get("tables") or []:
+            cols = [str(c.get("name") or "") for c in table.get("columns") or []]
+            for row in table.get("rows") or []:
+                if len(out) >= max_records:
+                    return out
+                out.append(dict(zip(cols, row, strict=False)))
+        return out
+
     # -- Microsoft 365 Unified Audit Log (Management Activity API) -------------------------
 
     def _tenant_id(self) -> str:
@@ -267,6 +323,99 @@ class AzureClientFactory:
                         yield rec
                         emitted += 1
                 url = resp.headers.get("NextPageUri")
+
+    # -- Search-UnifiedAuditLog (Exchange Online Admin API) -------------------------------
+
+    def search_unified_audit_log(
+        self,
+        start: datetime,
+        end: datetime,
+        *,
+        users: list[str] | None = None,
+        operations: list[str] | None = None,
+        record_types: list[str] | None = None,
+        ip_addresses: list[str] | None = None,
+        result_size: int = API_CAP_PER_SEARCH_CALL,
+        max_records: int = MAX_RECORDS,
+        audit_data_only: bool = False,
+    ) -> Iterator[dict[str, Any]]:
+        """Yield UAL records for one time window via ``Search-UnifiedAuditLog`` (≤5000/call).
+
+        Uses ``SessionCommand=ReturnLargeSet`` pagination within the window. Callers that need
+        completeness across dense windows should use :func:`ual_adaptive.collect_adaptive`.
+        """
+        from .m365.ual_common import API_CAP_PER_SEARCH_CALL, flatten_search_row
+
+        tenant = self._tenant_id()
+        params: dict[str, Any] = {
+            "StartDate": _iso_noz(start),
+            "EndDate": _iso_noz(end),
+            "ResultSize": min(result_size, API_CAP_PER_SEARCH_CALL),
+            "SessionCommand": "ReturnLargeSet",
+        }
+        if users:
+            params["UserIds"] = users
+        if operations:
+            params["Operations"] = operations
+        if record_types:
+            params["RecordType"] = record_types
+        if ip_addresses:
+            params["FreeText"] = ",".join(ip_addresses)
+
+        session_id: str | None = None
+        emitted = 0
+        while emitted < max_records:
+            call_params = dict(params)
+            if session_id:
+                call_params["SessionId"] = session_id
+            page = self._exo_invoke_search(tenant, call_params)
+            if not page:
+                break
+            session_id = session_id or _session_id_from_rows(page)
+            for row in page:
+                if emitted >= max_records:
+                    return
+                yield flatten_search_row(row, audit_data_only=audit_data_only)
+                emitted += 1
+            if len(page) < params["ResultSize"]:
+                break
+
+    def _exo_invoke_search(self, tenant_id: str, parameters: dict[str, Any]) -> list[dict[str, Any]]:
+        body = {"CmdletInput": {"CmdletName": "Search-UnifiedAuditLog", "Parameters": parameters}}
+        url = f"{EXO_ADMIN_BASE}/{tenant_id}/InvokeCommand"
+        resp = self._exo_request("POST", url, json=body)
+        data = resp.json()
+        value = data.get("value") if isinstance(data, dict) else data
+        if not isinstance(value, list):
+            return []
+        return [r for r in value if isinstance(r, dict)]
+
+    def _exo_request(
+        self,
+        method: str,
+        url: str,
+        *,
+        json: dict[str, Any] | None = None,
+        params: dict[str, Any] | None = None,
+    ) -> requests.Response:
+        headers = {
+            "Authorization": f"Bearer {self._token(EXO_SCOPE)}",
+            "Accept": "application/json",
+            "Content-Type": "application/json",
+        }
+        for attempt in range(MAX_RETRIES + 1):
+            resp = self._session.request(
+                method, url, headers=headers, json=json, params=params, timeout=120
+            )
+            if resp.status_code == 429 and attempt < MAX_RETRIES:
+                time.sleep(min(int(resp.headers.get("Retry-After", "5")), 30))
+                continue
+            if resp.status_code in (401, 403):
+                raise AzureAccessDenied(f"exo:{url}", _graph_error(resp))
+            if resp.status_code >= 400:
+                raise AzureServiceNotEnabled(f"exo:{url}", _graph_error(resp))
+            return resp
+        raise AzureServiceNotEnabled(f"exo:{url}", "throttled past retry budget")
 
     # -- network flow logs (discovery + blob access) --------------------------------------
 
@@ -528,6 +677,14 @@ def _segment(resource_id: str, key: str) -> str:
         return parts[low.index(key.lower()) + 1]
     except (ValueError, IndexError):
         return ""
+
+
+def _session_id_from_rows(rows: list[dict[str, Any]]) -> str | None:
+    for row in rows:
+        sid = row.get("SessionId") or row.get("sessionId")
+        if sid:
+            return str(sid)
+    return None
 
 
 def _day_slices(start: datetime, end: datetime):

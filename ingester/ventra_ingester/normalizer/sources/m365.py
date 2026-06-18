@@ -53,10 +53,21 @@ def _classify(op: str, workload: str) -> tuple[list[str], str]:
 
 @register("unified_audit")
 def normalize_unified_audit(records: list[dict], ctx: NormalizeContext) -> Iterator[UnifiedEvent]:
+    yield from _normalize_ual_records(records, ctx, ventra_source="unified_audit")
+
+
+@register("unified_audit_search")
+def normalize_unified_audit_search(records: list[dict], ctx: NormalizeContext) -> Iterator[UnifiedEvent]:
+    yield from _normalize_ual_records(records, ctx, ventra_source="unified_audit_search")
+
+
+def _normalize_ual_records(
+    records: list[dict], ctx: NormalizeContext, *, ventra_source: str
+) -> Iterator[UnifiedEvent]:
     for rec in records:
-        op = rec.get("Operation", "")
+        op = rec.get("Operation") or rec.get("Operations") or ""
         workload = rec.get("Workload", "")
-        user = rec.get("UserId", "")
+        user = rec.get("UserId") or rec.get("UserIds") or ""
         ip = rec.get("ClientIP") or rec.get("ClientIPAddress") or rec.get("ActorIpAddress") or ""
         obj = rec.get("ObjectId") or ""
         categories, severity = _classify(op, workload)
@@ -64,7 +75,7 @@ def normalize_unified_audit(records: list[dict], ctx: NormalizeContext) -> Itera
         if outcome == "failure" and severity == "info":
             severity = "low"
         yield UnifiedEvent(
-            timestamp=rec.get("CreationTime") or "",
+            timestamp=rec.get("CreationTime") or rec.get("CreationDate") or "",
             event_kind="event",
             event_category=categories,
             event_action=op,
@@ -84,7 +95,7 @@ def normalize_unified_audit(records: list[dict], ctx: NormalizeContext) -> Itera
             related_resource=[obj] if obj else [],
             message=f"{op} by {user}" + (f" on {obj}" if obj else ""),
             case_id=ctx.case_id,
-            ventra_source="unified_audit",
+            ventra_source=ventra_source,
             raw=rec,
         )
 

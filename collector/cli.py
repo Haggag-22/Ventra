@@ -70,6 +70,16 @@ def _add_aws_parser(sub: argparse._SubParsersAction) -> None:
         help="Emit a machine-readable JSON summary to stdout (implies no live matrix).",
     )
     aws.add_argument("--list-collectors", action="store_true", help="List collectors and exit.")
+    aws.add_argument(
+        "--collectors",
+        default="",
+        help="Comma-separated collector names to run (default: all registered).",
+    )
+    aws.add_argument(
+        "--profile",
+        default="",
+        help="AWS named profile from ~/.aws/credentials (same as AWS_PROFILE).",
+    )
 
 
 def _add_azure_parser(sub: argparse._SubParsersAction) -> None:
@@ -79,7 +89,27 @@ def _add_azure_parser(sub: argparse._SubParsersAction) -> None:
     az.add_argument(
         "--subscription",
         default="",
-        help="Azure subscription id (default: AZURE_SUBSCRIPTION_ID env).",
+        help="Azure subscription id(s), comma-separated (default: all accessible to the SP).",
+    )
+    az.add_argument(
+        "--tenant-id",
+        default="",
+        help="Entra tenant id (default: AZURE_TENANT_ID env).",
+    )
+    az.add_argument(
+        "--client-id",
+        default="",
+        help="App registration client id (default: AZURE_CLIENT_ID env).",
+    )
+    az.add_argument(
+        "--client-secret",
+        default="",
+        help="App registration client secret (default: AZURE_CLIENT_SECRET env; prefer env).",
+    )
+    az.add_argument(
+        "--client-certificate",
+        default="",
+        help="Path to SP certificate PEM (default: AZURE_CLIENT_CERTIFICATE_PATH env).",
     )
     az.add_argument("--regions", default="", help="Comma-separated regions (default: all enabled).")
     az.add_argument("--since", default=None, help="Window start (YYYY-MM-DD or RFC3339 UTC).")
@@ -114,6 +144,42 @@ def _add_azure_parser(sub: argparse._SubParsersAction) -> None:
         help="Emit a machine-readable JSON summary to stdout (implies no live matrix).",
     )
     az.add_argument("--list-collectors", action="store_true", help="List collectors and exit.")
+    az.add_argument(
+        "--collectors",
+        default="",
+        help="Comma-separated collector names to run (default: all registered).",
+    )
+    az.add_argument(
+        "--ual-users",
+        default="",
+        help="Comma-separated user ids/emails to filter M365 Unified Audit Log collectors.",
+    )
+    az.add_argument(
+        "--ual-operations",
+        default="",
+        help="Comma-separated UAL operations (e.g. MailItemsAccessed,New-InboxRule).",
+    )
+    az.add_argument(
+        "--ual-record-types",
+        default="",
+        help="Comma-separated RecordType values for unified_audit_search only.",
+    )
+    az.add_argument(
+        "--ual-ip-addresses",
+        default="",
+        help="Comma-separated client IPs for unified_audit_search (FreeText filter).",
+    )
+    az.add_argument(
+        "--ual-target-events-per-window",
+        type=int,
+        default=3000,
+        help="Adaptive search target events per window (1–5000, default 3000).",
+    )
+    az.add_argument(
+        "--ual-audit-data-only",
+        action="store_true",
+        help="Search collector: emit parsed AuditData only (smaller files).",
+    )
 
 
 def build_parser(*, prog: str = "ventra") -> argparse.ArgumentParser:
@@ -228,7 +294,9 @@ _SEVERITY: dict[str, str] = {
     "entra_directory": "High",
     "resource_graph": "Low",
     "diag_posture": "Low",
+    "log_analytics": "Medium",
     "unified_audit": "High",
+    "unified_audit_search": "High",
     "oauth_consent": "High",
 }
 
@@ -631,6 +699,47 @@ def main_legacy(argv: list[str] | None = None) -> int:
     return main(_normalize_argv(list(argv if argv is not None else sys.argv[1:])))
 
 
+def _azure_auth_from_args(args) -> "AzureAuthOptions":
+    import os
+
+    from .lib.models import AzureAuthOptions
+
+    return AzureAuthOptions(
+        tenant_id=(getattr(args, "tenant_id", "") or os.environ.get("AZURE_TENANT_ID", "")).strip(),
+        client_id=(getattr(args, "client_id", "") or os.environ.get("AZURE_CLIENT_ID", "")).strip(),
+        client_secret=(
+            getattr(args, "client_secret", "") or os.environ.get("AZURE_CLIENT_SECRET", "")
+        ).strip(),
+        client_certificate_path=(
+            getattr(args, "client_certificate", "")
+            or os.environ.get("AZURE_CLIENT_CERTIFICATE_PATH", "")
+        ).strip(),
+    )
+
+
+def _azure_subscription_from_args(args) -> str | None:
+    import os
+
+    raw = (getattr(args, "subscription", "") or os.environ.get("AZURE_SUBSCRIPTION_ID", "")).strip()
+    return raw or None
+
+
+def _resolve_collectors(requested: str, all_names: list[str], registry) -> list[str]:
+    """Parse ``--collectors``; default is every registered collector in stable order."""
+    if not requested.strip():
+        return all_names
+    wanted = [n.strip() for n in requested.split(",") if n.strip()]
+    known = set(registry.all())
+    unknown = [n for n in wanted if n not in known]
+    if unknown:
+        raise ValueError(
+            f"Unknown collector(s): {', '.join(unknown)}. "
+            f"Use --list-collectors to see valid names."
+        )
+    order = {name: i for i, name in enumerate(all_names)}
+    return sorted(wanted, key=lambda n: order.get(n, len(all_names)))
+
+
 def _run_aws(args) -> int:
     from .aws.registry import AWS_REGISTRY, all_collector_names
     from .aws.runner.runner import AwsRunConfig, parse_window, run_aws_collection
@@ -644,7 +753,12 @@ def _run_aws(args) -> int:
         print("error: --case is required to run a collection.", file=sys.stderr)
         return 2
 
-    collectors = all_collector_names()
+    try:
+        collectors = _resolve_collectors(args.collectors, all_collector_names(), AWS_REGISTRY)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
     regions = [r.strip() for r in args.regions.split(",") if r.strip()] or None
     window = parse_window(args.since, args.until)
 
@@ -660,6 +774,7 @@ def _run_aws(args) -> int:
         engagement_id=args.engagement,
         key_path=Path(args.key) if args.key else None,
         reporter=reporter,
+        aws_profile=(args.profile or "").strip(),
     )
 
     try:
@@ -746,6 +861,24 @@ def _run_aws(args) -> int:
     return 1 if transport_error else ingest_code
 
 
+def _ual_options_from_args(args) -> "UalCollectOptions":
+    from .lib.models import UalCollectOptions
+
+    def _split(val: str) -> list[str]:
+        return [v.strip() for v in val.split(",") if v.strip()]
+
+    target = int(getattr(args, "ual_target_events_per_window", 3000) or 3000)
+    target = max(1, min(target, 5000))
+    return UalCollectOptions(
+        users=_split(getattr(args, "ual_users", "") or ""),
+        operations=_split(getattr(args, "ual_operations", "") or ""),
+        record_types=_split(getattr(args, "ual_record_types", "") or ""),
+        ip_addresses=_split(getattr(args, "ual_ip_addresses", "") or ""),
+        target_events_per_window=target,
+        audit_data_only=bool(getattr(args, "ual_audit_data_only", False)),
+    )
+
+
 def _run_azure(args) -> int:
     from .azure.registry import AZURE_REGISTRY, all_collector_names
     from .azure.runner.runner import AzureRunConfig, parse_window, run_azure_collection
@@ -759,10 +892,15 @@ def _run_azure(args) -> int:
         print("error: --case is required to run a collection.", file=sys.stderr)
         return 2
 
-    collectors = all_collector_names()
+    try:
+        collectors = _resolve_collectors(args.collectors, all_collector_names(), AZURE_REGISTRY)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
     regions = [r.strip() for r in args.regions.split(",") if r.strip()] or None
     window = parse_window(args.since, args.until)
-    subscription = args.subscription.strip() or None
+    subscription = _azure_subscription_from_args(args)
 
     json_mode = args.json_output
     reporter, console = _cli_reporter(quiet=args.quiet, json_mode=json_mode, cloud="azure")
@@ -777,6 +915,8 @@ def _run_azure(args) -> int:
         engagement_id=args.engagement,
         key_path=Path(args.key) if args.key else None,
         reporter=reporter,
+        ual=_ual_options_from_args(args),
+        auth=_azure_auth_from_args(args),
     )
 
     try:
