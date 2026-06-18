@@ -26,6 +26,7 @@ from ...lib.models import (
     TimeWindow,
     utcnow_iso,
 )
+from ...lib.auth import manifest_profile_overrides
 from ...lib.packaging.packager import PackageResult, seal_package
 from ..client_factory import AwsClientFactory
 from ..registry import AWS_REGISTRY
@@ -43,6 +44,7 @@ class AwsRunConfig:
     engagement_id: str = ""
     key_path: Path | None = None
     reporter: RunReporter | None = None
+    aws_profile: str = ""
 
 
 @dataclass
@@ -89,6 +91,10 @@ def _detect_environment() -> str:
 
 def run_aws_collection(cfg: AwsRunConfig, *, factory: AwsClientFactory | None = None) -> PackageResult:
     started = utcnow_iso()
+    if factory is None and cfg.aws_profile:
+        import boto3
+
+        factory = AwsClientFactory(boto3.Session(profile_name=cfg.aws_profile))
     cf = factory or AwsClientFactory()
     identity = cf.caller_identity()
     regions = cfg.regions or cf.enabled_regions()
@@ -125,7 +131,7 @@ def run_aws_collection(cfg: AwsRunConfig, *, factory: AwsClientFactory | None = 
             completed_at="",  # filled below
             time_window=cfg.time_window,
             profile_name="all",
-            profile_overrides=[],
+            profile_overrides=manifest_profile_overrides(aws_profile=cfg.aws_profile),
             host_environment=_detect_environment(),
             host_os=platform.platform(),
             host_runtime=f"python {platform.python_version()}",

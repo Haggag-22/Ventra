@@ -80,25 +80,47 @@ In addition to the log sources above, Ventra retrieves other relevant informatio
 Review the read-only IAM policy before any engagement:
 [`docs/iam-policies/aws-collector-readonly.json`](docs/iam-policies/aws-collector-readonly.json).
 
-### Azure — log sources
+### Azure collectors
 
-| Source | Description |
-|--------|-------------|
-| **Activity Log** | Subscription control-plane operations |
-| **Entra ID Sign-In Logs** | Interactive, non-interactive, and service principal sign-ins |
-| **Entra ID Audit Logs** | Directory and application changes |
-| **NSG Flow Logs** | NSG flow log configuration and recent flow records from storage |
-| **Defender for Cloud** | Security alerts |
+Review read-only permissions before any engagement:
 
-### Azure — inventory and posture
+- ARM: [`docs/iam-policies/azure-collector-readonly.json`](docs/iam-policies/azure-collector-readonly.json)
+- Microsoft Graph: [`docs/iam-policies/azure-collector-graph.json`](docs/iam-policies/azure-collector-graph.json)
+- M365 / Exchange UAL search: [`docs/iam-policies/azure-collector-m365.json`](docs/iam-policies/azure-collector-m365.json)
 
-| Source | Description |
-|--------|-------------|
-| **Subscription** | Subscription, tenant, region, and operator context |
-| **RBAC** | Role definitions and assignments at subscription scope |
+#### Identity, M365, and control plane
 
-Review the read-only permissions before any engagement:
-[`docs/iam-policies/azure-collector-readonly.json`](docs/iam-policies/azure-collector-readonly.json).
+| Collector | Description | Console panel |
+|-----------|-------------|---------------|
+| `subscription` | Tenant, subscription, and operator context | Resource Inventory |
+| `entra_signin` | Entra ID sign-in logs (P1/P2 required) | Activity Log Timeline |
+| `entra_audit` | Entra ID directory audit logs | Activity Log Timeline |
+| `entra_directory` | Users, groups, applications, service principals snapshot | Identity & Access |
+| `rbac` | Azure RBAC role definitions and assignments | Identity & Access |
+| `activity_log` | Azure Activity Log — ARM control-plane operations (89d default) | Activity Log Timeline |
+| `unified_audit` | M365 Unified Audit Log via Management API (~7d) | Activity Log Timeline |
+| `unified_audit_search` | M365 UAL via Search-UnifiedAuditLog (90d default) | Activity Log Timeline |
+| `oauth_consent` | OAuth2 permission grants inventory | Activity Log Timeline |
+| `defender` | Microsoft Defender for Cloud security alerts | Security Findings |
+| `resource_graph` | Cross-subscription ARM inventory snapshot | Resource Inventory |
+| `diag_posture` | Diagnostic-settings routing posture (Storage / LA / none) | Logs Coverage |
+
+#### Network, data access, and Log Analytics
+
+| Collector | Description | Console panel |
+|-----------|-------------|---------------|
+| `vnet_flow` | VNet flow logs from delivery Storage account | Network Activity |
+| `nsg_flow` | Legacy NSG flow logs from Storage | Network Activity |
+| `azure_firewall` | Azure Firewall application/network/DNS logs (Storage diagnostics) | Network Activity |
+| `app_gateway` | Application Gateway access, performance, and WAF logs | Web & DNS |
+| `front_door` | Front Door / CDN access and WAF logs | Web & DNS |
+| `dns` | Public/private DNS and resolver query logs | Web & DNS |
+| `storage_access` | Storage account read/write/delete access logs | Data Access |
+| `key_vault` | Key Vault audit events | Data Access |
+| `aks_audit` | AKS kube-audit logs from Storage diagnostics | Data Access |
+| `log_analytics` | Same diagnostic categories when routed to Log Analytics workspaces | Network / Web / Data panels |
+
+Collect a subset with `--collectors`, e.g. `ventra collect azure --case CASE-2026-0042 --collectors activity_log,entra_signin`.
 
 ---
 
@@ -170,7 +192,52 @@ ventra collect aws \
 The installer upgrades to the latest PyPI release on each run. Pin a version for an engagement
 with `VENTRA_INSTALL_SPEC='ventra==1.0.0'`.
 
-### Azure
+### Azure (host / IR workstation)
+
+Use a client service principal from your machine — flags override ``AZURE_*`` env vars:
+
+```bash
+ventra collect azure \
+  --case CASE-2026-0042 \
+  --tenant-id "<tenant-id>" \
+  --client-id "<app-client-id>" \
+  --client-secret "<secret>" \
+  --subscription "<subscription-id>" \
+  --since 2026-05-01 \
+  --out ~/ventra-evidence
+```
+
+Certificate auth instead of a secret:
+
+```bash
+ventra collect azure \
+  --case CASE-2026-0042 \
+  --tenant-id "<tenant-id>" \
+  --client-id "<app-client-id>" \
+  --client-certificate /path/to/sp.pem \
+  --subscription "<subscription-id>" \
+  --out ~/ventra-evidence
+```
+
+Or set ``AZURE_TENANT_ID``, ``AZURE_CLIENT_ID``, and ``AZURE_CLIENT_SECRET`` (or
+``AZURE_CLIENT_CERTIFICATE_PATH``) in the environment and omit the flags.
+
+### AWS (host / IR workstation)
+
+Use a named profile from ``~/.aws/credentials``:
+
+```bash
+ventra collect aws \
+  --case CASE-2026-0042 \
+  --profile client-readonly \
+  --since 2026-05-01 \
+  --out ~/ventra-evidence
+```
+
+``--profile`` is equivalent to ``AWS_PROFILE`` for that run. The profile name is recorded in
+the package manifest (not the secret key).
+
+### Azure (az login fallback)
 
 ```bash
 az login
@@ -273,7 +340,11 @@ ventra collect azure --list-collectors
 | `ventra gui` | Start the analyst console locally |
 | `ventra-ingest <package.tar.zst>` | Manually ingest a package into the case store |
 
-Common flags: `--case`, `--since`, `--until`, `--regions`, `--out`, `--no-ingest`, `--transport`.
+Common flags: `--case`, `--since`, `--until`, `--regions`, `--out`, `--no-ingest`, `--transport`, `--collectors`.
+
+**AWS host auth:** `--profile <name>` (or `AWS_PROFILE`). **Azure host auth:** `--tenant-id`, `--client-id`, `--client-secret` or `--client-certificate`, plus `--subscription` (comma-separated). Env vars `AZURE_*` work when flags are omitted.
+
+For M365 UAL filters: `--ual-users`, `--ual-operations`, and related `--ual-*` flags.
 
 ---
 

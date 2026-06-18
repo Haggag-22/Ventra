@@ -4,7 +4,7 @@ import type { Cloud } from "./catalog";
 
 export const CONTROL_PLANE_SOURCES: Record<Cloud, string[]> = {
   aws: ["cloudtrail"],
-  azure: ["activity_log", "entra_signin", "entra_audit", "unified_audit", "oauth_consent"],
+  azure: ["activity_log", "entra_signin", "entra_audit", "unified_audit", "unified_audit_search", "oauth_consent"],
   gcp: ["cloud_audit_admin", "cloud_audit_data"],
 };
 

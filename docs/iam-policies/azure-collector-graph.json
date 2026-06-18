@@ -1,0 +1,41 @@
+{
+  "Name": "Ventra Collector — Microsoft Graph (Application permissions)",
+  "Description": "Application (app-only) permissions for the Ventra Azure service principal. Grant admin consent in Entra ID after creating the app registration. These are not ARM role assignments.",
+  "Type": "MicrosoftGraph",
+  "ApplicationPermissions": [
+    {
+      "permission": "AuditLog.Read.All",
+      "collectors": ["entra_signin", "entra_audit"],
+      "notes": "Sign-in and directory audit logs. Sign-in logs require Entra ID P1/P2 license."
+    },
+    {
+      "permission": "Directory.Read.All",
+      "collectors": ["entra_signin", "entra_audit", "entra_directory", "oauth_consent", "subscription"],
+      "notes": "Directory objects and OAuth2 permission grants."
+    },
+    {
+      "permission": "User.Read.All",
+      "collectors": ["entra_directory"],
+      "notes": "User inventory snapshot."
+    },
+    {
+      "permission": "Group.Read.All",
+      "collectors": ["entra_directory"],
+      "notes": "Group inventory snapshot."
+    },
+    {
+      "permission": "Application.Read.All",
+      "collectors": ["entra_directory"],
+      "notes": "Application and service principal inventory."
+    },
+    {
+      "permission": "ActivityFeed.Read",
+      "collectors": ["unified_audit"],
+      "notes": "Office 365 Management Activity API — recent Unified Audit Log (~7 days). Operator must enable audit log ingestion in M365 compliance center; Ventra does not enable feeds."
+    }
+  ],
+  "Notes": [
+    "Assign the service principal Reader (or a custom role) on each in-scope subscription using docs/iam-policies/azure-collector-readonly.json.",
+    "For long-lookback M365 UAL (unified_audit_search), also assign Exchange Administrator and grant Exchange.ManageAsApp — see azure-collector-m365.json."
+  ]
+}
