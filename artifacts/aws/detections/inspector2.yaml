@@ -1,0 +1,25 @@
+name: AWS.Detections.Inspector2
+aliases:
+- inspector2
+- aws.inspector2
+cloud: aws
+category: Detections
+description: Inspector2 vulnerability / network-reachability findings + account status.
+version: 1.0.0
+collector: inspector2
+type: inspector2
+required_actions:
+- inspector2:ListFindings
+- inspector2:BatchGetAccountStatus
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: inspector2
+  format: json
+severity: extended
+estimated_volume: medium

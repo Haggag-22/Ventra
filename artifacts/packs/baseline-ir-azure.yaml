@@ -1,0 +1,22 @@
+name: azure-baseline-ir
+description: Baseline IR artifact pack for AZURE
+cloud: azure
+version: 1.0.0
+artifacts:
+- subscription
+- entra_signin
+- entra_audit
+- entra_directory
+- activity_log
+- rbac
+- unified_audit
+- unified_audit_search
+- oauth_consent
+- defender
+- vnet_flow
+- azure_firewall
+- app_gateway
+- front_door
+- dns
+- storage_access
+- key_vault

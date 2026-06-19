@@ -1,0 +1,26 @@
+name: Azure.Network.VnetFlow
+aliases:
+- vnet_flow
+- azure.vnet_flow
+cloud: azure
+category: Network
+description: VNet flow logs (L3/L4 5-tuple, allow/deny, bytes) from the delivery Storage
+  account.
+version: 1.0.0
+collector: vnet_flow
+type: vnet_flow
+required_actions:
+- Microsoft.Network/networkWatchers/flowLogs/read
+- Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: vnet_flow
+  format: json
+severity: critical
+estimated_volume: medium

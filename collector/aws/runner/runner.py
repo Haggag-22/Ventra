@@ -28,8 +28,8 @@ from ...lib.models import (
 )
 from ...lib.auth import manifest_profile_overrides
 from ...lib.packaging.packager import PackageResult, seal_package
-from ..client_factory import AwsClientFactory
-from ..registry import AWS_REGISTRY
+from collector.clouds.aws.client_factory import AwsClientFactory
+from collector.engine.registry import AWS_REGISTRY
 
 SCHEMA_VERSION = "1.0.0"
 

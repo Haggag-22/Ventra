@@ -1,0 +1,25 @@
+name: Azure.Identity.Rbac
+aliases:
+- rbac
+- azure.rbac
+cloud: azure
+category: Identity
+description: Azure RBAC role definitions and assignments at subscription scope.
+version: 1.0.0
+collector: rbac
+type: rbac
+required_actions:
+- Microsoft.Authorization/roleDefinitions/read
+- Microsoft.Authorization/roleAssignments/read
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: rbac
+  format: json
+severity: critical
+estimated_volume: medium

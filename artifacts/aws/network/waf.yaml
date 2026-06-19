@@ -1,0 +1,27 @@
+name: AWS.Network.Waf
+aliases:
+- waf
+- aws.waf
+cloud: aws
+category: Network
+description: WAFv2 Web ACL configs, logging configuration, sampled requests.
+version: 1.0.0
+collector: waf
+type: waf
+required_actions:
+- wafv2:ListWebACLs
+- wafv2:GetWebACL
+- wafv2:GetLoggingConfiguration
+- wafv2:GetSampledRequests
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: waf
+  format: json
+severity: critical
+estimated_volume: medium

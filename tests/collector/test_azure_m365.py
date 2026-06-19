@@ -5,10 +5,10 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from pathlib import Path
 
-from collector.azure.client_factory import AzureServiceNotEnabled
-from collector.azure.identity.oauth_consent import OAuthConsentCollector
-from collector.azure.m365.unified_audit import UnifiedAuditCollector
-from collector.azure.m365.unified_audit_search import UnifiedAuditSearchCollector
+from collector.clouds.azure.client_factory import AzureServiceNotEnabled
+from collector.engine.api.azure.identity.oauth_consent import OAuthConsentCollector
+from collector.engine.api.azure.m365.unified_audit import UnifiedAuditCollector
+from collector.engine.api.azure.m365.unified_audit_search import UnifiedAuditSearchCollector
 from collector.lib.models import CollectionContext, GapReason, SourceStatus, TimeWindow, UalCollectOptions
 
 from ventra_ingester.normalizer.base import NormalizeContext

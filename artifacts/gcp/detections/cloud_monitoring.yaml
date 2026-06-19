@@ -1,0 +1,25 @@
+name: GCP.Detections.CloudMonitoring
+aliases:
+- cloud_monitoring
+- gcp.cloud_monitoring
+cloud: gcp
+category: Detections
+description: Cloud Monitoring alert and incident notification logs.
+version: 1.0.0
+collector: cloud_monitoring
+type: cloud_monitoring
+required_actions:
+- logging.logEntries.list
+- monitoring.alertPolicies.list
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: cloud_monitoring
+  format: json
+severity: extended
+estimated_volume: medium

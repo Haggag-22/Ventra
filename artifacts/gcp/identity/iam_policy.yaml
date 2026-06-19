@@ -1,0 +1,24 @@
+name: GCP.Identity.IamPolicy
+aliases:
+- iam_policy
+- gcp.iam_policy
+cloud: gcp
+category: Identity
+description: IAM policy bindings and role assignments per in-scope project.
+version: 1.0.0
+collector: iam_policy
+type: iam_policy
+required_actions:
+- resourcemanager.projects.getIamPolicy
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: iam_policy
+  format: json
+severity: critical
+estimated_volume: medium

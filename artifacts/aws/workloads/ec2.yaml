@@ -1,0 +1,32 @@
+name: AWS.Workloads.Ec2
+aliases:
+- ec2
+- aws.ec2
+cloud: aws
+category: Workloads
+description: EC2/EBS inventory and snapshot share/copy evidence trail (metadata only).
+version: 1.0.0
+collector: ec2
+type: ec2
+required_actions:
+- ec2:DescribeInstances
+- ec2:DescribeInstanceAttribute
+- ec2:DescribeVolumes
+- ec2:DescribeSnapshots
+- ec2:DescribeSnapshotAttribute
+- ec2:DescribeNetworkInterfaces
+- ec2:DescribeSecurityGroups
+- ec2:DescribeImages
+- ec2:DescribeLaunchTemplates
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: ec2
+  format: json
+severity: extended
+estimated_volume: medium

@@ -1,0 +1,88 @@
+# Ventra — whitelist-only Cursor file tree
+# Hide every root entry, then un-ignore allowed folders and important root files.
+
+/*
+!artifacts/
+!artifacts/**
+!schemas/
+!schemas/**
+!collector/
+!collector/**
+!ingester/
+!ingester/**
+!console/
+!console/**
+!docs/
+!docs/**
+!tests/
+!tests/**
+!deploy/
+!deploy/**
+!obsidian/
+!obsidian/**
+
+!/README*
+!/pyproject.toml
+!/uv.lock
+!/LICENSE*
+!/CHANGELOG*
+!/RELEASING*
+!/ROADMAP*
+!/CONTRIBUTING*
+!/Makefile
+!/docker-compose*
+!/.env.example
+!/.gitignore
+!/.cursorignore
+
+# Build / cache / dependency noise (inside visible trees too)
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+.mypy_cache/
+.ruff_cache/
+.pytest_cache/
+.coverage
+htmlcov/
+.venv/
+venv/
+.tox/
+.nox/
+
+# Node / frontend build
+node_modules/
+.next/
+out/
+.turbo/
+*.tsbuildinfo
+
+# Runtime / local data
+/cases/
+.ventra-uploads/
+*.tar.zst
+*.tar.gz
+ventra-evidence/
+*.duckdb
+*.parquet
+
+# Secrets & env (never index)
+.env
+.env.*
+secrets/
+credentials.json
+*.credentials
+.aws/
+
+# Obsidian editor config (vault content stays visible under obsidian/)
+.obsidian/
+
+# OS / editor noise
+.DS_Store
+.idea/
+.vscode/
+.claude/
+.cursor/

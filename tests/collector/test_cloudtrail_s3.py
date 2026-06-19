@@ -8,7 +8,7 @@ import json
 from datetime import UTC, datetime
 from typing import Any
 
-from collector.aws.control_plane.cloudtrail_s3 import (
+from collector.engine.api.aws.control_plane.cloudtrail_s3 import (
     MANAGEMENT_CATEGORIES,
     collect_s3_trail_records,
     data_events_configured,

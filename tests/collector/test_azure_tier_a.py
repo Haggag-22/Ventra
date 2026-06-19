@@ -9,10 +9,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from collector.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
-from collector.azure.control_plane.activity_log import ActivityLogCollector
-from collector.azure.identity.entra_audit import EntraAuditCollector
-from collector.azure.identity.entra_signin import EntraSignInCollector
+from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
+from collector.engine.api.azure.control_plane.activity_log import ActivityLogCollector
+from collector.engine.api.azure.identity.entra_audit import EntraAuditCollector
+from collector.engine.api.azure.identity.entra_signin import EntraSignInCollector
 from collector.lib.models import CollectionContext, GapReason, SourceStatus, TimeWindow
 
 
@@ -142,7 +142,7 @@ def test_activity_log_writes_per_subscription_files(tmp_path: Path) -> None:
 
 
 def test_activity_log_truncation_warning(tmp_path: Path) -> None:
-    from collector.azure.control_plane import activity_log as mod
+    from collector.engine.api.azure.control_plane import activity_log as mod
 
     class _CountingCf(_FakeCf):
         def activity_log_events(self, subscription_id, filter_str, *, max_records=200_000):  # noqa: ANN001

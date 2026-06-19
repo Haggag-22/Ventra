@@ -1,0 +1,29 @@
+name: AWS.Detections.Guardduty
+aliases:
+- guardduty
+- aws.guardduty
+cloud: aws
+category: Detections
+description: GuardDuty findings, detector config, suppression filters.
+version: 1.0.0
+collector: guardduty
+type: guardduty
+required_actions:
+- guardduty:ListDetectors
+- guardduty:GetDetector
+- guardduty:ListFindings
+- guardduty:GetFindings
+- guardduty:ListFilters
+- guardduty:GetFilter
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: guardduty
+  format: json
+severity: critical
+estimated_volume: medium

@@ -1,0 +1,24 @@
+name: GCP.Workloads.CloudFunctions
+aliases:
+- cloud_functions
+- gcp.cloud_functions
+cloud: gcp
+category: Workloads
+description: Cloud Functions execution and platform logs.
+version: 1.0.0
+collector: cloud_functions
+type: cloud_functions
+required_actions:
+- logging.logEntries.list
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: cloud_functions
+  format: json
+severity: extended
+estimated_volume: medium

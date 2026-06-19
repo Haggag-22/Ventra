@@ -1,0 +1,27 @@
+name: AWS.Identity.Kms
+aliases:
+- kms
+- aws.kms
+cloud: aws
+category: Identity
+description: KMS key inventory, key policies, and grants.
+version: 1.0.0
+collector: kms
+type: kms
+required_actions:
+- kms:ListKeys
+- kms:DescribeKey
+- kms:GetKeyPolicy
+- kms:ListGrants
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: kms
+  format: json
+severity: extended
+estimated_volume: medium

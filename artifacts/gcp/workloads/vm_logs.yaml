@@ -1,0 +1,24 @@
+name: GCP.Workloads.VmLogs
+aliases:
+- vm_logs
+- gcp.vm_logs
+cloud: gcp
+category: Workloads
+description: Compute Engine VM logs collected by the Cloud Logging agent.
+version: 1.0.0
+collector: vm_logs
+type: vm_logs
+required_actions:
+- logging.logEntries.list
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: vm_logs
+  format: json
+severity: extended
+estimated_volume: medium

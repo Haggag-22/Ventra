@@ -1,0 +1,25 @@
+name: Azure.M365.UnifiedAudit
+aliases:
+- unified_audit
+- azure.unified_audit
+cloud: azure
+category: M365
+description: M365 Unified Audit Log (recent window) via Office 365 Management Activity
+  API feeds.
+version: 1.0.0
+collector: unified_audit
+type: unified_audit
+required_actions:
+- ActivityFeed.Read
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: unified_audit
+  format: json
+severity: critical
+estimated_volume: medium

@@ -1,0 +1,24 @@
+name: GCP.Identity.Project
+aliases:
+- project
+- gcp.project
+cloud: gcp
+category: Identity
+description: GCP project, organization, and operator context.
+version: 1.0.0
+collector: project
+type: project
+required_actions:
+- resourcemanager.projects.get
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: project
+  format: json
+severity: critical
+estimated_volume: medium

@@ -1,0 +1,25 @@
+name: Azure.Network.NsgFlow
+aliases:
+- nsg_flow
+- azure.nsg_flow
+cloud: azure
+category: Network
+description: NSG flow logs (legacy fallback) from the delivery Storage account.
+version: 1.0.0
+collector: nsg_flow
+type: nsg_flow
+required_actions:
+- Microsoft.Network/networkWatchers/flowLogs/read
+- Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: nsg_flow
+  format: json
+severity: extended
+estimated_volume: medium

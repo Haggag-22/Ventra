@@ -1,0 +1,26 @@
+name: AWS.Workloads.Lambda
+aliases:
+- lambda
+- aws.lambda
+cloud: aws
+category: Workloads
+description: Lambda function inventory, resource policies, redacted env config.
+version: 1.0.0
+collector: lambda
+type: lambda
+required_actions:
+- lambda:ListFunctions
+- lambda:GetFunction
+- lambda:GetPolicy
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: lambda
+  format: json
+severity: extended
+estimated_volume: medium

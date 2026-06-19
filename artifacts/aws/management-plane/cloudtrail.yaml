@@ -1,0 +1,32 @@
+name: AWS.ManagementPlane.Cloudtrail
+aliases:
+- cloudtrail
+- aws.cloudtrail
+cloud: aws
+category: ManagementPlane
+description: CloudTrail trail config; management, insight, data and network-activity
+  events from the trail's S3 logs (LookupEvents fallback for management when no trail
+  delivers to S3), plus S3 log integrity validation (validate-logs).
+version: 1.0.0
+collector: cloudtrail
+type: cloudtrail
+required_actions:
+- cloudtrail:DescribeTrails
+- cloudtrail:GetTrailStatus
+- cloudtrail:GetEventSelectors
+- cloudtrail:GetInsightSelectors
+- cloudtrail:LookupEvents
+- s3:ListBucket
+- s3:GetObject
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: cloudtrail
+  format: json
+severity: critical
+estimated_volume: medium

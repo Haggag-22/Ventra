@@ -1,5 +1,6 @@
-"""AWS orchestration — registry, runner, and boto3 client factory.
+"""AWS collection runner.
 
-Collector modules (identity, control_plane, network, …) live in this package.
-Import ``collector.aws.registry`` to populate and access the registry.
+Implementations: ``collector.engine.api.aws``
+SDK clients: ``collector.clouds.aws.client_factory``
+Registry: ``collector.engine.registry``
 """

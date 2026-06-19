@@ -1,0 +1,26 @@
+name: Azure.Workloads.KeyVault
+aliases:
+- key_vault
+- azure.key_vault
+cloud: azure
+category: Workloads
+description: Key Vault audit events from Storage diagnostics.
+version: 1.0.0
+collector: key_vault
+type: key_vault
+required_actions:
+- Microsoft.KeyVault/vaults/read
+- Microsoft.Insights/DiagnosticSettings/read
+- Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: key_vault
+  format: json
+severity: critical
+estimated_volume: medium

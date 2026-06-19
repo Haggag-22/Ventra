@@ -1,0 +1,28 @@
+name: AWS.Network.VpcFlow
+aliases:
+- vpc_flow
+- aws.vpc_flow
+cloud: aws
+category: Network
+description: VPC Flow Logs configuration + recent CloudWatch flow records.
+version: 1.0.0
+collector: vpc_flow
+type: vpc_flow
+required_actions:
+- ec2:DescribeFlowLogs
+- ec2:DescribeVpcs
+- logs:FilterLogEvents
+- s3:ListBucket
+- s3:GetObject
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: vpc_flow
+  format: json
+severity: critical
+estimated_volume: medium
