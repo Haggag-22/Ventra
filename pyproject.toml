@@ -19,6 +19,14 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+gcp = [
+    "google-cloud-logging>=3.10",
+    "google-cloud-resource-manager>=1.12",
+    "google-cloud-securitycenter>=1.28",
+    "google-auth>=2.29",
+    "google-api-core>=2.19",
+    "protobuf>=4.25",
+]
 azure = [
     "azure-identity>=1.16",
     "azure-mgmt-resource>=23.0",
@@ -42,6 +50,12 @@ dev = [
     "moto>=5.0",
     "ruff>=0.4",
     "mypy>=1.10",
+    "google-cloud-logging>=3.10",
+    "google-cloud-resource-manager>=1.12",
+    "google-cloud-securitycenter>=1.28",
+    "google-auth>=2.29",
+    "google-api-core>=2.19",
+    "protobuf>=4.25",
     "azure-identity>=1.16",
     "azure-mgmt-resource>=23.0",
     "azure-mgmt-monitor>=6.0",

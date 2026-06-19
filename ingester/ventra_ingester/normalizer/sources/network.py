@@ -38,6 +38,37 @@ def _parse_line(message: str) -> dict[str, Any] | None:
 @register("vpc_flow")
 def normalize_vpc_flow(records: list[dict], ctx: NormalizeContext) -> Iterator[UnifiedEvent]:
     for rec in records:
+        # GCP Cloud Logging export (jsonPayload.connection)
+        if rec.get("jsonPayload") or rec.get("_ventra_project_id"):
+            payload = rec.get("jsonPayload") or rec.get("payload") or {}
+            if not isinstance(payload, dict):
+                payload = {}
+            conn = payload.get("connection") or {}
+            src = conn.get("src_ip") or payload.get("src_ip") or ""
+            dst = conn.get("dest_ip") or payload.get("dest_ip") or ""
+            project = rec.get("_ventra_project_id") or ctx.account_id
+            yield UnifiedEvent(
+                timestamp=rec.get("timestamp") or "",
+                event_kind="event",
+                event_category=["network"],
+                event_action="flow",
+                event_outcome="success",
+                event_severity="info",
+                event_provider="vpc_flow",
+                cloud_provider="gcp",
+                cloud_account=project,
+                cloud_region=rec.get("resource", {}).get("labels", {}).get("zone", ""),
+                cloud_service="compute",
+                source_ip=src,
+                dest_ip=dst,
+                related_ip=[x for x in (src, dst) if x],
+                message=f"FLOW {src} -> {dst}",
+                case_id=ctx.case_id,
+                ventra_source="vpc_flow",
+                raw=rec,
+            )
+            continue
+
         flow = rec
         if "message" in rec and "srcaddr" not in rec:
             parsed = _parse_line(rec["message"])
@@ -82,6 +113,7 @@ def normalize_vpc_flow(records: list[dict], ctx: NormalizeContext) -> Iterator[U
             event_outcome=outcome,
             event_severity=severity,
             event_provider="vpc_flow",
+            cloud_provider="aws",
             cloud_account=flow.get("account_id", ctx.account_id),
             cloud_region=flow.get("_ventra_region", ""),
             cloud_service="vpc",
