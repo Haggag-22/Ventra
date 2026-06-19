@@ -1,5 +1,5 @@
 # Ventra — whitelist-only Cursor file tree
-# Hide every root entry, then un-ignore allowed folders and important root files.
+# Re-ignore boilerplate inside each tree (required on disk, hidden from tree).
 
 /*
 !artifacts/
@@ -34,8 +34,29 @@
 !/.env.example
 !/.gitignore
 !/.cursorignore
+!/.vscode/
 
-# Build / cache / dependency noise (inside visible trees too)
+# Re-hide inside whitelisted trees (negation above would otherwise show these)
+collector/**/__pycache__/
+collector/**/__init__.py
+collector/**/__main__.py
+ingester/**/__pycache__/
+ingester/**/__init__.py
+ingester/**/__main__.py
+console/**/__pycache__/
+console/**/__init__.py
+console/**/__main__.py
+tests/**/__pycache__/
+tests/**/__init__.py
+tests/**/__main__.py
+artifacts/**/__pycache__/
+artifacts/**/__init__.py
+schemas/**/__init__.py
+docs/**/__init__.py
+deploy/**/__init__.py
+obsidian/**/__init__.py
+
+# Global boilerplate + build noise
 **/__pycache__/
 **/__init__.py
 **/__main__.py
@@ -71,7 +92,7 @@ ventra-evidence/
 *.duckdb
 *.parquet
 
-# Secrets & env (never index)
+# Secrets & env
 .env
 .env.*
 secrets/
@@ -79,12 +100,8 @@ credentials.json
 *.credentials
 .aws/
 
-# Obsidian editor config (vault content stays visible under obsidian/)
 .obsidian/
-
-# OS / editor noise
 .DS_Store
 .idea/
-.vscode/
 .claude/
 .cursor/
