@@ -1,10 +1,4 @@
-"""Orchestrates an Azure collection run end-to-end.
-
-Mirrors ``run_aws_collection``: resolve tenant identity + in-scope subscriptions, build the
-shared context, run every registered collector with per-collector failure isolation, assemble
-+ sign the manifest, and seal the package. The evidence-package format, signing, and unified
-schema are shared with AWS unchanged — only acquisition differs.
-"""
+"""Orchestrates an Azure collection run end-to-end."""
 
 from __future__ import annotations
 
@@ -15,12 +9,14 @@ import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from ... import __version__
-from ...aws.runner.runner import RunReporter, parse_window  # shared, cloud-agnostic
-from ...lib.auth import azure_factory_kwargs, manifest_profile_overrides
-from ...lib.base import Collector
-from ...lib.chain_of_custody.signing import sign_manifest
-from ...lib.models import (
+from collector import __version__
+from collector.clouds.azure.client_factory import AzureClientFactory
+from collector.engine.registry import AZURE_REGISTRY
+from collector.engine.run_common import RunReporter, parse_window
+from collector.lib.auth import azure_factory_kwargs, manifest_profile_overrides
+from collector.lib.base import Collector
+from collector.lib.chain_of_custody.signing import sign_manifest
+from collector.lib.models import (
     AzureAuthOptions,
     CollectionContext,
     GapReason,
@@ -32,9 +28,7 @@ from ...lib.models import (
     UalCollectOptions,
     utcnow_iso,
 )
-from ...lib.packaging.packager import PackageResult, seal_package
-from collector.clouds.azure.client_factory import AzureClientFactory
-from collector.engine.registry import AZURE_REGISTRY
+from collector.lib.packaging.packager import PackageResult, seal_package
 
 __all__ = ["AzureRunConfig", "run_azure_collection", "parse_window"]
 
@@ -157,7 +151,6 @@ def run_azure_collection(
 
 
 def _run_one(cls: type[Collector], ctx: CollectionContext) -> SourceResult:
-    """Run a single collector; convert any unexpected exception into an errored result."""
     try:
         return cls(ctx).collect()
     except Exception as exc:  # noqa: BLE001 - isolation is intentional

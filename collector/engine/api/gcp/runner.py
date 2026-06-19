@@ -9,10 +9,12 @@ import traceback
 from dataclasses import dataclass
 from pathlib import Path
 
-from ... import __version__
-from ...aws.runner.runner import RunReporter, parse_window
-from ...lib.chain_of_custody.signing import sign_manifest
-from ...lib.models import (
+from collector import __version__
+from collector.clouds.gcp.client_factory import GcpClientFactory
+from collector.engine.registry import GCP_REGISTRY
+from collector.engine.run_common import RunReporter, parse_window
+from collector.lib.chain_of_custody.signing import sign_manifest
+from collector.lib.models import (
     CollectionContext,
     GapReason,
     Manifest,
@@ -22,9 +24,7 @@ from ...lib.models import (
     TimeWindow,
     utcnow_iso,
 )
-from ...lib.packaging.packager import PackageResult, seal_package
-from collector.clouds.gcp.client_factory import GcpClientFactory
-from collector.engine.registry import GCP_REGISTRY
+from collector.lib.packaging.packager import PackageResult, seal_package
 
 __all__ = ["GcpRunConfig", "run_gcp_collection", "parse_window"]
 
@@ -113,10 +113,10 @@ def run_gcp_collection(
                     )
                 )
                 continue
+            reporter.start(name)
             result = _run_one(cls, ctx, collection_log)
+            reporter.finish(name, result)
             manifest.add_source_result(result)
-            if reporter:
-                reporter.source_done(name, result)
 
         manifest.completed_at = utcnow_iso()
         manifest.write(staging / "manifest.json")
