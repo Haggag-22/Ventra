@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from collector.aws.runner.runner import AwsRunConfig, run_aws_collection
-from collector.azure.runner.runner import AzureRunConfig, run_azure_collection
+from collector.engine.api.aws.runner import AwsRunConfig, run_aws_collection
+from collector.engine.api.azure.runner import AzureRunConfig, run_azure_collection
 from collector.engine.executor import list_collectors
-from collector.gcp.runner.runner import GcpRunConfig, run_gcp_collection
+from collector.engine.api.gcp.runner import GcpRunConfig, run_gcp_collection
 
 __all__ = [
     "AwsRunConfig",

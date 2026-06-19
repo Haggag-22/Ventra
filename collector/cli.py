@@ -410,7 +410,7 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
         from .engine.registry import AWS_REGISTRY as REGISTRY
 
         cloud_title = "AWS"
-    from .aws.runner.runner import RunReporter
+    from .engine.run_common import RunReporter
 
     try:
         from rich.box import ROUNDED
@@ -821,7 +821,7 @@ def _resolve_collectors(requested: str, all_names: list[str], registry) -> list[
 
 def _run_aws(args) -> int:
     from .engine.registry import AWS_REGISTRY, AWS_COLLECTOR_ORDER as COLLECTOR_ORDER
-    from .aws.runner.runner import AwsRunConfig, parse_window, run_aws_collection
+    from .engine.api.aws.runner import AwsRunConfig, parse_window, run_aws_collection
 
     if args.list_collectors:
         for name, cls in sorted(AWS_REGISTRY.all().items()):
@@ -960,7 +960,7 @@ def _ual_options_from_args(args) -> "UalCollectOptions":
 
 def _run_azure(args) -> int:
     from .engine.registry import AZURE_REGISTRY, AZURE_COLLECTOR_ORDER as COLLECTOR_ORDER
-    from .azure.runner.runner import AzureRunConfig, parse_window, run_azure_collection
+    from .engine.api.azure.runner import AzureRunConfig, parse_window, run_azure_collection
 
     if args.list_collectors:
         for name, cls in sorted(AZURE_REGISTRY.all().items()):
@@ -1100,7 +1100,7 @@ def _gcp_credentials_from_args(args) -> str | None:
 
 def _run_gcp(args) -> int:
     from .engine.registry import GCP_REGISTRY, GCP_COLLECTOR_ORDER as COLLECTOR_ORDER
-    from .gcp.runner.runner import GcpRunConfig, parse_window, run_gcp_collection
+    from .engine.api.gcp.runner import GcpRunConfig, parse_window, run_gcp_collection
 
     if args.list_collectors:
         for name, cls in sorted(GCP_REGISTRY.all().items()):

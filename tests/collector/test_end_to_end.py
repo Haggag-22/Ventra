@@ -20,7 +20,7 @@ from moto import mock_aws  # noqa: E402
 
 from collector.clouds.aws.client_factory import AwsClientFactory  # noqa: E402
 from collector.engine.registry import AWS_COLLECTOR_ORDER  # noqa: E402
-from collector.aws.runner.runner import (  # noqa: E402
+from collector.engine.api.aws.runner import (  # noqa: E402
     AwsRunConfig,
     parse_window,
     run_aws_collection,

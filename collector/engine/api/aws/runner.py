@@ -6,17 +6,21 @@ error never aborts the run, assembles + signs the manifest, and seals the packag
 
 from __future__ import annotations
 
+import json
 import platform
 import tempfile
 import traceback
-from dataclasses import dataclass, field
-from datetime import UTC, datetime
+from dataclasses import dataclass
 from pathlib import Path
 
-from ... import __version__
-from ...lib.base import Collector
-from ...lib.chain_of_custody.signing import sign_manifest
-from ...lib.models import (
+from collector import __version__
+from collector.clouds.aws.client_factory import AwsClientFactory
+from collector.engine.registry import AWS_REGISTRY
+from collector.engine.run_common import RunReporter, parse_window
+from collector.lib.auth import manifest_profile_overrides
+from collector.lib.base import Collector
+from collector.lib.chain_of_custody.signing import sign_manifest
+from collector.lib.models import (
     CollectionContext,
     GapReason,
     Manifest,
@@ -26,10 +30,9 @@ from ...lib.models import (
     TimeWindow,
     utcnow_iso,
 )
-from ...lib.auth import manifest_profile_overrides
-from ...lib.packaging.packager import PackageResult, seal_package
-from collector.clouds.aws.client_factory import AwsClientFactory
-from collector.engine.registry import AWS_REGISTRY
+from collector.lib.packaging.packager import PackageResult, seal_package
+
+__all__ = ["AwsRunConfig", "RunReporter", "parse_window", "run_aws_collection"]
 
 SCHEMA_VERSION = "1.0.0"
 
@@ -45,36 +48,6 @@ class AwsRunConfig:
     key_path: Path | None = None
     reporter: RunReporter | None = None
     aws_profile: str = ""
-
-
-@dataclass
-class RunReporter:
-    """Pluggable progress sink. The CLI passes a rich-backed reporter; tests pass None."""
-
-    events: list[tuple[str, str]] = field(default_factory=list)
-
-    def begin_run(
-        self,
-        account_id: str,
-        regions: list[str],
-        case_id: str = "",
-        collectors: list[str] | None = None,
-    ) -> None:
-        """Called once after identity/regions are resolved. No-op by default; the CLI's
-        matrix reporter overrides it to print the run header and pre-populate the matrix
-        with every planned collector."""
-
-    def start(self, name: str) -> None:
-        self._emit(name, "running")
-
-    def finish(self, name: str, result: SourceResult) -> None:
-        self._emit(name, result.status.value)
-
-    def event(self, name: str, msg: str) -> None:
-        self.events.append((name, msg))
-
-    def _emit(self, name: str, status: str) -> None:  # overridden by CLI subclass
-        self.events.append((name, status))
 
 
 def _detect_environment() -> str:
@@ -167,11 +140,9 @@ def run_aws_collection(cfg: AwsRunConfig, *, factory: AwsClientFactory | None = 
             if result.errors:
                 ctx.error_log(name).write_text("\n".join(result.errors), encoding="utf-8")
 
-        # Account alias enrichment for the manifest header (best-effort, already collected).
         manifest.account_alias = _account_alias(staging)
         manifest.completed_at = utcnow_iso()
 
-        # Write collection log, manifest, sign, seal.
         _write_collection_log(staging, collection_log)
         manifest_path = staging / "manifest.json"
         manifest.write(manifest_path)
@@ -188,8 +159,7 @@ def run_aws_collection(cfg: AwsRunConfig, *, factory: AwsClientFactory | None = 
 
 
 def _run_one(cls: type[Collector], ctx: CollectionContext) -> SourceResult:
-    """Run a single collector, converting any unexpected exception into an errored result so
-    one failure never aborts the whole acquisition."""
+    """Run a single collector, converting any unexpected exception into an errored result."""
     try:
         return cls(ctx).collect()
     except Exception as exc:  # noqa: BLE001 - isolation is intentional
@@ -203,8 +173,6 @@ def _run_one(cls: type[Collector], ctx: CollectionContext) -> SourceResult:
 
 
 def _account_alias(staging: Path) -> str:
-    import json
-
     snap = staging / "sources" / "account" / "snapshot.json"
     if snap.exists():
         try:
@@ -215,24 +183,7 @@ def _account_alias(staging: Path) -> str:
 
 
 def _write_collection_log(staging: Path, entries: list[dict]) -> None:
-    import json
-
     path = staging / "collection.log"
     with path.open("w", encoding="utf-8") as fh:
         for e in entries:
             fh.write(json.dumps(e, default=str) + "\n")
-
-
-def parse_window(since: str | None, until: str | None) -> TimeWindow:
-    def _p(val: str | None) -> datetime | None:
-        if not val:
-            return None
-        for fmt in ("%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d"):
-            try:
-
-                return datetime.strptime(val, fmt).replace(tzinfo=UTC)
-            except ValueError:
-                continue
-        raise ValueError(f"Unrecognized date: {val!r}. Use YYYY-MM-DD or RFC3339.")
-
-    return TimeWindow(since=_p(since), until=_p(until))
