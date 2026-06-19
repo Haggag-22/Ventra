@@ -104,6 +104,31 @@ class Operator:
 
 
 @dataclass
+class ArtifactRef:
+    """Provenance for one artifact collected in a run — recorded in the manifest.
+
+    ``collector`` is the registry key the engine ran; ``name`` and ``version`` come from the
+    artifact YAML (e.g. ``GCP.ManagementPlane.CloudAuditAdmin`` / ``1.0.0``). ``parameters``
+    captures any per-artifact tuning carried in from an acquisition spec.
+    """
+
+    name: str
+    version: str
+    collector: str
+    parameters: dict[str, Any] = field(default_factory=dict)
+
+    def to_manifest(self) -> dict[str, Any]:
+        out: dict[str, Any] = {
+            "name": self.name,
+            "version": self.version,
+            "collector": self.collector,
+        }
+        if self.parameters:
+            out["parameters"] = self.parameters
+        return out
+
+
+@dataclass
 class Manifest:
     """Assembles into the JSON validated by schemas/manifest.schema.json."""
 
@@ -127,6 +152,7 @@ class Manifest:
     profile_overrides: list[str] = field(default_factory=list)
     sources: list[dict[str, Any]] = field(default_factory=list)
     gaps: list[dict[str, Any]] = field(default_factory=list)
+    artifacts: list[ArtifactRef] = field(default_factory=list)
     host_os: str = ""
     host_runtime: str = ""
 
@@ -183,6 +209,8 @@ class Manifest:
                 "runtime": self.host_runtime,
             },
         }
+        if self.artifacts:
+            out["artifacts"] = [a.to_manifest() for a in self.artifacts]
         for opt in ("tool_commit", "engagement_id", "account_alias", "org_id", "partition"):
             val = getattr(self, opt)
             if val:
@@ -240,6 +268,12 @@ class CollectionContext:
     subscription_ids: list[str] = field(default_factory=list)
     # GCP scope — in-scope project ids a logging/IAM collector iterates.
     project_ids: list[str] = field(default_factory=list)
+    # Per-source record cap. None = each collector's built-in default (200k); a positive int
+    # raises/lowers it; 0 or negative means "no cap" (large pulls — bounded only by memory/disk).
+    max_records_per_source: int | None = None
+    # Per-artifact parameter values from the acquisition spec, keyed by collector name. A
+    # collector reads its own filters here (e.g. a per-artifact ``since``) via ``artifact_params``.
+    artifact_parameters: dict[str, dict[str, Any]] = field(default_factory=dict)
     # Injected by the runner; typed loosely to keep this module cloud-agnostic.
     client_factory: Any = None
     logger: Any = None

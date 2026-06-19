@@ -19,11 +19,33 @@ def window_bounds(tw: TimeWindow, default_days: int = DEFAULT_WINDOW_DAYS) -> tu
     return start, end
 
 
+def _parse_relative_since(value: str, end: datetime) -> datetime | None:
+    """Parse artifact parameter values like ``30d`` into an absolute start time."""
+    val = value.strip().lower()
+    if val.endswith("d") and val[:-1].isdigit():
+        return end - timedelta(days=int(val[:-1]))
+    return None
+
+
 class GcpLoggingCollector(Collector):
     """Query Cloud Logging across in-scope projects with a shared filter pattern."""
 
     log_filter: str = ""
     default_window_days: int = DEFAULT_WINDOW_DAYS
+
+    def _window(self) -> tuple[datetime, datetime]:
+        params = self.artifact_params()
+        default_days = int(params.get("window_days", self.default_window_days))
+        start, end = window_bounds(self.ctx.time_window, default_days)
+        rel = params.get("since")
+        if isinstance(rel, str) and rel.strip():
+            parsed = _parse_relative_since(rel, end)
+            if parsed is not None:
+                start = parsed
+        return start, end
+
+    def _cap(self) -> int:
+        return self.max_records(MAX_RECORDS)
 
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
@@ -37,13 +59,14 @@ class GcpLoggingCollector(Collector):
                 notes="No projects discovered or specified.",
             )
 
-        start, end = window_bounds(self.ctx.time_window, self.default_window_days)
+        start, end = self._window()
+        cap = self._cap()
         records: list[dict[str, Any]] = []
         per_project: list[dict[str, Any]] = []
         truncated = False
 
         for project_id in projects:
-            if len(records) >= MAX_RECORDS:
+            if len(records) >= cap:
                 truncated = True
                 break
             before = len(records)
@@ -53,12 +76,12 @@ class GcpLoggingCollector(Collector):
                     log_filter=self.log_filter,
                     start=start,
                     end=end,
-                    max_records=MAX_RECORDS - len(records),
+                    max_records=cap - len(records),
                 ):
                     tagged = dict(entry)
                     tagged["_ventra_project_id"] = project_id
                     records.append(tagged)
-                    if len(records) >= MAX_RECORDS:
+                    if len(records) >= cap:
                         truncated = True
                         break
             except GcpAccessDenied as exc:
@@ -94,7 +117,7 @@ class GcpLoggingCollector(Collector):
             status = SourceStatus.PARTIAL if (gaps or truncated) else SourceStatus.COLLECTED
             notes = f"{len(records)} log record(s) across {len(projects)} project(s)."
             if truncated:
-                notes += f" Truncated at {MAX_RECORDS:,} records."
+                notes += f" Truncated at {cap:,} records."
         else:
             status = SourceStatus.EMPTY
             notes = "No matching log entries in the time window."

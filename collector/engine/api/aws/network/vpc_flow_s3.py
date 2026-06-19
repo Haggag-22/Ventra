@@ -121,6 +121,7 @@ def collect_s3_flow_records(
     gaps: list[tuple[str, GapReason, str]],
     *,
     log: Callable[[str], None] | None = None,
+    max_records: int = MAX_RECORDS,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Pull flow records for one S3-delivering flow log within the time window."""
     region = flow_log.get("_ventra_region") or ""
@@ -174,7 +175,7 @@ def collect_s3_flow_records(
                     stats["objects_read"] += 1
                     body = s3.get_object(Bucket=bucket, Key=key)["Body"].read()
                     for rec in _parse_plaintext(body, region):
-                        if len(records) >= MAX_RECORDS:
+                        if len(records) >= max_records:
                             stats["truncated"] = True
                             break
                         if not _in_window(rec, start, end):

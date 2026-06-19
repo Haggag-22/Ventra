@@ -47,6 +47,7 @@ def collect_log_analytics(collector) -> SourceResult:
     cf = collector.ctx.client_factory
     name = collector.name
     gaps: list[tuple[str, GapReason, str]] = []
+    cap = collector.max_records(MAX_RECORDS)
     start, end = window_bounds(collector.ctx.time_window, DEFAULT_WINDOW_DAYS)
 
     # workspace ARM id → categories enabled via diagnostic settings on in-scope resources
@@ -102,10 +103,10 @@ def collect_log_analytics(collector) -> SourceResult:
     truncated = False
 
     for workspace_id, categories in sorted(workspaces.items()):
-        if len(records) >= MAX_RECORDS:
+        if len(records) >= cap:
             truncated = True
             break
-        remaining = MAX_RECORDS - len(records)
+        remaining = cap - len(records)
         query = _kql(sorted(categories), start, end, limit=remaining)
         try:
             rows = cf.log_analytics_query(workspace_id, query, max_records=remaining)
@@ -122,7 +123,7 @@ def collect_log_analytics(collector) -> SourceResult:
         per_workspace.append(
             {"workspace_id": workspace_id, "records": len(tagged), "categories": sorted(categories)}
         )
-        if len(records) >= MAX_RECORDS:
+        if len(records) >= cap:
             truncated = True
 
     if truncated:
@@ -130,7 +131,7 @@ def collect_log_analytics(collector) -> SourceResult:
             (
                 name,
                 GapReason.COLLECTOR_ERROR,
-                f"Truncated at {MAX_RECORDS:,} Log Analytics records — narrow --since/--until.",
+                f"Truncated at {cap:,} Log Analytics records — narrow --since/--until.",
             )
         )
 

@@ -12,12 +12,30 @@ from typing import Any
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
+from pydantic import BaseModel
 
 from . import __version__
 from .config import settings
 from .rbac import Role, _check, current_role
 from .store import CaseNotFound, EventQuery, store
+
+
+class AcquisitionBuildRequest(BaseModel):
+    """Body for POST /api/acquisitions/build — select a cloud + artifacts (or a pack)."""
+
+    cloud: str
+    case_id: str = "CASE-PENDING"
+    artifacts: list[str] = []
+    pack: str | None = None
+    include_iam: bool = True
+    since: str = ""
+    until: str = ""
+    regions: list[str] = []
+    project: str = ""
+    subscription: str = ""
+    max_records_per_source: int | None = None
+    artifact_parameters: dict[str, dict[str, Any]] = {}
 
 app = FastAPI(
     title="Ventra Console API",
@@ -246,6 +264,126 @@ def inventory(case_id: str, source: str, _: Role = Depends(_check("view_case")))
     if data is None:
         raise HTTPException(status_code=404, detail=f"No inventory for source '{source}'.")
     return {"source": source, "data": data}
+
+
+# -- acquire (artifact library + kit builder) --------------------------------------------
+
+def _artifact_view(art: dict[str, Any], *, full: bool = False) -> dict[str, Any]:
+    view = {
+        "name": art.get("name", ""),
+        "collector": art.get("collector", ""),
+        "cloud": art.get("cloud", ""),
+        "category": art.get("category", ""),
+        "description": art.get("description", ""),
+        "version": art.get("version", ""),
+        "severity": art.get("severity", ""),
+        "estimated_volume": art.get("estimated_volume", ""),
+        "required_actions": art.get("required_actions", []),
+        "parameters": art.get("parameters", {}),
+    }
+    if full:
+        view["aliases"] = art.get("aliases", [])
+        view["sources"] = art.get("sources", [])
+    return view
+
+
+@app.get("/api/artifacts")
+def list_artifacts(
+    cloud: str | None = Query(None),
+    search: str | None = Query(None),
+    _: Role = Depends(current_role),
+) -> dict:
+    from collector.engine.loader import load_artifacts_dir
+
+    arts = [_artifact_view(a) for a in load_artifacts_dir(settings.artifacts_root, cloud=cloud)]
+    if search:
+        s = search.lower()
+        arts = [
+            a for a in arts
+            if s in a["name"].lower()
+            or s in a["collector"].lower()
+            or s in a["description"].lower()
+            or s in a["category"].lower()
+        ]
+    return {"artifacts": arts, "count": len(arts)}
+
+
+@app.get("/api/artifacts/{collector}")
+def get_artifact(
+    collector: str, cloud: str | None = Query(None), _: Role = Depends(current_role)
+) -> dict:
+    from collector.engine.loader import load_artifacts_dir
+
+    for a in load_artifacts_dir(settings.artifacts_root, cloud=cloud):
+        if collector in (a.get("collector"), a.get("name"), *(a.get("aliases") or [])):
+            return _artifact_view(a, full=True)
+    raise HTTPException(status_code=404, detail=f"No artifact for collector '{collector}'.")
+
+
+@app.get("/api/packs")
+def list_acquisition_packs(cloud: str | None = Query(None), _: Role = Depends(current_role)) -> dict:
+    from collector.engine.acquisition import list_packs
+
+    return {"packs": list_packs(cloud, settings.artifacts_root)}
+
+
+@app.post("/api/acquisitions/build")
+def build_acquisition(
+    body: AcquisitionBuildRequest, _: Role = Depends(_check("build_acquisition"))
+) -> Response:
+    import tempfile
+
+    from collector.engine.acquisition import AcquisitionError, load_pack
+    from collector.kit.build import build_kit
+
+    cloud = body.cloud.strip().lower()
+    if cloud not in ("aws", "azure", "gcp"):
+        raise HTTPException(status_code=400, detail=f"Unsupported cloud: {body.cloud!r}")
+
+    names = list(body.artifacts or [])
+    if body.pack:
+        try:
+            names = load_pack(body.pack, settings.artifacts_root)
+        except AcquisitionError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if not names:
+        raise HTTPException(status_code=400, detail="Select at least one artifact or a pack.")
+
+    case_id = _normalize_case_id(body.case_id) or "CASE-PENDING"
+    iam_paths = None
+    if body.include_iam:
+        iam = settings.artifacts_root.parent / "docs" / "iam-policies" / f"{cloud}-collector-readonly.json"
+        if iam.is_file():
+            iam_paths = [iam]
+
+    with tempfile.TemporaryDirectory(prefix="ventra-kit-") as tmp:
+        out = Path(tmp) / "kit.zip"
+        try:
+            build_kit(
+                out,
+                cloud=cloud,
+                case_id=case_id,
+                artifact_names=names,
+                artifacts_root=settings.artifacts_root,
+                iam_policy_paths=iam_paths,
+                since=body.since.strip(),
+                until=body.until.strip(),
+                regions=[r.strip() for r in body.regions if r.strip()] or None,
+                project=body.project.strip(),
+                subscription=body.subscription.strip(),
+                max_records_per_source=body.max_records_per_source,
+                artifact_parameters=body.artifact_parameters or None,
+            )
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+        data = out.read_bytes()
+
+    filename = f"ventra-kit-{cloud}-{case_id}.zip"
+    return Response(
+        content=data,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # -- import (RBAC: import_case) ----------------------------------------------------------

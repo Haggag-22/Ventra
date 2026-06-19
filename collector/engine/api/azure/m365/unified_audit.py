@@ -40,6 +40,7 @@ class UnifiedAuditCollector(Collector):
         cf = self.ctx.client_factory
         opts = self.ctx.ual
         gaps: list[tuple[str, GapReason, str]] = []
+        cap = self.max_records(MAX_RECORDS)
         start, end = window_bounds(self.ctx.time_window, DEFAULT_WINDOW_DAYS)
 
         records: list[dict] = []
@@ -52,7 +53,7 @@ class UnifiedAuditCollector(Collector):
                 break
             before = len(records)
             try:
-                for rec in cf.management_content(content_type, start, end, max_records=MAX_RECORDS):
+                for rec in cf.management_content(content_type, start, end, max_records=cap):
                     if opts.operations:
                         op = (rec.get("Operation") or "").lower()
                         if not any(o.lower() in op for o in opts.operations):
@@ -62,7 +63,7 @@ class UnifiedAuditCollector(Collector):
                         if not any(u.lower() in user for u in opts.users):
                             continue
                     records.append(tag_management_record(rec))
-                    if len(records) >= MAX_RECORDS:
+                    if len(records) >= cap:
                         global_cap_hit = True
                         truncated = True
                         break
@@ -115,7 +116,7 @@ class UnifiedAuditCollector(Collector):
                 (
                     "unified_audit",
                     GapReason.NOT_PRESENT,
-                    f"Collection stopped at {MAX_RECORDS:,} records — data may be truncated. "
+                    f"Collection stopped at {cap:,} records — data may be truncated. "
                     "Narrow --since/--until or use --ual-users / --ual-operations.",
                 )
             )
@@ -132,7 +133,7 @@ class UnifiedAuditCollector(Collector):
             f"across {len(MANAGEMENT_CONTENT_TYPES)} content type(s)."
         )
         if truncated:
-            notes += f" Truncated at {MAX_RECORDS:,} records."
+            notes += f" Truncated at {cap:,} records."
         if lag_warning:
             notes += " " + lag_warning
         return SourceResult(

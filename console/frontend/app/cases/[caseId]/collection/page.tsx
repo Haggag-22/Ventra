@@ -2,27 +2,33 @@
 
 import { useCase } from "@/components/case-context";
 import { PanelBody, PanelHeader } from "@/components/panel";
-import { Card, LoadingPanel } from "@/components/ui";
+import { Button, Card, LoadingPanel } from "@/components/ui";
 import { api } from "@/lib/api";
 import { CLOUD_IMPLEMENTED, type Cloud } from "@/lib/catalog";
 import {
+  ACQUIRABLE_COVERAGE,
   aggregateManifestSources,
   catalogItems,
   IMPLEMENTED_LOG_COLLECTORS,
+  missingCollectorIds,
   resolveCollectorCoverage,
   type CoverageState,
 } from "@/lib/collection-coverage";
 import { fmtNum } from "@/lib/format";
+import { acquireHref } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   CheckSquare,
+  Download,
   ListChecks,
   MinusSquare,
+  Plus,
   Square,
   XSquare,
 } from "lucide-react";
+import Link from "next/link";
 
 const STATE_META: Record<
   CoverageState,
@@ -84,6 +90,7 @@ export default function CollectionPage() {
     (x) => x.r.state === "collected" || x.r.state === "partial",
   ).length;
 
+  const missingIds = missingCollectorIds(cloud, bySource, gaps);
   const coveragePct = Math.round((collectedCount / Math.max(allItems.length, 1)) * 100);
 
   return (
@@ -93,10 +100,19 @@ export default function CollectionPage() {
         title="Logs Coverage"
         panel="collection"
         actions={
-          <span className="text-xs text-fg-subtle">
-            <span className="text-ok-green font-medium">{collectedCount}</span> / {allItems.length}{" "}
-            log sources
-          </span>
+          <div className="flex items-center gap-3">
+            <span className="text-xs text-fg-subtle">
+              <span className="text-ok-green font-medium">{collectedCount}</span> / {allItems.length}{" "}
+              log sources
+            </span>
+            {missingIds.length > 0 && CLOUD_IMPLEMENTED[cloud] && (
+              <Link href={acquireHref({ caseId, cloud, collectors: missingIds })}>
+                <Button variant="secondary" icon={Download} className="h-8 text-xs">
+                  Build kit ({missingIds.length} missing)
+                </Button>
+              </Link>
+            )}
+          </div>
         }
       />
       <PanelBody className="cloudtrail-view space-y-5">
@@ -151,10 +167,28 @@ export default function CollectionPage() {
                       (r.state === "collected" || r.state === "partial") && r.records > 0
                         ? fmtNum(r.records)
                         : "—";
+                    const canAcquire =
+                      CLOUD_IMPLEMENTED[cloud] &&
+                      IMPLEMENTED_LOG_COLLECTORS.has(it.id) &&
+                      ACQUIRABLE_COVERAGE.has(r.state);
 
                     return (
                       <tr key={it.id}>
-                        <td className="font-medium text-fg">{it.label}</td>
+                        <td className="font-medium text-fg">
+                          <div className="flex items-center justify-between gap-2">
+                            <span>{it.label}</span>
+                            {canAcquire && (
+                              <Link
+                                href={acquireHref({ caseId, cloud, collectors: [it.id] })}
+                                className="inline-flex items-center gap-1 text-2xs text-accent hover:underline"
+                                title={`Add ${it.id} to collection kit`}
+                              >
+                                <Plus className="h-3 w-3" />
+                                Acquire
+                              </Link>
+                            )}
+                          </div>
+                        </td>
                         <td>
                           <span className={cn("inline-flex items-center gap-1.5", meta.tone)}>
                             <Icon className="h-4 w-4 shrink-0" />
