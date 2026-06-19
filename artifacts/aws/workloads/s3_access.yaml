@@ -1,0 +1,28 @@
+name: AWS.Workloads.S3Access
+aliases:
+- s3_access
+- aws.s3_access
+cloud: aws
+category: Workloads
+description: S3 server access logs from logging target buckets + per-bucket posture.
+version: 1.0.0
+collector: s3_access
+type: s3_access
+required_actions:
+- s3:ListAllMyBuckets
+- s3:GetBucketLogging
+- s3:GetBucketLocation
+- s3:ListBucket
+- s3:GetObject
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: s3_access
+  format: json
+severity: extended
+estimated_volume: medium

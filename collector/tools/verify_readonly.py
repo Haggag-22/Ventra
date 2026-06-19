@@ -36,8 +36,7 @@ def check_policy(path: Path) -> list[str]:
 
 
 def check_collectors() -> list[str]:
-    from ..aws.registry import AWS_REGISTRY
-    from ..azure.registry import AZURE_REGISTRY
+    from ..engine.registry import AWS_REGISTRY, AZURE_REGISTRY
 
     offenders: list[str] = []
     for name, cls in AWS_REGISTRY.all().items():

@@ -7,12 +7,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from collector.azure.client_factory import AzureAccessDenied
-from collector.azure.detections.defender import DefenderCollector
-from collector.azure.identity.rbac import RbacCollector
-from collector.azure.identity.subscription import SubscriptionCollector
-from collector.azure.network.azure_firewall import AzureFirewallCollector
-from collector.azure.workloads.aks_audit import AksAuditCollector
+from collector.clouds.azure.client_factory import AzureAccessDenied
+from collector.engine.api.azure.detections.defender import DefenderCollector
+from collector.engine.api.azure.identity.rbac import RbacCollector
+from collector.engine.api.azure.identity.subscription import SubscriptionCollector
+from collector.engine.api.azure.network.azure_firewall import AzureFirewallCollector
+from collector.engine.api.azure.workloads.aks_audit import AksAuditCollector
 from collector.lib.models import CollectionContext, GapReason, SourceStatus, TimeWindow
 
 
@@ -41,7 +41,7 @@ class _FakeCf:
     def caller_identity(self):
         if self._identity:
             return self._identity
-        from collector.azure.client_factory import AzureIdentity
+        from collector.clouds.azure.client_factory import AzureIdentity
 
         return AzureIdentity(tenant_id="tenant-abc", principal="sp-123", tenant_name="Contoso")
 

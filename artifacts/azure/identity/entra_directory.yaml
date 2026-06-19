@@ -1,0 +1,27 @@
+name: Azure.Identity.EntraDirectory
+aliases:
+- entra_directory
+- azure.entra_directory
+cloud: azure
+category: Identity
+description: Entra ID users, groups, applications, and service principals snapshot.
+version: 1.0.0
+collector: entra_directory
+type: entra_directory
+required_actions:
+- User.Read.All
+- Group.Read.All
+- Application.Read.All
+- Directory.Read.All
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: entra_directory
+  format: json
+severity: critical
+estimated_volume: medium

@@ -1,0 +1,28 @@
+name: Azure.ManagementPlane.LogAnalytics
+aliases:
+- log_analytics
+- azure.log_analytics
+cloud: azure
+category: ManagementPlane
+description: Diagnostic logs from Log Analytics workspaces (firewall, App Gateway,
+  DNS, storage, Key Vault, AKS when routed to LA).
+version: 1.0.0
+collector: log_analytics
+type: log_analytics
+required_actions:
+- Microsoft.Insights/DiagnosticSettings/read
+- Microsoft.Resources/subscriptions/resources/read
+- Microsoft.OperationalInsights/workspaces/read
+- Microsoft.OperationalInsights/workspaces/query/action
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: log_analytics
+  format: json
+severity: extended
+estimated_volume: medium

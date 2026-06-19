@@ -1,7 +1,6 @@
-"""Azure + Microsoft 365 collectors.
+"""Azure + Microsoft 365 collection runner.
 
-Mirrors the AWS tier: a client factory that abstracts auth and the two Azure collection
-paths (Graph / ARM management APIs, and diagnostic-settings-routed resource logs), a
-registry, a runner, and pure collectors that return ``SourceResult``. The evidence-package
-format, signing, and unified-event schema are shared with AWS unchanged.
+Implementations: ``collector.engine.api.azure``
+SDK clients: ``collector.clouds.azure.client_factory``
+Registry: ``collector.engine.registry``
 """

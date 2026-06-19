@@ -1,0 +1,25 @@
+name: Azure.Detections.Defender
+aliases:
+- defender
+- azure.defender
+cloud: azure
+category: Detections
+description: Microsoft Defender for Cloud security alerts.
+version: 1.0.0
+collector: defender
+type: defender
+required_actions:
+- Microsoft.Security/alerts/read
+- Microsoft.Security/locations/alerts/read
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: defender
+  format: json
+severity: critical
+estimated_volume: medium

@@ -1,0 +1,26 @@
+name: AWS.ManagementPlane.Config
+aliases:
+- config
+- aws.config
+cloud: aws
+category: ManagementPlane
+description: AWS Config recorder state and compliance findings.
+version: 1.0.0
+collector: config
+type: config
+required_actions:
+- config:DescribeConfigurationRecorders
+- config:DescribeDeliveryChannels
+- config:DescribeComplianceByConfigRule
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: config
+  format: json
+severity: extended
+estimated_volume: medium

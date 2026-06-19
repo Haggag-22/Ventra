@@ -1,0 +1,24 @@
+name: GCP.Workloads.StorageAccess
+aliases:
+- storage_access
+- gcp.storage_access
+cloud: gcp
+category: Workloads
+description: Cloud Storage bucket access and data-plane audit logs.
+version: 1.0.0
+collector: storage_access
+type: storage_access
+required_actions:
+- logging.logEntries.list
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: storage_access
+  format: json
+severity: critical
+estimated_volume: medium

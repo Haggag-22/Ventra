@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
-from collector.azure.m365.ual_adaptive import collect_adaptive
+from collector.engine.api.azure.m365.ual_adaptive import collect_adaptive
 
 
 def test_adaptive_splits_dense_window() -> None:

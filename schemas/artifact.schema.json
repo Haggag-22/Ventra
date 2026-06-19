@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ventra.dev/schemas/artifact.schema.json",
+  "title": "Ventra Artifact",
+  "description": "Declarative definition of a read-only cloud evidence collector (Velociraptor-style artifact).",
+  "type": "object",
+  "required": ["name", "cloud", "description", "version", "collector", "sources"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "description": "Hierarchical artifact name, e.g. GCP.ManagementPlane.CloudAuditAdmin"
+    },
+    "aliases": {
+      "type": "array",
+      "items": { "type": "string" },
+      "description": "Registry ids and alternate lookup keys"
+    },
+    "cloud": {
+      "type": "string",
+      "enum": ["aws", "azure", "gcp"]
+    },
+    "category": {
+      "type": "string",
+      "description": "IR cheat-sheet grouping (ManagementPlane, Identity, Network, …)"
+    },
+    "description": { "type": "string" },
+    "version": {
+      "type": "string",
+      "pattern": "^\\d+\\.\\d+\\.\\d+$"
+    },
+    "collector": {
+      "type": "string",
+      "description": "Registry key resolved by collector.engine.registry"
+    },
+    "type": {
+      "type": "string",
+      "description": "Optional alias for collector (legacy)"
+    },
+    "required_actions": {
+      "type": "array",
+      "items": { "type": "string" }
+    },
+    "parameters": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string" },
+          "required": { "type": "boolean" },
+          "default": {}
+        }
+      }
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": ["type"],
+        "properties": {
+          "type": { "type": "string" },
+          "format": { "type": "string" }
+        }
+      }
+    },
+    "severity": {
+      "type": "string",
+      "enum": ["critical", "extended", "optional"]
+    },
+    "estimated_volume": {
+      "type": "string",
+      "enum": ["low", "medium", "high"]
+    }
+  },
+  "additionalProperties": false
+}

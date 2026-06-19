@@ -1,0 +1,26 @@
+name: Azure.ManagementPlane.DiagPosture
+aliases:
+- diag_posture
+- azure.diag_posture
+cloud: azure
+category: ManagementPlane
+description: 'Diagnostic-settings posture for Storage-routed log sources: firewall,
+  App Gateway, Front Door, DNS, storage, Key Vault, AKS audit.'
+version: 1.0.0
+collector: diag_posture
+type: diag_posture
+required_actions:
+- Microsoft.Insights/DiagnosticSettings/read
+- Microsoft.Resources/subscriptions/resources/read
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: diag_posture
+  format: json
+severity: extended
+estimated_volume: medium

@@ -1,0 +1,25 @@
+name: Azure.ManagementPlane.ActivityLog
+aliases:
+- activity_log
+- azure.activity_log
+cloud: azure
+category: ManagementPlane
+description: "Azure Activity Log \u2014 subscription control-plane operations (Monitor\
+  \ API, 89d default)."
+version: 1.0.0
+collector: activity_log
+type: activity_log
+required_actions:
+- Microsoft.Insights/eventtypes/values/read
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: activity_log
+  format: json
+severity: critical
+estimated_volume: medium

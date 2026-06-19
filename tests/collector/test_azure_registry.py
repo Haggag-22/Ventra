@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collector.azure.registry import AZURE_REGISTRY, COLLECTOR_ORDER, all_collector_names
+from collector.engine.registry import AZURE_COLLECTOR_ORDER, AZURE_REGISTRY
 
 EXPECTED = [
     "subscription",
@@ -31,12 +31,11 @@ EXPECTED = [
 
 
 def test_azure_registry_order() -> None:
-    assert all_collector_names() == EXPECTED
-    assert COLLECTOR_ORDER == EXPECTED
+    assert list(AZURE_COLLECTOR_ORDER) == EXPECTED
 
 
 def test_azure_registry_has_all_collectors() -> None:
-    names = set(all_collector_names())
+    names = set(list(AZURE_COLLECTOR_ORDER))
     assert names == set(EXPECTED), f"missing: {set(EXPECTED) - names}"
 
 

@@ -1,0 +1,25 @@
+name: Azure.Identity.Subscription
+aliases:
+- subscription
+- azure.subscription
+cloud: azure
+category: Identity
+description: Tenant, subscription, and operator context.
+version: 1.0.0
+collector: subscription
+type: subscription
+required_actions:
+- Microsoft.Resources/subscriptions/read
+- Directory.Read.All
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: subscription
+  format: json
+severity: critical
+estimated_volume: medium

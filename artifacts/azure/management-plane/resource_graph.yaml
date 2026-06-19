@@ -1,0 +1,24 @@
+name: Azure.ManagementPlane.ResourceGraph
+aliases:
+- resource_graph
+- azure.resource_graph
+cloud: azure
+category: ManagementPlane
+description: Azure Resource Graph inventory snapshot.
+version: 1.0.0
+collector: resource_graph
+type: resource_graph
+required_actions:
+- Microsoft.ResourceGraph/resources/read
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: resource_graph
+  format: json
+severity: extended
+estimated_volume: medium

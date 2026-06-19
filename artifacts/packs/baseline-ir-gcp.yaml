@@ -1,0 +1,16 @@
+name: gcp-baseline-ir
+description: Baseline IR artifact pack for GCP
+cloud: gcp
+version: 1.0.0
+artifacts:
+- project
+- iam_policy
+- cloud_audit_admin
+- cloud_audit_system
+- cloud_audit_data
+- login_events
+- vpc_flow
+- firewall_logs
+- load_balancer
+- storage_access
+- scc_findings

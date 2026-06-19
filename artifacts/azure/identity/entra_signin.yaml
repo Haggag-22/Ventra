@@ -1,0 +1,25 @@
+name: Azure.Identity.EntraSignin
+aliases:
+- entra_signin
+- azure.entra_signin
+cloud: azure
+category: Identity
+description: Entra ID sign-in logs (interactive + non-interactive) via Microsoft Graph.
+version: 1.0.0
+collector: entra_signin
+type: entra_signin
+required_actions:
+- AuditLog.Read.All
+- Directory.Read.All
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: entra_signin
+  format: json
+severity: critical
+estimated_volume: medium

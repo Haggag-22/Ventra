@@ -1,10 +1,17 @@
 # Python
 __pycache__/
 *.py[cod]
+*$py.class
+*.so
+*.egg
 *.egg-info/
+/ventra.egg-info/
 .eggs/
 build/
 dist/
+pip-wheel-metadata/
+*.manifest
+*.spec
 .venv/
 venv/
 .mypy_cache/
@@ -12,6 +19,9 @@ venv/
 .pytest_cache/
 .coverage
 htmlcov/
+.tox/
+.nox/
+uv.lock.bak
 
 # Node / Next.js
 node_modules/
@@ -24,6 +34,7 @@ yarn-error.log*
 
 # Ventra runtime data — never commit real evidence (root store only)
 /cases/
+.ventra-uploads/
 *.tar.zst
 *.tar.gz
 !tests/fixtures/**/*.tar.zst
@@ -46,7 +57,7 @@ credentials.json
 .env.*
 !.env.example
 
-# Obsidian vault (private notes, not for the public repo)
+# Obsidian vault (local notes — visible in IDE via .cursorignore, not committed)
 obsidian/
 .obsidian/
 

@@ -1,0 +1,47 @@
+name: AWS.Identity.Iam
+aliases:
+- iam
+- aws.iam
+cloud: aws
+category: Identity
+description: IAM users, roles, groups, policies, access keys, credential report.
+version: 1.0.0
+collector: iam
+type: iam
+required_actions:
+- iam:GetAccountAuthorizationDetails
+- iam:ListUsers
+- iam:ListRoles
+- iam:ListGroups
+- iam:ListPolicies
+- iam:ListAttachedUserPolicies
+- iam:ListUserPolicies
+- iam:GetUserPolicy
+- iam:ListAttachedRolePolicies
+- iam:ListRolePolicies
+- iam:GetRolePolicy
+- iam:ListAttachedGroupPolicies
+- iam:ListGroupPolicies
+- iam:GetGroupPolicy
+- iam:ListGroupsForUser
+- iam:GetPolicy
+- iam:GetPolicyVersion
+- iam:GetRole
+- iam:ListAccessKeys
+- iam:GetAccessKeyLastUsed
+- iam:ListMFADevices
+- iam:GetAccountPasswordPolicy
+- iam:GenerateCredentialReport
+- iam:GetCredentialReport
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: iam
+  format: json
+severity: critical
+estimated_volume: medium

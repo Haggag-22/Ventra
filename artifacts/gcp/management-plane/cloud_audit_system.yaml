@@ -1,0 +1,24 @@
+name: GCP.ManagementPlane.CloudAuditSystem
+aliases:
+- cloud_audit_system
+- gcp.cloud_audit_system
+cloud: gcp
+category: ManagementPlane
+description: "Cloud Audit Logs \u2014 System Event (VM and system changes)."
+version: 1.0.0
+collector: cloud_audit_system
+type: cloud_audit_system
+required_actions:
+- logging.logEntries.list
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: cloud_audit_system
+  format: json
+severity: critical
+estimated_volume: medium

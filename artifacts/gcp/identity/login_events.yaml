@@ -1,0 +1,24 @@
+name: GCP.Identity.LoginEvents
+aliases:
+- login_events
+- gcp.login_events
+cloud: gcp
+category: Identity
+description: Login audit events (Google Cloud console authentication).
+version: 1.0.0
+collector: login_events
+type: login_events
+required_actions:
+- logging.logEntries.list
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: login_events
+  format: json
+severity: critical
+estimated_volume: medium

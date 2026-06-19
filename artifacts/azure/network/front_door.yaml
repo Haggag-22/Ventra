@@ -1,0 +1,27 @@
+name: Azure.Network.FrontDoor
+aliases:
+- front_door
+- azure.front_door
+cloud: azure
+category: Network
+description: Front Door (classic + AFD) access and WAF logs from Storage diagnostics.
+version: 1.0.0
+collector: front_door
+type: front_door
+required_actions:
+- Microsoft.Network/frontDoors/read
+- Microsoft.Cdn/profiles/read
+- Microsoft.Insights/DiagnosticSettings/read
+- Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: front_door
+  format: json
+severity: critical
+estimated_volume: medium

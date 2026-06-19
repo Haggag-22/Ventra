@@ -5,7 +5,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 from collector.aws.runner.runner import AwsRunConfig, run_aws_collection
-from collector.azure.client_factory import AzureAccessDenied, AzureClientFactory
+from collector.clouds.azure.client_factory import AzureAccessDenied, AzureClientFactory
 from collector.azure.runner.runner import AzureRunConfig, run_azure_collection
 from collector.lib.auth import azure_factory_kwargs, manifest_profile_overrides
 from collector.lib.models import AzureAuthOptions, TimeWindow
@@ -47,7 +47,7 @@ def test_aws_run_uses_named_profile(tmp_path) -> None:
             captured["profile"] = session.profile_name
 
         def caller_identity(self):
-            from collector.aws.client_factory import CallerIdentity
+            from collector.clouds.aws.client_factory import CallerIdentity
 
             return CallerIdentity(account_id="123", arn="arn:aws:iam::123:user/x", user_id="A", partition="aws")
 
@@ -82,7 +82,7 @@ def test_azure_run_passes_auth_to_factory(tmp_path) -> None:
             captured.update(kwargs)
 
         def caller_identity(self):
-            from collector.azure.client_factory import AzureIdentity
+            from collector.clouds.azure.client_factory import AzureIdentity
 
             return AzureIdentity(tenant_id="tenant", principal="client")
 

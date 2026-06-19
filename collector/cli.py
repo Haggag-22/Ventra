@@ -399,15 +399,15 @@ def _fmt_dur(seconds: float | None) -> str:
 def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = "aws"):
     """Build the live-matrix reporter. Returns (reporter, console_or_None)."""
     if cloud == "azure":
-        from .azure.registry import AZURE_REGISTRY as REGISTRY
+        from .engine.registry import AZURE_REGISTRY as REGISTRY
 
         cloud_title = "Azure"
     elif cloud == "gcp":
-        from .gcp.registry import GCP_REGISTRY as REGISTRY
+        from .engine.registry import GCP_REGISTRY as REGISTRY
 
         cloud_title = "GCP"
     else:
-        from .aws.registry import AWS_REGISTRY as REGISTRY
+        from .engine.registry import AWS_REGISTRY as REGISTRY
 
         cloud_title = "AWS"
     from .aws.runner.runner import RunReporter
@@ -820,7 +820,7 @@ def _resolve_collectors(requested: str, all_names: list[str], registry) -> list[
 
 
 def _run_aws(args) -> int:
-    from .aws.registry import AWS_REGISTRY, all_collector_names
+    from .engine.registry import AWS_REGISTRY, AWS_COLLECTOR_ORDER as COLLECTOR_ORDER
     from .aws.runner.runner import AwsRunConfig, parse_window, run_aws_collection
 
     if args.list_collectors:
@@ -833,7 +833,7 @@ def _run_aws(args) -> int:
         return 2
 
     try:
-        collectors = _resolve_collectors(args.collectors, all_collector_names(), AWS_REGISTRY)
+        collectors = _resolve_collectors(args.collectors, list(COLLECTOR_ORDER), AWS_REGISTRY)
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
@@ -959,7 +959,7 @@ def _ual_options_from_args(args) -> "UalCollectOptions":
 
 
 def _run_azure(args) -> int:
-    from .azure.registry import AZURE_REGISTRY, all_collector_names
+    from .engine.registry import AZURE_REGISTRY, AZURE_COLLECTOR_ORDER as COLLECTOR_ORDER
     from .azure.runner.runner import AzureRunConfig, parse_window, run_azure_collection
 
     if args.list_collectors:
@@ -972,7 +972,7 @@ def _run_azure(args) -> int:
         return 2
 
     try:
-        collectors = _resolve_collectors(args.collectors, all_collector_names(), AZURE_REGISTRY)
+        collectors = _resolve_collectors(args.collectors, list(COLLECTOR_ORDER), AZURE_REGISTRY)
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
@@ -1099,7 +1099,7 @@ def _gcp_credentials_from_args(args) -> str | None:
 
 
 def _run_gcp(args) -> int:
-    from .gcp.registry import GCP_REGISTRY, all_collector_names
+    from .engine.registry import GCP_REGISTRY, GCP_COLLECTOR_ORDER as COLLECTOR_ORDER
     from .gcp.runner.runner import GcpRunConfig, parse_window, run_gcp_collection
 
     if args.list_collectors:
@@ -1112,7 +1112,7 @@ def _run_gcp(args) -> int:
         return 2
 
     try:
-        collectors = _resolve_collectors(args.collectors, all_collector_names(), GCP_REGISTRY)
+        collectors = _resolve_collectors(args.collectors, list(COLLECTOR_ORDER), GCP_REGISTRY)
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
-from collector.azure.control_plane.log_analytics import LogAnalyticsCollector
+from collector.engine.api.azure.control_plane.log_analytics import LogAnalyticsCollector
 from collector.lib.models import CollectionContext, GapReason, SourceStatus, TimeWindow
 
 WORKSPACE = (

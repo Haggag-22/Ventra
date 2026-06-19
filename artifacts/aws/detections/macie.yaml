@@ -1,0 +1,26 @@
+name: AWS.Detections.Macie
+aliases:
+- macie
+- aws.macie
+cloud: aws
+category: Detections
+description: Macie sensitive-data and policy findings.
+version: 1.0.0
+collector: macie
+type: macie
+required_actions:
+- macie2:GetMacieSession
+- macie2:ListFindings
+- macie2:GetFindings
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: macie
+  format: json
+severity: extended
+estimated_volume: medium

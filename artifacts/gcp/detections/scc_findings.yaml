@@ -1,0 +1,24 @@
+name: GCP.Detections.SccFindings
+aliases:
+- scc_findings
+- gcp.scc_findings
+cloud: gcp
+category: Detections
+description: Security Command Center findings and threat detections.
+version: 1.0.0
+collector: scc_findings
+type: scc_findings
+required_actions:
+- securitycenter.findings.list
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: scc_findings
+  format: json
+severity: critical
+estimated_volume: medium

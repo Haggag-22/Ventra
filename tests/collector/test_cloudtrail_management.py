@@ -9,8 +9,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from collector.aws.client_factory import AccessDenied
-from collector.aws.control_plane.cloudtrail import CloudTrailCollector
+from collector.clouds.aws.client_factory import AccessDenied
+from collector.engine.api.aws.control_plane.cloudtrail import CloudTrailCollector
 from collector.lib.models import CollectionContext, TimeWindow
 
 START = datetime(2026, 6, 11, 0, 0, 0, tzinfo=UTC)

@@ -1,0 +1,28 @@
+name: Azure.Network.Dns
+aliases:
+- dns
+- azure.dns
+cloud: azure
+category: Network
+description: Public/private DNS and DNS private resolver query logs from Storage diagnostics.
+version: 1.0.0
+collector: dns
+type: dns
+required_actions:
+- Microsoft.Network/dnsZones/read
+- Microsoft.Network/privateDnsZones/read
+- Microsoft.Network/dnsResolverEndpoints/read
+- Microsoft.Insights/DiagnosticSettings/read
+- Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: dns
+  format: json
+severity: critical
+estimated_volume: medium

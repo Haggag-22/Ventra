@@ -23,8 +23,8 @@ from ...lib.models import (
     utcnow_iso,
 )
 from ...lib.packaging.packager import PackageResult, seal_package
-from ..client_factory import GcpClientFactory
-from ..registry import GCP_REGISTRY
+from collector.clouds.gcp.client_factory import GcpClientFactory
+from collector.engine.registry import GCP_REGISTRY
 
 __all__ = ["GcpRunConfig", "run_gcp_collection", "parse_window"]
 
