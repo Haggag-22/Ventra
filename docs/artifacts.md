@@ -51,4 +51,4 @@ Use the canonical modules directly:
 - `collector.clouds.aws.client_factory` (and `azure` / `gcp`)
 - `collector.engine.api.aws.identity.iam` (and other collector modules)
 - `collector.engine.registry`
-- `collector.aws.runner.runner` (per-cloud orchestration only)
+- `collector.engine.api.{aws,azure,gcp}.runner` (per-cloud orchestration)

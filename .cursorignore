@@ -36,7 +36,9 @@
 !/.cursorignore
 
 # Build / cache / dependency noise (inside visible trees too)
-__pycache__/
+**/__pycache__/
+**/__init__.py
+**/__main__.py
 *.py[cod]
 *$py.class
 *.egg-info/

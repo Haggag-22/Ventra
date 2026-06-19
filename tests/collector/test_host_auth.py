@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from collector.aws.runner.runner import AwsRunConfig, run_aws_collection
+from collector.engine.api.aws.runner import AwsRunConfig, run_aws_collection
 from collector.clouds.azure.client_factory import AzureAccessDenied, AzureClientFactory
-from collector.azure.runner.runner import AzureRunConfig, run_azure_collection
+from collector.engine.api.azure.runner import AzureRunConfig, run_azure_collection
 from collector.lib.auth import azure_factory_kwargs, manifest_profile_overrides
 from collector.lib.models import AzureAuthOptions, TimeWindow
 
@@ -64,8 +64,8 @@ def test_aws_run_uses_named_profile(tmp_path) -> None:
     )
     fake_session = MagicMock(profile_name="client-readonly")
     with patch("boto3.Session", return_value=fake_session) as session_cls:
-        with patch("collector.aws.runner.runner.AwsClientFactory", _FakeFactory):
-            with patch("collector.aws.runner.runner.seal_package") as seal:
+        with patch("collector.engine.api.aws.runner.AwsClientFactory", _FakeFactory):
+            with patch("collector.engine.api.aws.runner.seal_package") as seal:
                 seal.return_value = MagicMock(
                     path=tmp_path / "pkg.tar.zst", compression="zst", bytes=1, sha256="0" * 64
                 )
@@ -98,8 +98,8 @@ def test_azure_run_passes_auth_to_factory(tmp_path) -> None:
         out_dir=tmp_path,
         auth=AzureAuthOptions(tenant_id="tenant", client_id="client", client_secret="s"),
     )
-    with patch("collector.azure.runner.runner.AzureClientFactory", _FakeFactory):
-        with patch("collector.azure.runner.runner.seal_package") as seal:
+    with patch("collector.engine.api.azure.runner.AzureClientFactory", _FakeFactory):
+        with patch("collector.engine.api.azure.runner.seal_package") as seal:
             seal.return_value = MagicMock(path=tmp_path / "pkg.tar.zst", compression="zst", bytes=1, sha256="0" * 64)
             run_azure_collection(cfg)
     assert captured["tenant_id"] == "tenant"
