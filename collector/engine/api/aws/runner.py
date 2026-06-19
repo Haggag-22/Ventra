@@ -10,17 +10,19 @@ import json
 import platform
 import tempfile
 import traceback
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from collector import __version__
 from collector.clouds.aws.client_factory import AwsClientFactory
+from collector.engine.acquisition import artifact_refs_for_collectors
 from collector.engine.registry import AWS_REGISTRY
 from collector.engine.run_common import RunReporter, parse_window
 from collector.lib.auth import manifest_profile_overrides
 from collector.lib.base import Collector
 from collector.lib.chain_of_custody.signing import sign_manifest
 from collector.lib.models import (
+    ArtifactRef,
     CollectionContext,
     GapReason,
     Manifest,
@@ -48,6 +50,12 @@ class AwsRunConfig:
     key_path: Path | None = None
     reporter: RunReporter | None = None
     aws_profile: str = ""
+    artifact_refs: list[ArtifactRef] = field(default_factory=list)
+    max_records_per_source: int | None = None
+    artifact_parameters: dict[str, dict] = field(default_factory=dict)
+    plan_label: str = ""
+    artifact_labels: dict[str, str] = field(default_factory=dict)
+    artifact_severities: dict[str, str] = field(default_factory=dict)
 
 
 def _detect_environment() -> str:
@@ -73,7 +81,15 @@ def run_aws_collection(cfg: AwsRunConfig, *, factory: AwsClientFactory | None = 
     regions = cfg.regions or cf.enabled_regions()
 
     reporter = cfg.reporter or RunReporter()
-    reporter.begin_run(identity.account_id, regions, cfg.case_id, cfg.collectors)
+    reporter.begin_run(
+        identity.account_id,
+        regions,
+        cfg.case_id,
+        cfg.collectors,
+        plan_label=cfg.plan_label,
+        artifact_labels=cfg.artifact_labels,
+        artifact_severities=cfg.artifact_severities,
+    )
 
     with tempfile.TemporaryDirectory(prefix="ventra-stage-") as tmp:
         staging = Path(tmp)
@@ -88,6 +104,8 @@ def run_aws_collection(cfg: AwsRunConfig, *, factory: AwsClientFactory | None = 
             case_id=cfg.case_id,
             client_factory=cf,
             logger=reporter,
+            max_records_per_source=cfg.max_records_per_source,
+            artifact_parameters=cfg.artifact_parameters,
         )
 
         manifest = Manifest(
@@ -109,6 +127,7 @@ def run_aws_collection(cfg: AwsRunConfig, *, factory: AwsClientFactory | None = 
             host_os=platform.platform(),
             host_runtime=f"python {platform.python_version()}",
         )
+        manifest.artifacts = cfg.artifact_refs or artifact_refs_for_collectors("aws", cfg.collectors)
 
         collection_log: list[dict] = []
         for name in cfg.collectors:

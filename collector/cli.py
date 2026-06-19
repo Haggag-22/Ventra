@@ -24,13 +24,33 @@ output directory.
 from __future__ import annotations
 
 import argparse
+import os
 import sys
 import time
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from . import __version__
 from .lib.models import SourceStatus, utcnow_iso
 from .lib.transport import get_transport
+
+if TYPE_CHECKING:
+    from .lib.models import AzureAuthOptions, TimeWindow, UalCollectOptions
+
+
+def _add_acquisition_args(parser: argparse.ArgumentParser) -> None:
+    """Shared artifact-driven planning flags for every ``collect`` subcommand."""
+    parser.add_argument(
+        "--acquisition",
+        default="",
+        help="Path to an acquisition.yaml (collectors + params); overrides --collectors.",
+    )
+    parser.add_argument(
+        "--pack",
+        default="",
+        help="Artifact pack name, e.g. baseline-ir-gcp (resolves artifacts/packs/<name>.yaml).",
+    )
+    parser.add_argument("--list-packs", action="store_true", help="List artifact packs and exit.")
 
 
 def _add_aws_parser(sub: argparse._SubParsersAction) -> None:
@@ -75,6 +95,7 @@ def _add_aws_parser(sub: argparse._SubParsersAction) -> None:
         default="",
         help="Comma-separated collector names to run (default: all registered).",
     )
+    _add_acquisition_args(aws)
     aws.add_argument(
         "--profile",
         default="",
@@ -149,6 +170,7 @@ def _add_azure_parser(sub: argparse._SubParsersAction) -> None:
         default="",
         help="Comma-separated collector names to run (default: all registered).",
     )
+    _add_acquisition_args(az)
     az.add_argument(
         "--ual-users",
         default="",
@@ -234,6 +256,7 @@ def _add_gcp_parser(sub: argparse._SubParsersAction) -> None:
         default="",
         help="Comma-separated collector names to run (default: all registered).",
     )
+    _add_acquisition_args(gcp)
 
 
 def build_parser(*, prog: str = "ventra") -> argparse.ArgumentParser:
@@ -271,7 +294,51 @@ def build_parser(*, prog: str = "ventra") -> argparse.ArgumentParser:
     # ``dev`` is kept as an alias of ``gui`` so older muscle memory and `make dev` keep working.
     dev = sub.add_parser("dev", help="Alias of `gui`.")
     _add_gui_args(dev)
+
+    _add_artifacts_parser(sub)
+    _add_kit_parser(sub)
     return p
+
+
+def _add_artifacts_parser(sub: argparse._SubParsersAction) -> None:
+    artifacts = sub.add_parser("artifacts", help="Inspect and validate the artifact catalog.")
+    art_sub = artifacts.add_subparsers(dest="artifacts_cmd", required=True)
+
+    art_list = art_sub.add_parser("list", help="List artifacts in the catalog.")
+    art_list.add_argument("--cloud", default="", help="Filter by cloud (aws|azure|gcp).")
+    art_list.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON.")
+
+    art_val = art_sub.add_parser("validate", help="Validate the catalog (exits non-zero on error).")
+    art_val.add_argument("--cloud", default="", help="Validate one cloud only.")
+    art_val.add_argument(
+        "--strict",
+        action="store_true",
+        help="Also require an artifact YAML for every registered collector.",
+    )
+
+    art_diff = art_sub.add_parser("diff", help="Show collector/YAML mismatches per cloud.")
+    art_diff.add_argument("--json", dest="json_output", action="store_true", help="Emit JSON.")
+
+
+def _add_kit_parser(sub: argparse._SubParsersAction) -> None:
+    kit = sub.add_parser("kit", help="Build an operator acquisition kit (zip).")
+    kit_sub = kit.add_subparsers(dest="kit_cmd", required=True)
+
+    build = kit_sub.add_parser("build", help="Build a kit zip from a pack or collector list.")
+    build.add_argument("--cloud", required=True, help="aws | azure | gcp")
+    build.add_argument("--case", default="", help="Case identifier for the acquisition.yaml.")
+    build.add_argument("--pack", default="", help="Artifact pack name, e.g. baseline-ir-gcp.")
+    build.add_argument(
+        "--collectors",
+        default="",
+        help="Comma-separated collector keys/names (alternative to --pack; default: all).",
+    )
+    build.add_argument("--out", default="kit.zip", help="Output zip path (default: kit.zip).")
+    build.add_argument(
+        "--no-iam",
+        action="store_true",
+        help="Do not bundle the read-only IAM policy for the selected actions.",
+    )
 
 
 def _should_auto_ingest(args: argparse.Namespace) -> bool:
@@ -296,7 +363,7 @@ def _normalize_argv(argv: list[str]) -> list[str]:
     # Top-level flags must not be rewritten to ``collect --version`` etc.
     if argv[0] in ("--version", "-V", "-h", "--help"):
         return argv
-    if argv[0] in ("collect", "dev", "gui"):
+    if argv[0] in ("collect", "dev", "gui", "artifacts", "kit"):
         return argv
     if argv[0] == "aws":
         return ["collect", *argv]
@@ -360,13 +427,11 @@ _SEVERITY: dict[str, str] = {
     "cloud_audit_data": "High",
     "login_events": "High",
     "workspace_audit": "Medium",
-    "vpc_flow": "High",
     "firewall_logs": "Medium",
     "load_balancer": "Medium",
     "api_gateway": "Medium",
     "vm_logs": "Medium",
     "cloud_functions": "Medium",
-    "storage_access": "Medium",
     "scc_findings": "High",
     "cloud_monitoring": "Medium",
     "iam_policy": "High",
@@ -374,6 +439,9 @@ _SEVERITY: dict[str, str] = {
 }
 
 _SEV_COLOR = {"High": "red", "Medium": "yellow", "Low": "cyan"}
+
+# Map artifact YAML severity (critical/extended/optional) to matrix tiers.
+_ARTIFACT_SEV = {"critical": "High", "extended": "Medium", "optional": "Low"}
 
 
 def _classify(status: SourceStatus, severity: str) -> tuple[str, str]:
@@ -452,6 +520,9 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
             # Ordered list of collector names and their mutable display state.
             self._order: list[str] = []
             self._state: dict[str, dict] = {}
+            self._plan_label = ""
+            self._artifact_labels: dict[str, str] = {}
+            self._artifact_severities: dict[str, str] = {}
 
         def _new_table(self):
             table = Table(
@@ -470,9 +541,17 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
             return table
 
         def _severity_for(self, name: str) -> str:
+            if name in self._artifact_severities:
+                return self._artifact_severities[name]
             cls = REGISTRY.get(name)
             priority = getattr(cls, "priority", 2)
             return _SEVERITY.get(name, "High" if priority == 1 else "Medium")
+
+        def _artifact_hint(self, name: str) -> str:
+            label = self._artifact_labels.get(name, "")
+            if not label or label == name:
+                return ""
+            return label.split(".")[-1] if "." in label else label
 
         # -- lifecycle ------------------------------------------------------
         def begin_run(
@@ -481,10 +560,17 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
             regions: list[str],
             case_id: str = "",
             collectors: list[str] | None = None,
+            *,
+            plan_label: str = "",
+            artifact_labels: dict[str, str] | None = None,
+            artifact_severities: dict[str, str] | None = None,
         ) -> None:
             self._account = account_id or ""
             self._masked = (account_id[:4] + "***") if account_id else "????"
             self._order = list(collectors or [])
+            self._plan_label = plan_label
+            self._artifact_labels = dict(artifact_labels or {})
+            self._artifact_severities = dict(artifact_severities or {})
             for name in self._order:
                 self._state[name] = {
                     "status": "pending",
@@ -505,9 +591,10 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
             if self._json:
                 return
             if self._quiet:
+                plan = f" — {self._plan_label}" if self._plan_label else ""
                 print(
                     f"[+] Ventra collection — account {self._masked} — case {case_id or '—'} "
-                    f"— {region_str} — {len(self._order)} collectors"
+                    f"— {region_str} — {len(self._order)} collectors{plan}"
                 )
                 return
 
@@ -521,6 +608,10 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
                     f"   [bright_black]Regions[/] [bold]{escape(region_str)}[/]"
                     f"   [bright_black]Started[/] [bold]{ts}[/]"
                 )
+                if self._plan_label:
+                    self._console.print(
+                        f"  [bright_black]Plan[/] [bold]{escape(self._plan_label)}[/]"
+                    )
                 self._console.print()
                 self._live = Live(
                     self._render_table(),
@@ -541,7 +632,10 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
                 status = st["status"]
                 if status == "pending":
                     glyph = _PENDING
+                    hint = self._artifact_hint(name)
                     detail = "[dim]queued[/dim]"
+                    if hint:
+                        detail += f" · [dim]{escape(hint)}[/dim]"
                     records = "[dim]-[/dim]"
                     time_cell = ""
                 elif status == "running":
@@ -567,7 +661,10 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
                 )
                 table.add_row(glyph, name_cell, sev_cell, records, time_cell, detail)
             total = len(self._order)
-            table.caption = f"[bright_black]{done}/{total} collectors complete[/]"
+            cap = f"[bright_black]{done}/{total} complete[/]"
+            if self._plan_label:
+                cap += f" · {escape(self._plan_label)}"
+            table.caption = cap
             return table
 
         def _refresh(self) -> None:
@@ -760,6 +857,10 @@ def main(argv: list[str] | None = None) -> int:
         from .devgui import cmd_gui
 
         return cmd_gui(args)
+    if args.command == "artifacts":
+        return _run_artifacts(args)
+    if args.command == "kit":
+        return _run_kit(args)
     if args.command != "collect":
         print(f"Unknown command {args.command!r}.", file=sys.stderr)
         return 2
@@ -778,7 +879,7 @@ def main_legacy(argv: list[str] | None = None) -> int:
     return main(_normalize_argv(list(argv if argv is not None else sys.argv[1:])))
 
 
-def _azure_auth_from_args(args) -> "AzureAuthOptions":
+def _azure_auth_from_args(args) -> AzureAuthOptions:
     import os
 
     from .lib.models import AzureAuthOptions
@@ -819,41 +920,170 @@ def _resolve_collectors(requested: str, all_names: list[str], registry) -> list[
     return sorted(wanted, key=lambda n: order.get(n, len(all_names)))
 
 
+def _artifacts_root_from_args(args) -> Path:
+    """Resolve artifact YAML catalog — kit dir, env, or repo default."""
+    env = os.environ.get("VENTRA_ARTIFACTS_ROOT", "").strip()
+    if env:
+        return Path(env)
+    acq = (getattr(args, "acquisition", "") or "").strip()
+    if acq:
+        kit = Path(acq).resolve().parent / "artifacts"
+        if kit.is_dir():
+            return kit
+    return Path("artifacts")
+
+
+def _collection_plan_label(args, collectors: list[str]) -> str:
+    n = len(collectors)
+    acq = (getattr(args, "acquisition", "") or "").strip()
+    if acq:
+        return f"{n} artifacts from {Path(acq).name}"
+    pack = (getattr(args, "pack", "") or "").strip()
+    if pack:
+        return f"{n} artifacts from pack {pack}"
+    explicit = (getattr(args, "collectors", "") or "").strip()
+    if explicit:
+        return f"{n} collectors (explicit)"
+    return f"{n} collectors"
+
+
+def _artifact_matrix_meta(
+    cloud: str, artifact_refs: list, artifacts_root: Path
+) -> tuple[dict[str, str], dict[str, str]]:
+    """Build display labels + severity tiers for the live matrix from artifact refs."""
+    from .engine.acquisition import _artifact_index
+
+    index = _artifact_index(cloud, artifacts_root)
+    labels: dict[str, str] = {}
+    sevs: dict[str, str] = {}
+    for ref in artifact_refs:
+        key = ref.collector
+        art = index.get(key) or {}
+        labels[key] = ref.name or art.get("name") or key
+        raw = str(art.get("severity") or "").lower()
+        sevs[key] = _ARTIFACT_SEV.get(raw) or _SEVERITY.get(key, "Medium")
+    return labels, sevs
+
+
+def _matrix_plan_fields(
+    args, cloud: str, collectors: list[str], artifact_refs: list
+) -> tuple[str, dict[str, str], dict[str, str]]:
+    root = _artifacts_root_from_args(args)
+    labels, sevs = _artifact_matrix_meta(cloud, artifact_refs, root)
+    return _collection_plan_label(args, collectors), labels, sevs
+
+
+def _plan_collection(args, cloud: str, all_names: list[str], registry):
+    """Resolve collectors + artifact provenance from --acquisition / --pack / --collectors.
+
+    Returns ``(collectors, artifact_refs, case_id, engagement_id, spec)`` where case/engagement
+    are non-empty only when supplied by an acquisition spec (CLI flags still take precedence).
+    """
+    from .engine.acquisition import (
+        artifact_refs_for_collectors,
+        load_acquisition,
+        load_pack,
+        resolve_collectors_from_acquisition,
+    )
+
+    artifacts_root = _artifacts_root_from_args(args)
+    if getattr(args, "acquisition", ""):
+        spec = load_acquisition(Path(args.acquisition))
+        if spec.cloud and spec.cloud != cloud:
+            raise ValueError(
+                f"acquisition cloud {spec.cloud!r} does not match `collect {cloud}`."
+            )
+        names, refs = resolve_collectors_from_acquisition(spec, artifacts_root)
+        return names, refs, spec.case_id, spec.engagement_id, spec
+    if getattr(args, "pack", ""):
+        keys = load_pack(args.pack, artifacts_root)
+        names = _resolve_collectors(",".join(keys), all_names, registry)
+        return names, artifact_refs_for_collectors(cloud, names, artifacts_root), "", "", None
+    names = _resolve_collectors(args.collectors, all_names, registry)
+    return names, artifact_refs_for_collectors(cloud, names, artifacts_root), "", "", None
+
+
+def _window_from_args(args, spec) -> TimeWindow:
+    from .engine.api.aws.runner import parse_window
+
+    since = getattr(args, "since", None) or (spec.since if spec else None)
+    until = getattr(args, "until", None) or (spec.until if spec else None)
+    return parse_window(since, until)
+
+
+def _regions_from_args(args, spec) -> list[str] | None:
+    cli = [r.strip() for r in (getattr(args, "regions", "") or "").split(",") if r.strip()]
+    if cli:
+        return cli
+    if spec and spec.regions:
+        return list(spec.regions)
+    return None
+
+
+def _print_packs(cloud: str) -> int:
+    from .engine.acquisition import list_packs
+
+    packs = list_packs(cloud)
+    if not packs:
+        print(f"No artifact packs found for {cloud}.")
+        return 0
+    for p in packs:
+        label = p["description"] or p["name"]
+        print(f"  {p['pack']:<22} {label}  ({len(p['artifacts'])} artifacts)")
+    return 0
+
+
 def _run_aws(args) -> int:
-    from .engine.registry import AWS_REGISTRY, AWS_COLLECTOR_ORDER as COLLECTOR_ORDER
-    from .engine.api.aws.runner import AwsRunConfig, parse_window, run_aws_collection
+    from .engine.api.aws.runner import AwsRunConfig, run_aws_collection
+    from .engine.registry import AWS_COLLECTOR_ORDER as COLLECTOR_ORDER
+    from .engine.registry import AWS_REGISTRY
 
     if args.list_collectors:
         for name, cls in sorted(AWS_REGISTRY.all().items()):
             print(f"  {name:<14} {cls.description}")
         return 0
-
-    if not args.case:
-        print("error: --case is required to run a collection.", file=sys.stderr)
-        return 2
+    if args.list_packs:
+        return _print_packs("aws")
 
     try:
-        collectors = _resolve_collectors(args.collectors, list(COLLECTOR_ORDER), AWS_REGISTRY)
+        collectors, artifact_refs, case_override, eng_override, spec = _plan_collection(
+            args, "aws", list(COLLECTOR_ORDER), AWS_REGISTRY
+        )
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
-    regions = [r.strip() for r in args.regions.split(",") if r.strip()] or None
-    window = parse_window(args.since, args.until)
+    case_id = args.case or case_override
+    if not case_id:
+        print("error: --case is required to run a collection.", file=sys.stderr)
+        return 2
+
+    regions = _regions_from_args(args, spec)
+    window = _window_from_args(args, spec)
 
     json_mode = args.json_output
     reporter, console = _cli_reporter(quiet=args.quiet, json_mode=json_mode, cloud="aws")
 
+    plan_label, artifact_labels, artifact_severities = _matrix_plan_fields(
+        args, "aws", collectors, artifact_refs
+    )
+
     cfg = AwsRunConfig(
-        case_id=args.case,
+        case_id=case_id,
         collectors=collectors,
         regions=regions,
         time_window=window,
         out_dir=Path(args.out),
-        engagement_id=args.engagement,
+        engagement_id=args.engagement or eng_override,
         key_path=Path(args.key) if args.key else None,
         reporter=reporter,
         aws_profile=(args.profile or "").strip(),
+        artifact_refs=artifact_refs,
+        max_records_per_source=spec.max_records_per_source if spec else None,
+        artifact_parameters=spec.artifact_parameters() if spec else {},
+        plan_label=plan_label,
+        artifact_labels=artifact_labels,
+        artifact_severities=artifact_severities,
     )
 
     try:
@@ -863,7 +1093,7 @@ def _run_aws(args) -> int:
         if json_mode:
             import json as _json
 
-            print(_json.dumps({"case_id": args.case, "error": str(exc)}, indent=2))
+            print(_json.dumps({"case_id": case_id, "error": str(exc)}, indent=2))
         else:
             print(f"\nCollection failed: {exc}", file=sys.stderr)
         return 1
@@ -916,8 +1146,8 @@ def _run_aws(args) -> int:
         import json as _json
 
         payload = {
-            "case_id": args.case,
-            "engagement_id": args.engagement or None,
+            "case_id": case_id,
+            "engagement_id": (args.engagement or eng_override) or None,
             "account_id": reporter._account,
             "collectors": reporter.collectors_report(),
             "coverage_gaps": reporter.coverage_gaps(),
@@ -940,7 +1170,7 @@ def _run_aws(args) -> int:
     return 1 if transport_error else ingest_code
 
 
-def _ual_options_from_args(args) -> "UalCollectOptions":
+def _ual_options_from_args(args) -> UalCollectOptions:
     from .lib.models import UalCollectOptions
 
     def _split(val: str) -> list[str]:
@@ -959,43 +1189,59 @@ def _ual_options_from_args(args) -> "UalCollectOptions":
 
 
 def _run_azure(args) -> int:
-    from .engine.registry import AZURE_REGISTRY, AZURE_COLLECTOR_ORDER as COLLECTOR_ORDER
-    from .engine.api.azure.runner import AzureRunConfig, parse_window, run_azure_collection
+    from .engine.api.azure.runner import AzureRunConfig, run_azure_collection
+    from .engine.registry import AZURE_COLLECTOR_ORDER as COLLECTOR_ORDER
+    from .engine.registry import AZURE_REGISTRY
 
     if args.list_collectors:
         for name, cls in sorted(AZURE_REGISTRY.all().items()):
             print(f"  {name:<16} {cls.description}")
         return 0
-
-    if not args.case:
-        print("error: --case is required to run a collection.", file=sys.stderr)
-        return 2
+    if args.list_packs:
+        return _print_packs("azure")
 
     try:
-        collectors = _resolve_collectors(args.collectors, list(COLLECTOR_ORDER), AZURE_REGISTRY)
+        collectors, artifact_refs, case_override, eng_override, spec = _plan_collection(
+            args, "azure", list(COLLECTOR_ORDER), AZURE_REGISTRY
+        )
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
-    regions = [r.strip() for r in args.regions.split(",") if r.strip()] or None
-    window = parse_window(args.since, args.until)
-    subscription = _azure_subscription_from_args(args)
+    case_id = args.case or case_override
+    if not case_id:
+        print("error: --case is required to run a collection.", file=sys.stderr)
+        return 2
+
+    regions = _regions_from_args(args, spec)
+    window = _window_from_args(args, spec)
+    subscription = _azure_subscription_from_args(args) or (spec.subscription if spec else "") or None
 
     json_mode = args.json_output
     reporter, console = _cli_reporter(quiet=args.quiet, json_mode=json_mode, cloud="azure")
 
+    plan_label, artifact_labels, artifact_severities = _matrix_plan_fields(
+        args, "azure", collectors, artifact_refs
+    )
+
     cfg = AzureRunConfig(
-        case_id=args.case,
+        case_id=case_id,
         collectors=collectors,
         regions=regions,
         subscription_id=subscription,
         time_window=window,
         out_dir=Path(args.out),
-        engagement_id=args.engagement,
+        engagement_id=args.engagement or eng_override,
         key_path=Path(args.key) if args.key else None,
         reporter=reporter,
         ual=_ual_options_from_args(args),
         auth=_azure_auth_from_args(args),
+        artifact_refs=artifact_refs,
+        max_records_per_source=spec.max_records_per_source if spec else None,
+        artifact_parameters=spec.artifact_parameters() if spec else {},
+        plan_label=plan_label,
+        artifact_labels=artifact_labels,
+        artifact_severities=artifact_severities,
     )
 
     try:
@@ -1005,7 +1251,7 @@ def _run_azure(args) -> int:
         if json_mode:
             import json as _json
 
-            print(_json.dumps({"case_id": args.case, "error": str(exc)}, indent=2))
+            print(_json.dumps({"case_id": case_id, "error": str(exc)}, indent=2))
         else:
             print(f"\nCollection failed: {exc}", file=sys.stderr)
         return 1
@@ -1056,8 +1302,8 @@ def _run_azure(args) -> int:
         import json as _json
 
         payload = {
-            "case_id": args.case,
-            "engagement_id": args.engagement or None,
+            "case_id": case_id,
+            "engagement_id": (args.engagement or eng_override) or None,
             "account_id": reporter._account,
             "collectors": reporter.collectors_report(),
             "coverage_gaps": reporter.coverage_gaps(),
@@ -1084,8 +1330,6 @@ def _gcp_project_from_args(args) -> str | None:
     import os
 
     raw = (getattr(args, "project", "") or os.environ.get("GOOGLE_CLOUD_PROJECT", "")).strip()
-    if "," in raw:
-        return raw.split(",")[0].strip() or None
     return raw or None
 
 
@@ -1099,41 +1343,58 @@ def _gcp_credentials_from_args(args) -> str | None:
 
 
 def _run_gcp(args) -> int:
-    from .engine.registry import GCP_REGISTRY, GCP_COLLECTOR_ORDER as COLLECTOR_ORDER
-    from .engine.api.gcp.runner import GcpRunConfig, parse_window, run_gcp_collection
+    from .engine.api.gcp.runner import GcpRunConfig, run_gcp_collection
+    from .engine.registry import GCP_COLLECTOR_ORDER as COLLECTOR_ORDER
+    from .engine.registry import GCP_REGISTRY
 
     if args.list_collectors:
         for name, cls in sorted(GCP_REGISTRY.all().items()):
             print(f"  {name:<22} {cls.description}")
         return 0
-
-    if not args.case:
-        print("error: --case is required to run a collection.", file=sys.stderr)
-        return 2
+    if args.list_packs:
+        return _print_packs("gcp")
 
     try:
-        collectors = _resolve_collectors(args.collectors, list(COLLECTOR_ORDER), GCP_REGISTRY)
+        collectors, artifact_refs, case_override, eng_override, spec = _plan_collection(
+            args, "gcp", list(COLLECTOR_ORDER), GCP_REGISTRY
+        )
     except ValueError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2
 
-    regions = [r.strip() for r in args.regions.split(",") if r.strip()] or None
-    window = parse_window(args.since, args.until)
+    case_id = args.case or case_override
+    if not case_id:
+        print("error: --case is required to run a collection.", file=sys.stderr)
+        return 2
+
+    regions = _regions_from_args(args, spec)
+    window = _window_from_args(args, spec)
+    project = _gcp_project_from_args(args) or (spec.project if spec else "") or None
 
     json_mode = args.json_output
     reporter, console = _cli_reporter(quiet=args.quiet, json_mode=json_mode, cloud="gcp")
 
+    plan_label, artifact_labels, artifact_severities = _matrix_plan_fields(
+        args, "gcp", collectors, artifact_refs
+    )
+
     cfg = GcpRunConfig(
-        case_id=args.case,
+        case_id=case_id,
         collectors=collectors,
         regions=regions,
-        project_id=_gcp_project_from_args(args),
+        project_id=project,
         time_window=window,
         out_dir=Path(args.out),
-        engagement_id=args.engagement,
+        engagement_id=args.engagement or eng_override,
         key_path=Path(args.key) if args.key else None,
         reporter=reporter,
         credentials_path=_gcp_credentials_from_args(args),
+        artifact_refs=artifact_refs,
+        max_records_per_source=spec.max_records_per_source if spec else None,
+        artifact_parameters=spec.artifact_parameters() if spec else {},
+        plan_label=plan_label,
+        artifact_labels=artifact_labels,
+        artifact_severities=artifact_severities,
     )
 
     try:
@@ -1143,7 +1404,7 @@ def _run_gcp(args) -> int:
         if json_mode:
             import json as _json
 
-            print(_json.dumps({"case_id": args.case, "error": str(exc)}, indent=2))
+            print(_json.dumps({"case_id": case_id, "error": str(exc)}, indent=2))
         else:
             print(f"\nCollection failed: {exc}", file=sys.stderr)
         return 1
@@ -1194,8 +1455,8 @@ def _run_gcp(args) -> int:
         import json as _json
 
         payload = {
-            "case_id": args.case,
-            "engagement_id": args.engagement or None,
+            "case_id": case_id,
+            "engagement_id": (args.engagement or eng_override) or None,
             "account_id": reporter._account,
             "collectors": reporter.collectors_report(),
             "coverage_gaps": reporter.coverage_gaps(),
@@ -1216,6 +1477,99 @@ def _run_gcp(args) -> int:
         print(_json.dumps(payload, indent=2))
 
     return 1 if transport_error else ingest_code
+
+
+def _run_artifacts(args) -> int:
+    from .engine.loader import load_artifacts_dir
+    from .engine.validate import diff_artifacts, validate_artifacts
+
+    cmd = args.artifacts_cmd
+    cloud = (getattr(args, "cloud", "") or "").strip().lower() or None
+
+    if cmd == "list":
+        arts = load_artifacts_dir(Path("artifacts"), cloud=cloud)
+        if getattr(args, "json_output", False):
+            import json as _json
+
+            clean = [{k: v for k, v in a.items() if not k.startswith("_")} for a in arts]
+            print(_json.dumps(clean, indent=2))
+            return 0
+        for a in arts:
+            print(f"  {a['cloud']:<5} {a['collector']:<22} {a['name']}  (v{a.get('version', '?')})")
+        print(f"\n{len(arts)} artifact(s).")
+        return 0
+
+    if cmd == "validate":
+        errors = validate_artifacts(cloud=cloud, strict=getattr(args, "strict", False))
+        if errors:
+            print(f"Artifact validation FAILED — {len(errors)} error(s):", file=sys.stderr)
+            for e in errors:
+                print(f"  - {e}", file=sys.stderr)
+            return 1
+        print(f"OK: artifact catalog valid ({cloud or 'all clouds'}).")
+        return 0
+
+    if cmd == "diff":
+        diff = diff_artifacts()
+        if getattr(args, "json_output", False):
+            import json as _json
+
+            print(_json.dumps(diff, indent=2))
+            return 0
+        for cl, d in diff.items():
+            print(f"{cl}:")
+            print(f"  collectors without YAML: {', '.join(d['missing_yaml']) or '—'}")
+            print(f"  YAML without collector:  {', '.join(d['missing_registry']) or '—'}")
+        return 0
+
+    print(f"Unknown artifacts subcommand {cmd!r}.", file=sys.stderr)
+    return 2
+
+
+def _run_kit(args) -> int:
+    if args.kit_cmd != "build":
+        print(f"Unknown kit subcommand {args.kit_cmd!r}.", file=sys.stderr)
+        return 2
+
+    from .engine.acquisition import load_pack
+    from .engine.executor import list_collectors
+    from .kit.build import build_kit
+
+    cloud = args.cloud.strip().lower()
+    artifacts_root = Path("artifacts")
+    try:
+        if args.pack:
+            names = load_pack(args.pack, artifacts_root)
+        elif args.collectors:
+            names = [n.strip() for n in args.collectors.split(",") if n.strip()]
+        else:
+            names = list_collectors(cloud, artifacts_root=artifacts_root)
+    except Exception as exc:  # noqa: BLE001
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    iam_paths = None
+    if not args.no_iam:
+        iam = Path("docs/iam-policies") / f"{cloud}-collector-readonly.json"
+        if iam.is_file():
+            iam_paths = [iam]
+
+    try:
+        out = build_kit(
+            Path(args.out),
+            cloud=cloud,
+            case_id=args.case or "CASE-PENDING",
+            artifact_names=names,
+            artifacts_root=artifacts_root,
+            iam_policy_paths=iam_paths,
+        )
+    except Exception as exc:  # noqa: BLE001
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    print(f"Wrote acquisition kit: {out}")
+    print(f"  cloud: {cloud}   case: {args.case or 'CASE-PENDING'}   artifacts: {len(names)}")
+    return 0
 
 
 if __name__ == "__main__":  # pragma: no cover

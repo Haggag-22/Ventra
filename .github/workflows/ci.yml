@@ -25,6 +25,8 @@ jobs:
         run: python -m collector.tools.verify_readonly --collectors
       - name: Guard — published IAM policy is read-only
         run: python -m collector.tools.verify_readonly docs/iam-policies/aws-collector-readonly.json
+      - name: Guard — artifact catalog is valid
+        run: ventra artifacts validate
 
   python:
     runs-on: ubuntu-latest
@@ -41,6 +43,8 @@ jobs:
           pip install ruff
       - name: Lint
         run: ruff check collector ingester console/backend
+      - name: Catalog drift check
+        run: python scripts/generate-catalog-ts.py --check
       - name: Schema validation
         run: |
           python - <<'PY'

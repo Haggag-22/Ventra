@@ -9,7 +9,7 @@ import { CLOUDS, CLOUD_LABELS, type Cloud } from "@/lib/catalog";
 import type { CaseSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Anchor, FolderOpen, ShieldAlert, Trash2, Upload } from "lucide-react";
+import { Anchor, Boxes, FolderOpen, ShieldAlert, Trash2, Upload } from "lucide-react";
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 
@@ -42,9 +42,16 @@ export default function CasesPage() {
               <p className="text-xs text-fg-subtle">Cloud Incident Response Console</p>
             </div>
           </div>
-          <Button variant="primary-dark" icon={Upload} onClick={() => setImportOpen(true)}>
+          <div className="flex items-center gap-2">
+            <Link href="/acquire">
+              <Button variant="secondary" icon={Boxes}>
+                Acquire
+              </Button>
+            </Link>
+            <Button variant="primary-dark" icon={Upload} onClick={() => setImportOpen(true)}>
               Import package
             </Button>
+          </div>
         </div>
       </header>
 

@@ -158,6 +158,21 @@
         }
       }
     },
+    "artifacts": {
+      "type": "array",
+      "description": "Provenance for each artifact collected — the YAML name/version and the registry collector that ran.",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["name", "version", "collector"],
+        "properties": {
+          "name": { "type": "string", "description": "Hierarchical artifact name, e.g. GCP.ManagementPlane.CloudAuditAdmin." },
+          "version": { "type": "string" },
+          "collector": { "type": "string", "description": "Registry key resolved by collector.engine.registry." },
+          "parameters": { "type": "object" }
+        }
+      }
+    },
     "host": {
       "type": "object",
       "additionalProperties": false,

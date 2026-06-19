@@ -64,6 +64,14 @@ READONLY_EXCEPTIONS = frozenset(
 )
 
 
+# Default per-source record cap. A collector may override via ``ctx.max_records_per_source``
+# (raised for large pulls, or 0/negative for no cap). Kept here so the cap is one number.
+DEFAULT_MAX_RECORDS = 200_000
+# Effective "no cap" ceiling — large enough to never truncate in practice while still bounding
+# paginators that require a finite limit.
+_UNLIMITED_RECORDS = 1_000_000_000
+
+
 class Collector(abc.ABC):
     """Base class for every Ventra collector.
 
@@ -79,6 +87,21 @@ class Collector(abc.ABC):
 
     def __init__(self, ctx: CollectionContext) -> None:
         self.ctx = ctx
+
+    def max_records(self, default: int = DEFAULT_MAX_RECORDS) -> int:
+        """Effective per-source record cap for this run.
+
+        ``ctx.max_records_per_source`` overrides the collector default: a positive value sets the
+        cap; 0 or negative disables it (returns a very large ceiling for large pulls).
+        """
+        cap = getattr(self.ctx, "max_records_per_source", None)
+        if cap is None:
+            return default
+        return _UNLIMITED_RECORDS if cap <= 0 else cap
+
+    def artifact_params(self) -> dict[str, Any]:
+        """Per-artifact filter values for this collector from the acquisition spec (may be empty)."""
+        return getattr(self.ctx, "artifact_parameters", {}).get(self.name, {})
 
     @abc.abstractmethod
     def collect(self) -> SourceResult:

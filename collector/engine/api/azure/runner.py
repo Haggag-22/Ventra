@@ -11,12 +11,14 @@ from pathlib import Path
 
 from collector import __version__
 from collector.clouds.azure.client_factory import AzureClientFactory
+from collector.engine.acquisition import artifact_refs_for_collectors
 from collector.engine.registry import AZURE_REGISTRY
 from collector.engine.run_common import RunReporter, parse_window
 from collector.lib.auth import azure_factory_kwargs, manifest_profile_overrides
 from collector.lib.base import Collector
 from collector.lib.chain_of_custody.signing import sign_manifest
 from collector.lib.models import (
+    ArtifactRef,
     AzureAuthOptions,
     CollectionContext,
     GapReason,
@@ -48,6 +50,12 @@ class AzureRunConfig:
     reporter: RunReporter | None = None
     ual: UalCollectOptions = field(default_factory=UalCollectOptions)
     auth: AzureAuthOptions = field(default_factory=AzureAuthOptions)
+    artifact_refs: list[ArtifactRef] = field(default_factory=list)
+    max_records_per_source: int | None = None
+    artifact_parameters: dict[str, dict] = field(default_factory=dict)
+    plan_label: str = ""
+    artifact_labels: dict[str, str] = field(default_factory=dict)
+    artifact_severities: dict[str, str] = field(default_factory=dict)
 
 
 def run_azure_collection(
@@ -59,7 +67,15 @@ def run_azure_collection(
     subscriptions = cf.subscriptions()
 
     reporter = cfg.reporter or RunReporter()
-    reporter.begin_run(identity.tenant_id, subscriptions, cfg.case_id, cfg.collectors)
+    reporter.begin_run(
+        identity.tenant_id,
+        subscriptions,
+        cfg.case_id,
+        cfg.collectors,
+        plan_label=cfg.plan_label,
+        artifact_labels=cfg.artifact_labels,
+        artifact_severities=cfg.artifact_severities,
+    )
 
     with tempfile.TemporaryDirectory(prefix="ventra-stage-") as tmp:
         staging = Path(tmp)
@@ -77,6 +93,8 @@ def run_azure_collection(
             client_factory=cf,
             logger=reporter,
             ual=cfg.ual,
+            max_records_per_source=cfg.max_records_per_source,
+            artifact_parameters=cfg.artifact_parameters,
         )
 
         manifest = Manifest(
@@ -104,6 +122,7 @@ def run_azure_collection(
             host_os=platform.platform(),
             host_runtime=f"python {platform.python_version()}",
         )
+        manifest.artifacts = cfg.artifact_refs or artifact_refs_for_collectors("azure", cfg.collectors)
 
         collection_log: list[dict] = []
         for name in cfg.collectors:

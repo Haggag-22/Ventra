@@ -20,6 +20,10 @@ class RunReporter:
         regions: list[str],
         case_id: str = "",
         collectors: list[str] | None = None,
+        *,
+        plan_label: str = "",
+        artifact_labels: dict[str, str] | None = None,
+        artifact_severities: dict[str, str] | None = None,
     ) -> None:
         """Called once after identity/regions are resolved. No-op by default; the CLI's
         matrix reporter overrides it to print the run header and pre-populate the matrix

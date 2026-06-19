@@ -1714,6 +1714,7 @@ source = { editable = "." }
 dependencies = [
     { name = "boto3" },
     { name = "botocore" },
+    { name = "pyyaml" },
     { name = "rich" },
     { name = "zstandard" },
 ]
@@ -1815,6 +1816,7 @@ requires-dist = [
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0" },
     { name = "python-multipart", marker = "extra == 'console'", specifier = ">=0.0.9" },
     { name = "python-multipart", marker = "extra == 'dev'", specifier = ">=0.0.9" },
+    { name = "pyyaml", specifier = ">=6.0" },
     { name = "pyyaml", marker = "extra == 'console'", specifier = ">=6.0" },
     { name = "pyyaml", marker = "extra == 'dev'", specifier = ">=6.0" },
     { name = "rich", specifier = ">=13.7" },
