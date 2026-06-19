@@ -2,6 +2,8 @@
 // browser never makes a cross-origin or external call.
 
 import type {
+  Artifact,
+  ArtifactPack,
   CaseSummary,
   CloudTrailCollection,
   EventsResponse,
@@ -96,6 +98,11 @@ export const api = {
     get<{ source: string; data: any }>(`/cases/${c}/inventory/${source}`),
   cloudtrailCollection: (c: string) =>
     get<CloudTrailCollection>(`/cases/${c}/cloudtrail/collection`),
+  artifacts: (cloud?: string, search?: string) =>
+    get<{ artifacts: Artifact[]; count: number }>(`/artifacts${qs({ cloud, search })}`),
+  artifact: (collector: string, cloud?: string) =>
+    get<Artifact>(`/artifacts/${encodeURIComponent(collector)}${qs({ cloud })}`),
+  packs: (cloud?: string) => get<{ packs: ArtifactPack[] }>(`/packs${qs({ cloud })}`),
 };
 
 export async function deleteCase(caseId: string): Promise<{ deleted: string }> {
@@ -122,4 +129,46 @@ export async function importPackage(file: File, caseId?: string): Promise<any> {
     throw new Error(body.detail || "Import failed");
   }
   return res.json();
+}
+
+export type AcquisitionBuild = {
+  cloud: string;
+  case_id: string;
+  artifacts?: string[];
+  pack?: string;
+  include_iam?: boolean;
+  since?: string;
+  until?: string;
+  regions?: string[];
+  project?: string;
+  subscription?: string;
+  max_records_per_source?: number | null;
+  artifact_parameters?: Record<string, Record<string, unknown>>;
+};
+
+/** POST the acquisition selection and trigger a browser download of the returned kit zip. */
+export async function buildAcquisitionKit(body: AcquisitionBuild): Promise<void> {
+  const res = await fetch("/api/acquisitions/build", {
+    method: "POST",
+    // The Responder role owns the acquisition phase (matches backend RBAC).
+    headers: { "Content-Type": "application/json", "X-Ventra-Role": "responder" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || "Kit build failed");
+  }
+  const blob = await res.blob();
+  const disposition = res.headers.get("Content-Disposition") || "";
+  const match = disposition.match(/filename="?([^"]+)"?/);
+  const filename = match?.[1] || `ventra-kit-${body.cloud}-${body.case_id}.zip`;
+
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
 }

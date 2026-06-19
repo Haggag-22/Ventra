@@ -330,3 +330,29 @@ export interface InventorySummary {
   categories: { name: string; items: InventoryResourceItem[] }[];
   total_resources: number;
 }
+
+// ---- Acquire (artifact library + kit builder) ------------------------------------------
+
+export interface Artifact {
+  name: string;
+  collector: string;
+  cloud: string;
+  category: string;
+  description: string;
+  version: string;
+  severity: string;
+  estimated_volume: string;
+  required_actions: string[];
+  aliases?: string[];
+  parameters?: Record<string, unknown>;
+  sources?: { type: string; format?: string }[];
+}
+
+export interface ArtifactPack {
+  pack: string;
+  name: string;
+  cloud: string;
+  description: string;
+  version: string;
+  artifacts: string[];
+}

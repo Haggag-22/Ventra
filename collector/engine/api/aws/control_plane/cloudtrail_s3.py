@@ -243,6 +243,7 @@ def collect_s3_trail_records(
     gaps: list[tuple[str, GapReason, str]],
     *,
     log: Callable[[str], None] | None = None,
+    max_records: int = MAX_CATEGORY_RECORDS,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Pull records for ``categories`` from the trail's S3 log files in the time window."""
     subfolder = CATEGORY_SUBFOLDERS.get(categories, SHARED_SUBFOLDER)
@@ -291,7 +292,7 @@ def collect_s3_trail_records(
                         with gzip.GzipFile(fileobj=io.BytesIO(body)) as gz:
                             payload = json.loads(gz.read().decode("utf-8"))
                         for rec in payload.get("Records") or []:
-                            if len(records) >= MAX_CATEGORY_RECORDS:
+                            if len(records) >= max_records:
                                 stats["truncated"] = True
                                 break
                             cat = rec.get("eventCategory") or ""

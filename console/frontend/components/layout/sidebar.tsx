@@ -4,7 +4,7 @@ import { useCase } from "@/components/case-context";
 import { BackToCases } from "@/components/layout/back-to-cases";
 import { caseCloud } from "@/lib/cloud-sources";
 import { panelLabel } from "@/lib/panel-labels";
-import { CASES_HREF } from "@/lib/routes";
+import { acquireHref, CASES_HREF } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -212,6 +212,19 @@ export function Sidebar({ caseId }: { caseId: string }) {
             cloud={cloud}
           />
         ))}
+
+        <div className="sb-nav-section">Acquire</div>
+        <Link
+          href={acquireHref({ caseId, cloud })}
+          className={cn("sb-nav-item", pathname === "/acquire" && "active")}
+        >
+          <svg viewBox="0 0 24 24" aria-hidden>
+            <path d="M12 3v12" />
+            <path d="M8 11l4 4 4-4" />
+            <path d="M5 21h14" />
+          </svg>
+          Build collection kit
+        </Link>
       </nav>
 
       <div className="sb-footer">

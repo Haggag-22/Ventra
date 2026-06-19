@@ -33,6 +33,7 @@ class UnifiedAuditSearchCollector(Collector):
         cf = self.ctx.client_factory
         opts = self.ctx.ual
         gaps: list[tuple[str, GapReason, str]] = []
+        cap = self.max_records(MAX_RECORDS)
         start, end = window_bounds(self.ctx.time_window, DEFAULT_WINDOW_DAYS)
 
         record_types = list(opts.record_types)
@@ -49,7 +50,7 @@ class UnifiedAuditSearchCollector(Collector):
                     operations=operations or None,
                     record_types=record_types or None,
                     ip_addresses=ips or None,
-                    max_records=MAX_RECORDS,
+                    max_records=cap,
                     audit_data_only=opts.audit_data_only,
                 )
             )
@@ -60,7 +61,7 @@ class UnifiedAuditSearchCollector(Collector):
                 end,
                 search_window=search_window,
                 target_events_per_window=opts.target_events_per_window,
-                max_records=MAX_RECORDS,
+                max_records=cap,
             )
         except AzureAccessDenied as exc:
             return SourceResult(

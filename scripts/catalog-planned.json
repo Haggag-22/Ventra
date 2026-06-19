@@ -1,0 +1,12 @@
+{
+  "aws": [
+    { "id": "network_firewall", "label": "Network Firewall Logs", "category": "Logs Checked" },
+    { "id": "apigateway", "label": "API Gateway Access Logs", "category": "Logs Checked" },
+    { "id": "lambda_logs", "label": "Lambda Logs", "category": "Logs Checked" },
+    { "id": "opensearch", "label": "OpenSearch Logs", "category": "Logs Checked" },
+    { "id": "rds", "label": "RDS Export Logs", "category": "Logs Checked" },
+    { "id": "dynamodb_streams", "label": "DynamoDB Streams", "category": "Logs Checked" }
+  ],
+  "azure": [],
+  "gcp": []
+}

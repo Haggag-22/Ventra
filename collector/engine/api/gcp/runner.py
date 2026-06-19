@@ -6,15 +6,17 @@ import json
 import platform
 import tempfile
 import traceback
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from collector import __version__
 from collector.clouds.gcp.client_factory import GcpClientFactory
+from collector.engine.acquisition import artifact_refs_for_collectors
 from collector.engine.registry import GCP_REGISTRY
 from collector.engine.run_common import RunReporter, parse_window
 from collector.lib.chain_of_custody.signing import sign_manifest
 from collector.lib.models import (
+    ArtifactRef,
     CollectionContext,
     GapReason,
     Manifest,
@@ -43,6 +45,12 @@ class GcpRunConfig:
     key_path: Path | None = None
     reporter: RunReporter | None = None
     credentials_path: str | None = None
+    artifact_refs: list[ArtifactRef] = field(default_factory=list)
+    max_records_per_source: int | None = None
+    artifact_parameters: dict[str, dict] = field(default_factory=dict)
+    plan_label: str = ""
+    artifact_labels: dict[str, str] = field(default_factory=dict)
+    artifact_severities: dict[str, str] = field(default_factory=dict)
 
 
 def run_gcp_collection(
@@ -54,11 +62,21 @@ def run_gcp_collection(
         credentials_path=cfg.credentials_path,
     )
     identity = cf.caller_identity()
-    explicit = [cfg.project_id] if cfg.project_id else None
+    explicit = None
+    if cfg.project_id:
+        explicit = [p.strip() for p in cfg.project_id.split(",") if p.strip()]
     projects = cf.projects(explicit=explicit)
 
     reporter = cfg.reporter or RunReporter()
-    reporter.begin_run(identity.project_id or identity.organization_id, projects, cfg.case_id, cfg.collectors)
+    reporter.begin_run(
+        identity.project_id or identity.organization_id,
+        projects,
+        cfg.case_id,
+        cfg.collectors,
+        plan_label=cfg.plan_label,
+        artifact_labels=cfg.artifact_labels,
+        artifact_severities=cfg.artifact_severities,
+    )
 
     with tempfile.TemporaryDirectory(prefix="ventra-stage-") as tmp:
         staging = Path(tmp)
@@ -73,6 +91,8 @@ def run_gcp_collection(
             case_id=cfg.case_id,
             client_factory=cf,
             logger=reporter,
+            max_records_per_source=cfg.max_records_per_source,
+            artifact_parameters=cfg.artifact_parameters,
         )
         ctx.project_ids = projects
 
@@ -100,6 +120,7 @@ def run_gcp_collection(
             host_os=platform.platform(),
             host_runtime=f"python {platform.python_version()}",
         )
+        manifest.artifacts = cfg.artifact_refs or artifact_refs_for_collectors("gcp", cfg.collectors)
 
         collection_log: list[dict] = []
         for name in cfg.collectors:

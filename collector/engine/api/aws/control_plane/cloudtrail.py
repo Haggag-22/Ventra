@@ -234,6 +234,7 @@ class CloudTrailCollector(Collector):
         management: list[dict] = []
         insights: list[dict] = []
         truncated = False
+        cap = self.max_records(MAX_LOOKUP_RECORDS)
         for region in self.ctx.regions:
             if truncated:
                 break
@@ -246,7 +247,7 @@ class CloudTrailCollector(Collector):
                     StartTime=start,
                     EndTime=end,
                 ):
-                    if len(management) + len(insights) >= MAX_LOOKUP_RECORDS:
+                    if len(management) + len(insights) >= cap:
                         truncated = True
                         break
                     ev["_ventra_region"] = region
@@ -264,7 +265,7 @@ class CloudTrailCollector(Collector):
                 (
                     "cloudtrail",
                     GapReason.COLLECTOR_ERROR,
-                    f"LookupEvents truncated at {MAX_LOOKUP_RECORDS} records; "
+                    f"LookupEvents truncated at {cap:,} records; "
                     "narrow the window (--since/--until) for full coverage.",
                 )
             )
@@ -327,6 +328,7 @@ class CloudTrailCollector(Collector):
                 MANAGEMENT_CATEGORIES,
                 trail_gaps,
                 log=lambda msg: self._log(msg),
+                max_records=self.max_records(MAX_LOOKUP_RECORDS),
             )
             gaps.extend(trail_gaps)
             denied = any(reason == GapReason.ACCESS_DENIED for _, reason, _ in trail_gaps)
@@ -463,6 +465,7 @@ class CloudTrailCollector(Collector):
                 categories,
                 gaps,
                 log=lambda msg: self._log(msg),
+                max_records=self.max_records(MAX_LOOKUP_RECORDS),
             )
             combined.extend(recs)
             self._merge_s3_bucket_stats(s3_by_bucket, trail, gap_name, len(recs), stats)

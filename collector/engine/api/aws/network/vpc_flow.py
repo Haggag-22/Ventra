@@ -37,6 +37,7 @@ class VpcFlowCollector(Collector):
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
+        cap = self.max_records(MAX_CW_RECORDS)
         flow_configs: list[dict] = []
         vpcs: list[dict] = []
         cw_log_groups: set[str] = set()
@@ -110,7 +111,7 @@ class VpcFlowCollector(Collector):
                     startTime=int(start.timestamp() * 1000),
                     endTime=int(end.timestamp() * 1000),
                 ):
-                    if len(records) >= MAX_CW_RECORDS:
+                    if len(records) >= cap:
                         truncated = True
                         break
                     ev["_ventra_region"] = region
@@ -125,7 +126,7 @@ class VpcFlowCollector(Collector):
                 (
                     "vpc_flow_cw",
                     GapReason.COLLECTOR_ERROR,
-                    f"CloudWatch flow records truncated at {MAX_CW_RECORDS}; "
+                    f"CloudWatch flow records truncated at {cap:,}; "
                     "narrow the window (--since/--until) for full coverage.",
                 )
             )
@@ -140,7 +141,14 @@ class VpcFlowCollector(Collector):
         for fl in s3_flow_logs:
             self._log(f"Reading S3 flow logs for {fl.get('FlowLogId', '')}…")
             recs, s3_stats = collect_s3_flow_records(
-                cf, fl, account_id, start, end, gaps, log=lambda msg: self._log(msg)
+                cf,
+                fl,
+                account_id,
+                start,
+                end,
+                gaps,
+                log=lambda msg: self._log(msg),
+                max_records=cap,
             )
             s3_records.extend(recs)
             s3_objects_read += int(s3_stats.get("objects_read") or 0)

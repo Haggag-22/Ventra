@@ -53,6 +53,7 @@ class ActivityLogCollector(Collector):
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
+        cap = self.max_records(MAX_RECORDS)
         start, end = window_bounds(self.ctx.time_window, DEFAULT_WINDOW_DAYS)
 
         subscriptions = self.ctx.subscription_ids
@@ -70,7 +71,7 @@ class ActivityLogCollector(Collector):
         files = []
 
         for sub in subscriptions:
-            if len(records) >= MAX_RECORDS:
+            if len(records) >= cap:
                 truncated = True
                 break
             sub_records: list[dict[str, Any]] = []
@@ -78,19 +79,19 @@ class ActivityLogCollector(Collector):
             chunks = _chunk_slices(start, end, days=CHUNK_DAYS)
             try:
                 for chunk_start, chunk_end in chunks:
-                    if len(records) >= MAX_RECORDS:
+                    if len(records) >= cap:
                         sub_truncated = True
                         truncated = True
                         break
                     filter_str = arm_time_filter(chunk_start, chunk_end)
-                    remaining = MAX_RECORDS - len(records)
+                    remaining = cap - len(records)
                     for ev in cf.activity_log_events(sub, filter_str, max_records=remaining):
                         tagged = dict(ev)
                         tagged.setdefault("subscriptionId", sub)
                         tagged["_ventra_subscription_id"] = sub
                         sub_records.append(tagged)
                         records.append(tagged)
-                        if len(records) >= MAX_RECORDS:
+                        if len(records) >= cap:
                             sub_truncated = True
                             truncated = True
                             break
@@ -123,7 +124,7 @@ class ActivityLogCollector(Collector):
                 (
                     "activity_log",
                     GapReason.NOT_PRESENT,
-                    f"Collection stopped at {MAX_RECORDS:,} records — data may be truncated. "
+                    f"Collection stopped at {cap:,} records — data may be truncated. "
                     "Narrow --since/--until or use --subscription for one subscription at a time.",
                 )
             )
@@ -155,7 +156,7 @@ class ActivityLogCollector(Collector):
             f"({CHUNK_DAYS}d chunks, {DEFAULT_WINDOW_DAYS}d default window)."
         )
         if truncated:
-            notes += f" Truncated at {MAX_RECORDS:,} records."
+            notes += f" Truncated at {cap:,} records."
         return SourceResult(
             name=self.name,
             status=status,

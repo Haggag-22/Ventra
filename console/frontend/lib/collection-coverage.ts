@@ -226,3 +226,26 @@ export function resolveCollectorCoverage(
 export function unmappedGaps(gaps: ManifestGap[], catalogIds: Set<string>): ManifestGap[] {
   return gaps.filter((g) => !catalogIds.has(gapParent(g.name)));
 }
+
+/** Coverage states where a Ventra collector could still be run for this case. */
+export const ACQUIRABLE_COVERAGE: ReadonlySet<CoverageState> = new Set([
+  "not_run",
+  "not_enabled",
+  "denied",
+  "empty",
+]);
+
+/** Collectors in the cheat sheet that are missing or incomplete for this case. */
+export function missingCollectorIds(
+  cloud: Cloud,
+  bySource: Map<string, { status: string; records: number; notes: string }>,
+  gaps: ManifestGap[],
+): string[] {
+  const out: string[] = [];
+  for (const item of catalogItems(cloud)) {
+    if (!IMPLEMENTED_LOG_COLLECTORS.has(item.id)) continue;
+    const cov = resolveCollectorCoverage(item.id, bySource, gaps);
+    if (ACQUIRABLE_COVERAGE.has(cov.state)) out.push(item.id);
+  }
+  return out;
+}
