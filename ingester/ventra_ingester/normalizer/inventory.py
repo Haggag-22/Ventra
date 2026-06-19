@@ -17,6 +17,7 @@ from .base import NormalizeContext, UnifiedEvent
 INVENTORY_SOURCES = {
     "iam", "ec2", "s3", "kms", "secrets", "account", "waf", "lambda",
     "rbac", "subscription", "entra_directory", "resource_graph",
+    "project", "iam_policy",
 }
 
 

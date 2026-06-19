@@ -47,6 +47,8 @@ export const EXTRA_COLLECTOR_LABELS: Record<string, string> = {
   key_vault: "Key Vault audit",
   aks_audit: "AKS audit logs",
   log_analytics: "Log Analytics diagnostics",
+  project: "Project context",
+  iam_policy: "IAM policy bindings",
 };
 
 // AWS — Erblind / IR logs cheat sheet. Ids match collector source names / posture gap names
@@ -108,14 +110,46 @@ const AZURE: CatalogGroup[] = [
   },
 ];
 
+/** GCP IR cheat sheet — categories mirror the Google Cloud incident response reference. */
 const GCP: CatalogGroup[] = [
   {
-    category: "Logs Checked",
+    category: "Management Plane",
     items: [
-      { id: "cloud_audit_admin", label: "Audit: Admin Activity", description: "" },
-      { id: "cloud_audit_data", label: "Audit: Data Access", description: "" },
+      { id: "cloud_audit_admin", label: "Admin Activity Logs", description: "" },
+      { id: "cloud_audit_system", label: "System Event Logs", description: "" },
+      { id: "cloud_audit_data", label: "Data Access Logs", description: "" },
+      { id: "login_events", label: "Login Audit Logs", description: "" },
+      { id: "workspace_audit", label: "Workspace Group Audit Logs", description: "" },
+    ],
+  },
+  {
+    category: "Network",
+    items: [
       { id: "vpc_flow", label: "VPC Flow Logs", description: "" },
+      { id: "firewall_logs", label: "VPC Firewall Logs", description: "" },
+      { id: "load_balancer", label: "Cloud Load Balancer Logs", description: "" },
+    ],
+  },
+  {
+    category: "Compute",
+    items: [
+      { id: "vm_logs", label: "Compute Engine VM Logs", description: "" },
+      { id: "cloud_functions", label: "Cloud Functions Logs", description: "" },
+    ],
+  },
+  {
+    category: "Application",
+    items: [{ id: "api_gateway", label: "API Gateway Logs", description: "" }],
+  },
+  {
+    category: "Data",
+    items: [{ id: "storage_access", label: "Storage Bucket Access Logs", description: "" }],
+  },
+  {
+    category: "Cloud Services",
+    items: [
       { id: "scc_findings", label: "Security Command Center", description: "" },
+      { id: "cloud_monitoring", label: "Cloud Monitoring Alerts", description: "" },
     ],
   },
 ];
@@ -126,7 +160,7 @@ export const CATALOG: Record<Cloud, CatalogGroup[]> = {
   gcp: GCP,
 };
 
-export const CLOUD_IMPLEMENTED: Record<Cloud, boolean> = { aws: true, azure: true, gcp: false };
+export const CLOUD_IMPLEMENTED: Record<Cloud, boolean> = { aws: true, azure: true, gcp: true };
 
 export function catalogItemForId(cloud: Cloud, id: string): CatalogItem | undefined {
   for (const group of CATALOG[cloud] ?? []) {

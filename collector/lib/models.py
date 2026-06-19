@@ -238,6 +238,8 @@ class CollectionContext:
     # is the set of in-scope subscriptions an ARM-scoped collector iterates. Empty for AWS.
     tenant_id: str = ""
     subscription_ids: list[str] = field(default_factory=list)
+    # GCP scope — in-scope project ids a logging/IAM collector iterates.
+    project_ids: list[str] = field(default_factory=list)
     # Injected by the runner; typed loosely to keep this module cloud-agnostic.
     client_factory: Any = None
     logger: Any = None

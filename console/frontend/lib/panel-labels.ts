@@ -34,6 +34,11 @@ const CLOUD_OVERRIDES: Record<Cloud, Partial<Record<NavPanelId, string>>> = {
   },
   gcp: {
     cloudtrail: "Audit Log Timeline",
+    search: "Security Command Center",
+    identity: "Identity & IAM",
+    network: "VPC & Firewall",
+    web: "Load Balancer & API Gateway",
+    "data-access": "Storage Access",
   },
 };
 

@@ -91,6 +91,19 @@ export const IMPLEMENTED_LOG_COLLECTORS = new Set([
   "entra_audit",
   "nsg_flow",
   "defender",
+  "cloud_audit_admin",
+  "cloud_audit_system",
+  "cloud_audit_data",
+  "login_events",
+  "workspace_audit",
+  "firewall_logs",
+  "load_balancer",
+  "api_gateway",
+  "vm_logs",
+  "cloud_functions",
+  "storage_access",
+  "scc_findings",
+  "cloud_monitoring",
 ]);
 
 const AWS_LOGS_BASELINE = new Set([
@@ -109,6 +122,14 @@ const AZURE_LOGS_BASELINE = new Set([
   "defender",
 ]);
 
+const GCP_LOGS_BASELINE = new Set([
+  "cloud_audit_admin",
+  "cloud_audit_data",
+  "vpc_flow",
+  "scc_findings",
+  "login_events",
+]);
+
 export function baselineCollectorIds(cloud: Cloud): string[] {
   const items = catalogItems(cloud);
   if (cloud === "aws") {
@@ -116,6 +137,9 @@ export function baselineCollectorIds(cloud: Cloud): string[] {
   }
   if (cloud === "azure") {
     return items.filter((i) => AZURE_LOGS_BASELINE.has(i.id)).map((i) => i.id);
+  }
+  if (cloud === "gcp") {
+    return items.filter((i) => GCP_LOGS_BASELINE.has(i.id)).map((i) => i.id);
   }
   return items.map((i) => i.id);
 }
