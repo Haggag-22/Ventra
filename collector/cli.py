@@ -182,6 +182,60 @@ def _add_azure_parser(sub: argparse._SubParsersAction) -> None:
     )
 
 
+def _add_gcp_parser(sub: argparse._SubParsersAction) -> None:
+    gcp = sub.add_parser("gcp", help="Collect from Google Cloud Platform.")
+    gcp.add_argument("--case", help="Case identifier, e.g. CASE-2026-0042.")
+    gcp.add_argument("--engagement", default="", help="Optional engagement/matter id.")
+    gcp.add_argument(
+        "--project",
+        default="",
+        help="GCP project id(s), comma-separated (default: ADC default project or search).",
+    )
+    gcp.add_argument(
+        "--credentials",
+        default="",
+        help="Path to service account JSON key (default: GOOGLE_APPLICATION_CREDENTIALS / ADC).",
+    )
+    gcp.add_argument("--regions", default="", help="Comma-separated regions (metadata only).")
+    gcp.add_argument("--since", default=None, help="Window start (YYYY-MM-DD or RFC3339 UTC).")
+    gcp.add_argument("--until", default=None, help="Window end (YYYY-MM-DD or RFC3339 UTC).")
+    gcp.add_argument("--out", default="./ventra-evidence", help="Output directory for the package.")
+    gcp.add_argument("--transport", default="local", help="local | s3-presigned:<url> | sftp:...")
+    gcp.add_argument("--key", default=None, help="Signing key path for cosign/minisign.")
+    gcp.add_argument(
+        "--case-store",
+        default=None,
+        help="Case store for auto-ingest after collect (default: $VENTRA_CASE_STORE or ./cases).",
+    )
+    gcp.add_argument(
+        "--no-ingest",
+        action="store_true",
+        help="Seal the package only; do not load into the case store.",
+    )
+    gcp.add_argument(
+        "--ingest",
+        action="store_true",
+        help="Force auto-ingest into the case store.",
+    )
+    gcp.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Suppress the live matrix; print only the final summary.",
+    )
+    gcp.add_argument(
+        "--json",
+        dest="json_output",
+        action="store_true",
+        help="Emit a machine-readable JSON summary to stdout (implies no live matrix).",
+    )
+    gcp.add_argument("--list-collectors", action="store_true", help="List collectors and exit.")
+    gcp.add_argument(
+        "--collectors",
+        default="",
+        help="Comma-separated collector names to run (default: all registered).",
+    )
+
+
 def build_parser(*, prog: str = "ventra") -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         prog=prog,
@@ -194,6 +248,7 @@ def build_parser(*, prog: str = "ventra") -> argparse.ArgumentParser:
     clouds = collect.add_subparsers(dest="cloud", required=True)
     _add_aws_parser(clouds)
     _add_azure_parser(clouds)
+    _add_gcp_parser(clouds)
 
     def _add_gui_args(parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--port", type=int, default=8080, help="Frontend port (default: 8080).")
@@ -247,6 +302,8 @@ def _normalize_argv(argv: list[str]) -> list[str]:
         return ["collect", *argv]
     if argv[0] == "azure":
         return ["collect", *argv]
+    if argv[0] == "gcp":
+        return ["collect", *argv]
     return ["collect", *argv]
 
 
@@ -298,6 +355,22 @@ _SEVERITY: dict[str, str] = {
     "unified_audit": "High",
     "unified_audit_search": "High",
     "oauth_consent": "High",
+    "cloud_audit_admin": "High",
+    "cloud_audit_system": "High",
+    "cloud_audit_data": "High",
+    "login_events": "High",
+    "workspace_audit": "Medium",
+    "vpc_flow": "High",
+    "firewall_logs": "Medium",
+    "load_balancer": "Medium",
+    "api_gateway": "Medium",
+    "vm_logs": "Medium",
+    "cloud_functions": "Medium",
+    "storage_access": "Medium",
+    "scc_findings": "High",
+    "cloud_monitoring": "Medium",
+    "iam_policy": "High",
+    "project": "Low",
 }
 
 _SEV_COLOR = {"High": "red", "Medium": "yellow", "Low": "cyan"}
@@ -329,6 +402,10 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
         from .azure.registry import AZURE_REGISTRY as REGISTRY
 
         cloud_title = "Azure"
+    elif cloud == "gcp":
+        from .gcp.registry import GCP_REGISTRY as REGISTRY
+
+        cloud_title = "GCP"
     else:
         from .aws.registry import AWS_REGISTRY as REGISTRY
 
@@ -690,6 +767,8 @@ def main(argv: list[str] | None = None) -> int:
         return _run_aws(args)
     if args.cloud == "azure":
         return _run_azure(args)
+    if args.cloud == "gcp":
+        return _run_gcp(args)
     print(f"Cloud {args.cloud!r} is scaffolded but not yet implemented.", file=sys.stderr)
     return 2
 
@@ -921,6 +1000,144 @@ def _run_azure(args) -> int:
 
     try:
         package = run_azure_collection(cfg)
+    except Exception as exc:  # noqa: BLE001
+        reporter.stop()
+        if json_mode:
+            import json as _json
+
+            print(_json.dumps({"case_id": args.case, "error": str(exc)}, indent=2))
+        else:
+            print(f"\nCollection failed: {exc}", file=sys.stderr)
+        return 1
+
+    reporter.finalize()
+    try:
+        csv_path = reporter.write_matrix_csv(args.out)
+    except Exception:  # noqa: BLE001
+        csv_path = None
+
+    if not json_mode:
+        msg = (
+            f"\nSealed package: {package.path}\n"
+            f"  compression: {package.compression}\n"
+            f"  size:        {package.bytes:,} bytes\n"
+            f"  sha256:      {package.sha256}\n"
+        )
+        if csv_path:
+            msg += f"  matrix:      {csv_path}\n"
+        (console.print if console else print)(msg)
+
+    transport_location: str | None = None
+    transport_error: str | None = None
+    try:
+        transport_location = get_transport(args.transport).deliver(package.path)
+        if not json_mode:
+            print(f"Delivered: {transport_location}")
+    except Exception as exc:  # noqa: BLE001
+        transport_error = str(exc)
+        if not json_mode:
+            print(f"Transport failed ({args.transport}): {exc}", file=sys.stderr)
+            print(f"Package remains at {package.path}", file=sys.stderr)
+
+    ingested: bool | None = None
+    ingest_code = 0
+    if transport_error is None and _should_auto_ingest(args):
+        from .lib.ingest import default_case_store, ingest_after_collect
+
+        case_store = Path(args.case_store) if args.case_store else default_case_store()
+        if json_mode:
+            ingest_code = ingest_after_collect(package.path, case_store, reporter=lambda _m: None)
+        else:
+            say = console.print if console else print
+            ingest_code = ingest_after_collect(package.path, case_store, reporter=say)
+        ingested = ingest_code == 0
+
+    if json_mode:
+        import json as _json
+
+        payload = {
+            "case_id": args.case,
+            "engagement_id": args.engagement or None,
+            "account_id": reporter._account,
+            "collectors": reporter.collectors_report(),
+            "coverage_gaps": reporter.coverage_gaps(),
+            "package": {
+                "path": str(package.path),
+                "compression": package.compression,
+                "bytes": package.bytes,
+                "sha256": package.sha256,
+            },
+            "matrix_csv": str(csv_path) if csv_path else None,
+            "transport": {
+                "target": args.transport,
+                "location": transport_location,
+                "error": transport_error,
+            },
+            "ingested": ingested,
+        }
+        print(_json.dumps(payload, indent=2))
+
+    return 1 if transport_error else ingest_code
+
+
+def _gcp_project_from_args(args) -> str | None:
+    import os
+
+    raw = (getattr(args, "project", "") or os.environ.get("GOOGLE_CLOUD_PROJECT", "")).strip()
+    if "," in raw:
+        return raw.split(",")[0].strip() or None
+    return raw or None
+
+
+def _gcp_credentials_from_args(args) -> str | None:
+    import os
+
+    raw = (
+        getattr(args, "credentials", "") or os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "")
+    ).strip()
+    return raw or None
+
+
+def _run_gcp(args) -> int:
+    from .gcp.registry import GCP_REGISTRY, all_collector_names
+    from .gcp.runner.runner import GcpRunConfig, parse_window, run_gcp_collection
+
+    if args.list_collectors:
+        for name, cls in sorted(GCP_REGISTRY.all().items()):
+            print(f"  {name:<22} {cls.description}")
+        return 0
+
+    if not args.case:
+        print("error: --case is required to run a collection.", file=sys.stderr)
+        return 2
+
+    try:
+        collectors = _resolve_collectors(args.collectors, all_collector_names(), GCP_REGISTRY)
+    except ValueError as exc:
+        print(f"error: {exc}", file=sys.stderr)
+        return 2
+
+    regions = [r.strip() for r in args.regions.split(",") if r.strip()] or None
+    window = parse_window(args.since, args.until)
+
+    json_mode = args.json_output
+    reporter, console = _cli_reporter(quiet=args.quiet, json_mode=json_mode, cloud="gcp")
+
+    cfg = GcpRunConfig(
+        case_id=args.case,
+        collectors=collectors,
+        regions=regions,
+        project_id=_gcp_project_from_args(args),
+        time_window=window,
+        out_dir=Path(args.out),
+        engagement_id=args.engagement,
+        key_path=Path(args.key) if args.key else None,
+        reporter=reporter,
+        credentials_path=_gcp_credentials_from_args(args),
+    )
+
+    try:
+        package = run_gcp_collection(cfg)
     except Exception as exc:  # noqa: BLE001
         reporter.stop()
         if json_mode:

@@ -1,17 +1,38 @@
-"""GCP collectors — scaffolded for a later phase.
+"""GCP collectors for Ventra.
 
-GCP reuses the Evidence Package Format and the console unchanged. Planned baseline sources
-mirror the AWS baseline set:
+Baseline sources aligned with the Google Cloud IR cheat sheet:
 
-  * cloud_audit_admin   — Cloud Audit Logs: Admin Activity (~ CloudTrail management events)
-  * cloud_audit_data    — Cloud Audit Logs: Data Access
-  * vpc_flow            — VPC Flow Logs
-  * scc_findings        — Security Command Center findings (~ GuardDuty / Security Hub)
-  * iam_policy          — IAM policy bindings & service accounts (~ IAM)
-  * login_events        — Workspace / Cloud Identity login events (~ console logins)
+  Management Plane
+    * cloud_audit_admin   — Admin Activity Logs
+    * cloud_audit_system  — System Event Logs
+    * cloud_audit_data    — Data Access Logs
+    * login_events        — Login Audit Logs
+    * workspace_audit     — Workspace Group Audit Logs
 
-Implement each as a Collector subclass under this package and register it in a
-``GCP_REGISTRY``, exactly as the AWS package does.
+  Network
+    * vpc_flow            — VPC Flow Logs
+    * firewall_logs       — VPC Firewall Logs
+    * load_balancer       — Cloud Load Balancer Logs
+
+  Compute
+    * vm_logs             — Compute Engine VM logs
+    * cloud_functions     — Cloud Functions logs
+
+  Application
+    * api_gateway         — API Gateway logs
+
+  Data
+    * storage_access      — Storage Bucket access logs
+
+  Cloud Services
+    * scc_findings        — Security Command Center
+    * cloud_monitoring    — Cloud Monitoring alerts
+
+  Context
+    * project             — project + organization context
+    * iam_policy          — IAM policy bindings
 """
 
-# Intentionally empty until Phase 7. See docs/ROADMAP.md.
+from .registry import COLLECTOR_ORDER, GCP_REGISTRY, all_collector_names
+
+__all__ = ["GCP_REGISTRY", "COLLECTOR_ORDER", "all_collector_names"]

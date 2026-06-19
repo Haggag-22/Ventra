@@ -148,8 +148,70 @@ const PANEL_COLLECTORS_AZURE: Record<PanelId, PanelCollectorDef> = {
   },
 };
 
+const PANEL_COLLECTORS_GCP: Record<PanelId, PanelCollectorDef> = {
+  cloudtrail: {
+    blurb: "Cloud Audit Logs — admin activity, system events, and data access across projects.",
+    collectors: [
+      { id: "cloud_audit_admin", note: "Admin Activity" },
+      { id: "cloud_audit_system", note: "System Event" },
+      { id: "cloud_audit_data", note: "Data Access" },
+      { id: "login_events", note: "console login audit" },
+      { id: "workspace_audit", note: "Workspace / group audit" },
+    ],
+  },
+  findings: {
+    blurb: "Security Command Center findings and Cloud Monitoring alert notifications.",
+    collectors: [
+      { id: "scc_findings", note: "SCC threat and misconfiguration findings" },
+      { id: "cloud_monitoring", note: "monitoring alert incidents" },
+    ],
+  },
+  identity: {
+    blurb: "IAM policy bindings, login audit, and Workspace directory events.",
+    collectors: [
+      { id: "iam_policy", note: "role bindings per project" },
+      { id: "login_events", note: "Google Cloud console sign-ins" },
+      { id: "workspace_audit", note: "group / directory audit" },
+    ],
+  },
+  network: {
+    blurb: "VPC Flow Logs and firewall rule hits for exfiltration and lateral movement.",
+    collectors: [
+      { id: "vpc_flow", note: "sampled VPC flow records" },
+      { id: "firewall_logs", note: "VPC firewall rule logs" },
+    ],
+  },
+  web: {
+    blurb: "Load balancer and API Gateway request logs (L7).",
+    collectors: [
+      { id: "load_balancer", note: "HTTP(S) / TCP load balancer access" },
+      { id: "api_gateway", note: "API Gateway request logs" },
+    ],
+  },
+  "data-access": {
+    blurb: "Cloud Storage bucket access and data-plane audit events.",
+    collectors: [
+      { id: "storage_access", note: "GCS bucket access logs" },
+      { id: "cloud_audit_data", note: "data access audit trail" },
+    ],
+  },
+  collection: {
+    blurb: "Log sources from the GCP IR cheat sheet — what ran, what was missing, and why.",
+    collectors: [],
+  },
+  resources: {
+    blurb: "Resources",
+    collectors: [
+      { id: "project", note: "project + organization context" },
+      { id: "vm_logs", note: "Compute Engine VM logs" },
+      { id: "cloud_functions", note: "Cloud Functions execution logs" },
+    ],
+  },
+};
+
 export function panelCollectors(cloud: Cloud): Record<PanelId, PanelCollectorDef> {
   if (cloud === "azure") return PANEL_COLLECTORS_AZURE;
+  if (cloud === "gcp") return PANEL_COLLECTORS_GCP;
   return PANEL_COLLECTORS;
 }
 
