@@ -1,0 +1,11 @@
+name: aws-baseline-ir
+description: Baseline IR artifact pack for AWS
+cloud: aws
+version: 1.0.0
+artifacts:
+- account
+- cloudtrail
+- iam
+- vpc_flow
+- waf
+- guardduty

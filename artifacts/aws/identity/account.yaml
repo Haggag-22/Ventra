@@ -1,0 +1,27 @@
+name: AWS.Identity.Account
+aliases:
+- account
+- aws.account
+cloud: aws
+category: Identity
+description: Account, organization, region, and operator context.
+version: 1.0.0
+collector: account
+type: account
+required_actions:
+- sts:GetCallerIdentity
+- iam:ListAccountAliases
+- organizations:DescribeOrganization
+- ec2:DescribeRegions
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: account
+  format: json
+severity: critical
+estimated_volume: medium

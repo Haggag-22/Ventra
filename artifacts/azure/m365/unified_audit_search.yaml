@@ -1,0 +1,25 @@
+name: Azure.M365.UnifiedAuditSearch
+aliases:
+- unified_audit_search
+- azure.unified_audit_search
+cloud: azure
+category: M365
+description: M365 Unified Audit Log (90-day default) via Search-UnifiedAuditLog +
+  adaptive windows.
+version: 1.0.0
+collector: unified_audit_search
+type: unified_audit_search
+required_actions:
+- Exchange.ManageAsApp
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: unified_audit_search
+  format: json
+severity: critical
+estimated_volume: medium

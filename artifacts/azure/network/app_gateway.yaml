@@ -1,0 +1,26 @@
+name: Azure.Network.AppGateway
+aliases:
+- app_gateway
+- azure.app_gateway
+cloud: azure
+category: Network
+description: Application Gateway access, performance, and WAF logs from Storage diagnostics.
+version: 1.0.0
+collector: app_gateway
+type: app_gateway
+required_actions:
+- Microsoft.Network/applicationGateways/read
+- Microsoft.Insights/DiagnosticSettings/read
+- Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: app_gateway
+  format: json
+severity: critical
+estimated_volume: medium

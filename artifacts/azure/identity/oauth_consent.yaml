@@ -1,0 +1,25 @@
+name: Azure.Identity.OauthConsent
+aliases:
+- oauth_consent
+- azure.oauth_consent
+cloud: azure
+category: Identity
+description: "OAuth2 permission (consent) grants via Microsoft Graph \u2014 illicit-app\
+  \ persistence."
+version: 1.0.0
+collector: oauth_consent
+type: oauth_consent
+required_actions:
+- Directory.Read.All
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: oauth_consent
+  format: json
+severity: critical
+estimated_volume: medium

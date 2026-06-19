@@ -1,0 +1,29 @@
+name: AWS.Network.Route53Resolver
+aliases:
+- route53_resolver
+- aws.route53_resolver
+cloud: aws
+category: Network
+description: Route53 Resolver DNS query logs from S3 or CloudWatch destinations.
+version: 1.0.0
+collector: route53_resolver
+type: route53_resolver
+required_actions:
+- route53resolver:ListResolverQueryLogConfigs
+- route53resolver:ListResolverQueryLogConfigAssociations
+- logs:FilterLogEvents
+- s3:GetBucketLocation
+- s3:ListBucket
+- s3:GetObject
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: route53_resolver
+  format: json
+severity: extended
+estimated_volume: medium

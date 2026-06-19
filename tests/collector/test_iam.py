@@ -7,7 +7,7 @@ from pathlib import Path
 from typing import Any
 from unittest.mock import MagicMock
 
-from collector.aws.identity.iam import IamCollector, _managed_policy_doc_index
+from collector.engine.api.aws.identity.iam import IamCollector, _managed_policy_doc_index
 from collector.lib.models import CollectionContext, GapReason, TimeWindow
 
 

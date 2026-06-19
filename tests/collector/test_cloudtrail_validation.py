@@ -5,7 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from unittest.mock import patch
 
-from collector.aws.control_plane.cloudtrail_validation import (
+from collector.engine.api.aws.control_plane.cloudtrail_validation import (
     TrailValidationResult,
     format_cli_time,
     parse_validation_output,
@@ -98,7 +98,7 @@ def test_validate_trail_logs_runs_cli_when_enabled() -> None:
         stderr = ""
 
     with patch(
-        "collector.aws.control_plane.cloudtrail_validation.subprocess.run",
+        "collector.engine.api.aws.control_plane.cloudtrail_validation.subprocess.run",
         return_value=FakeProc(),
     ) as run:
         res = validate_trail_logs(

@@ -1,0 +1,26 @@
+name: AWS.Workloads.EksAudit
+aliases:
+- eks_audit
+- aws.eks_audit
+cloud: aws
+category: Workloads
+description: EKS Kubernetes API-server audit logs from CloudWatch + cluster posture.
+version: 1.0.0
+collector: eks_audit
+type: eks_audit
+required_actions:
+- eks:ListClusters
+- eks:DescribeCluster
+- logs:FilterLogEvents
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: eks_audit
+  format: json
+severity: extended
+estimated_volume: medium

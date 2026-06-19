@@ -1,0 +1,26 @@
+name: AWS.Detections.Securityhub
+aliases:
+- securityhub
+- aws.securityhub
+cloud: aws
+category: Detections
+description: Security Hub findings (ASFF) and enabled standards.
+version: 1.0.0
+collector: securityhub
+type: securityhub
+required_actions:
+- securityhub:DescribeHub
+- securityhub:GetEnabledStandards
+- securityhub:GetFindings
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: securityhub
+  format: json
+severity: extended
+estimated_volume: medium

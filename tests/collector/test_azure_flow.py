@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from pathlib import Path
 
-from collector.azure.client_factory import AzureAccessDenied
-from collector.azure.network.flow_common import flatten_nsg_record, flatten_vnet_record
-from collector.azure.network.nsg_flow import NsgFlowCollector
-from collector.azure.network.vnet_flow import VNetFlowCollector
+from collector.clouds.azure.client_factory import AzureAccessDenied
+from collector.engine.api.azure.network.flow_common import flatten_nsg_record, flatten_vnet_record
+from collector.engine.api.azure.network.nsg_flow import NsgFlowCollector
+from collector.engine.api.azure.network.vnet_flow import VNetFlowCollector
 from collector.lib.models import CollectionContext, GapReason, SourceStatus, TimeWindow
 
 from ventra_ingester.normalizer.base import NormalizeContext
@@ -99,7 +99,8 @@ def test_vnet_flow_collects(tmp_path: Path, monkeypatch) -> None:
          "storage_id": "/.../storageAccounts/logs", "enabled": True, "flow_type": "vnet"},
     ]})
     monkeypatch.setattr(
-        "collector.azure.network.flow_common.read_log_records", lambda cc, **k: iter([VNET_BLOB])
+        "collector.engine.api.azure.network.flow_common.read_log_records",
+        lambda cc, **k: iter([VNET_BLOB]),
     )
     result = VNetFlowCollector(_ctx(tmp_path, cf)).collect()
     assert result.status == SourceStatus.COLLECTED

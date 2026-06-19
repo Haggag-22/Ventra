@@ -1,0 +1,26 @@
+name: Azure.Workloads.AksAudit
+aliases:
+- aks_audit
+- azure.aks_audit
+cloud: azure
+category: Workloads
+description: AKS kube-audit logs from Storage diagnostics + cluster audit posture.
+version: 1.0.0
+collector: aks_audit
+type: aks_audit
+required_actions:
+- Microsoft.ContainerService/managedClusters/read
+- Microsoft.Insights/DiagnosticSettings/read
+- Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: aks_audit
+  format: json
+severity: extended
+estimated_volume: medium

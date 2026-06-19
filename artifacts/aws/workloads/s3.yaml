@@ -1,0 +1,31 @@
+name: AWS.Workloads.S3
+aliases:
+- s3
+- aws.s3
+cloud: aws
+category: Workloads
+description: S3 bucket inventory, public-exposure, policies, logging, Object Lock.
+version: 1.0.0
+collector: s3
+type: s3
+required_actions:
+- s3:ListAllMyBuckets
+- s3:GetBucketLocation
+- s3:GetBucketPolicy
+- s3:GetBucketPolicyStatus
+- s3:GetBucketAcl
+- s3:GetBucketLogging
+- s3:GetBucketPublicAccessBlock
+- s3:GetBucketObjectLockConfiguration
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: s3
+  format: json
+severity: extended
+estimated_volume: medium

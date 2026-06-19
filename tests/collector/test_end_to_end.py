@@ -18,8 +18,8 @@ import pytest
 moto = pytest.importorskip("moto")
 from moto import mock_aws  # noqa: E402
 
-from collector.aws.client_factory import AwsClientFactory  # noqa: E402
-from collector.aws.registry import all_collector_names  # noqa: E402
+from collector.clouds.aws.client_factory import AwsClientFactory  # noqa: E402
+from collector.engine.registry import AWS_COLLECTOR_ORDER  # noqa: E402
 from collector.aws.runner.runner import (  # noqa: E402
     AwsRunConfig,
     parse_window,
@@ -51,7 +51,7 @@ def test_full_collection_produces_valid_package(tmp_path: Path) -> None:
 
     cfg = AwsRunConfig(
         case_id="CASE-TEST-0001",
-        collectors=all_collector_names(),
+        collectors=list(AWS_COLLECTOR_ORDER),
         regions=["us-east-1"],
         time_window=parse_window("2026-01-01", None),
         out_dir=tmp_path,
@@ -86,7 +86,7 @@ def test_gap_is_recorded_not_fatal(tmp_path: Path) -> None:
     """A service with nothing configured must surface as a gap, and the run must still seal."""
     cfg = AwsRunConfig(
         case_id="CASE-TEST-0002",
-        collectors=all_collector_names(),
+        collectors=list(AWS_COLLECTOR_ORDER),
         regions=["us-east-1"],
         time_window=parse_window(None, None),
         out_dir=tmp_path,

@@ -1,0 +1,28 @@
+name: AWS.Network.Cloudfront
+aliases:
+- cloudfront
+- aws.cloudfront
+cloud: aws
+category: Network
+description: CloudFront standard access logs from S3 + per-distribution logging posture.
+version: 1.0.0
+collector: cloudfront
+type: cloudfront
+required_actions:
+- cloudfront:ListDistributions
+- cloudfront:GetDistributionConfig
+- s3:GetBucketLocation
+- s3:ListBucket
+- s3:GetObject
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: cloudfront
+  format: json
+severity: extended
+estimated_volume: medium

@@ -1,0 +1,26 @@
+name: Azure.Identity.EntraAudit
+aliases:
+- entra_audit
+- azure.entra_audit
+cloud: azure
+category: Identity
+description: Entra ID directory audit logs (role/app/consent/credential changes) via
+  Graph.
+version: 1.0.0
+collector: entra_audit
+type: entra_audit
+required_actions:
+- AuditLog.Read.All
+- Directory.Read.All
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: entra_audit
+  format: json
+severity: critical
+estimated_volume: medium

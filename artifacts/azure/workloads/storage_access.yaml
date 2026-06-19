@@ -1,0 +1,26 @@
+name: Azure.Workloads.StorageAccess
+aliases:
+- storage_access
+- azure.storage_access
+cloud: azure
+category: Workloads
+description: Storage account read/write/delete access logs from Storage diagnostics.
+version: 1.0.0
+collector: storage_access
+type: storage_access
+required_actions:
+- Microsoft.Storage/storageAccounts/read
+- Microsoft.Insights/DiagnosticSettings/read
+- Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: storage_access
+  format: json
+severity: critical
+estimated_volume: medium

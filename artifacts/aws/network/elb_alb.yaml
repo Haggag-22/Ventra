@@ -1,0 +1,28 @@
+name: AWS.Network.ElbAlb
+aliases:
+- elb_alb
+- aws.elb_alb
+cloud: aws
+category: Network
+description: ELB/ALB access logs from S3 delivery buckets + per-LB logging posture.
+version: 1.0.0
+collector: elb_alb
+type: elb_alb
+required_actions:
+- elasticloadbalancing:DescribeLoadBalancers
+- elasticloadbalancing:DescribeLoadBalancerAttributes
+- s3:GetBucketLocation
+- s3:ListBucket
+- s3:GetObject
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: elb_alb
+  format: json
+severity: extended
+estimated_volume: medium

@@ -1,0 +1,25 @@
+name: AWS.Detections.Detective
+aliases:
+- detective
+- aws.detective
+cloud: aws
+category: Detections
+description: Detective graph config and open investigations.
+version: 1.0.0
+collector: detective
+type: detective
+required_actions:
+- detective:ListGraphs
+- detective:ListInvestigations
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: detective
+  format: json
+severity: extended
+estimated_volume: medium

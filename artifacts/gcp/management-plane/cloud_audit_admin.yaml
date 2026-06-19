@@ -1,0 +1,24 @@
+name: GCP.ManagementPlane.CloudAuditAdmin
+aliases:
+- cloud_audit_admin
+- gcp.cloud_audit_admin
+cloud: gcp
+category: ManagementPlane
+description: "Cloud Audit Logs \u2014 Admin Activity (management plane API calls)."
+version: 1.0.0
+collector: cloud_audit_admin
+type: cloud_audit_admin
+required_actions:
+- logging.logEntries.list
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: cloud_audit_admin
+  format: json
+severity: critical
+estimated_volume: medium

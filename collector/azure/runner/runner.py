@@ -33,8 +33,8 @@ from ...lib.models import (
     utcnow_iso,
 )
 from ...lib.packaging.packager import PackageResult, seal_package
-from ..client_factory import AzureClientFactory
-from ..registry import AZURE_REGISTRY
+from collector.clouds.azure.client_factory import AzureClientFactory
+from collector.engine.registry import AZURE_REGISTRY
 
 __all__ = ["AzureRunConfig", "run_azure_collection", "parse_window"]
 

@@ -1,0 +1,26 @@
+name: Azure.Network.AzureFirewall
+aliases:
+- azure_firewall
+- azure.azure_firewall
+cloud: azure
+category: Network
+description: Azure Firewall application/network/DNS proxy logs from Storage diagnostics.
+version: 1.0.0
+collector: azure_firewall
+type: azure_firewall
+required_actions:
+- Microsoft.Network/azureFirewalls/read
+- Microsoft.Insights/DiagnosticSettings/read
+- Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: azure_firewall
+  format: json
+severity: critical
+estimated_volume: medium

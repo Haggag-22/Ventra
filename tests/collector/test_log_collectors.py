@@ -9,9 +9,9 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from collector.aws.control_plane.log_posture import LogPostureCollector
-from collector.aws.network.elb_alb import ElbAlbCollector
-from collector.aws.workloads.eks_audit import EksAuditCollector
+from collector.engine.api.aws.control_plane.log_posture import LogPostureCollector
+from collector.engine.api.aws.network.elb_alb import ElbAlbCollector
+from collector.engine.api.aws.workloads.eks_audit import EksAuditCollector
 from collector.lib.models import CollectionContext, GapReason, SourceStatus, TimeWindow
 
 START = datetime(2026, 6, 11, 0, 0, 0, tzinfo=UTC)

@@ -1,0 +1,33 @@
+name: AWS.ManagementPlane.LogPosture
+aliases:
+- log_posture
+- aws.log_posture
+cloud: aws
+category: ManagementPlane
+description: 'Logging posture for sources without a Ventra log collector yet: API
+  Gateway, Lambda, OpenSearch, RDS, DynamoDB Streams, Network Firewall.'
+version: 1.0.0
+collector: log_posture
+type: log_posture
+required_actions:
+- apigateway:GET
+- logs:DescribeLogGroups
+- es:ListDomainNames
+- es:DescribeDomain
+- rds:DescribeDBInstances
+- dynamodb:ListTables
+- dynamodb:DescribeTable
+- network-firewall:ListFirewalls
+- network-firewall:DescribeLoggingConfiguration
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: log_posture
+  format: json
+severity: extended
+estimated_volume: medium

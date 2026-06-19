@@ -1,0 +1,25 @@
+name: GCP.Network.VpcFlow
+aliases:
+- vpc_flow
+- gcp.vpc_flow
+cloud: gcp
+category: Network
+description: VPC Flow Logs (sampled L3/L4 traffic within VPCs).
+version: 1.0.0
+collector: vpc_flow
+type: vpc_flow
+required_actions:
+- logging.logEntries.list
+- compute.subnetworks.list
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: vpc_flow
+  format: json
+severity: critical
+estimated_volume: medium
