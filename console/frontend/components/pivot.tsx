@@ -2,7 +2,6 @@
 
 import { cn } from "@/lib/utils";
 import {
-  Activity,
   Copy,
   Fingerprint,
   Network,
@@ -26,7 +25,6 @@ const PARAM: Record<EntityKind, string> = {
 
 // Where you can pivot to, and what each destination is good for.
 const TARGETS = [
-  { href: "timeline", panel: "timeline" as const, icon: Activity },
   { href: "cloudtrail", panel: "cloudtrail" as const, icon: ScrollText },
   { href: "search", panel: "search" as const, icon: ShieldAlert },
   { href: "identity", panel: "identity" as const, icon: Fingerprint },

@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any
 
 from .enrichment import Enricher
+from .evidence_extract import extract_package
 from .loaders.casestore import CaseStore, build_summary
 from .normalizer.base import NormalizeContext, UnifiedEvent, has_normalizer, normalize_source
 from .normalizer.inventory import INVENTORY_SOURCES, iam_state_events, parse_credential_report
@@ -61,6 +62,8 @@ def ingest_package(
     store.write_json("integrity.json", report.to_dict())
     if pkg.member_bytes("collection.log"):
         (store.case_dir / "collection.log").write_bytes(pkg.member_bytes("collection.log"))
+
+    extract_package(package_path, store.case_dir / "evidence")
 
     # 3. Parse + normalize each source.
     events: list[UnifiedEvent] = []

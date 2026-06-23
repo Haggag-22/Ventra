@@ -11,7 +11,8 @@ import {
 import { fmtNum } from "@/lib/format";
 import { SEVERITY_META, SEVERITY_ORDER } from "@/lib/severity";
 import type { Facets } from "@/lib/types";
-import { Columns3, Filter } from "lucide-react";
+import { Bookmark, Columns3, Filter, Search } from "lucide-react";
+import { useEffect, useState } from "react";
 
 export interface FindingsFilters {
   severity?: string[];
@@ -23,20 +24,30 @@ export function FindingsToolbar({
   facets,
   filters,
   total,
+  search,
   visibleColumns = ALL_FINDING_COL_KEYS,
   onChange,
   onColumnsChange,
+  onSearchChange,
+  onSearchSubmit,
+  onSave,
   onReset,
 }: {
   facets?: Facets;
   filters: FindingsFilters;
   total: number;
-  matched?: number;
+  search: string;
   visibleColumns?: FindingColKey[];
   onChange: (next: Partial<FindingsFilters>) => void;
   onColumnsChange?: (cols: FindingColKey[]) => void;
+  onSearchChange: (value: string) => void;
+  onSearchSubmit: () => void;
+  onSave?: () => void;
   onReset: () => void;
 }) {
+  const [text, setText] = useState(search);
+
+  useEffect(() => setText(search), [search]);
   const severityOptions = SEVERITY_ORDER.map((s) => ({
     value: s,
     label: SEVERITY_META[s].label,
@@ -78,6 +89,34 @@ export function FindingsToolbar({
       </div>
 
       <div className="ct-filter-controls">
+        <div className="ct-search-wrap">
+          <Search className="ct-search-icon" aria-hidden />
+          <input
+            value={text}
+            onChange={(e) => {
+              setText(e.target.value);
+              onSearchChange(e.target.value);
+            }}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") onSearchSubmit();
+            }}
+            placeholder="Search findings…"
+            className="ct-input ct-input-full ct-input-search"
+            autoFocus
+          />
+        </div>
+
+        <button type="button" onClick={onSearchSubmit} className="ct-btn">
+          Search
+        </button>
+
+        {onSave && (
+          <button type="button" onClick={onSave} className="ct-btn">
+            <Bookmark className="h-3.5 w-3.5" aria-hidden />
+            Save
+          </button>
+        )}
+
         <MultiSelect
           label="Severity"
           icon={Filter}

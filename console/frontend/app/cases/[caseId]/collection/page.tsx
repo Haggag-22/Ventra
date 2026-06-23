@@ -13,6 +13,7 @@ import {
   catalogItems,
   IMPLEMENTED_LOG_COLLECTORS,
   missingCollectorIds,
+  plannedCollectorDetail,
   resolveCollectorCoverage,
   type CoverageState,
 } from "@/lib/collection-coverage";
@@ -25,7 +26,6 @@ import {
   AlertTriangle,
   CheckSquare,
   Clock,
-  Download,
   ListChecks,
   MinusSquare,
   Plus,
@@ -38,7 +38,7 @@ import { useMemo } from "react";
 
 const STATE_META: Record<
   CoverageState,
-  { label: string; icon: typeof Square; tone: string; collected: boolean }
+  { label: string; icon: typeof Square | null; tone: string; collected: boolean }
 > = {
   collected: { label: "Collected", icon: CheckSquare, tone: "text-ok-green", collected: true },
   partial: { label: "Partial", icon: AlertTriangle, tone: "text-warn-amber", collected: true },
@@ -46,7 +46,7 @@ const STATE_META: Record<
   not_enabled: { label: "Not enabled", icon: XSquare, tone: "text-bad-red", collected: false },
   denied: { label: "Access denied", icon: XSquare, tone: "text-bad-red", collected: false },
   not_run: { label: "Not run", icon: Square, tone: "text-fg-subtle", collected: false },
-  planned: { label: "Detected only", icon: Square, tone: "text-fg-subtle", collected: false },
+  planned: { label: "Coming soon", icon: null, tone: "text-fg-subtle", collected: false },
 };
 
 function displayState(id: string, state: CoverageState): CoverageState {
@@ -62,10 +62,9 @@ function rowDetail(
   detail: string,
   gaps: { name: string; detail: string }[],
 ): string {
-  // "Detected only" rows carry the posture note (enabled? where does it ship?) — the
-  // analyst's pointer for manual collection. Show it.
+  // Posture-only rows for collectors Ventra does not ship yet.
   if (display === "planned") {
-    return detail || "No Ventra collector for this source yet.";
+    return plannedCollectorDetail(detail);
   }
   if (state === "partial" && gaps.length) {
     return gaps.map((g) => g.detail).join(" ");
@@ -97,7 +96,6 @@ export default function CollectionPage() {
     (x) => x.r.state === "collected" || x.r.state === "partial",
   ).length;
 
-  const missingIds = missingCollectorIds(cloud, bySource, gaps);
   const coveragePct = Math.round((collectedCount / Math.max(allItems.length, 1)) * 100);
 
   return (
@@ -107,19 +105,10 @@ export default function CollectionPage() {
         title="Logs Coverage"
         panel="collection"
         actions={
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-fg-subtle">
-              <span className="text-ok-green font-medium">{collectedCount}</span> / {allItems.length}{" "}
-              log sources
-            </span>
-            {missingIds.length > 0 && CLOUD_IMPLEMENTED[cloud] && (
-              <Link href={acquireHref({ caseId, cloud, collectors: missingIds })}>
-                <Button variant="secondary" icon={Download} className="h-8 text-xs">
-                  Build kit ({missingIds.length} missing)
-                </Button>
-              </Link>
-            )}
-          </div>
+          <span className="text-xs text-fg-subtle">
+            <span className="text-ok-green font-medium">{collectedCount}</span> / {allItems.length}{" "}
+            log sources
+          </span>
         }
       />
       <PanelBody className="cloudtrail-view space-y-5">
@@ -164,8 +153,8 @@ export default function CollectionPage() {
 
         {!CLOUD_IMPLEMENTED[cloud] && (
           <div className="rounded-lg border border-warn-amber/30 bg-warn-amber/10 px-4 py-3 text-xs text-warn-amber">
-            {cloud.toUpperCase()} collectors are scaffolded but not yet implemented — these
-            artifacts are shown as planned coverage.
+            {cloud.toUpperCase()} collectors are coming soon — coverage below shows posture
+            detection until collection is available.
           </div>
         )}
 
@@ -186,7 +175,8 @@ export default function CollectionPage() {
             <Legend icon={MinusSquare} tone="text-warn-amber" label="No records" />
             <Legend icon={XSquare} tone="text-bad-red" label="Not enabled" />
             <Legend icon={XSquare} tone="text-bad-red" label="Access denied" />
-            <Legend icon={Square} tone="text-fg-subtle" label="Detected only (manual pull)" />
+            <Legend icon={Square} tone="text-fg-subtle" label="Not run" />
+            <LegendBadge label="Coming soon" />
           </div>
         </Card>
 
@@ -236,10 +226,16 @@ export default function CollectionPage() {
                           </div>
                         </td>
                         <td>
-                          <span className={cn("inline-flex items-center gap-1.5", meta.tone)}>
-                            <Icon className="h-4 w-4 shrink-0" />
-                            {meta.label}
-                          </span>
+                          {Icon ? (
+                            <span className={cn("inline-flex items-center gap-1.5", meta.tone)}>
+                              <Icon className="h-4 w-4 shrink-0" />
+                              {meta.label}
+                            </span>
+                          ) : (
+                            <span className="inline-flex rounded-md border border-border bg-surface-2 px-2 py-0.5 text-xs text-fg-subtle">
+                              {meta.label}
+                            </span>
+                          )}
                         </td>
                         <td className="mono text-fg-subtle">{records}</td>
                         <td className="text-fg-subtle">{notes || "—"}</td>
@@ -260,6 +256,14 @@ function Legend({ icon: Icon, tone, label }: { icon: typeof Square; tone: string
   return (
     <span className="flex items-center gap-1">
       <Icon className={cn("h-3.5 w-3.5", tone)} />
+      {label}
+    </span>
+  );
+}
+
+function LegendBadge({ label }: { label: string }) {
+  return (
+    <span className="inline-flex rounded-md border border-border bg-surface-2 px-1.5 py-0.5 text-2xs text-fg-subtle">
       {label}
     </span>
   );

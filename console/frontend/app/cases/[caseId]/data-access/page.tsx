@@ -7,16 +7,14 @@ import { Entity } from "@/components/pivot";
 import { StatCard } from "@/components/stat";
 import { Card, CardHeader, EmptyState, LoadingPanel } from "@/components/ui";
 import { api } from "@/lib/api";
+import { caseCloud } from "@/lib/cloud-sources";
+import { DATA_ACCESS_COPY, dataAccessSourceLabel } from "@/lib/data-access-copy";
 import { fmtBytes, fmtNum } from "@/lib/format";
+import { panelLabel } from "@/lib/panel-labels";
 import type { DataAccessResponse } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { Database, Download, FileSearch, Globe2, UserRound } from "lucide-react";
-
-const SOURCE_LABEL: Record<string, string> = {
-  s3_access: "S3 server access logs",
-  cloudtrail: "CloudTrail data events",
-};
 
 // Operation classes, ordered by IR weight: destruction → modification → exfil → recon.
 const OP_META: Record<string, { label: string; tone: string }> = {
@@ -68,7 +66,10 @@ function OperationMix({ operations }: { operations: DataAccessResponse["operatio
 }
 
 export default function DataAccessPage() {
-  const { caseId } = useCase();
+  const { caseId, summary } = useCase();
+  const cloud = caseCloud(summary?.cloud);
+  const copy = DATA_ACCESS_COPY[cloud];
+  const title = panelLabel(cloud, "data-access");
   const q = useQuery({ queryKey: ["data-access", caseId], queryFn: () => api.dataAccess(caseId) });
 
   if (q.isLoading || !q.data) return <LoadingPanel label="Loading data access…" />;
@@ -77,13 +78,13 @@ export default function DataAccessPage() {
   if (d.totals.events === 0) {
     return (
       <>
-        <PanelHeader icon={Database} title="Data Access" panel="data-access" />
+        <PanelHeader icon={Database} title={title} panel="data-access" />
         <PanelBody>
           <Card className="py-4">
             <EmptyState
               icon={Database}
-              title="No object-level access records in this case"
-              description="S3 server access logging and CloudTrail S3 data events were not in scope for this window. Without them, object reads and writes cannot be attributed — this gap is recorded in the manifest."
+              title={`No ${copy.objectNoun}-level access records in this case`}
+              description={copy.emptyDescription}
             />
           </Card>
         </PanelBody>
@@ -134,8 +135,8 @@ export default function DataAccessPage() {
     <>
       <PanelHeader
         icon={Database}
-        title="Data Access"
-        description="Who read or wrote which S3 object, from where — S3 server access logs paired with CloudTrail data events. Reads are the exfil lens; writes/deletes are destruction/ransomware."
+        title={title}
+        description={copy.panelDescription}
         panel="data-access"
       />
       <PanelBody className="space-y-6">
@@ -155,7 +156,7 @@ export default function DataAccessPage() {
             icon={UserRound}
             action={
               <span className="text-2xs text-fg-subtle">
-                {d.by_source.map((s) => `${SOURCE_LABEL[s.source] ?? s.source}: ${fmtNum(s.count)}`).join(" · ")}
+                {d.by_source.map((s) => `${dataAccessSourceLabel(cloud, s.source)}: ${fmtNum(s.count)}`).join(" · ")}
               </span>
             }
           />

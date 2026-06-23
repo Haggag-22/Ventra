@@ -8,24 +8,66 @@ export type PanelId =
   | "identity"
   | "network"
   | "web"
+  | "kubernetes-audit"
   | "data-access"
   | "collection"
   | "resources";
 
+/** CloudTrail sub-category a panel depends on (default: any collected category). */
+export type CloudTrailAspect =
+  | "data_events"
+  | "management_events"
+  | "insight_events"
+  | "network_activity";
+
 export interface PanelCollectorRef {
   id: string;
+  /** Override catalog label in panel header chips (e.g. scoped CloudTrail category). */
+  label?: string;
   note?: string;
+  /** When set on a cloudtrail ref, panel coverage requires this event category. */
+  cloudtrailAspect?: CloudTrailAspect;
+  /** Consecutive refs sharing a group key render in one horizontal aspect box. */
+  aspectGroup?: string;
 }
+
+/** Header + icon for grouped aspect chips (CloudTrail, Cloud Audit Logs, …). */
+export const COLLECTOR_ASPECT_GROUPS: Record<
+  string,
+  { label: string; iconCollector: string; ariaPrefix: string }
+> = {
+  cloudtrail: { label: "CloudTrail", iconCollector: "cloudtrail", ariaPrefix: "CloudTrail" },
+  cloud_audit: {
+    label: "Cloud Audit Logs",
+    iconCollector: "cloud_audit_admin",
+    ariaPrefix: "Cloud Audit",
+  },
+};
 
 export interface PanelCollectorDef {
   blurb: string;
   collectors: PanelCollectorRef[];
 }
 
+/** CloudTrail event categories shown as separate checkboxes on the CloudTrail panel. */
+export const AWS_CLOUDTRAIL_ASPECTS: PanelCollectorRef[] = [
+  { id: "cloudtrail", label: "Management", cloudtrailAspect: "management_events", aspectGroup: "cloudtrail" },
+  { id: "cloudtrail", label: "Data Events", cloudtrailAspect: "data_events", aspectGroup: "cloudtrail" },
+  { id: "cloudtrail", label: "Insights", cloudtrailAspect: "insight_events", aspectGroup: "cloudtrail" },
+  { id: "cloudtrail", label: "Network Activity", cloudtrailAspect: "network_activity", aspectGroup: "cloudtrail" },
+];
+
+/** GCP Cloud Audit log types grouped on the Audit Log panel. */
+export const GCP_CLOUD_AUDIT_ASPECTS: PanelCollectorRef[] = [
+  { id: "cloud_audit_admin", label: "Admin Activity", aspectGroup: "cloud_audit" },
+  { id: "cloud_audit_system", label: "System Event", aspectGroup: "cloud_audit" },
+  { id: "cloud_audit_data", label: "Data Access", aspectGroup: "cloud_audit" },
+];
+
 export const PANEL_COLLECTORS: Record<PanelId, PanelCollectorDef> = {
   cloudtrail: {
     blurb: "API and control-plane activity across regions.",
-    collectors: [{ id: "cloudtrail" }],
+    collectors: AWS_CLOUDTRAIL_ASPECTS,
   },
   findings: {
     blurb: "Threat detections and compliance findings normalized to one view.",
@@ -59,11 +101,20 @@ export const PANEL_COLLECTORS: Record<PanelId, PanelCollectorDef> = {
       { id: "route53_resolver", note: "DNS query logs" },
     ],
   },
+  "kubernetes-audit": {
+    blurb: "Kubernetes API-server audit logs from managed clusters.",
+    collectors: [{ id: "eks_audit" }],
+  },
   "data-access": {
     blurb: "Object-level access — who read or wrote which S3 object, from where.",
     collectors: [
       { id: "s3_access", note: "S3 server access logs" },
-      { id: "cloudtrail", note: "S3 object-level (data) events" },
+      {
+        id: "cloudtrail",
+        label: "CloudTrail S3 Data Events",
+        note: "S3 object-level (data) events only — not management, insight, or network activity",
+        cloudtrailAspect: "data_events",
+      },
     ],
   },
   collection: {
@@ -126,13 +177,16 @@ const PANEL_COLLECTORS_AZURE: Record<PanelId, PanelCollectorDef> = {
       { id: "log_analytics", note: "LA-routed App Gateway / Front Door / DNS" },
     ],
   },
+  "kubernetes-audit": {
+    blurb: "AKS kube-audit logs from cluster diagnostics.",
+    collectors: [{ id: "aks_audit" }],
+  },
   "data-access": {
     blurb: "Object-level and secret access — storage blobs, Key Vault operations.",
     collectors: [
       { id: "storage_access", note: "storage read/write/delete" },
       { id: "key_vault", note: "Key Vault audit events" },
-      { id: "aks_audit", note: "Kubernetes API audit (cloud-side)" },
-      { id: "log_analytics", note: "LA-routed storage / Key Vault / AKS audit" },
+      { id: "log_analytics", note: "LA-routed storage / Key Vault diagnostics" },
     ],
   },
   collection: {
@@ -152,11 +206,9 @@ const PANEL_COLLECTORS_GCP: Record<PanelId, PanelCollectorDef> = {
   cloudtrail: {
     blurb: "Cloud Audit Logs — admin activity, system events, and data access across projects.",
     collectors: [
-      { id: "cloud_audit_admin", note: "Admin Activity" },
-      { id: "cloud_audit_system", note: "System Event" },
-      { id: "cloud_audit_data", note: "Data Access" },
-      { id: "login_events", note: "console login audit" },
-      { id: "workspace_audit", note: "Workspace / group audit" },
+      ...GCP_CLOUD_AUDIT_ASPECTS,
+      { id: "login_events", note: "Google Cloud console sign-ins" },
+      { id: "workspace_audit", note: "Workspace / group directory audit" },
     ],
   },
   findings: {
@@ -188,11 +240,19 @@ const PANEL_COLLECTORS_GCP: Record<PanelId, PanelCollectorDef> = {
       { id: "api_gateway", note: "API Gateway request logs" },
     ],
   },
+  "kubernetes-audit": {
+    blurb: "GKE audit logs (coming soon).",
+    collectors: [{ id: "gke_audit", note: "coming soon — use Cloud Audit Logs for now" }],
+  },
   "data-access": {
     blurb: "Cloud Storage bucket access and data-plane audit events.",
     collectors: [
       { id: "storage_access", note: "GCS bucket access logs" },
-      { id: "cloud_audit_data", note: "data access audit trail" },
+      {
+        id: "cloud_audit_data",
+        label: "Cloud Audit Data Access",
+        note: "data access audit trail — not admin or system event logs",
+      },
     ],
   },
   collection: {

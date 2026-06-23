@@ -22,6 +22,9 @@ from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
 MAX_ITEMS_PER_SERVICE = 200
 
+# Shown in manifest gaps for sources Ventra detects but does not collect yet.
+_PLANNED_COLLECTOR = "Coming soon — Ventra does not collect this source yet."
+
 
 class LogPostureCollector(Collector):
     name = "log_posture"
@@ -139,8 +142,7 @@ class LogPostureCollector(Collector):
             out["_gap"] = (
                 GapReason.OUT_OF_SCOPE,
                 f"Access logging enabled on {stages_logged}/{stages_total} stage(s) → "
-                f"{', '.join(destinations[:3])}. Collection not yet supported — "
-                "pull from the destination manually.",
+                f"{', '.join(destinations[:3])}. {_PLANNED_COLLECTOR}",
             )
         return out
 
@@ -167,8 +169,7 @@ class LogPostureCollector(Collector):
         else:
             out["_gap"] = (
                 GapReason.OUT_OF_SCOPE,
-                f"{groups} Lambda log group(s) in CloudWatch Logs. Collection not yet "
-                "supported — pull the relevant function groups manually.",
+                f"{groups} Lambda log group(s) in CloudWatch Logs. {_PLANNED_COLLECTOR}",
             )
         return out
 
@@ -219,7 +220,7 @@ class LogPostureCollector(Collector):
             out["_gap"] = (
                 GapReason.OUT_OF_SCOPE,
                 f"Log publishing enabled on {domains_logged}/{domains_total} domain(s). "
-                "Collection not yet supported — pull from CloudWatch Logs manually.",
+                f"{_PLANNED_COLLECTOR}",
             )
         return out
 
@@ -255,7 +256,7 @@ class LogPostureCollector(Collector):
             out["_gap"] = (
                 GapReason.OUT_OF_SCOPE,
                 f"Log export enabled on {instances_exporting}/{instances_total} "
-                "instance(s) → CloudWatch Logs. Collection not yet supported.",
+                f"instance(s) → CloudWatch Logs. {_PLANNED_COLLECTOR}",
             )
         return out
 
@@ -339,6 +340,6 @@ class LogPostureCollector(Collector):
             out["_gap"] = (
                 GapReason.OUT_OF_SCOPE,
                 f"Logging enabled on {firewalls_logged}/{firewalls_total} firewall(s) → "
-                f"{', '.join(destinations[:3])}. Collection not yet supported.",
+                f"{', '.join(destinations[:3])}. {_PLANNED_COLLECTOR}",
             )
         return out

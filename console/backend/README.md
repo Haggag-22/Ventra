@@ -11,9 +11,8 @@ parameterized path (`app/store.py`). RBAC is enforced here, server-side.
 | GET | `/api/cases` | Cases list |
 | GET | `/api/cases/{id}/summary` | Overview |
 | GET | `/api/cases/{id}/integrity` | Integrity badge / report |
-| GET | `/api/cases/{id}/events` | Timeline / CloudTrail / Search (filter, sort, paginate, pivot) |
+| GET | `/api/cases/{id}/events` | CloudTrail / Search (filter, sort, paginate, pivot) |
 | GET | `/api/cases/{id}/events/facets` | Filter rail aggregations |
-| GET | `/api/cases/{id}/timeline` | Brushable timeline points |
 | GET | `/api/cases/{id}/findings` | Findings |
 | GET | `/api/cases/{id}/identity` | IAM inventory + role-assumption graph |
 | GET | `/api/cases/{id}/network` | VPC flow top talkers / rejected |

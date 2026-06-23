@@ -34,8 +34,15 @@ export const WEB_SOURCES: Record<Cloud, string[]> = {
 
 export const DATA_ACCESS_SOURCES: Record<Cloud, string[]> = {
   aws: ["s3_access", "cloudtrail"],
-  azure: ["storage_access", "key_vault", "aks_audit", "log_analytics"],
+  azure: ["storage_access", "key_vault", "log_analytics"],
   gcp: ["storage_access", "cloud_audit_data"],
+};
+
+/** Kubernetes API audit logs — EKS, AKS, and (future) GKE collectors. */
+export const KUBERNETES_AUDIT_SOURCES: Record<Cloud, string[]> = {
+  aws: ["eks_audit"],
+  azure: ["aks_audit"],
+  gcp: ["gke_audit"],
 };
 
 export function controlPlaneSources(cloud: Cloud): string[] {
@@ -56,6 +63,10 @@ export function webSources(cloud: Cloud): string[] {
 
 export function dataAccessSources(cloud: Cloud): string[] {
   return DATA_ACCESS_SOURCES[cloud] ?? DATA_ACCESS_SOURCES.aws;
+}
+
+export function kubernetesAuditSources(cloud: Cloud): string[] {
+  return KUBERNETES_AUDIT_SOURCES[cloud] ?? KUBERNETES_AUDIT_SOURCES.aws;
 }
 
 export function caseCloud(manifestCloud?: string | null): Cloud {

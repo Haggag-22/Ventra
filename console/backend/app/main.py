@@ -12,7 +12,7 @@ from typing import Any
 
 from fastapi import Depends, FastAPI, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
 
 from . import __version__
@@ -103,7 +103,7 @@ def case_collection_log(case_id: str, _: Role = Depends(_check("view_case"))) ->
     return {"entries": store.collection_log(case_id)}
 
 
-# -- events (Timeline / CloudTrail / Search / Pivot all flow through here) ----------------
+# -- events (CloudTrail / Search / Pivot all flow through here) -------------------------
 
 def _event_query(
     q: str | None = Query(None, description="Free-text search."),
@@ -204,12 +204,6 @@ def event_facets(case_id: str, q: EventQuery = Depends(_event_query),
     return store.facets(case_id, q)
 
 
-@app.get("/api/cases/{case_id}/timeline")
-def timeline(case_id: str, q: EventQuery = Depends(_event_query),
-             _: Role = Depends(_check("view_case"))) -> dict:
-    return store.timeline_buckets(case_id, q)
-
-
 @app.get("/api/cases/{case_id}/cloudtrail/collection")
 def cloudtrail_collection(case_id: str, _: Role = Depends(_check("view_case"))) -> dict:
     return store.cloudtrail_collection(case_id)
@@ -270,6 +264,87 @@ def inventory(case_id: str, source: str, _: Role = Depends(_check("view_case")))
     if data is None:
         raise HTTPException(status_code=404, detail=f"No inventory for source '{source}'.")
     return {"source": source, "data": data}
+
+
+# -- evidence file browser (raw collected sources) ---------------------------------------
+
+@app.get("/api/cases/{case_id}/evidence")
+def evidence_index(case_id: str, _: Role = Depends(_check("view_case"))) -> dict:
+    from .evidence import EvidenceNotFound, list_evidence_files
+
+    try:
+        manifest = store.manifest(case_id)
+        return list_evidence_files(store.case_dir(case_id), manifest)
+    except CaseNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except EvidenceNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+
+
+@app.get("/api/cases/{case_id}/evidence/content")
+def evidence_content(
+    case_id: str,
+    path: str = Query(..., min_length=1),
+    max_bytes: int | None = Query(None, ge=1),
+    _: Role = Depends(_check("view_case")),
+) -> dict:
+    from .evidence import EvidenceError, EvidenceNotFound, read_evidence_text
+
+    try:
+        store.case_dir(case_id)
+        return read_evidence_text(store.case_dir(case_id), path, max_bytes=max_bytes)
+    except CaseNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except EvidenceNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except EvidenceError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/cases/{case_id}/evidence/lines")
+def evidence_lines(
+    case_id: str,
+    path: str = Query(..., min_length=1),
+    offset: int = Query(0, ge=0),
+    limit: int | None = Query(None, ge=1),
+    _: Role = Depends(_check("view_case")),
+) -> dict:
+    from .evidence import EvidenceError, EvidenceNotFound, read_evidence_lines
+
+    try:
+        store.case_dir(case_id)
+        return read_evidence_lines(store.case_dir(case_id), path, offset=offset, limit=limit)
+    except CaseNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except EvidenceNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except EvidenceError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.get("/api/cases/{case_id}/evidence/download")
+def evidence_download(
+    case_id: str,
+    path: str = Query(..., min_length=1),
+    _: Role = Depends(_check("view_case")),
+) -> FileResponse:
+    from .evidence import EvidenceError, EvidenceNotFound, read_evidence_bytes
+
+    try:
+        store.case_dir(case_id)
+        target, media = read_evidence_bytes(store.case_dir(case_id), path)
+    except CaseNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except EvidenceNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    except EvidenceError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return FileResponse(
+        target,
+        media_type=media,
+        filename=target.name,
+        headers={"Content-Disposition": f'attachment; filename="{target.name}"'},
+    )
 
 
 # -- acquire (artifact library + kit builder) --------------------------------------------
@@ -445,6 +520,8 @@ async def import_case(
     case_id: str | None = Form(None),
     _: Role = Depends(_check("import_case")),
 ) -> dict:
+    import shutil
+
     from ventra_ingester.pipeline import ingest_package
 
     override = _normalize_case_id(case_id)
@@ -452,6 +529,9 @@ async def import_case(
     await _stream_upload(file, dest)
     try:
         result = ingest_package(dest, settings.case_store, case_id_override=override)
+        package_dir = result.case_dir / "package"
+        package_dir.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(dest, package_dir / dest.name)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=400, detail=f"Ingest failed: {exc}") from exc
     return {

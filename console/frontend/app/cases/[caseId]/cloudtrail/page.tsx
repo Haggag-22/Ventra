@@ -141,7 +141,7 @@ export default function CloudTrailPage() {
   return (
     <>
       <PanelHeader icon={ScrollText} title={panelLabel(cloud, "cloudtrail")} panel="cloudtrail" />
-      <PanelBody className="cloudtrail-view cloudtrail-timeline space-y-4">
+      <PanelBody className="cloudtrail-view cloudtrail-events space-y-4">
         {cloud === "aws" && <CloudTrailCollectionPanel caseId={caseId} />}
 
         {eventsFailed && (

@@ -45,23 +45,3 @@ export function findingOrigin(event: UnifiedEvent): string {
   return titleCaseSlug(event.ventra_source || "unknown");
 }
 
-export function findingOriginClass(origin: string): string {
-  const key = origin.toLowerCase().replace(/\s+/g, "");
-  switch (key) {
-    case "guardduty":
-      return "finding-origin-guardduty";
-    case "macie":
-      return "finding-origin-macie";
-    case "detective":
-      return "finding-origin-detective";
-    case "inspector":
-    case "inspector2":
-      return "finding-origin-inspector";
-    case "securityhub":
-      return "finding-origin-securityhub";
-    case "defender":
-      return "finding-origin-defender";
-    default:
-      return "finding-origin-other";
-  }
-}

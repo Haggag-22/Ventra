@@ -60,6 +60,7 @@ export const ARTIFACT_ICON_LABELS: Record<string, string> = {
   scc_findings: "scc findings",
   vm_logs: "vm logs",
   workspace_audit: "workspace audit",
+  gke_audit: "gke audit",
 };
 
 /** UI display names (proper product / acronym casing). Icon filenames stay lowercase in ``ARTIFACT_ICON_LABELS``. */
@@ -122,6 +123,7 @@ const ARTIFACT_DISPLAY_LABELS: Record<string, string> = {
   scc_findings: "SCC Findings",
   vm_logs: "VM Logs",
   workspace_audit: "Workspace Audit",
+  gke_audit: "GKE Audit",
 };
 
 export function displayArtifactLabel(collector: string): string {
