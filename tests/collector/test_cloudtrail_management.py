@@ -1,4 +1,4 @@
-"""Management-event collection: trail S3 logs first, Event History only on failure."""
+"""Management-event collection: trail S3 logs first, Event History only when no trails exist."""
 
 from __future__ import annotations
 
@@ -129,37 +129,55 @@ def test_collects_from_trails_when_s3_readable(tmp_path: Path) -> None:
     assert collection["buckets"] == ["trail-bucket"]
     assert [r["eventID"] for r in records] == ["m1"]
     assert records[0]["_ventra_collect_source"] == "s3_logs"
-    assert lookup_insight == []  # Event History not consulted
+    assert lookup_insight == []
     assert collection["trails"][0]["status"] == "collected"
 
 
-def test_falls_back_to_event_history_when_bucket_denied(tmp_path: Path) -> None:
+def test_does_not_use_event_history_when_trails_exist_and_bucket_denied(tmp_path: Path) -> None:
     cf = _Cf(deny_s3=True, lookup=[{"EventId": "from-event-history"}])
     collector = _collector(tmp_path)
     gaps: list[Any] = []
 
-    records, _lookup_insight, collection = collector._collect_management_events(
+    records, lookup_insight, collection = collector._collect_management_events(
         cf, {"trails": [_s3_trail()]}, gaps, START, END, {}
     )
 
-    assert collection["mode"] == "event_history"
-    assert collection["fallback_reason"] == "access_denied"
+    assert collection["mode"] == "trails"
+    assert collection["fallback_reason"] == ""
     assert collection["trails"][0]["status"] == "denied"
-    assert [r["EventId"] for r in records] == ["from-event-history"]
+    assert records == []
+    assert lookup_insight == []
 
 
-def test_uses_event_history_when_no_trail_logs_to_s3(tmp_path: Path) -> None:
-    not_logging = _s3_trail()
-    not_logging["Status"] = {"IsLogging": False}
+def test_uses_event_history_when_no_trails_found(tmp_path: Path) -> None:
     cf = _Cf(lookup=[{"EventId": "eh-1"}, {"EventId": "eh-2"}])
     collector = _collector(tmp_path)
     gaps: list[Any] = []
 
     records, _lookup_insight, collection = collector._collect_management_events(
-        cf, {"trails": [not_logging]}, gaps, START, END, {}
+        cf, {"trails": []}, gaps, START, END, {}
     )
 
     assert collection["mode"] == "event_history"
-    assert collection["fallback_reason"] == "no_s3_trail"
+    assert collection["fallback_reason"] == "no_trails"
     assert collection["trails_total"] == 0
     assert len(records) == 2
+
+
+def test_does_not_use_event_history_when_trail_not_logging_to_s3(tmp_path: Path) -> None:
+    not_logging = _s3_trail()
+    not_logging["Status"] = {"IsLogging": False}
+    cf = _Cf(lookup=[{"EventId": "eh-1"}])
+    collector = _collector(tmp_path)
+    gaps: list[Any] = []
+
+    records, lookup_insight, collection = collector._collect_management_events(
+        cf, {"trails": [not_logging]}, gaps, START, END, {}
+    )
+
+    assert collection["mode"] == "trails"
+    assert collection["fallback_reason"] == ""
+    assert collection["trails"][0]["status"] == "skipped"
+    assert collection["trails"][0]["reason"] == "s3_logging_disabled"
+    assert records == []
+    assert lookup_insight == []

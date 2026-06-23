@@ -6,23 +6,16 @@ from pathlib import Path
 from typing import Any
 
 from .loader import load_artifacts_dir
-from .registry import (
-    AWS_COLLECTOR_ORDER,
-    AZURE_COLLECTOR_ORDER,
-    GCP_COLLECTOR_ORDER,
-    collector_class_for,
-    registry_for_cloud,
-)
+from .registry import collector_class_for, collector_order_for_cloud, registry_for_cloud
 
 
 def list_collectors(cloud: str, *, artifacts_root: Path | None = None) -> list[str]:
     """Return collector names for a cloud (from artifacts if present, else registry order)."""
     cloud = cloud.lower()
-    order = {
-        "aws": AWS_COLLECTOR_ORDER,
-        "azure": AZURE_COLLECTOR_ORDER,
-        "gcp": GCP_COLLECTOR_ORDER,
-    }.get(cloud, [])
+    try:
+        order = collector_order_for_cloud(cloud)
+    except ValueError:
+        order = []
     root = artifacts_root or Path("artifacts")
     arts = load_artifacts_dir(root, cloud=cloud)
     if arts:

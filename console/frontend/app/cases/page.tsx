@@ -3,6 +3,7 @@
 import { IntegrityBadge } from "@/components/badges";
 import { CloudProviderIcon } from "@/components/cloud-provider-icon";
 import { ImportDialog } from "@/components/import-dialog";
+import { clearKitHandoff } from "@/lib/acquire-handoff";
 import { Button, Card, EmptyState, LoadingPanel } from "@/components/ui";
 import { api, deleteCase } from "@/lib/api";
 import { CLOUDS, CLOUD_LABELS, type Cloud } from "@/lib/catalog";
@@ -11,14 +12,28 @@ import { cn } from "@/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Anchor, Boxes, FolderOpen, ShieldAlert, Trash2, Upload } from "lucide-react";
 import Link from "next/link";
-import { useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 type Tab = "all" | Cloud;
 
+function readImportCaseParam(): string {
+  if (typeof window === "undefined") return "";
+  return new URLSearchParams(window.location.search).get("import_case")?.trim() || "";
+}
+
 export default function CasesPage() {
   const [importOpen, setImportOpen] = useState(false);
+  const [importCaseId, setImportCaseId] = useState("");
   const [tab, setTab] = useState<Tab>("all");
   const cases = useQuery({ queryKey: ["cases"], queryFn: api.cases });
+
+  useEffect(() => {
+    const id = readImportCaseParam();
+    if (id) {
+      setImportCaseId(id);
+      setImportOpen(true);
+    }
+  }, []);
 
   const all = cases.data?.cases ?? [];
   const countFor = (c: Tab) => (c === "all" ? all.length : all.filter((x) => x.cloud === c).length);
@@ -149,7 +164,12 @@ export default function CasesPage() {
         )}
       </main>
 
-      <ImportDialog open={importOpen} onClose={() => setImportOpen(false)} />
+      <ImportDialog
+        open={importOpen}
+        onClose={() => setImportOpen(false)}
+        defaultCaseId={importCaseId}
+        onImported={(caseId) => clearKitHandoff(caseId)}
+      />
     </div>
   );
 }

@@ -26,14 +26,17 @@ _TEMPLATES = _KIT_ROOT / "templates"
 _REPO_ROOT = _KIT_ROOT.parents[1]
 
 _KIT_BASE_REQUIREMENTS = [
-    "boto3>=1.34",
-    "botocore>=1.34",
     "rich>=13.7",
     "zstandard>=0.22",
     "PyYAML>=6.0",
 ]
 _KIT_CLOUD_REQUIREMENTS: dict[str, list[str]] = {
+    "aws": [
+        "boto3>=1.34",
+        "botocore>=1.34",
+    ],
     "azure": [
+        "requests>=2.31",
         "azure-identity>=1.16",
         "azure-mgmt-resource>=23.0",
         "azure-mgmt-monitor>=6.0",
@@ -53,6 +56,36 @@ _KIT_CLOUD_REQUIREMENTS: dict[str, list[str]] = {
 }
 
 
+_DEPLOYMENT_PROFILES = ("cloudshell", "workstation", "ec2")
+
+_PROFILE_TRADEOFFS: dict[str, str] = {
+    "cloudshell": """profile: cloudshell
+
+TRADEOFFS (summary — full detail in README-operator.md)
+- Best for: quick scoped pulls; client runs in {{CLOUD}} Cloud Shell with no local install.
+- Does NOT pull all records when max_records_per_source is set in acquisition.yaml — collection stops at that cap per source.
+- ~1 GB home disk and ~20 min idle timeout — large S3-resident logs may be truncated or incomplete; treat as best-effort scoped collection.
+- Switch to workstation or EC2 for full pulls, long runs, or multi-TB S3 sources.
+""",
+    "workstation": """profile: workstation
+
+TRADEOFFS (summary — full detail in README-operator.md)
+- Best for: responder jump host or local machine with CLI credentials; more disk/time than Cloud Shell.
+- Still stops at max_records_per_source if set in acquisition.yaml.
+- Local sleep/VPN drops can interrupt long runs; credentials live on the workstation during collection.
+- Switch to EC2 for multi-hour or very large S3 pulls; switch to Cloud Shell if client cannot install locally.
+""",
+    "ec2": """profile: ec2
+
+TRADEOFFS (summary — full detail in README-operator.md)
+- Best for: largest pulls, long unattended runs, most complete collection within configured caps.
+- Requires VM + instance profile + secure copy-out; operational overhead vs Cloud Shell.
+- Still respects max_records_per_source if manually set in acquisition.yaml.
+- Switch to Cloud Shell for quick proof-of-access; workstation when EC2 provisioning is not allowed.
+""",
+}
+
+
 def build_kit(
     out_zip: Path,
     *,
@@ -69,8 +102,13 @@ def build_kit(
     max_records_per_source: int | None = None,
     artifact_parameters: dict[str, dict[str, Any]] | None = None,
     bundle_wheel: bool = True,
+    require_wheel: bool = False,
+    deployment_profile: str = "cloudshell",
 ) -> Path:
     """Generate an acquisition zip: acquisition.yaml + artifacts + narrowed IAM + ventra.py."""
+    profile = deployment_profile.strip().lower() or "cloudshell"
+    if profile not in _DEPLOYMENT_PROFILES:
+        raise ValueError(f"unknown deployment profile: {deployment_profile!r}")
     root = artifacts_root or Path("artifacts")
     staging = out_zip.with_suffix(".staging")
     if staging.exists():
@@ -87,6 +125,7 @@ def build_kit(
         "case_id": case_id,
         "cloud": cloud,
         "ventra_version": __version__,
+        "deployment_profile": profile,
         "artifacts": [],
     }
     if since:
@@ -135,12 +174,12 @@ def build_kit(
         _write_iam(staging / "iam", iam_policy_paths, wanted_actions)
 
     if bundle_wheel:
-        _bundle_wheel(staging)
+        _bundle_wheel(staging, required=require_wheel)
 
     _write_kit_requirements(staging, cloud)
     shutil.copy2(_TEMPLATES / "ventra.py", staging / "ventra.py")
     shutil.copy2(_TEMPLATES / "run.sh", staging / "run.sh")
-    shutil.copy2(_TEMPLATES / "README-operator.md", staging / "README-operator.md")
+    _write_deployment_docs(staging, cloud, profile)
 
     out_zip.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(out_zip, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -153,20 +192,57 @@ def build_kit(
 
 def _write_kit_requirements(staging: Path, cloud: str) -> None:
     """Pin runtime deps so ventra.py can bootstrap the kit venv offline."""
+    cloud_key = cloud.lower()
     lines = list(_KIT_BASE_REQUIREMENTS)
-    lines.extend(_KIT_CLOUD_REQUIREMENTS.get(cloud.lower(), []))
-    (staging / "requirements.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+    lines.extend(_KIT_CLOUD_REQUIREMENTS.get(cloud_key, []))
+    # Preserve order while dropping duplicate pins (aws base + aws cloud both list boto3).
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for line in lines:
+        key = line.split(">=")[0].split("==")[0].strip().lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(line)
+    (staging / "requirements.txt").write_text("\n".join(deduped) + "\n", encoding="utf-8")
 
 
-def _bundle_wheel(staging: Path) -> None:
-    """Best-effort: place a ventra wheel under ``dist/`` for run.sh bootstrap."""
-    dist = staging / "dist"
-    dist.mkdir()
-    repo_dist = _REPO_ROOT / "dist"
-    wheels = sorted(repo_dist.glob("ventra-*.whl")) if repo_dist.is_dir() else []
-    if wheels:
-        shutil.copy2(wheels[-1], dist / wheels[-1].name)
-        return
+def _is_source_checkout() -> bool:
+    """True when kit build runs from a Ventra dev clone (``ventra gui`` / ``make dev-setup``)."""
+    return (_REPO_ROOT / "console" / "frontend" / "package.json").is_file()
+
+
+def kit_wheel_source() -> str:
+    """Where Acquire kits bundle the ventra wheel: ``local`` (dev clone) or ``pypi``."""
+    return "local" if _is_source_checkout() else "pypi"
+
+
+def _download_pypi_wheel(dist: Path, version: str) -> bool:
+    """Download ``ventra==version`` wheel from PyPI into ``dist/``. Returns True on success."""
+    try:
+        subprocess.run(
+            [
+                sys.executable,
+                "-m",
+                "pip",
+                "download",
+                f"ventra=={version}",
+                "--only-binary=:all:",
+                "--no-deps",
+                "-d",
+                str(dist),
+            ],
+            check=True,
+            capture_output=True,
+            timeout=120,
+        )
+    except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
+        return False
+    return any(dist.glob("ventra-*.whl"))
+
+
+def _wheel_from_source_tree(dist: Path) -> bool:
+    """Build a ventra wheel from the local source tree (dev / unreleased versions)."""
     try:
         subprocess.run(
             [sys.executable, "-m", "pip", "wheel", str(_REPO_ROOT), "-w", str(dist)],
@@ -175,16 +251,61 @@ def _bundle_wheel(staging: Path) -> None:
             timeout=180,
         )
     except (OSError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
-        (staging / "INSTALL.md").write_text(
-            "# Ventra install\n\n"
-            "No bundled wheel was produced. From a machine with network access:\n\n"
-            "```bash\n"
-            "python3 -m venv .venv && source .venv/bin/activate\n"
-            "pip install ventra\n"
-            "# or from source: pip install -e /path/to/Ventra\n"
-            "```\n",
-            encoding="utf-8",
-        )
+        return False
+    return any(dist.glob("ventra-*.whl"))
+
+
+def _bundle_wheel(staging: Path, *, required: bool = False) -> None:
+    """Place a ventra wheel under ``dist/`` for offline bootstrap.
+
+    From a source checkout (``ventra gui``), builds a fresh wheel from the working tree first so
+    Acquire kits pick up unreleased changes. Otherwise downloads ``ventra==__version__`` from PyPI.
+    """
+    dist = staging / "dist"
+    dist.mkdir()
+    version = __version__
+
+    if _is_source_checkout():
+        bundled = _wheel_from_source_tree(dist) or _download_pypi_wheel(dist, version)
+    else:
+        bundled = _download_pypi_wheel(dist, version) or _wheel_from_source_tree(dist)
+
+    if bundled:
+        return
+
+    if required:
+        raise ValueError(
+            f"Could not bundle ventra=={version} from "
+            f"{'the local source tree or PyPI' if _is_source_checkout() else 'PyPI or the local source tree'}. "
+            "Check network access or run Acquire from a Ventra source checkout."
+        ) from None
+    (staging / "INSTALL.md").write_text(
+        "# Ventra install\n\n"
+        "No bundled wheel was produced. From a machine with network access:\n\n"
+        "```bash\n"
+        "python3 -m venv .venv && source .venv/bin/activate\n"
+        f"pip install ventra=={version}\n"
+        "# or from source: pip install -e /path/to/Ventra\n"
+        "```\n",
+        encoding="utf-8",
+    )
+
+
+def _write_deployment_docs(staging: Path, cloud: str, profile: str) -> None:
+    """Append profile-specific operator steps and optional EC2 bootstrap script."""
+    base = (_TEMPLATES / "README-operator.md").read_text(encoding="utf-8")
+    profile_doc = _TEMPLATES / "deployment" / f"{profile}.md"
+    if profile_doc.is_file():
+        section = profile_doc.read_text(encoding="utf-8")
+        section = section.replace("{{CLOUD}}", cloud.upper())
+        base = base.rstrip() + "\n\n---\n\n" + section + "\n"
+    (staging / "README-operator.md").write_text(base, encoding="utf-8")
+    notes = _PROFILE_TRADEOFFS.get(profile, f"profile: {profile}\n")
+    notes = notes.replace("{{CLOUD}}", cloud.upper())
+    (staging / "deployment-profile.txt").write_text(notes, encoding="utf-8")
+    ec2_script = _TEMPLATES / "ec2-bootstrap.sh"
+    if profile == "ec2" and ec2_script.is_file():
+        shutil.copy2(ec2_script, staging / "ec2-bootstrap.sh")
 
 
 def _select_artifacts(root: Path, cloud: str, artifact_names: list[str]) -> list[dict[str, Any]]:

@@ -1,0 +1,9 @@
+subscription_id = "YOUR-SUBSCRIPTION-ID"
+tenant_id       = "YOUR-TENANT-ID"
+location        = "eastus"
+project_name    = "ventra-lab"
+
+# Cost savers for first run:
+# enable_aks        = false
+# enable_firewall   = false
+# enable_front_door = false

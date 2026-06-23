@@ -981,6 +981,7 @@ def _plan_collection(args, cloud: str, all_names: list[str], registry):
     """
     from .engine.acquisition import (
         artifact_refs_for_collectors,
+        augment_collectors,
         load_acquisition,
         load_pack,
         resolve_collectors_from_acquisition,
@@ -997,9 +998,9 @@ def _plan_collection(args, cloud: str, all_names: list[str], registry):
         return names, refs, spec.case_id, spec.engagement_id, spec
     if getattr(args, "pack", ""):
         keys = load_pack(args.pack, artifacts_root)
-        names = _resolve_collectors(",".join(keys), all_names, registry)
+        names = augment_collectors(cloud, _resolve_collectors(",".join(keys), all_names, registry))
         return names, artifact_refs_for_collectors(cloud, names, artifacts_root), "", "", None
-    names = _resolve_collectors(args.collectors, all_names, registry)
+    names = augment_collectors(cloud, _resolve_collectors(args.collectors, all_names, registry))
     return names, artifact_refs_for_collectors(cloud, names, artifacts_root), "", "", None
 
 

@@ -346,6 +346,8 @@ export interface Artifact {
   aliases?: string[];
   parameters?: Record<string, unknown>;
   sources?: { type: string; format?: string }[];
+  implicit?: boolean;
+  selectable?: boolean;
 }
 
 export interface ArtifactPack {

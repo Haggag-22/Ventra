@@ -17,17 +17,11 @@ import yaml
 
 from ..lib.models import ArtifactRef
 from .loader import load_artifacts_dir
-from .registry import (
-    AWS_COLLECTOR_ORDER,
-    AZURE_COLLECTOR_ORDER,
-    GCP_COLLECTOR_ORDER,
-    registry_for_cloud,
-)
+from .registry import collector_order_for_cloud, registry_for_cloud
 
-_ORDER: dict[str, list[str]] = {
-    "aws": AWS_COLLECTOR_ORDER,
-    "azure": AZURE_COLLECTOR_ORDER,
-    "gcp": GCP_COLLECTOR_ORDER,
+# Always merged into AWS plans — checks logging for sources without dedicated collectors.
+_IMPLICIT_COLLECTORS: dict[str, list[str]] = {
+    "aws": ["log_posture"],
 }
 
 
@@ -204,8 +198,20 @@ def artifact_refs_for_collectors(
 
 
 def _order_keys(cloud: str, keys: list[str]) -> list[str]:
-    order = {n: i for i, n in enumerate(_ORDER.get(cloud, []))}
+    order = {n: i for i, n in enumerate(collector_order_for_cloud(cloud))}
     return sorted(keys, key=lambda n: order.get(n, len(order)))
+
+
+def augment_collectors(cloud: str, names: list[str]) -> list[str]:
+    """Append implicit collectors (e.g. AWS ``log_posture``) not shown in Acquire."""
+    extra = _IMPLICIT_COLLECTORS.get(cloud, [])
+    merged = list(names)
+    seen = set(names)
+    for key in extra:
+        if key not in seen:
+            merged.append(key)
+            seen.add(key)
+    return _order_keys(cloud, merged)
 
 
 def resolve_collectors_from_acquisition(
@@ -247,5 +253,6 @@ def resolve_collectors_from_acquisition(
     if unknown:
         raise AcquisitionError(f"unknown collector(s) for {cloud}: {', '.join(sorted(unknown))}")
 
-    names = _order_keys(cloud, ordered)
+    names = augment_collectors(cloud, _order_keys(cloud, ordered))
+    refs_by_key = {k: refs_by_key.get(k) or _ref_for_key(k, index) for k in names}
     return names, [refs_by_key[k] for k in names]
