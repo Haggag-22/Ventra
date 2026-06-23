@@ -67,6 +67,36 @@ def _ensure_ventra(cloud: str) -> Path:
     reqs = ROOT / "requirements.txt"
     if reqs.is_file():
         subprocess.check_call([str(pip), "install", "-q", "-r", str(reqs)])
+    else:
+        # Fallback when requirements.txt is missing — install only what this cloud needs.
+        fallback = [
+            "rich>=13.7",
+            "zstandard>=0.22",
+            "PyYAML>=6.0",
+        ]
+        if cloud == "aws":
+            fallback[:0] = ["boto3>=1.34", "botocore>=1.34"]
+        elif cloud == "azure":
+            fallback[:0] = [
+                "requests>=2.31",
+                "azure-identity>=1.16",
+                "azure-mgmt-resource>=23.0",
+                "azure-mgmt-monitor>=6.0",
+                "azure-mgmt-network>=25.0",
+                "azure-mgmt-security>=7.0",
+                "azure-mgmt-authorization>=4.0",
+                "azure-storage-blob>=12.19",
+            ]
+        elif cloud == "gcp":
+            fallback[:0] = [
+                "google-api-core>=2.19",
+                "google-auth>=2.29",
+                "google-cloud-logging>=3.10",
+                "google-cloud-resource-manager>=1.12",
+                "google-cloud-securitycenter>=1.28",
+                "protobuf>=4.25",
+            ]
+        subprocess.check_call([str(pip), "install", "-q", *fallback])
 
     wheels = sorted((ROOT / "dist").glob("ventra-*.whl"))
     if wheels:

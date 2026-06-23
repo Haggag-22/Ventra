@@ -43,14 +43,19 @@ class RunReporter:
 
 
 def parse_window(since: str | None, until: str | None) -> TimeWindow:
-    def _p(val: str | None) -> datetime | None:
+    def _p(val: str | None, *, end_of_day: bool = False) -> datetime | None:
         if not val:
             return None
-        for fmt in ("%Y-%m-%dT%H:%M:%SZ", "%Y-%m-%d"):
+        val = val.strip()
+        try:
+            dt = datetime.strptime(val, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=UTC)
+        except ValueError:
             try:
-                return datetime.strptime(val, fmt).replace(tzinfo=UTC)
+                dt = datetime.strptime(val, "%Y-%m-%d").replace(tzinfo=UTC)
+                if end_of_day:
+                    dt = dt.replace(hour=23, minute=59, second=59, microsecond=999999)
             except ValueError:
-                continue
-        raise ValueError(f"Unrecognized date: {val!r}. Use YYYY-MM-DD or RFC3339.")
+                raise ValueError(f"Unrecognized date: {val!r}. Use YYYY-MM-DD or RFC3339.") from None
+        return dt
 
-    return TimeWindow(since=_p(since), until=_p(until))
+    return TimeWindow(since=_p(since), until=_p(until, end_of_day=True))

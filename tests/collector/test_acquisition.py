@@ -138,6 +138,18 @@ artifacts: [not_a_real_collector]
         resolve_collectors_from_acquisition(spec, ARTIFACTS)
 
 
+def test_resolve_aws_adds_implicit_log_posture(tmp_path: Path) -> None:
+    spec = load_acquisition(_write(tmp_path, """
+case_id: CASE-AWS
+cloud: aws
+artifacts: [guardduty, cloudtrail]
+"""))
+    names, refs = resolve_collectors_from_acquisition(spec, ARTIFACTS)
+    assert "log_posture" in names
+    assert "guardduty" in names
+    assert {r.collector for r in refs} >= {"guardduty", "cloudtrail", "log_posture"}
+
+
 def test_artifact_refs_for_collectors() -> None:
     refs = artifact_refs_for_collectors("gcp", ["cloud_audit_admin", "vpc_flow"], ARTIFACTS)
     assert [r.collector for r in refs] == ["cloud_audit_admin", "vpc_flow"]

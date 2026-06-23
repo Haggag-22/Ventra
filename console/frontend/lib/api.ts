@@ -144,7 +144,40 @@ export type AcquisitionBuild = {
   subscription?: string;
   max_records_per_source?: number | null;
   artifact_parameters?: Record<string, Record<string, unknown>>;
+  deployment_profile?: string;
+  bundle_wheel?: boolean;
+  require_wheel?: boolean;
 };
+
+export type AcquisitionPreview = {
+  ventra_version: string;
+  cloud: string;
+  artifact_count: number;
+  collectors: string[];
+  implicit_collectors: string[];
+  iam_included: boolean;
+  iam_policy_files: string[];
+  iam_action_count: number;
+  iam_actions: string[];
+  iam_policies: Record<string, Record<string, unknown>>;
+  deployment_profile: string;
+  bundle_wheel: boolean;
+  wheel_source: "local" | "pypi";
+};
+
+/** Preview IAM narrowing and kit metadata before download. */
+export async function previewAcquisitionKit(body: AcquisitionBuild): Promise<AcquisitionPreview> {
+  const res = await fetch("/api/acquisitions/preview", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Ventra-Role": "responder" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || "Kit preview failed");
+  }
+  return res.json() as Promise<AcquisitionPreview>;
+}
 
 /** POST the acquisition selection and trigger a browser download of the returned kit zip. */
 export async function buildAcquisitionKit(body: AcquisitionBuild): Promise<void> {

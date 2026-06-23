@@ -19,7 +19,17 @@ function suggestCaseId(filename: string): string {
 
 const ACCEPT_RE = /\.(tar\.zst|tar\.gz|zst|gz|tar)$/i;
 
-export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
+export function ImportDialog({
+  open,
+  onClose,
+  defaultCaseId,
+  onImported,
+}: {
+  open: boolean;
+  onClose: () => void;
+  defaultCaseId?: string;
+  onImported?: (caseId: string) => void;
+}) {
   const [stage, setStage] = useState<Stage>("idle");
   const [caseName, setCaseName] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -33,12 +43,12 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
   useEffect(() => {
     if (!open) return;
     setStage("idle");
-    setCaseName("");
+    setCaseName(defaultCaseId?.trim() || "");
     setFile(null);
     setResult(null);
     setError("");
     setDragOver(false);
-  }, [open]);
+  }, [open, defaultCaseId]);
 
   if (!open) return null;
 
@@ -73,6 +83,7 @@ export function ImportDialog({ open, onClose }: { open: boolean; onClose: () => 
       setResult(res);
       setStage("done");
       qc.invalidateQueries({ queryKey: ["cases"] });
+      onImported?.(res.case_id);
     } catch (e: any) {
       setError(e.message || "Import failed");
       setStage("error");

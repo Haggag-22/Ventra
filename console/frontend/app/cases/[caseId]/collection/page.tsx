@@ -3,7 +3,9 @@
 import { useCase } from "@/components/case-context";
 import { PanelBody, PanelHeader } from "@/components/panel";
 import { Button, Card, LoadingPanel } from "@/components/ui";
+import { clearKitHandoff, getKitHandoff } from "@/lib/acquire-handoff";
 import { api } from "@/lib/api";
+import { displayArtifactLabel } from "@/lib/artifact-icons";
 import { CLOUD_IMPLEMENTED, type Cloud } from "@/lib/catalog";
 import {
   ACQUIRABLE_COVERAGE,
@@ -14,21 +16,25 @@ import {
   resolveCollectorCoverage,
   type CoverageState,
 } from "@/lib/collection-coverage";
+import { deploymentProfileLabel } from "@/lib/deployment-profiles";
 import { fmtNum } from "@/lib/format";
-import { acquireHref } from "@/lib/routes";
+import { acquireHref, CASES_HREF } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   CheckSquare,
+  Clock,
   Download,
   ListChecks,
   MinusSquare,
   Plus,
   Square,
+  Upload,
   XSquare,
 } from "lucide-react";
 import Link from "next/link";
+import { useMemo } from "react";
 
 const STATE_META: Record<
   CoverageState,
@@ -70,6 +76,7 @@ function rowDetail(
 
 export default function CollectionPage() {
   const { caseId } = useCase();
+  const pendingKit = useMemo(() => getKitHandoff(caseId), [caseId]);
   const manifestQ = useQuery({ queryKey: ["manifest", caseId], queryFn: () => api.manifest(caseId) });
   const summaryQ = useQuery({ queryKey: ["summary", caseId], queryFn: () => api.summary(caseId) });
 
@@ -116,6 +123,45 @@ export default function CollectionPage() {
         }
       />
       <PanelBody className="cloudtrail-view space-y-5">
+        {pendingKit && (
+          <div className="rounded-lg border border-accent/30 bg-accent/5 px-4 py-3">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="space-y-1 text-xs text-fg">
+                <p className="flex items-center gap-2 font-medium">
+                  <Clock className="h-4 w-4 text-accent" />
+                  Kit sent — awaiting client upload
+                </p>
+                <p className="text-fg-subtle">
+                  Built{" "}
+                  <span className="mono">{new Date(pendingKit.builtAt).toLocaleString()}</span> ·{" "}
+                  {deploymentProfileLabel(pendingKit.deploymentProfile)} ·{" "}
+                  {pendingKit.collectors.length} expected artifact
+                  {pendingKit.collectors.length === 1 ? "" : "s"}
+                </p>
+                <ul className="mt-2 max-h-20 space-y-0.5 overflow-auto mono text-2xs text-fg-subtle">
+                  {pendingKit.collectors.map((c) => (
+                    <li key={c}>{displayArtifactLabel(c)}</li>
+                  ))}
+                </ul>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <Link href={`${CASES_HREF}?import_case=${encodeURIComponent(caseId)}`}>
+                  <Button variant="primary-dark" icon={Upload} className="h-8 text-xs">
+                    Import evidence
+                  </Button>
+                </Link>
+                <Button
+                  variant="ghost"
+                  className="h-8 text-xs"
+                  onClick={() => clearKitHandoff(caseId)}
+                >
+                  Dismiss
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         {!CLOUD_IMPLEMENTED[cloud] && (
           <div className="rounded-lg border border-warn-amber/30 bg-warn-amber/10 px-4 py-3 text-xs text-warn-amber">
             {cloud.toUpperCase()} collectors are scaffolded but not yet implemented — these
