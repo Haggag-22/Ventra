@@ -1,9 +1,4 @@
-"""Microsoft 365 Unified Audit Log — Search-UnifiedAuditLog (long lookback).
-
-Uses the Exchange Online Admin API to run ``Search-UnifiedAuditLog`` with adaptive time-window
-splitting (Invictus-style) so dense tenants stay under the 5,000 records/call cap. Default
-lookback is 90 days (tenant retention may be 180 Standard / 365 Premium).
-"""
+"""Microsoft 365 Unified Audit Log — Search-UnifiedAuditLog (long lookback)."""
 
 from __future__ import annotations
 
@@ -55,14 +50,21 @@ class UnifiedAuditSearchCollector(Collector):
                 )
             )
 
+        files = []
+        record_count = 0
+        warnings: list[str] = []
         try:
-            records, warnings = collect_adaptive(
-                start,
-                end,
-                search_window=search_window,
-                target_events_per_window=opts.target_events_per_window,
-                max_records=cap,
-            )
+            with self.open_jsonl("events.jsonl.gz") as writer:
+                record_count, warnings = collect_adaptive(
+                    start,
+                    end,
+                    search_window=search_window,
+                    target_events_per_window=opts.target_events_per_window,
+                    max_records=cap,
+                    writer=writer,
+                )
+                if writer.count:
+                    files.append(writer.finalize())
         except AzureAccessDenied as exc:
             return SourceResult(
                 name=self.name,
@@ -86,15 +88,19 @@ class UnifiedAuditSearchCollector(Collector):
 
         for warn in warnings:
             gaps.append(("unified_audit_search", GapReason.NOT_PRESENT, warn))
+        if record_count >= cap and not self.records_unlimited():
+            self.append_truncation_gap(
+                gaps,
+                "unified_audit_search",
+                cap,
+                f"Stopped at {cap:,} records; narrow filters or time window.",
+            )
 
-        files = []
-        if records:
-            files.append(self.write_jsonl(records, "events.jsonl.gz"))
         self.write_meta(
             {
                 "source": self.name,
                 "acquisition": "search_unified_audit_log",
-                "records": len(records),
+                "records": record_count,
                 "truncation_warnings": warnings,
                 "filters": {
                     "users": users,
@@ -114,7 +120,7 @@ class UnifiedAuditSearchCollector(Collector):
             }
         )
 
-        if records:
+        if record_count:
             status = SourceStatus.PARTIAL if gaps else SourceStatus.COLLECTED
         else:
             status = SourceStatus.EMPTY
@@ -123,14 +129,14 @@ class UnifiedAuditSearchCollector(Collector):
                     ("unified_audit_search", GapReason.NOT_PRESENT, "No UAL search results in window.")
                 )
 
-        notes = f"{len(records)} unified audit record(s) via Search-UnifiedAuditLog."
+        notes = f"{record_count} unified audit record(s) via Search-UnifiedAuditLog."
         if warnings:
             notes += f" {len(warnings)} truncation warning(s) — see _meta.json."
         return SourceResult(
             name=self.name,
             status=status,
             files=files,
-            record_count=len(records),
+            record_count=record_count,
             gaps=gaps,
             notes=notes,
         )

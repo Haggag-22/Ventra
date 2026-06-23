@@ -1,14 +1,4 @@
-"""CloudFront access-log collector.
-
-CloudFront standard (legacy S3) access logs record every request at the CDN edge — the
-earliest place an external attacker appears. This collector inventories distributions,
-records which have standard logging enabled and the delivery bucket, then reads the W3C
-log files for the case window. Distributions without logging are recorded as gaps.
-
-Log lines are shipped raw; because the W3C field order is declared per-file in a
-``#Fields:`` header, each record carries the header it was read under so the ingester can
-parse positionally.
-"""
+"""CloudFront access-log collector."""
 
 from __future__ import annotations
 
@@ -18,12 +8,14 @@ from typing import Any
 from botocore.exceptions import ClientError
 
 from collector.lib.base import Collector
+from collector.lib.limits import DEFAULT_MAX_RECORDS
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from ..common.s3_logs import bucket_region, collect_s3_line_records, dash_day_prefixes
 
 DEFAULT_WINDOW_DAYS = 7
 MAX_DISTRIBUTIONS = 500
+MAX_RECORDS = DEFAULT_MAX_RECORDS
 
 
 class CloudFrontCollector(Collector):
@@ -44,6 +36,7 @@ class CloudFrontCollector(Collector):
         window = self.ctx.time_window
         start = window.since or (datetime.now(UTC) - timedelta(days=DEFAULT_WINDOW_DAYS))
         end = window.until or datetime.now(UTC)
+        cap = self.max_records(MAX_RECORDS)
 
         distributions = self._discover_distributions(cf, gaps)
         if not distributions:
@@ -68,13 +61,26 @@ class CloudFrontCollector(Collector):
                 )
             )
 
-        records: list[dict] = []
         per_dist: list[dict] = []
-        for dist in logging_on:
-            self._log(f"Reading access logs for distribution {dist['id']}…")
-            recs, stats = self._read_dist_logs(cf, dist, start, end, gaps)
-            records.extend(recs)
-            per_dist.append({**dist, "records": len(recs), "objects_read": stats["objects_read"]})
+        record_count = 0
+        event_files: list = []
+        with self.open_jsonl("events.jsonl.gz") as writer:
+            for dist in logging_on:
+                self._log(f"Reading access logs for distribution {dist['id']}…")
+                before = writer.count
+                stats = self._read_dist_logs(
+                    cf, dist, start, end, gaps, writer=writer, max_records=cap
+                )
+                per_dist.append(
+                    {
+                        **dist,
+                        "records": writer.count - before,
+                        "objects_read": stats["objects_read"],
+                    }
+                )
+            record_count = writer.count
+            if writer.count:
+                event_files.append(writer.finalize())
 
         config = {
             "distributions": distributions,
@@ -83,20 +89,18 @@ class CloudFrontCollector(Collector):
             "collection": per_dist,
             "window": window.to_manifest(),
         }
-        files = [self.write_json(config, "config.json")]
-        if records:
-            files.append(self.write_jsonl(records, "events.jsonl.gz"))
+        files = [self.write_json(config, "config.json"), *event_files]
         self.write_meta(
             {
                 "source": self.name,
-                "records": len(records),
+                "records": record_count,
                 "distributions": len(distributions),
                 "logging_enabled": len(logging_on),
                 "window": window.to_manifest(),
             }
         )
 
-        if records:
+        if record_count:
             status = SourceStatus.PARTIAL if gaps else SourceStatus.COLLECTED
         elif logging_on:
             status = SourceStatus.PARTIAL if gaps else SourceStatus.EMPTY
@@ -109,9 +113,9 @@ class CloudFrontCollector(Collector):
             name=self.name,
             status=status,
             files=files,
-            record_count=len(records),
+            record_count=record_count,
             gaps=gaps,
-            notes=f"{len(records)} access-log lines from "
+            notes=f"{record_count} access-log lines from "
             f"{len(logging_on)}/{len(distributions)} distribution(s) with logging enabled.",
         )
 
@@ -156,12 +160,19 @@ class CloudFrontCollector(Collector):
             return {}
 
     def _read_dist_logs(
-        self, cf, dist: dict[str, Any], start: datetime, end: datetime, gaps
-    ) -> tuple[list[dict], dict]:
+        self,
+        cf,
+        dist: dict[str, Any],
+        start: datetime,
+        end: datetime,
+        gaps,
+        *,
+        writer=None,
+        max_records: int = MAX_RECORDS,
+    ) -> dict:
         bucket = dist["bucket"]
         base = f"{dist['prefix']}{dist['id']}."
         region = bucket_region(cf, bucket)
-        # The per-file W3C header declares field order; carry it onto each record.
         current_fields: dict[str, str] = {"value": ""}
 
         def line_to_record(key: str, line: str) -> dict[str, Any] | None:
@@ -183,7 +194,7 @@ class CloudFrontCollector(Collector):
                 "_ventra_domain_name": dist["domain_name"],
             }
 
-        return collect_s3_line_records(
+        _, stats = collect_s3_line_records(
             cf,
             region,
             bucket,
@@ -191,11 +202,13 @@ class CloudFrontCollector(Collector):
             line_to_record,
             gaps,
             "cloudfront",
+            max_records=max_records,
+            writer=writer,
         )
+        return stats
 
 
 def _w3c_time(line: str) -> datetime | None:
-    """CloudFront W3C lines start with tab-separated ``date<TAB>time``."""
     parts = line.split("\t", 2)
     if len(parts) < 2:
         return None

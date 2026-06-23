@@ -3,24 +3,13 @@
 from __future__ import annotations
 
 import gzip
-import io
 import json
 import shutil
 import tarfile
 from pathlib import Path
 
-from .package import EvidencePackage
-
-
-def _decompress_tar_bytes(path: Path) -> bytes:
-    raw = path.read_bytes()
-    if path.name.endswith(".tar.zst") or path.suffix == ".zst":
-        import zstandard
-
-        return zstandard.ZstdDecompressor().decompress(raw, max_output_size=4_000_000_000)
-    if path.name.endswith(".tar.gz") or path.suffix == ".gz":
-        return gzip.decompress(raw)
-    return raw
+from .limits import MAX_DECOMPRESS_BYTES
+from .package import _decompress_to_tar
 
 
 def extract_package(package_path: Path, dest: Path) -> int:
@@ -33,26 +22,44 @@ def extract_package(package_path: Path, dest: Path) -> int:
     if dest.exists():
         shutil.rmtree(dest)
     dest.mkdir(parents=True)
-    tar_bytes = _decompress_tar_bytes(package_path)
-    count = 0
-    with tarfile.open(fileobj=io.BytesIO(tar_bytes)) as tar:
-        for member in tar.getmembers():
-            if not member.isfile():
-                continue
-            target = dest / member.name
-            target.parent.mkdir(parents=True, exist_ok=True)
-            extracted = tar.extractfile(member)
-            if extracted is None:
-                continue
-            target.write_bytes(extracted.read())
-            count += 1
-    return count
+
+    work = dest.parent / f".{dest.name}.extract-work"
+    work.mkdir(parents=True, exist_ok=True)
+    try:
+        tar_path = _decompress_to_tar(package_path, work)
+        count = 0
+        with tarfile.open(tar_path, mode="r:") as tar:
+            for member in tar.getmembers():
+                if not member.isfile():
+                    continue
+                target = dest / member.name
+                target.parent.mkdir(parents=True, exist_ok=True)
+                extracted = tar.extractfile(member)
+                if extracted is None:
+                    continue
+                with target.open("wb") as out:
+                    written = 0
+                    while True:
+                        chunk = extracted.read(1024 * 1024)
+                        if not chunk:
+                            break
+                        written += len(chunk)
+                        if written > MAX_DECOMPRESS_BYTES:
+                            raise ValueError("Package member exceeds decompression limit during extract.")
+                        out.write(chunk)
+                count += 1
+        return count
+    finally:
+        shutil.rmtree(work, ignore_errors=True)
 
 
 def package_case_id(package_path: Path) -> str | None:
     """Read ``case_id`` from a package manifest without extracting."""
+    from .package import EvidencePackage
+
     try:
-        return str(EvidencePackage(package_path).manifest.get("case_id") or "").strip() or None
+        with EvidencePackage(package_path) as pkg:
+            return str(pkg.manifest.get("case_id") or "").strip() or None
     except (ValueError, OSError, json.JSONDecodeError):
         return None
 

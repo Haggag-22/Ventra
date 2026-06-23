@@ -37,9 +37,10 @@ class SccFindingsCollector(Collector):
                 notes="Organization context required for Security Command Center.",
             )
 
+        cap = self.max_records(MAX_RECORDS)
         findings: list[dict[str, Any]] = []
         try:
-            for finding in cf.scc_findings(organization_id=org_id, max_records=MAX_RECORDS):
+            for finding in cf.scc_findings(organization_id=org_id, max_records=cap):
                 finding["_ventra_organization_id"] = org_id
                 findings.append(finding)
         except GcpAccessDenied as exc:

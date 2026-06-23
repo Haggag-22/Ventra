@@ -1,33 +1,28 @@
-"""Read VPC Flow Log records from their S3 delivery bucket.
-
-The VPC Flow Logs collector pulls records directly from CloudWatch Logs when the flow log
-delivers there. The far more common production layout delivers to S3 instead — this module
-reads those S3-resident records so the Network panel can quantify egress/rejects regardless
-of the delivery destination.
-
-Only the default *plain-text* file format is parsed (gzipped ``.log.gz`` with a header row).
-Parquet / Hive-partitioned deliveries are reported as a gap rather than parsed, since that
-would pull in a heavy parquet dependency unsuitable for a constrained cloud shell.
-"""
+"""Read VPC Flow Log records from their S3 delivery bucket."""
 
 from __future__ import annotations
 
 import gzip
 import io
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from collector.lib.limits import (
+    DEFAULT_MAX_LOG_OBJECTS,
+    DEFAULT_MAX_RECORDS,
+    records_unlimited,
+    resolve_max_objects,
+)
 from collector.lib.models import GapReason
 from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
-# Keep CloudShell runs bounded.
-MAX_LOG_OBJECTS = 2000
-MAX_RECORDS = 200_000
+if TYPE_CHECKING:
+    from collector.lib.base import JsonlWriter
 
-# Map plain-text flow-log header tokens to the keys the vpc_flow normalizer expects.
-# AWS emits the header as the field names with hyphens (e.g. ``account-id``); the normalizer
-# keys use underscores. Tokens not listed here pass through unchanged.
+MAX_LOG_OBJECTS = DEFAULT_MAX_LOG_OBJECTS
+MAX_RECORDS = DEFAULT_MAX_RECORDS
+
 _HEADER_KEY_MAP = {
     "account-id": "account_id",
     "interface-id": "interface_id",
@@ -36,11 +31,6 @@ _HEADER_KEY_MAP = {
 
 
 def flow_log_s3_target(flow_log: dict[str, Any]) -> tuple[str, str] | None:
-    """Return ``(bucket, prefix)`` for an S3-delivering flow log, else ``None``.
-
-    ``LogDestination`` is an S3 ARN like ``arn:aws:s3:::my-bucket/some/prefix/``. The prefix
-    is optional and a custom prefix is *prepended* to the AWSLogs/ tree.
-    """
     if flow_log.get("LogDestinationType") != "s3":
         return None
     arn = (flow_log.get("LogDestination") or "").strip()
@@ -66,24 +56,17 @@ def _iter_days(start: datetime, end: datetime):
 def _day_prefixes(
     prefix: str, account_id: str, region: str, start: datetime, end: datetime
 ) -> list[str]:
-    """Daily key prefixes, e.g. ``<prefix>AWSLogs/<acct>/vpcflowlogs/<region>/2026/06/15/``."""
     base = f"{prefix}AWSLogs/{account_id}/vpcflowlogs/{region}"
     return [f"{base}/{d.year:04d}/{d.month:02d}/{d.day:02d}/" for d in _iter_days(start, end)]
 
 
-def _parse_plaintext(body: bytes, region: str) -> list[dict[str, Any]]:
-    """Parse a gzipped plain-text flow-log object into structured records.
-
-    The first line is the space-delimited header naming each field; subsequent lines hold the
-    values. Records that carry no flow (NODATA/SKIPDATA, or '-' addresses) are dropped.
-    """
+def _iter_plaintext_records(body: bytes, region: str) -> Iterator[dict[str, Any]]:
     with gzip.GzipFile(fileobj=io.BytesIO(body)) as gz:
         text = gz.read().decode("utf-8", errors="replace")
     lines = text.splitlines()
     if len(lines) < 2:
-        return []
+        return
     header = [_HEADER_KEY_MAP.get(tok, tok) for tok in lines[0].split()]
-    out: list[dict[str, Any]] = []
     for line in lines[1:]:
         if not line.strip():
             continue
@@ -97,19 +80,22 @@ def _parse_plaintext(body: bytes, region: str) -> list[dict[str, Any]]:
         if rec.get("srcaddr") in (None, "", "-") or rec.get("dstaddr") in (None, "", "-"):
             continue
         rec["_ventra_region"] = region
-        out.append(rec)
-    return out
+        yield rec
 
 
 def _in_window(rec: dict[str, Any], start: datetime, end: datetime) -> bool:
     raw = rec.get("start")
     if not raw:
-        return True  # keep records without a parseable timestamp; day-prefix already bounds them
+        return True
     try:
         ts = datetime.fromtimestamp(int(raw), tz=UTC)
     except (ValueError, OSError, TypeError):
         return True
     return start <= ts <= end
+
+
+def _written_count(writer: JsonlWriter | None, records: list[dict[str, Any]]) -> int:
+    return writer.count if writer is not None else len(records)
 
 
 def collect_s3_flow_records(
@@ -122,9 +108,12 @@ def collect_s3_flow_records(
     *,
     log: Callable[[str], None] | None = None,
     max_records: int = MAX_RECORDS,
+    max_objects: int | None = None,
+    writer: JsonlWriter | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Pull flow records for one S3-delivering flow log within the time window."""
     region = flow_log.get("_ventra_region") or ""
+    obj_cap = resolve_max_objects(max_records, max_objects)
     stats: dict[str, Any] = {
         "objects_scanned": 0,
         "objects_read": 0,
@@ -158,15 +147,14 @@ def collect_s3_flow_records(
 
     try:
         for prefix_key in _day_prefixes(prefix, account_id, region, start, end):
-            if stats["objects_scanned"] >= MAX_LOG_OBJECTS or stats["truncated"]:
-                stats["truncated"] = True
+            if stats["truncated"]:
                 break
             try:
                 for obj in cf.paginate(
                     "s3", region, "list_objects_v2", "Contents", Bucket=bucket, Prefix=prefix_key
                 ):
                     stats["objects_scanned"] += 1
-                    if stats["objects_scanned"] > MAX_LOG_OBJECTS:
+                    if stats["objects_scanned"] > obj_cap:
                         stats["truncated"] = True
                         break
                     key = obj.get("Key", "")
@@ -174,8 +162,8 @@ def collect_s3_flow_records(
                         continue
                     stats["objects_read"] += 1
                     body = s3.get_object(Bucket=bucket, Key=key)["Body"].read()
-                    for rec in _parse_plaintext(body, region):
-                        if len(records) >= max_records:
+                    for rec in _iter_plaintext_records(body, region):
+                        if not records_unlimited(max_records) and _written_count(writer, records) >= max_records:
                             stats["truncated"] = True
                             break
                         if not _in_window(rec, start, end):
@@ -183,7 +171,10 @@ def collect_s3_flow_records(
                         rec["_ventra_log_key"] = key
                         rec["_ventra_s3_bucket"] = bucket
                         rec["_ventra_collect_source"] = "s3_logs"
-                        records.append(rec)
+                        if writer is not None:
+                            writer.write_record(rec)
+                        else:
+                            records.append(rec)
                         stats["records"] += 1
                     if stats["truncated"]:
                         break
@@ -195,6 +186,16 @@ def collect_s3_flow_records(
                 continue
     except AccessDenied as exc:
         gaps.append(("vpc_flow_s3", GapReason.ACCESS_DENIED, f"{bucket}: {exc.message}"))
+
+    if stats["truncated"] and not records_unlimited(max_records):
+        gaps.append(
+            (
+                "vpc_flow_s3",
+                GapReason.COLLECTOR_ERROR,
+                f"{bucket}: truncated at {obj_cap} objects / {max_records} records; "
+                "narrow the window or use enterprise profile.",
+            )
+        )
 
     if log and stats["records"]:
         log(f"S3 {bucket}: {stats['records']} flow records ({stats['objects_read']} objects)")

@@ -25,7 +25,7 @@ CAPABILITIES: dict[str, set[Role]] = {
     "view_case": {Role.INVESTIGATOR, Role.ANALYST, Role.DATA_CUSTODIAN, Role.RESPONDER},
     "import_case": {Role.INVESTIGATOR, Role.DATA_CUSTODIAN},
     "delete_case": {Role.DATA_CUSTODIAN},
-    "export_report": {Role.INVESTIGATOR, Role.ANALYST},
+    "export_report": {Role.INVESTIGATOR, Role.ANALYST, Role.DATA_CUSTODIAN},
     "view_audit": {Role.DATA_CUSTODIAN, Role.INVESTIGATOR},
     # Building an acquisition kit is the Responder's job (acquisition phase).
     "build_acquisition": {Role.RESPONDER, Role.INVESTIGATOR, Role.DATA_CUSTODIAN},

@@ -1,16 +1,11 @@
-"""Microsoft 365 Unified Audit Log collector — Management Activity API (near-real-time).
-
-Pulls the last ~7 days via the Office 365 Management Activity API content-blob feeds.
-Complements :mod:`unified_audit_search` which uses ``Search-UnifiedAuditLog`` for 90–365 day
-lookback. Overlapping Entra sign-in/audit events may also appear here under
-``Audit.AzureActiveDirectory`` — prefer ``entra_signin`` / ``entra_audit`` for identity timelines.
-"""
+"""Microsoft 365 Unified Audit Log collector — Management Activity API (near-real-time)."""
 
 from __future__ import annotations
 
 from datetime import UTC, datetime
 
 from collector.lib.base import Collector
+from collector.lib.limits import records_unlimited
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 from ..common import window_bounds
@@ -22,7 +17,6 @@ from .ual_common import (
     tag_management_record,
 )
 
-# Management Activity API serves ~7 days of history.
 DEFAULT_WINDOW_DAYS = 7
 MAX_RECORDS = 200_000
 INGEST_LAG_SECONDS = 1800
@@ -43,41 +37,44 @@ class UnifiedAuditCollector(Collector):
         cap = self.max_records(MAX_RECORDS)
         start, end = window_bounds(self.ctx.time_window, DEFAULT_WINDOW_DAYS)
 
-        records: list[dict] = []
         per_type: list[dict] = []
         truncated = False
-        global_cap_hit = False
+        files = []
 
-        for content_type in MANAGEMENT_CONTENT_TYPES:
-            if global_cap_hit:
-                break
-            before = len(records)
-            try:
-                for rec in cf.management_content(content_type, start, end, max_records=cap):
-                    if opts.operations:
-                        op = (rec.get("Operation") or "").lower()
-                        if not any(o.lower() in op for o in opts.operations):
-                            continue
-                    if opts.users:
-                        user = (rec.get("UserId") or "").lower()
-                        if not any(u.lower() in user for u in opts.users):
-                            continue
-                    records.append(tag_management_record(rec))
-                    if len(records) >= cap:
-                        global_cap_hit = True
-                        truncated = True
-                        break
-            except AzureAccessDenied as exc:
-                gaps.append(("unified_audit", GapReason.ACCESS_DENIED, f"{content_type}: {exc.message}"))
-            except AzureServiceNotEnabled as exc:
-                gaps.append(
-                    (
-                        "unified_audit",
-                        GapReason.LOGGING_NOT_CONFIGURED,
-                        feed_gap_detail(content_type, exc.message),
+        with self.open_jsonl("events.jsonl.gz") as writer:
+            for content_type in MANAGEMENT_CONTENT_TYPES:
+                if not records_unlimited(cap) and writer.count >= cap:
+                    truncated = True
+                    break
+                before = writer.count
+                try:
+                    for rec in cf.management_content(content_type, start, end, max_records=cap):
+                        if opts.operations:
+                            op = (rec.get("Operation") or "").lower()
+                            if not any(o.lower() in op for o in opts.operations):
+                                continue
+                        if opts.users:
+                            user = (rec.get("UserId") or "").lower()
+                            if not any(u.lower() in user for u in opts.users):
+                                continue
+                        writer.write_record(tag_management_record(rec))
+                        if not records_unlimited(cap) and writer.count >= cap:
+                            truncated = True
+                            break
+                except AzureAccessDenied as exc:
+                    gaps.append(("unified_audit", GapReason.ACCESS_DENIED, f"{content_type}: {exc.message}"))
+                except AzureServiceNotEnabled as exc:
+                    gaps.append(
+                        (
+                            "unified_audit",
+                            GapReason.LOGGING_NOT_CONFIGURED,
+                            feed_gap_detail(content_type, exc.message),
+                        )
                     )
-                )
-            per_type.append({"content_type": content_type, "records": len(records) - before})
+                per_type.append({"content_type": content_type, "records": writer.count - before})
+            record_count = writer.count
+            if writer.count:
+                files.append(writer.finalize())
 
         lag_warning = ""
         if (datetime.now(UTC) - end).total_seconds() < INGEST_LAG_SECONDS:
@@ -86,14 +83,11 @@ class UnifiedAuditCollector(Collector):
                 "events may not yet be available. Re-collect later for complete coverage."
             )
 
-        files = []
-        if records:
-            files.append(self.write_jsonl(records, "events.jsonl.gz"))
         self.write_meta(
             {
                 "source": self.name,
                 "acquisition": "management_activity_api",
-                "records": len(records),
+                "records": record_count,
                 "content_types": per_type,
                 "truncated": truncated,
                 "filters": {
@@ -112,16 +106,15 @@ class UnifiedAuditCollector(Collector):
         )
 
         if truncated:
-            gaps.append(
-                (
-                    "unified_audit",
-                    GapReason.NOT_PRESENT,
-                    f"Collection stopped at {cap:,} records — data may be truncated. "
-                    "Narrow --since/--until or use --ual-users / --ual-operations.",
-                )
+            self.append_truncation_gap(
+                gaps,
+                "unified_audit",
+                cap,
+                f"Collection stopped at {cap:,} records — data may be truncated. "
+                "Narrow --since/--until or use --ual-users / --ual-operations.",
             )
 
-        if records:
+        if record_count:
             status = SourceStatus.PARTIAL if gaps else SourceStatus.COLLECTED
         else:
             status = SourceStatus.EMPTY
@@ -129,7 +122,7 @@ class UnifiedAuditCollector(Collector):
                 gaps.append(("unified_audit", GapReason.NOT_PRESENT, "No UAL events in window."))
 
         notes = (
-            f"{len(records)} unified audit record(s) via Management API "
+            f"{record_count} unified audit record(s) via Management API "
             f"across {len(MANAGEMENT_CONTENT_TYPES)} content type(s)."
         )
         if truncated:
@@ -140,7 +133,7 @@ class UnifiedAuditCollector(Collector):
             name=self.name,
             status=status,
             files=files,
-            record_count=len(records),
+            record_count=record_count,
             gaps=gaps,
             notes=notes,
         )

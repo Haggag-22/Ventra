@@ -79,7 +79,7 @@ async function get<T>(path: string): Promise<T> {
 
 export const api = {
   health: () => get<{ status: string; version: string; telemetry: boolean }>("/health"),
-  me: () => get<{ role: string }>("/me"),
+  me: () => get<{ role: string; capabilities: string[] }>("/me"),
   cases: () => get<{ cases: CaseSummary[] }>("/cases"),
   summary: (c: string) => get<CaseSummary>(`/cases/${c}/summary`),
   integrity: (c: string) => get<IntegrityReport>(`/cases/${c}/integrity`),
@@ -114,6 +114,8 @@ export const api = {
   artifact: (collector: string, cloud?: string) =>
     get<Artifact>(`/artifacts/${encodeURIComponent(collector)}${qs({ cloud })}`),
   packs: (cloud?: string) => get<{ packs: ArtifactPack[] }>(`/packs${qs({ cloud })}`),
+  enterpriseSettings: () =>
+    get<{ ingest_s3_prefix: string; max_upload_mb: number }>("/enterprise/settings"),
 };
 
 export async function deleteCase(caseId: string): Promise<{ deleted: string }> {
@@ -142,6 +144,49 @@ export async function importPackage(file: File, caseId?: string): Promise<any> {
   return res.json();
 }
 
+export type S3ImportResult = {
+  ingested: {
+    case_id: string;
+    events: number;
+    integrity: string;
+    s3_key: string;
+    warnings: string[];
+  }[];
+  skipped: number;
+  errors: { s3_key: string; error: string }[];
+};
+
+export async function importFromS3(s3Prefix?: string): Promise<S3ImportResult> {
+  const res = await fetch("/api/cases/import/s3", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ s3_prefix: s3Prefix?.trim() || "" }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(body.detail || "S3 import failed");
+  }
+  return res.json();
+}
+
+export async function exportCaseElastic(caseId: string): Promise<void> {
+  const res = await fetch(`/api/cases/${encodeURIComponent(caseId)}/export/elastic`, {
+    method: "POST",
+    headers: { "X-Ventra-Role": "investigator" },
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(body.detail || "Export failed");
+  }
+  const blob = await res.blob();
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = `${caseId}-elastic-export.zip`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 export type AcquisitionBuild = {
   cloud: string;
   case_id: string;
@@ -156,6 +201,7 @@ export type AcquisitionBuild = {
   max_records_per_source?: number | null;
   artifact_parameters?: Record<string, Record<string, unknown>>;
   deployment_profile?: string;
+  transport?: string;
   bundle_wheel?: boolean;
   require_wheel?: boolean;
 };

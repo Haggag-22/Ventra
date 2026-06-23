@@ -176,6 +176,9 @@ def main(argv: list[str] | None = None) -> int:
         args.out,
         *_cloud_extra_args(cloud, args),
     ]
+    transport = _read_acquisition_field("transport").strip()
+    if transport:
+        cmd.extend(["--transport", transport])
 
     if os.name == "nt":
         return subprocess.call(cmd)

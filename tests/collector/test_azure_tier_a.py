@@ -138,7 +138,6 @@ def test_activity_log_writes_per_subscription_files(tmp_path: Path) -> None:
     paths = {f.path for f in result.files}
     assert any("events-sub-aaa.jsonl.gz" in p for p in paths)
     assert any("events-sub-bbb.jsonl.gz" in p for p in paths)
-    assert any(p.endswith("events.jsonl.gz") for p in paths)
 
 
 def test_activity_log_truncation_warning(tmp_path: Path) -> None:

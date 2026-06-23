@@ -26,22 +26,25 @@ class OAuthConsentCollector(Collector):
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
-
-        records: list[dict] = []
-        try:
-            for grant in cf.graph_paginate("oauth2PermissionGrants", max_records=MAX_RECORDS):
-                records.append(grant)
-        except AzureAccessDenied as exc:
-            gaps.append(("oauth_consent", GapReason.ACCESS_DENIED, exc.message))
-        except AzureServiceNotEnabled as exc:
-            gaps.append(("oauth_consent", GapReason.SERVICE_NOT_ENABLED, exc.message))
+        cap = self.max_records(MAX_RECORDS)
 
         files = []
-        if records:
-            files.append(self.write_jsonl(records, "events.jsonl.gz"))
-        self.write_meta({"source": self.name, "records": len(records)})
+        record_count = 0
+        with self.open_jsonl("events.jsonl.gz") as writer:
+            try:
+                for grant in cf.graph_paginate("oauth2PermissionGrants", max_records=cap):
+                    writer.write_record(grant)
+            except AzureAccessDenied as exc:
+                gaps.append(("oauth_consent", GapReason.ACCESS_DENIED, exc.message))
+            except AzureServiceNotEnabled as exc:
+                gaps.append(("oauth_consent", GapReason.SERVICE_NOT_ENABLED, exc.message))
+            record_count = writer.count
+            if record_count:
+                files.append(writer.finalize())
 
-        if records:
+        self.write_meta({"source": self.name, "records": record_count})
+
+        if record_count:
             status = SourceStatus.PARTIAL if gaps else SourceStatus.COLLECTED
         else:
             status = SourceStatus.EMPTY
@@ -52,7 +55,7 @@ class OAuthConsentCollector(Collector):
             name=self.name,
             status=status,
             files=files,
-            record_count=len(records),
+            record_count=record_count,
             gaps=gaps,
-            notes=f"{len(records)} OAuth2 consent grant(s).",
+            notes=f"{record_count} OAuth2 consent grant(s).",
         )

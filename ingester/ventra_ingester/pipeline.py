@@ -14,7 +14,7 @@ from typing import Any
 
 from .enrichment import Enricher
 from .evidence_extract import extract_package
-from .loaders.casestore import CaseStore, build_summary
+from .loaders.casestore import CaseStore, SummaryAccumulator
 from .normalizer.base import NormalizeContext, UnifiedEvent, has_normalizer, normalize_source
 from .normalizer.inventory import INVENTORY_SOURCES, iam_state_events, parse_credential_report
 from .package import EvidencePackage
@@ -40,7 +40,26 @@ def ingest_package(
     enricher: Enricher | None = None,
     reporter: Any = None,
 ) -> IngestResult:
-    pkg = EvidencePackage(package_path)
+    with EvidencePackage(package_path) as pkg:
+        return _ingest_open_package(
+            pkg,
+            package_path,
+            case_store_root,
+            case_id_override=case_id_override,
+            enricher=enricher,
+            reporter=reporter,
+        )
+
+
+def _ingest_open_package(
+    pkg: EvidencePackage,
+    package_path: Path,
+    case_store_root: Path,
+    *,
+    case_id_override: str | None = None,
+    enricher: Enricher | None = None,
+    reporter: Any = None,
+) -> IngestResult:
     manifest = dict(pkg.manifest)
     if case_id_override:
         manifest["case_id"] = case_id_override
@@ -50,12 +69,10 @@ def ingest_package(
     enricher = enricher or Enricher()
     _say(reporter, f"Opening package for case {case_id} ({account_id})")
 
-    # 1. Verify.
     report = verify_package(pkg)
     _say(reporter, f"Integrity: {report.overall} (signature: {report.signature_method})")
     verified_paths = {c.arcname for c in report.checks if c.matched}
 
-    # 2. Build the case store.
     store = CaseStore(case_store_root, case_id)
     store.reset()
     store.write_json("manifest.json", manifest)
@@ -65,62 +82,71 @@ def ingest_package(
 
     extract_package(package_path, store.case_dir / "evidence")
 
-    # 3. Parse + normalize each source.
-    events: list[UnifiedEvent] = []
     sources_loaded: list[str] = []
     inventory_loaded: list[str] = []
     warnings: list[str] = []
+    summary_acc = SummaryAccumulator()
+    source_had_events: set[str] = set()
 
     by_source: dict[str, list] = {}
     for sf in pkg.source_files():
-        # Skip a source whose hash failed verification (but not just-missing optional files).
         if sf.kind == "events" and sf.arcname not in verified_paths and report.overall == "red":
             warnings.append(f"Skipped {sf.arcname}: failed integrity check.")
             continue
         by_source.setdefault(sf.name, []).append(sf)
 
-    for source, files in by_source.items():
-        # Event sources -> normalized events.
-        if has_normalizer(source):
-            records: list[dict] = []
-            for sf in files:
-                if sf.kind in ("events",):
-                    records.extend(pkg.read_records(sf.arcname))
-            if records:
-                src_events = list(normalize_source(source, records, ctx))
-                src_events = [enricher.enrich(ev) for ev in src_events]
-                events.extend(src_events)
-                sources_loaded.append(source)
-                _say(reporter, f"  {source}: {len(src_events)} events")
+    with store.open_events_writer() as writer:
+        for source, files in by_source.items():
+            if has_normalizer(source):
+                for sf in files:
+                    if sf.kind != "events":
+                        continue
+                    batch: list[dict] = []
+                    for rec in pkg.read_records(sf.arcname):
+                        batch.append(rec)
+                        if len(batch) >= 5000:
+                            for ev in normalize_source(source, batch, ctx):
+                                ev = enricher.enrich(ev)
+                                writer.write(ev)
+                                summary_acc.add(ev)
+                                source_had_events.add(source)
+                            batch.clear()
+                    if batch:
+                        for ev in normalize_source(source, batch, ctx):
+                            ev = enricher.enrich(ev)
+                            writer.write(ev)
+                            summary_acc.add(ev)
+                            source_had_events.add(source)
+                if source in source_had_events:
+                    sources_loaded.append(source)
+                    _say(reporter, f"  {source}: loaded")
 
-        if source == "cloudtrail":
-            snapshot = _load_cloudtrail_artifacts(pkg, files)
-            if snapshot is not None:
-                store.write_inventory("cloudtrail", snapshot)
-                inventory_loaded.append("cloudtrail")
+            if source == "cloudtrail":
+                snapshot = _load_cloudtrail_artifacts(pkg, files)
+                if snapshot is not None:
+                    store.write_inventory("cloudtrail", snapshot)
+                    inventory_loaded.append("cloudtrail")
 
-        if source in ("vpc_flow", "nsg_flow"):
-            snapshot = _load_vpc_flow_inventory(pkg, files)
-            if snapshot is not None:
-                store.write_inventory(source, snapshot)
-                inventory_loaded.append(source)
+            if source in ("vpc_flow", "nsg_flow"):
+                snapshot = _load_vpc_flow_inventory(pkg, files)
+                if snapshot is not None:
+                    store.write_inventory(source, snapshot)
+                    inventory_loaded.append(source)
 
-        # Inventory sources -> snapshot JSON + a few derived state events.
-        if source in INVENTORY_SOURCES:
-            snapshot = _load_inventory(pkg, files)
-            if snapshot is not None:
-                store.write_inventory(source, snapshot)
-                inventory_loaded.append(source)
-                if source == "iam" and isinstance(snapshot, dict):
-                    iam_events = [enricher.enrich(ev) for ev in iam_state_events(snapshot, ctx)]
-                    events.extend(iam_events)
+            if source in INVENTORY_SOURCES:
+                snapshot = _load_inventory(pkg, files)
+                if snapshot is not None:
+                    store.write_inventory(source, snapshot)
+                    inventory_loaded.append(source)
+                    if source == "iam" and isinstance(snapshot, dict):
+                        for ev in iam_state_events(snapshot, ctx):
+                            ev = enricher.enrich(ev)
+                            writer.write(ev)
+                            summary_acc.add(ev)
 
-    # 4. Load events.
-    events.sort(key=lambda e: e.timestamp or "")
-    count = store.write_events(events)
+        count = writer.close()
 
-    # 5. Summary for the Overview panel.
-    summary = build_summary(manifest, report.to_dict(), events)
+    summary = summary_acc.finalize(manifest, report.to_dict())
     summary["sources_loaded"] = sorted(set(sources_loaded))
     summary["inventory_loaded"] = sorted(set(inventory_loaded))
     store.write_json("summary.json", summary)

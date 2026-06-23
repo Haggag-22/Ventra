@@ -1,6 +1,7 @@
 "use client";
 
 import { CloudPlatformLabel } from "@/components/cloud-provider-icon";
+import { ExportElasticButton } from "@/components/export-elastic-button";
 import { CASES_HREF } from "@/lib/routes";
 import type { CaseSummary } from "@/lib/types";
 import { fmtDateOnly } from "@/lib/format";
@@ -60,21 +61,24 @@ export function TopBar({
         </Link>
       </div>
 
-      {summary && (
-        <div className="hidden shrink-0 items-center gap-3 text-xs md:flex">
-          <MetaSegment label="Platform">
-            <CloudPlatformLabel cloud={summary.cloud} />
-          </MetaSegment>
-          <MetaDivider />
-          <MetaSegment label="Time range">
-            <span className="font-bold text-fg">{windowLabel}</span>
-          </MetaSegment>
-          <MetaDivider />
-          <MetaSegment label="Account ID">
-            <span className="mono text-fg">{accountId}</span>
-          </MetaSegment>
-        </div>
-      )}
+      <div className="flex min-w-0 items-center gap-3">
+        {summary && (
+          <div className="hidden shrink-0 items-center gap-3 text-xs md:flex">
+            <MetaSegment label="Platform">
+              <CloudPlatformLabel cloud={summary.cloud} />
+            </MetaSegment>
+            <MetaDivider />
+            <MetaSegment label="Time range">
+              <span className="font-bold text-fg">{windowLabel}</span>
+            </MetaSegment>
+            <MetaDivider />
+            <MetaSegment label="Account ID">
+              <span className="mono text-fg">{accountId}</span>
+            </MetaSegment>
+          </div>
+        )}
+        <ExportElasticButton caseId={caseId} />
+      </div>
     </header>
   );
 }

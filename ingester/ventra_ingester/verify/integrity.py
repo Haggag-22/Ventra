@@ -101,7 +101,7 @@ def verify_package(pkg: EvidencePackage) -> IntegrityReport:
             )
             any_mismatch = True
             continue
-        actual = hashlib.sha256(data).hexdigest()
+        actual = pkg.member_sha256(arc) or hashlib.sha256(data).hexdigest()
         matched = actual == expected
         any_mismatch = any_mismatch or not matched
         checks.append(SourceCheck(src["name"], arc, expected, actual, matched, src.get("status", "")))

@@ -56,7 +56,7 @@ _KIT_CLOUD_REQUIREMENTS: dict[str, list[str]] = {
 }
 
 
-_DEPLOYMENT_PROFILES = ("cloudshell", "workstation", "ec2")
+_DEPLOYMENT_PROFILES = ("cloudshell", "workstation", "ec2", "enterprise")
 
 _PROFILE_TRADEOFFS: dict[str, str] = {
     "cloudshell": """profile: cloudshell
@@ -83,6 +83,14 @@ TRADEOFFS (summary — full detail in README-operator.md)
 - Still respects max_records_per_source if manually set in acquisition.yaml.
 - Switch to Cloud Shell for quick proof-of-access; workstation when EC2 provisioning is not allowed.
 """,
+    "enterprise": """profile: enterprise
+
+TRADEOFFS (summary — full detail in README-operator.md)
+- Best for: production IR engagements — complete collection within since/until and artifact parameters.
+- Default: no artificial record cap (max_records_per_source: 0). Use S3 transport for handoff.
+- Run on EC2/VM with sufficient disk; not intended for Cloud Shell time/disk limits.
+- Partial status means a real cloud gap (access denied, logging off), not Ventra truncation.
+""",
 }
 
 
@@ -101,6 +109,7 @@ def build_kit(
     subscription: str = "",
     max_records_per_source: int | None = None,
     artifact_parameters: dict[str, dict[str, Any]] | None = None,
+    transport: str = "",
     bundle_wheel: bool = True,
     require_wheel: bool = False,
     deployment_profile: str = "cloudshell",
@@ -140,6 +149,11 @@ def build_kit(
         acq["subscription"] = subscription
     if max_records_per_source is not None:
         acq["max_records_per_source"] = max_records_per_source
+    elif profile == "enterprise":
+        acq["max_records_per_source"] = 0
+    transport_spec = (transport or "").strip()
+    if transport_spec:
+        acq["transport"] = transport_spec
 
     for art in selected:
         collector = art["collector"]
@@ -295,6 +309,8 @@ def _write_deployment_docs(staging: Path, cloud: str, profile: str) -> None:
     """Append profile-specific operator steps and optional EC2 bootstrap script."""
     base = (_TEMPLATES / "README-operator.md").read_text(encoding="utf-8")
     profile_doc = _TEMPLATES / "deployment" / f"{profile}.md"
+    if not profile_doc.is_file() and profile == "enterprise":
+        profile_doc = _TEMPLATES / "deployment" / "ec2.md"
     if profile_doc.is_file():
         section = profile_doc.read_text(encoding="utf-8")
         section = section.replace("{{CLOUD}}", cloud.upper())
@@ -304,7 +320,7 @@ def _write_deployment_docs(staging: Path, cloud: str, profile: str) -> None:
     notes = notes.replace("{{CLOUD}}", cloud.upper())
     (staging / "deployment-profile.txt").write_text(notes, encoding="utf-8")
     ec2_script = _TEMPLATES / "ec2-bootstrap.sh"
-    if profile == "ec2" and ec2_script.is_file():
+    if profile in ("ec2", "enterprise") and ec2_script.is_file():
         shutil.copy2(ec2_script, staging / "ec2-bootstrap.sh")
 
 

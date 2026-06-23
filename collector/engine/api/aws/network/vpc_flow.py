@@ -14,12 +14,13 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 from collector.lib.base import Collector
+from collector.lib.limits import DEFAULT_MAX_RECORDS, records_unlimited
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
+from ..common.cw_logs import collect_cw_log_events
 from .vpc_flow_s3 import collect_s3_flow_records, flow_log_s3_target
 
-# Bound the in-memory CloudWatch pull so a chatty VPC can't exhaust a CloudShell.
-MAX_CW_RECORDS = 200_000
+MAX_CW_RECORDS = DEFAULT_MAX_RECORDS
 
 
 class VpcFlowCollector(Collector):
@@ -98,74 +99,80 @@ class VpcFlowCollector(Collector):
         window = self.ctx.time_window
         end = window.until or datetime.now(UTC)
         start = window.since or (end - timedelta(days=14))
-        records: list[dict] = []
+        cw_record_count = 0
         truncated = False
-        for entry in sorted(cw_log_groups):
-            if truncated:
-                break
-            region, group = entry.split("::", 1)
-            try:
-                for ev in cf.paginate(
-                    "logs", region, "filter_log_events", "events",
-                    logGroupName=group,
-                    startTime=int(start.timestamp() * 1000),
-                    endTime=int(end.timestamp() * 1000),
-                ):
-                    if len(records) >= cap:
-                        truncated = True
-                        break
-                    ev["_ventra_region"] = region
-                    ev["_ventra_log_group"] = group
-                    records.append(ev)
-            except AccessDenied as exc:
-                gaps.append(("vpc_flow_cw", GapReason.ACCESS_DENIED, exc.message))
-            except ServiceNotEnabled:
-                continue
-        if truncated:
-            gaps.append(
-                (
+        cw_writer = None
+        with self.open_jsonl("events.jsonl.gz") as cw_writer:
+            for entry in sorted(cw_log_groups):
+                if truncated:
+                    break
+                region, group = entry.split("::", 1)
+                if not records_unlimited(cap) and cw_record_count >= cap:
+                    truncated = True
+                    break
+                remaining = cap - cw_record_count if not records_unlimited(cap) else cap
+                _, stats = collect_cw_log_events(
+                    cf,
+                    region,
+                    group,
+                    start,
+                    end,
+                    gaps,
                     "vpc_flow_cw",
-                    GapReason.COLLECTOR_ERROR,
-                    f"CloudWatch flow records truncated at {cap:,}; "
-                    "narrow the window (--since/--until) for full coverage.",
+                    max_records=remaining,
+                    writer=cw_writer,
                 )
-            )
+                cw_record_count += int(stats.get("records") or 0)
+                if stats.get("truncated"):
+                    truncated = True
+                    break
 
         # Pull records from S3-delivering flow logs — the common production layout. The records
         # are structured the same way the normalizer expects, so they merge with CW records.
         account_id = self.ctx.account_id
         s3_flow_logs = [fl for fl in flow_configs if flow_log_s3_target(fl)]
-        s3_records: list[dict] = []
         s3_objects_read = 0
         s3_truncated = False
-        for fl in s3_flow_logs:
-            self._log(f"Reading S3 flow logs for {fl.get('FlowLogId', '')}…")
-            recs, s3_stats = collect_s3_flow_records(
-                cf,
-                fl,
-                account_id,
-                start,
-                end,
-                gaps,
-                log=lambda msg: self._log(msg),
-                max_records=cap,
-            )
-            s3_records.extend(recs)
-            s3_objects_read += int(s3_stats.get("objects_read") or 0)
-            s3_truncated = s3_truncated or bool(s3_stats.get("truncated"))
+        files: list = []
+        s3_record_count = 0
+        with self.open_jsonl("events_s3.jsonl.gz") as s3_w:
+            for fl in s3_flow_logs:
+                self._log(f"Reading S3 flow logs for {fl.get('FlowLogId', '')}…")
+                _, s3_stats = collect_s3_flow_records(
+                    cf,
+                    fl,
+                    account_id,
+                    start,
+                    end,
+                    gaps,
+                    log=lambda msg: self._log(msg),
+                    max_records=cap,
+                    writer=s3_w,
+                )
+                s3_objects_read += int(s3_stats.get("objects_read") or 0)
+                s3_truncated = s3_truncated or bool(s3_stats.get("truncated"))
+            s3_record_count = s3_w.count
 
         config_doc = {
             "flow_logs": flow_configs,
             "vpcs": vpcs,
             "vpcs_without_flow_logs": uncovered_vpcs,
         }
-        files = [self.write_json(config_doc, "config.json")]
-        if records:
-            files.append(self.write_jsonl(records, "events.jsonl.gz"))
-        if s3_records:
-            files.append(self.write_jsonl(s3_records, "events_s3.jsonl.gz"))
+        files.append(self.write_json(config_doc, "config.json"))
+        if cw_record_count:
+            files.append(cw_writer.finalize())
+        if s3_record_count:
+            files.append(s3_w.finalize())
 
-        total_records = len(records) + len(s3_records)
+        total_records = cw_record_count + s3_record_count
+        if truncated:
+            self.append_truncation_gap(
+                gaps,
+                "vpc_flow_cw",
+                cap,
+                f"CloudWatch flow records truncated at {cap:,}; "
+                "narrow the window (--since/--until) for full coverage.",
+            )
         status = SourceStatus.COLLECTED if total_records else SourceStatus.PARTIAL
         if not total_records:
             if cw_log_groups and not s3_flow_logs:
@@ -199,9 +206,9 @@ class VpcFlowCollector(Collector):
                 "flow_log_configs": len(flow_configs),
                 "vpcs": len(vpcs),
                 "vpcs_without_flow_logs": len(uncovered_vpcs),
-                "cloudwatch_records": len(records),
+                "cloudwatch_records": cw_record_count,
                 "cloudwatch_truncated": truncated,
-                "s3_records": len(s3_records),
+                "s3_records": s3_record_count,
                 "s3_objects_read": s3_objects_read,
                 "s3_truncated": s3_truncated,
                 "records": total_records,
@@ -215,7 +222,7 @@ class VpcFlowCollector(Collector):
             record_count=total_records,
             gaps=gaps,
             notes=(
-                f"{len(flow_configs)} flow-log config(s); {len(records)} CW + "
-                f"{len(s3_records)} S3 records; {len(uncovered_vpcs)} VPC(s) uncovered."
+                f"{len(flow_configs)} flow-log config(s); {cw_record_count} CW + "
+                f"{s3_record_count} S3 records; {len(uncovered_vpcs)} VPC(s) uncovered."
             ),
         )
