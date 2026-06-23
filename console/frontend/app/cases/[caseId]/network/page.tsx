@@ -1,6 +1,7 @@
 "use client";
 
 import { useCase } from "@/components/case-context";
+import { SelectDropdown } from "@/components/multiselect";
 import { PanelBody, PanelHeader } from "@/components/panel";
 import { Entity } from "@/components/pivot";
 import { StatCard } from "@/components/stat";
@@ -52,7 +53,15 @@ function Bar({ value, max, tone = "bg-accent/60" }: { value: number; max: number
   );
 }
 
-function VpcFlowLog({ caseId, sources }: { caseId: string; sources: string[] }) {
+function VpcFlowLog({
+  caseId,
+  sources,
+  vpcId,
+}: {
+  caseId: string;
+  sources: string[];
+  vpcId?: string;
+}) {
   const [filters, setFilters] = useState<VpcFlowFilters>({ order: "desc" });
   const [visibleColumns, setVisibleColumns] = useState<VpcFlowColKey[]>(ALL_VPC_FLOW_COL_KEYS);
   const { page, setPage, pageSize, setPageSize } = usePagination("ventra.vpc-flow.page-size");
@@ -80,10 +89,11 @@ function VpcFlowLog({ caseId, sources }: { caseId: string; sources: string[] }) 
       source_ips: filters.sourceIps,
       dest_ips: filters.destIps,
       dest_ports: filters.destPorts,
+      vpcs: vpcId ? [vpcId] : undefined,
       sort: "timestamp" as const,
       order: filters.order ?? "desc",
     }),
-    [filters, sources],
+    [filters, sources, vpcId],
   );
 
   const eventsQ = useQuery({
@@ -98,8 +108,12 @@ function VpcFlowLog({ caseId, sources }: { caseId: string; sources: string[] }) 
   });
 
   const facetsQ = useQuery({
-    queryKey: ["vpc-flow-facets", caseId, sources],
-    queryFn: () => api.facets(caseId, { source: sources }),
+    queryKey: ["vpc-flow-facets", caseId, sources, vpcId],
+    queryFn: () =>
+      api.facets(caseId, {
+        source: sources,
+        vpcs: vpcId ? [vpcId] : undefined,
+      }),
   });
 
   const matched = eventsQ.data?.total ?? 0;
@@ -161,19 +175,73 @@ function VpcFlowLog({ caseId, sources }: { caseId: string; sources: string[] }) 
   );
 }
 
+function vpcLabel(v: { id: string; name: string }): string {
+  return v.name && v.name !== v.id ? `${v.id} (${v.name})` : v.id;
+}
+
 export default function NetworkPage() {
   const { caseId, summary } = useCase();
   const cloud = caseCloud(summary?.cloud);
   const flowSource = flowSources(cloud);
-  const q = useQuery({ queryKey: ["network", caseId], queryFn: () => api.network(caseId) });
+  const [selectedVpc, setSelectedVpc] = useState<string>("");
 
-  if (q.isLoading || !q.data) return <LoadingPanel label="Loading network…" />;
+  const vpcsQ = useQuery({
+    queryKey: ["network-vpcs", caseId],
+    queryFn: () => api.networkVpcs(caseId),
+  });
+
+  useEffect(() => {
+    const vpcs = vpcsQ.data?.vpcs ?? [];
+    if (vpcs.length === 1 && vpcs[0].flows > 0) {
+      setSelectedVpc(vpcs[0].id);
+    }
+  }, [vpcsQ.data]);
+
+  const vpcFilter = selectedVpc || undefined;
+  const q = useQuery({
+    queryKey: ["network", caseId, vpcFilter],
+    queryFn: () => api.network(caseId, { vpc: vpcFilter }),
+    enabled: vpcsQ.isSuccess,
+  });
+
+  const vpcs = vpcsQ.data?.vpcs ?? [];
+  const vpcOptions = useMemo(
+    () => [
+      { value: "", label: "All VPCs" },
+      ...vpcs.map((v) => ({ value: v.id, label: vpcLabel(v) })),
+    ],
+    [vpcs],
+  );
+  const selectedVpcEntry = vpcs.find((v) => v.id === selectedVpc);
+  const showVpcDropdown = vpcs.length > 0;
+  const vpcDropdown = showVpcDropdown ? (
+    <SelectDropdown
+      value={selectedVpc}
+      options={vpcOptions}
+      onChange={setSelectedVpc}
+      displayLabel={selectedVpcEntry ? vpcLabel(selectedVpcEntry) : "All VPCs"}
+      className="min-w-[280px] justify-between"
+      menuClassName="w-80"
+    />
+  ) : undefined;
+
+  if (vpcsQ.isLoading) {
+    return <LoadingPanel label="Loading network…" />;
+  }
+
+  const networkLoading = q.isLoading && !q.data;
   const n = q.data;
+  const caseFlows = n?.case_totals?.flows ?? 0;
+  const filteredFlows = n?.totals?.flows ?? 0;
+  const vpcFilterActive = !!vpcFilter;
+  const globalEmpty = q.isSuccess && caseFlows === 0;
+  const vpcFilteredEmpty =
+    q.isSuccess && vpcFilterActive && filteredFlows === 0 && caseFlows > 0;
 
-  if (n.totals.flows === 0) {
+  if (globalEmpty) {
     return (
       <>
-        <PanelHeader icon={Network} title={panelLabel(cloud, "network")} panel="network" />
+        <PanelHeader icon={Network} title={panelLabel(cloud, "network")} panel="network" actions={vpcDropdown} />
         <PanelBody>
           <Card className="py-4">
             <EmptyState
@@ -193,6 +261,29 @@ export default function NetworkPage() {
     );
   }
 
+  if (networkLoading || !n) {
+    return (
+      <>
+        <PanelHeader
+          icon={Network}
+          title={panelLabel(cloud, "network")}
+          panel="network"
+          description={
+            selectedVpcEntry
+              ? `Showing flow logs for ${vpcLabel(selectedVpcEntry)}`
+              : vpcs.length > 1
+                ? `${vpcs.length} VPCs with flow logging`
+                : undefined
+          }
+          actions={vpcDropdown}
+        />
+        <PanelBody>
+          <LoadingPanel label="Loading network…" />
+        </PanelBody>
+      </>
+    );
+  }
+
   const egressMax = Math.max(...n.egress_public.map((e) => e.bytes), 1);
 
   return (
@@ -201,8 +292,26 @@ export default function NetworkPage() {
         icon={Network}
         title={panelLabel(cloud, "network")}
         panel="network"
+        description={
+          selectedVpcEntry
+            ? `Showing flow logs for ${vpcLabel(selectedVpcEntry)}`
+            : vpcs.length > 1
+              ? `${vpcs.length} VPCs with flow logging`
+              : undefined
+        }
+        actions={vpcDropdown}
       />
       <PanelBody className="space-y-6">
+        {vpcFilteredEmpty ? (
+          <Card className="py-4">
+            <EmptyState
+              icon={Network}
+              title="No flows for this VPC"
+              description="No flow records tagged for this VPC in the selected window. Choose All VPCs to see all flow logs."
+            />
+          </Card>
+        ) : (
+          <>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
           <StatCard label="Flows" value={fmtNum(n.totals.flows)} icon={Network}
             sub={`${fmtNum(n.totals.sources)} sources`} />
@@ -375,8 +484,10 @@ export default function NetworkPage() {
             </tbody>
           </table>
         </Card>
+          </>
+        )}
 
-        <VpcFlowLog caseId={caseId} sources={flowSource} />
+        <VpcFlowLog caseId={caseId} sources={flowSource} vpcId={vpcFilter} />
       </PanelBody>
     </>
   );

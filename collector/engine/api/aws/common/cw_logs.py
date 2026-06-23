@@ -30,6 +30,7 @@ def collect_cw_log_events(
     stream_prefix: str | None = None,
     max_records: int = MAX_CW_RECORDS,
     writer: JsonlWriter | None = None,
+    record_extra: dict[str, Any] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Pull events from one log group in the window; returns (events, stats).
 
@@ -52,7 +53,7 @@ def collect_cw_log_events(
 
     try:
         for ev in cf.paginate("logs", region, "filter_log_events", "events", **kwargs):
-            if stats["records"] >= max_records:
+            if stats["records"] >= max_records and not records_unlimited(max_records):
                 stats["truncated"] = True
                 if not records_unlimited(max_records):
                     gaps.append(
@@ -66,6 +67,8 @@ def collect_cw_log_events(
                 break
             ev["_ventra_region"] = region
             ev["_ventra_log_group"] = log_group
+            if record_extra:
+                ev.update(record_extra)
             if writer is not None:
                 writer.write_record(ev)
             else:

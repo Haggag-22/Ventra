@@ -45,7 +45,7 @@ class AcquisitionSpec:
     regions: list[str] = field(default_factory=list)
     project: str = ""  # GCP project id(s), comma-separated
     subscription: str = ""  # Azure subscription id(s)
-    max_records_per_source: int | None = None  # None = default cap; 0 = no cap
+    max_records_per_source: int | None = None  # None/0 = unlimited; positive = cap per source
 
     def artifact_parameters(self) -> dict[str, dict[str, Any]]:
         """Per-collector parameter values, keyed by collector — for CollectionContext."""

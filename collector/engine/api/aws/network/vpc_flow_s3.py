@@ -60,7 +60,16 @@ def _day_prefixes(
     return [f"{base}/{d.year:04d}/{d.month:02d}/{d.day:02d}/" for d in _iter_days(start, end)]
 
 
-def _iter_plaintext_records(body: bytes, region: str) -> Iterator[dict[str, Any]]:
+def _flow_scope_tags(flow_log: dict[str, Any]) -> dict[str, str]:
+    rid = (flow_log.get("ResourceId") or "").strip()
+    if rid.startswith("vpc-"):
+        return {"_ventra_vpc_id": rid}
+    if rid:
+        return {"_ventra_flow_resource_id": rid}
+    return {}
+
+
+def _iter_plaintext_records(body: bytes, region: str, extra: dict[str, str] | None = None) -> Iterator[dict[str, Any]]:
     with gzip.GzipFile(fileobj=io.BytesIO(body)) as gz:
         text = gz.read().decode("utf-8", errors="replace")
     lines = text.splitlines()
@@ -80,6 +89,8 @@ def _iter_plaintext_records(body: bytes, region: str) -> Iterator[dict[str, Any]
         if rec.get("srcaddr") in (None, "", "-") or rec.get("dstaddr") in (None, "", "-"):
             continue
         rec["_ventra_region"] = region
+        if extra:
+            rec.update(extra)
         yield rec
 
 
@@ -144,6 +155,7 @@ def collect_s3_flow_records(
 
     records: list[dict[str, Any]] = []
     s3 = cf.client("s3", region)
+    scope_tags = _flow_scope_tags(flow_log)
 
     try:
         for prefix_key in _day_prefixes(prefix, account_id, region, start, end):
@@ -154,7 +166,7 @@ def collect_s3_flow_records(
                     "s3", region, "list_objects_v2", "Contents", Bucket=bucket, Prefix=prefix_key
                 ):
                     stats["objects_scanned"] += 1
-                    if stats["objects_scanned"] > obj_cap:
+                    if not records_unlimited(obj_cap) and stats["objects_scanned"] > obj_cap:
                         stats["truncated"] = True
                         break
                     key = obj.get("Key", "")
@@ -162,7 +174,7 @@ def collect_s3_flow_records(
                         continue
                     stats["objects_read"] += 1
                     body = s3.get_object(Bucket=bucket, Key=key)["Body"].read()
-                    for rec in _iter_plaintext_records(body, region):
+                    for rec in _iter_plaintext_records(body, region, scope_tags):
                         if not records_unlimited(max_records) and _written_count(writer, records) >= max_records:
                             stats["truncated"] = True
                             break

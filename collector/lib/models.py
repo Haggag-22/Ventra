@@ -268,8 +268,8 @@ class CollectionContext:
     subscription_ids: list[str] = field(default_factory=list)
     # GCP scope — in-scope project ids a logging/IAM collector iterates.
     project_ids: list[str] = field(default_factory=list)
-    # Per-source record cap. None = each collector's built-in default (200k); a positive int
-    # raises/lowers it; 0 or negative means "no cap" (large pulls — bounded only by memory/disk).
+    # Per-source record cap. None = collect all records in since/until; a positive int stops
+    # early per source (optional triage); 0 or negative also means unlimited within the window.
     max_records_per_source: int | None = None
     # Per-artifact parameter values from the acquisition spec, keyed by collector name. A
     # collector reads its own filters here (e.g. a per-artifact ``since``) via ``artifact_params``.

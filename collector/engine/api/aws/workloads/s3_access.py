@@ -106,7 +106,7 @@ class S3AccessCollector(Collector):
                 )
             )
 
-        cap = self.max_records(200_000)
+        cap = self.max_records()
         per_dest: list[dict] = []
         record_count = 0
         event_files: list = []

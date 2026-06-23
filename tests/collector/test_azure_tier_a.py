@@ -62,6 +62,7 @@ def _ctx(
     *,
     subscriptions: list[str] | None = None,
     window: TimeWindow | None = None,
+    max_records_per_source: int | None = None,
 ) -> CollectionContext:
     staging = tmp_path / "staging"
     staging.mkdir(exist_ok=True)
@@ -75,6 +76,7 @@ def _ctx(
         tenant_id="tenant-abc",
         subscription_ids=subscriptions or [],
         client_factory=cf,
+        max_records_per_source=max_records_per_source,
     )
 
 
@@ -141,8 +143,6 @@ def test_activity_log_writes_per_subscription_files(tmp_path: Path) -> None:
 
 
 def test_activity_log_truncation_warning(tmp_path: Path) -> None:
-    from collector.engine.api.azure.control_plane import activity_log as mod
-
     class _CountingCf(_FakeCf):
         def activity_log_events(self, subscription_id, filter_str, *, max_records=200_000):  # noqa: ANN001
             for i in range(100):
@@ -154,13 +154,14 @@ def test_activity_log_truncation_warning(tmp_path: Path) -> None:
                 if i + 1 >= max_records:
                     return
 
-    old_max = mod.MAX_RECORDS
-    mod.MAX_RECORDS = 5
-    try:
-        result = ActivityLogCollector(
-            _ctx(tmp_path, _CountingCf(), subscriptions=["sub-1"], window=_single_day_window()),
-        ).collect()
-    finally:
-        mod.MAX_RECORDS = old_max
+    result = ActivityLogCollector(
+        _ctx(
+            tmp_path,
+            _CountingCf(),
+            subscriptions=["sub-1"],
+            window=_single_day_window(),
+            max_records_per_source=5,
+        ),
+    ).collect()
     assert result.record_count == 5
     assert any("truncated" in g[2].lower() for g in result.gaps)

@@ -14,7 +14,7 @@ from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
-MAX_FINDINGS = 100_000
+from collector.lib.limits import records_unlimited
 
 
 class Inspector2Collector(Collector):
@@ -84,9 +84,10 @@ class Inspector2Collector(Collector):
     def _findings(self, cf, region: str, gaps) -> list[dict]:
         out: list[dict] = []
         truncated = False
+        cap = self.max_records()
         try:
             for f in cf.paginate("inspector2", region, "list_findings", "findings"):
-                if len(out) >= MAX_FINDINGS:
+                if not records_unlimited(cap) and len(out) >= cap:
                     truncated = True
                     break
                 f["_ventra_region"] = region
@@ -100,7 +101,7 @@ class Inspector2Collector(Collector):
                 (
                     "inspector2",
                     GapReason.COLLECTOR_ERROR,
-                    f"{region}: findings truncated at {MAX_FINDINGS}.",
+                    f"{region}: findings truncated at {cap:,}.",
                 )
             )
         return out

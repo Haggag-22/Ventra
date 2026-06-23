@@ -121,18 +121,20 @@ class Collector(abc.ABC):
     def max_records(self, default: int = DEFAULT_MAX_RECORDS) -> int:
         """Effective per-source record cap for this run.
 
-        ``ctx.max_records_per_source`` overrides the collector default: a positive value sets the
-        cap; 0 or negative disables it (returns a very large ceiling for large pulls).
+        By default Ventra collects every record in the ``since`` / ``until`` window. Set
+        ``max_records_per_source`` in ``acquisition.yaml`` (or pass via the CLI context) to a
+        positive integer to stop early for scoped triage pulls. ``0`` or negative also means
+        unlimited within the window.
         """
         cap = getattr(self.ctx, "max_records_per_source", None)
-        if cap is None:
-            return default
-        return UNLIMITED_RECORDS if cap <= 0 else cap
+        if cap is not None and cap > 0:
+            return cap
+        return UNLIMITED_RECORDS
 
     def records_unlimited(self) -> bool:
         """True when this run collects without an artificial Ventra record cap."""
         cap = getattr(self.ctx, "max_records_per_source", None)
-        return cap is not None and cap <= 0
+        return cap is None or cap <= 0
 
     def open_jsonl(self, filename: str) -> JsonlWriter:
         """Open a streaming JSON-lines writer under this collector's source directory."""

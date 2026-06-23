@@ -13,7 +13,7 @@ from .ual_common import (
 )
 
 DEFAULT_WINDOW_DAYS = 90
-MAX_RECORDS = 200_000
+from collector.lib.limits import DEFAULT_MAX_RECORDS as MAX_RECORDS
 
 
 class UnifiedAuditSearchCollector(Collector):

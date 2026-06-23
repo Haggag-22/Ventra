@@ -47,7 +47,7 @@ LA_SOURCE_SPECS: dict[str, dict[str, list[str]]] = {
 }
 
 DEFAULT_WINDOW_DAYS = 7
-MAX_RECORDS = 200_000
+from collector.lib.limits import DEFAULT_MAX_RECORDS as MAX_RECORDS
 
 CATEGORY_TO_SOURCE: dict[str, str] = {
     cat: source

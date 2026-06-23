@@ -82,6 +82,20 @@ FINDING_CLASS_SQL = (
     "ELSE 'Other' END"
 )
 
+NETWORK_SOURCES = "ventra_source IN ('vpc_flow', 'nsg_flow', 'vnet_flow', 'azure_firewall')"
+
+# VPC / VNet scope on network events — collector tags, raw fields, or related_resource.
+NETWORK_VPC_ID_SQL = (
+    "COALESCE("
+    "NULLIF(json_extract_string(raw, '$._ventra_vpc_id'), ''), "
+    "NULLIF(json_extract_string(raw, '$.vpc_id'), ''), "
+    "NULLIF(json_extract_string(raw, '$.' || 'vpc-id'), ''), "
+    "NULLIF(CASE WHEN json_extract_string(raw, '$._ventra_flow_resource_id') LIKE 'vpc-%' "
+    "  THEN json_extract_string(raw, '$._ventra_flow_resource_id') ELSE NULL END, ''), "
+    "NULLIF(regexp_extract(related_resource, 'vpc-[a-z0-9]+', 0), '')"
+    ")"
+)
+
 # Resource inventory roll-ups: (category title, item specs).
 # Each spec maps an inventory JSON source + key to a human label. Keys may use
 # dot paths; ``_config.*`` reads nested collector config (waf, vpc_flow).
@@ -137,6 +151,83 @@ def _inventory_resource_count(data: Any, key: str) -> int:
     return 0
 
 
+def _flow_log_active(flow_log: dict[str, Any]) -> bool:
+    status = flow_log.get("FlowLogStatus")
+    if isinstance(status, str) and status.strip():
+        return status.strip().upper() == "ACTIVE"
+    enabled = flow_log.get("enabled")
+    if isinstance(enabled, bool):
+        return enabled
+    return True
+
+
+def _vpc_ids_from_flow_config(config: dict[str, Any] | None) -> list[str]:
+    """VPC IDs with an active flow-log config (inventory ``_config.flow_logs``)."""
+    if not config:
+        return []
+    ids: set[str] = set()
+    for fl in config.get("flow_logs") or []:
+        if not isinstance(fl, dict) or not _flow_log_active(fl):
+            continue
+        rid = (fl.get("ResourceId") or fl.get("target") or "").strip()
+        if rid.startswith("vpc-"):
+            ids.add(rid)
+    return sorted(ids)
+
+
+def _vpc_name_from_inventory(vpc: dict[str, Any]) -> str:
+    for tag in vpc.get("Tags") or []:
+        if isinstance(tag, dict) and tag.get("Key") == "Name":
+            val = (tag.get("Value") or "").strip()
+            if val:
+                return val
+    name = (vpc.get("Name") or "").strip()
+    if name:
+        return name
+    cidr = (vpc.get("CidrBlock") or "").strip()
+    if cidr:
+        return cidr
+    return (vpc.get("VpcId") or vpc.get("id") or "").strip()
+
+
+def _vpc_names_from_config(config: dict[str, Any] | None) -> dict[str, str]:
+    if not config:
+        return {}
+    names: dict[str, str] = {}
+    for vpc in config.get("vpcs") or []:
+        if not isinstance(vpc, dict):
+            continue
+        vid = (vpc.get("VpcId") or vpc.get("id") or "").strip()
+        if vid:
+            names[vid] = _vpc_name_from_inventory(vpc)
+    return names
+
+
+def network_vpc_filter_clause(
+    vpc_ids: list[str], flow_log_vpc_ids: list[str] | None = None
+) -> tuple[str, list[Any]]:
+    """SQL for VPC-scoped network events.
+
+    When the selected VPC is the only flow-log-enabled VPC in the case, untagged
+    records (no ``_ventra_vpc_id``) are included — common when flow logs were
+    ingested without per-record scope tags.
+    """
+    if not vpc_ids:
+        return "", []
+    sole = flow_log_vpc_ids[0] if flow_log_vpc_ids and len(flow_log_vpc_ids) == 1 else None
+    parts: list[str] = []
+    params: list[Any] = []
+    for vid in vpc_ids:
+        if sole and vid == sole:
+            parts.append(f"(({NETWORK_VPC_ID_SQL}) = ? OR ({NETWORK_VPC_ID_SQL}) = '')")
+        else:
+            parts.append(f"({NETWORK_VPC_ID_SQL}) = ?")
+        params.append(vid)
+    if len(parts) == 1:
+        return parts[0], params
+    return "(" + " OR ".join(parts) + ")", params
+
+
 @dataclass
 class EventQuery:
     filters: dict[str, str] = field(default_factory=dict)
@@ -161,6 +252,7 @@ class EventQuery:
     source_ips: list[str] = field(default_factory=list)
     dest_ips: list[str] = field(default_factory=list)
     dest_ports: list[str] = field(default_factory=list)
+    vpcs: list[str] = field(default_factory=list)
     data_access: bool = False
     sort: str = "timestamp"
     order: str = "asc"
@@ -323,7 +415,12 @@ class CaseStore:
             )
         return "(SELECT *, CAST('' AS VARCHAR) AS ventra_source FROM read_parquet(?))"
 
-    def _build_where(self, q: EventQuery) -> tuple[str, list[Any]]:
+    def _vpc_flow_config(self, case_id: str) -> dict[str, Any] | None:
+        inv = self.inventory(case_id, "vpc_flow") or {}
+        config = inv.get("_config")
+        return config if isinstance(config, dict) else None
+
+    def _build_where(self, q: EventQuery, case_id: str | None = None) -> tuple[str, list[Any]]:
         clauses: list[str] = []
         params: list[Any] = []
         for key, val in q.filters.items():
@@ -417,6 +514,14 @@ class CaseStore:
                 placeholders = ",".join("?" for _ in ports)
                 clauses.append(f"dest_port IN ({placeholders})")
                 params.extend(ports)
+        if q.vpcs:
+            flow_vpcs = _vpc_ids_from_flow_config(
+                self._vpc_flow_config(case_id) if case_id else None
+            )
+            vpc_clause, vpc_params = network_vpc_filter_clause(q.vpcs, flow_vpcs)
+            if vpc_clause:
+                clauses.append(vpc_clause)
+                params.extend(vpc_params)
         if q.data_access:
             clauses.append(DATA_ACCESS_SCOPE)
         if q.q:
@@ -431,7 +536,7 @@ class CaseStore:
 
     def query_events(self, case_id: str, q: EventQuery) -> dict[str, Any]:
         path = self._events_path(case_id)
-        where, params = self._build_where(q)
+        where, params = self._build_where(q, case_id)
         sort = q.sort if q.sort in SORTABLE else "timestamp"
         order = "DESC" if q.order.lower() == "desc" else "ASC"
         # Severity sorts by rank, not alphabetically.
@@ -463,7 +568,7 @@ class CaseStore:
     def facets(self, case_id: str, q: EventQuery) -> dict[str, Any]:
         """Aggregations for the filter rail, respecting the current filters."""
         path = self._events_path(case_id)
-        where, params = self._build_where(q)
+        where, params = self._build_where(q, case_id)
         con = self._connect()
         try:
             events = self._events_table(con, path)
@@ -634,15 +739,66 @@ class CaseStore:
                 edges.append({"source": user_arn, "target": resource_arn, "weight": c, "ip": ip})
         return {"nodes": list(nodes.values()), "edges": edges}
 
-    def network_overview(self, case_id: str) -> dict[str, Any]:
+    def network_vpcs(self, case_id: str) -> dict[str, Any]:
+        """VPCs with flow logging enabled — for the Network panel scope filter."""
+        path = self._events_path(case_id)
+        event_counts: dict[str, int] = {}
+        con = self._connect()
+        try:
+            events = self._events_table(con, path)
+            rows = con.execute(
+                f"SELECT ({NETWORK_VPC_ID_SQL}) AS vpc_id, count(*) AS c FROM {events} "
+                f"WHERE {NETWORK_SOURCES} AND ({NETWORK_VPC_ID_SQL}) <> '' "
+                "GROUP BY 1 ORDER BY c DESC",
+                [path],
+            ).fetchall()
+            event_counts = {r[0]: r[1] for r in rows if r[0]}
+            untagged = con.execute(
+                f"SELECT count(*) FROM {events} "
+                f"WHERE {NETWORK_SOURCES} AND ({NETWORK_VPC_ID_SQL}) = ''",
+                [path],
+            ).fetchone()[0]
+        finally:
+            con.close()
+
+        config = self._vpc_flow_config(case_id)
+        flow_vpc_ids = _vpc_ids_from_flow_config(config)
+        if len(flow_vpc_ids) == 1 and untagged:
+            sole = flow_vpc_ids[0]
+            event_counts[sole] = event_counts.get(sole, 0) + untagged
+        vpc_names = _vpc_names_from_config(config)
+        ordered = sorted(flow_vpc_ids, key=lambda vid: (-event_counts.get(vid, 0), vid))
+        return {
+            "vpcs": [
+                {
+                    "id": vid,
+                    "name": vpc_names.get(vid) or vid,
+                    "flows": event_counts.get(vid, 0),
+                }
+                for vid in ordered
+            ]
+        }
+
+    def network_overview(self, case_id: str, vpc_id: str | None = None) -> dict[str, Any]:
         """VPC flow analysis: public egress (exfil), destination ports, talkers, rejects."""
         path = self._events_path(case_id)
         con = self._connect()
-        base = "ventra_source IN ('vpc_flow', 'nsg_flow', 'vnet_flow', 'azure_firewall')"
+        base = NETWORK_SOURCES
+        flow_vpc_ids = _vpc_ids_from_flow_config(self._vpc_flow_config(case_id))
+        vpc_filter = ""
+        vpc_params: list[Any] = []
+        if vpc_id:
+            vpc_clause, vpc_params = network_vpc_filter_clause([vpc_id], flow_vpc_ids)
+            vpc_filter = f" AND {vpc_clause}"
         pub = _public_ip_sql("dest_ip")
         rej = "sum(CASE WHEN event_outcome='failure' THEN 1 ELSE 0 END)"
+        query_params = [path, *vpc_params]
         try:
             events = self._events_table(con, path)
+            case_flows = con.execute(
+                f"SELECT count(*) FROM {events} WHERE {base}",
+                [path],
+            ).fetchone()[0]
             totals = con.execute(
                 f"SELECT count(*) flows, "
                 f"sum(CASE WHEN event_outcome='success' THEN 1 ELSE 0 END) accepted, "
@@ -651,42 +807,43 @@ class CaseStore:
                 f"sum(CASE WHEN {pub} THEN coalesce(dest_bytes,0) ELSE 0 END) public_bytes, "
                 f"count(DISTINCT CASE WHEN {pub} THEN dest_ip END) external_dests, "
                 f"count(DISTINCT NULLIF(source_ip,'')) sources "
-                f"FROM {events} WHERE {base}",
-                [path],
+                f"FROM {events} WHERE {base}{vpc_filter}",
+                query_params,
             ).fetchone()
             egress_public = con.execute(
                 f"SELECT dest_ip, sum(coalesce(dest_bytes,0)) bytes, count(*) flows, "
                 "count(DISTINCT dest_port) ports "
-                f"FROM {events} WHERE {base} AND {pub} "
+                f"FROM {events} WHERE {base} AND {pub}{vpc_filter} "
                 "GROUP BY 1 ORDER BY bytes DESC LIMIT 15",
-                [path],
+                query_params,
             ).fetchall()
             top_talkers = con.execute(
                 "SELECT source_ip, sum(coalesce(dest_bytes,0)) bytes, count(*) flows "
-                f"FROM {events} WHERE {base} AND source_ip<>'' "
+                f"FROM {events} WHERE {base} AND source_ip<>''{vpc_filter} "
                 "GROUP BY 1 ORDER BY bytes DESC LIMIT 15",
-                [path],
+                query_params,
             ).fetchall()
             top_ports = con.execute(
                 f"SELECT dest_port, count(*) flows, sum(coalesce(dest_bytes,0)) bytes, {rej} rejected "
-                f"FROM {events} WHERE {base} AND dest_port IS NOT NULL AND dest_port > 0 "
+                f"FROM {events} WHERE {base} AND dest_port IS NOT NULL AND dest_port > 0{vpc_filter} "
                 "GROUP BY 1 ORDER BY flows DESC LIMIT 15",
-                [path],
+                query_params,
             ).fetchall()
             rejected = con.execute(
                 f"SELECT source_ip, dest_ip, dest_port, count(*) c FROM {events} "
-                f"WHERE {base} AND event_outcome='failure' "
+                f"WHERE {base} AND event_outcome='failure'{vpc_filter} "
                 "GROUP BY 1,2,3 ORDER BY c DESC LIMIT 15",
-                [path],
+                query_params,
             ).fetchall()
             protocols = con.execute(
                 "SELECT json_extract_string(raw,'$.protocol') proto, count(*) c "
-                f"FROM {events} WHERE {base} GROUP BY 1 ORDER BY c DESC LIMIT 6",
-                [path],
+                f"FROM {events} WHERE {base}{vpc_filter} GROUP BY 1 ORDER BY c DESC LIMIT 6",
+                query_params,
             ).fetchall()
         finally:
             con.close()
         return {
+            "case_totals": {"flows": case_flows or 0},
             "totals": {
                 "flows": totals[0] or 0,
                 "accepted": totals[1] or 0,

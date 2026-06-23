@@ -18,6 +18,7 @@ from typing import Any
 from botocore.exceptions import ClientError
 
 from collector.lib.base import Collector
+from collector.lib.limits import DEFAULT_MAX_RECORDS
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from ..common.s3_logs import bucket_region, collect_s3_line_records, slash_day_prefixes
@@ -83,7 +84,7 @@ class ElbAlbCollector(Collector):
                 )
             )
 
-        cap = self.max_records(200_000)
+        cap = self.max_records()
         per_lb: list[dict] = []
         record_count = 0
         event_files: list = []
@@ -202,7 +203,7 @@ class ElbAlbCollector(Collector):
             return {}
 
     def _read_lb_logs(
-        self, cf, lb: dict[str, Any], start: datetime, end: datetime, gaps, *, writer=None, max_records=200_000
+        self, cf, lb: dict[str, Any], start: datetime, end: datetime, gaps, *, writer=None, max_records: int = DEFAULT_MAX_RECORDS
     ) -> tuple[list[dict], dict]:
         bucket = lb["bucket"]
         prefix = (lb["prefix"] or "").strip("/")

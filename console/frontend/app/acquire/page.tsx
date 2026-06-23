@@ -89,6 +89,7 @@ function buildRequestBody(
   artifactParams: Record<string, Record<string, string>>,
   cartForCloud: Artifact[],
   deploymentProfile: DeploymentProfile,
+  maxRecordsPerSource: string,
   transport?: string,
 ): AcquisitionBuild {
   const regionList = regions
@@ -116,6 +117,13 @@ function buildRequestBody(
     subscription: cloud === "azure" ? subscription.trim() || undefined : undefined,
     artifact_parameters: Object.keys(params).length ? params : undefined,
     deployment_profile: deploymentProfile,
+    max_records_per_source: (() => {
+      const trimmed = maxRecordsPerSource.trim();
+      if (!trimmed) return undefined;
+      const n = Number(trimmed);
+      if (!Number.isFinite(n) || n < 0 || !Number.isInteger(n)) return undefined;
+      return n;
+    })(),
     transport: transport?.trim() || undefined,
     bundle_wheel: true,
     require_wheel: true,
@@ -146,6 +154,7 @@ function AcquireContent() {
   const [regions, setRegions] = useState("");
   const [project, setProject] = useState("");
   const [subscription, setSubscription] = useState("");
+  const [maxRecordsPerSource, setMaxRecordsPerSource] = useState("");
   const [artifactParams, setArtifactParams] = useState<Record<string, Record<string, string>>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [includeIam, setIncludeIam] = useState(true);
@@ -235,6 +244,7 @@ function AcquireContent() {
         artifactParams,
         cartForCloud,
         deploymentProfile,
+        maxRecordsPerSource,
         isEnterpriseProfile(deploymentProfile) ? transportSpec : undefined,
       ),
     [
@@ -247,6 +257,7 @@ function AcquireContent() {
       regions,
       project,
       subscription,
+      maxRecordsPerSource,
       artifactParams,
       cartForCloud,
       deploymentProfile,
@@ -309,6 +320,14 @@ function AcquireContent() {
   };
 
   const download = async () => {
+    const capRaw = maxRecordsPerSource.trim();
+    if (capRaw) {
+      const cap = Number(capRaw);
+      if (!Number.isFinite(cap) || cap < 0 || !Number.isInteger(cap)) {
+        setError("Records count to collect must be a whole number.");
+        return;
+      }
+    }
     const validation = validateArtifactParams(cartForCloud, artifactParams);
     if (!validation.ok) {
       setError(validation.errors.map((e) => `${e.label}: ${e.message}`).join("; "));
@@ -823,6 +842,18 @@ function AcquireContent() {
                     />
                   </label>
                 )}
+                <label className="block space-y-1">
+                  <span className="text-2xs text-fg-subtle">Records count to collect (optional)</span>
+                  <Input
+                    type="number"
+                    min={0}
+                    step={1}
+                    value={maxRecordsPerSource}
+                    onChange={(e) => setMaxRecordsPerSource(e.target.value)}
+                    placeholder="Unlimited"
+                    className="mono text-xs"
+                  />
+                </label>
               </div>
 
               <div className="mt-3 space-y-2 border-t border-border pt-3">

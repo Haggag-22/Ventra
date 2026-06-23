@@ -8,6 +8,7 @@ reach the SQL (injection safety); the rest lock the panel queries against the de
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 
@@ -19,7 +20,7 @@ sys.path.insert(0, str(REPO / "console" / "backend"))
 
 from generate_demo_case import generate  # noqa: E402
 
-from app.store import CaseNotFound, CaseStore, EventQuery  # noqa: E402
+from app.store import CaseNotFound, CaseStore, EventQuery, _vpc_ids_from_flow_config, network_vpc_filter_clause  # noqa: E402
 from ventra_ingester.pipeline import ingest_package  # noqa: E402
 
 
@@ -141,6 +142,8 @@ def test_identity_role_graph(store_case) -> None:
 def test_network_overview(store_case) -> None:
     store, case_id = store_case
     net = store.network_overview(case_id)
+    assert net["case_totals"]["flows"] > 0
+    assert net["case_totals"]["flows"] == net["totals"]["flows"]
     assert net["totals"]["flows"] > 0
     assert net["totals"]["rejects"] > 0
     # Exfil lens: large egress to a public IP is computed server-side.
@@ -152,6 +155,140 @@ def test_network_overview(store_case) -> None:
     assert ports & {22, 3389, 445, 23}
     # Protocol field parsed from the raw flow record.
     assert any(p["protocol"] == "6" for p in net["protocols"])  # TCP
+
+
+def test_network_vpcs_and_filter(store_case) -> None:
+    store, case_id = store_case
+    listed = store.network_vpcs(case_id)
+    assert len(listed["vpcs"]) >= 2
+    ids = {v["id"] for v in listed["vpcs"]}
+    assert "vpc-0demo1234" in ids
+    assert "vpc-0demo5678" in ids
+    by_id = {v["id"]: v for v in listed["vpcs"]}
+    assert by_id["vpc-0demo1234"]["name"] == "demo-primary-vpc"
+    assert by_id["vpc-0demo5678"]["name"] == "demo-secondary-vpc"
+
+    all_net = store.network_overview(case_id)
+    primary = store.network_overview(case_id, vpc_id="vpc-0demo1234")
+    secondary = store.network_overview(case_id, vpc_id="vpc-0demo5678")
+
+    assert primary["totals"]["flows"] < all_net["totals"]["flows"]
+    assert secondary["totals"]["flows"] < all_net["totals"]["flows"]
+    assert primary["totals"]["public_bytes"] > 0  # exfil lives in primary VPC
+    assert secondary["totals"]["public_bytes"] == 0
+
+    events = store.query_events(
+        case_id,
+        EventQuery(sources=["vpc_flow"], vpcs=["vpc-0demo5678"], limit=500),
+    )
+    assert events["total"] == secondary["totals"]["flows"]
+    assert events["total"] > 0
+
+
+def test_vpc_ids_from_flow_config() -> None:
+    ids = _vpc_ids_from_flow_config(
+        {
+            "vpcs": [{"VpcId": "vpc-aaa"}, {"VpcId": "vpc-bbb"}],
+            "flow_logs": [
+                {"ResourceId": "vpc-ccc", "FlowLogStatus": "ACTIVE"},
+                {"ResourceId": "subnet-xyz", "FlowLogStatus": "ACTIVE"},
+                {"ResourceId": "vpc-inactive", "FlowLogStatus": "INACTIVE"},
+            ],
+        }
+    )
+    assert ids == ["vpc-ccc"]
+
+
+def test_network_vpc_filter_clause_sole_vpc_includes_untagged() -> None:
+    clause, params = network_vpc_filter_clause(["vpc-only"], ["vpc-only"])
+    assert "OR" in clause
+    assert "''" in clause
+    assert params == ["vpc-only"]
+
+    clause2, params2 = network_vpc_filter_clause(["vpc-a"], ["vpc-a", "vpc-b"])
+    assert "OR" not in clause2
+    assert params2 == ["vpc-a"]
+
+
+def test_network_sole_flow_vpc_filter(store_case, tmp_path) -> None:
+    """Sole flow-log VPC filter matches tagged records and would include untagged ones."""
+    store, case_id = store_case
+    inv_path = store.case_dir(case_id) / "inventory" / "vpc_flow.json"
+    inv_path.write_text(
+        json.dumps(
+            {
+                "_config": {
+                    "flow_logs": [
+                        {
+                            "ResourceId": "vpc-0demo1234",
+                            "LogDestinationType": "s3",
+                            "FlowLogStatus": "ACTIVE",
+                        }
+                    ],
+                    "vpcs": [
+                        {
+                            "VpcId": "vpc-0demo1234",
+                            "Tags": [{"Key": "Name", "Value": "demo-primary-vpc"}],
+                        }
+                    ],
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    all_net = store.network_overview(case_id)
+    sole_net = store.network_overview(case_id, vpc_id="vpc-0demo1234")
+    assert sole_net["totals"]["flows"] > 0
+    assert sole_net["totals"]["flows"] <= all_net["case_totals"]["flows"]
+
+    events = store.query_events(
+        case_id,
+        EventQuery(sources=["vpc_flow"], vpcs=["vpc-0demo1234"], limit=5000),
+    )
+    assert events["total"] == sole_net["totals"]["flows"]
+
+    listed = store.network_vpcs(case_id)
+    assert [v["id"] for v in listed["vpcs"]] == ["vpc-0demo1234"]
+    assert listed["vpcs"][0]["flows"] == sole_net["totals"]["flows"]
+
+
+def test_network_vpcs_only_flow_log_vpcs(store_case, tmp_path) -> None:
+    """Dropdown lists only VPCs with flow-log config, not the full inventory."""
+    store, case_id = store_case
+    inv_path = store.case_dir(case_id) / "inventory" / "vpc_flow.json"
+    inv_path.write_text(
+        json.dumps(
+            {
+                "_config": {
+                    "flow_logs": [
+                        {
+                            "ResourceId": "vpc-realtest01",
+                            "LogDestinationType": "s3",
+                            "FlowLogStatus": "ACTIVE",
+                        }
+                    ],
+                    "vpcs": [
+                        {
+                            "VpcId": "vpc-realtest01",
+                            "Tags": [{"Key": "Name", "Value": "real-primary"}],
+                        },
+                        {
+                            "VpcId": "vpc-realtest02",
+                            "Tags": [{"Key": "Name", "Value": "no-flow-log"}],
+                        },
+                    ],
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    listed = store.network_vpcs(case_id)
+    assert [v["id"] for v in listed["vpcs"]] == ["vpc-realtest01"]
+    assert listed["vpcs"][0]["name"] == "real-primary"
+    ids = {v["id"] for v in listed["vpcs"]}
+    assert "vpc-realtest02" not in ids
+    assert "vpc-0demo1234" not in ids
 
 
 def test_web_dns_overview(store_case) -> None:

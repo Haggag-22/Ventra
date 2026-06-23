@@ -62,32 +62,32 @@ _PROFILE_TRADEOFFS: dict[str, str] = {
     "cloudshell": """profile: cloudshell
 
 TRADEOFFS (summary — full detail in README-operator.md)
-- Best for: quick scoped pulls; client runs in {{CLOUD}} Cloud Shell with no local install.
-- Does NOT pull all records when max_records_per_source is set in acquisition.yaml — collection stops at that cap per source.
-- ~1 GB home disk and ~20 min idle timeout — large S3-resident logs may be truncated or incomplete; treat as best-effort scoped collection.
-- Switch to workstation or EC2 for full pulls, long runs, or multi-TB S3 sources.
+- Best for: quick proof-of-access; client runs in {{CLOUD}} Cloud Shell with no local install.
+- Collects all records in the configured since/until window unless max_records_per_source is set in acquisition.yaml.
+- ~1 GB home disk and ~20 min idle timeout — very large pulls may fail on disk or session timeout; use EC2 or --stream-to s3:// for multi-GB handoff.
+- Switch to workstation or EC2 for long unattended runs or multi-TB S3 sources.
 """,
     "workstation": """profile: workstation
 
 TRADEOFFS (summary — full detail in README-operator.md)
 - Best for: responder jump host or local machine with CLI credentials; more disk/time than Cloud Shell.
-- Still stops at max_records_per_source if set in acquisition.yaml.
+- Collects the full since/until window unless max_records_per_source is set in acquisition.yaml.
 - Local sleep/VPN drops can interrupt long runs; credentials live on the workstation during collection.
 - Switch to EC2 for multi-hour or very large S3 pulls; switch to Cloud Shell if client cannot install locally.
 """,
     "ec2": """profile: ec2
 
 TRADEOFFS (summary — full detail in README-operator.md)
-- Best for: largest pulls, long unattended runs, most complete collection within configured caps.
+- Best for: largest pulls, long unattended runs, complete collection within since/until.
 - Requires VM + instance profile + secure copy-out; operational overhead vs Cloud Shell.
-- Still respects max_records_per_source if manually set in acquisition.yaml.
+- Optional max_records_per_source in acquisition.yaml caps per-source volume for scoped triage only.
 - Switch to Cloud Shell for quick proof-of-access; workstation when EC2 provisioning is not allowed.
 """,
     "enterprise": """profile: enterprise
 
 TRADEOFFS (summary — full detail in README-operator.md)
 - Best for: production IR engagements — complete collection within since/until and artifact parameters.
-- Default: no artificial record cap (max_records_per_source: 0). Use S3 transport for handoff.
+- Same default as other profiles: full window collection; use S3 transport for handoff.
 - Run on EC2/VM with sufficient disk; not intended for Cloud Shell time/disk limits.
 - Partial status means a real cloud gap (access denied, logging off), not Ventra truncation.
 """,

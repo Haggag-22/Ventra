@@ -1,10 +1,9 @@
-"""Bounded reader for Azure diagnostic logs delivered to a Storage account.
+"""Reader for Azure diagnostic logs delivered to a Storage account.
 
 The analogue of the AWS S3 log reader: many Azure resource logs (flow logs, firewall, App
 Gateway/WAF, Front Door) land as JSON blobs in a Storage container only when a diagnostic
 setting / Network-Watcher flow log routes them there. This lists the blobs, downloads them,
-parses the per-blob ``records`` array, and yields each record — bounded so a busy tenant
-can't exhaust the workstation, and translating access errors into typed gaps.
+parses the per-blob ``records`` array, and yields each record within the configured window.
 """
 
 from __future__ import annotations
@@ -14,6 +13,7 @@ from collections.abc import Iterator
 from typing import Any
 
 from collector.clouds.azure.client_factory import _raise_typed_azure
+from collector.lib.limits import UNLIMITED_OBJECTS, UNLIMITED_RECORDS, records_unlimited
 
 # Flow-log container names are fixed by Azure.
 FLOW_CONTAINER = {
@@ -21,8 +21,8 @@ FLOW_CONTAINER = {
     "vnet": "insights-logs-flowlogflowevent",
 }
 
-MAX_BLOBS = 2000
-MAX_RECORDS = 200_000
+MAX_BLOBS = UNLIMITED_OBJECTS
+MAX_RECORDS = UNLIMITED_RECORDS
 
 
 def read_log_records(
@@ -42,7 +42,7 @@ def read_log_records(
         scanned = 0
         emitted = 0
         for blob in blobs:
-            if scanned >= max_blobs:
+            if not records_unlimited(max_blobs) and scanned >= max_blobs:
                 return
             name = getattr(blob, "name", "") or ""
             if not name.endswith(".json"):
@@ -54,7 +54,7 @@ def read_log_records(
             except (ValueError, TypeError):
                 continue
             for rec in payload.get("records") or []:
-                if emitted >= max_records:
+                if not records_unlimited(max_records) and emitted >= max_records:
                     return
                 yield rec
                 emitted += 1
