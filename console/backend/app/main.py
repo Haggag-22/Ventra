@@ -147,6 +147,7 @@ def _event_query(
     source_ips: list[str] | None = Query(None),
     dest_ips: list[str] | None = Query(None),
     dest_ports: list[str] | None = Query(None),
+    vpc: list[str] | None = Query(None),
     data_access: bool = Query(False),
     since: str | None = Query(None),
     until: str | None = Query(None),
@@ -197,6 +198,7 @@ def _event_query(
         source_ips=source_ips or [],
         dest_ips=dest_ips or [],
         dest_ports=dest_ports or [],
+        vpcs=vpc or [],
         data_access=data_access,
         sort=sort,
         order=order,
@@ -244,9 +246,18 @@ def identity(case_id: str, _: Role = Depends(_check("view_case"))) -> dict:
 
 # -- network -----------------------------------------------------------------------------
 
+@app.get("/api/cases/{case_id}/network/vpcs")
+def network_vpcs(case_id: str, _: Role = Depends(_check("view_case"))) -> dict:
+    return store.network_vpcs(case_id)
+
+
 @app.get("/api/cases/{case_id}/network")
-def network(case_id: str, _: Role = Depends(_check("view_case"))) -> dict:
-    return store.network_overview(case_id)
+def network(
+    case_id: str,
+    vpc: str | None = Query(None, description="Filter stats to one VPC / network scope."),
+    _: Role = Depends(_check("view_case")),
+) -> dict:
+    return store.network_overview(case_id, vpc_id=vpc or None)
 
 
 @app.get("/api/cases/{case_id}/web-dns")

@@ -35,6 +35,18 @@ def _parse_line(message: str) -> dict[str, Any] | None:
     return dict(zip(V2_FIELDS, parts))
 
 
+def _vpc_id_from_flow(flow: dict[str, Any]) -> str:
+    for key in ("_ventra_vpc_id", "vpc_id", "vpc-id"):
+        val = flow.get(key)
+        if isinstance(val, str) and val:
+            return val
+    for key in ("_ventra_flow_resource_id", "ResourceId"):
+        val = flow.get(key)
+        if isinstance(val, str) and val.startswith("vpc-"):
+            return val
+    return ""
+
+
 @register("vpc_flow")
 def normalize_vpc_flow(records: list[dict], ctx: NormalizeContext) -> Iterator[UnifiedEvent]:
     for rec in records:
@@ -47,6 +59,11 @@ def normalize_vpc_flow(records: list[dict], ctx: NormalizeContext) -> Iterator[U
             src = conn.get("src_ip") or payload.get("src_ip") or ""
             dst = conn.get("dest_ip") or payload.get("dest_ip") or ""
             project = rec.get("_ventra_project_id") or ctx.account_id
+            labels = rec.get("resource", {}).get("labels", {})
+            vpc_id = _vpc_id_from_flow(rec) or str(labels.get("subnetwork_name") or "")
+            related = [x for x in (src, dst) if x]
+            if vpc_id:
+                related.append(vpc_id)
             yield UnifiedEvent(
                 timestamp=rec.get("timestamp") or "",
                 event_kind="event",
@@ -62,6 +79,7 @@ def normalize_vpc_flow(records: list[dict], ctx: NormalizeContext) -> Iterator[U
                 source_ip=src,
                 dest_ip=dst,
                 related_ip=[x for x in (src, dst) if x],
+                related_resource=related,
                 message=f"FLOW {src} -> {dst}",
                 case_id=ctx.case_id,
                 ventra_source="vpc_flow",
@@ -76,6 +94,9 @@ def normalize_vpc_flow(records: list[dict], ctx: NormalizeContext) -> Iterator[U
                 continue
             flow = parsed
             flow["_ventra_region"] = rec.get("_ventra_region", "")
+            for tag in ("_ventra_vpc_id", "_ventra_flow_resource_id", "vpc_id", "vpc-id"):
+                if rec.get(tag):
+                    flow[tag] = rec[tag]
 
         src = flow.get("srcaddr", "")
         dst = flow.get("dstaddr", "")
@@ -105,6 +126,14 @@ def normalize_vpc_flow(records: list[dict], ctx: NormalizeContext) -> Iterator[U
             except (ValueError, OSError):
                 ts = ""
 
+        vpc_id = _vpc_id_from_flow(flow)
+        related = [ip for ip in (src, dst) if ip]
+        eni = flow.get("interface_id", "")
+        if eni:
+            related.append(eni)
+        if vpc_id:
+            related.append(vpc_id)
+
         yield UnifiedEvent(
             timestamp=ts,
             event_kind="event",
@@ -122,7 +151,7 @@ def normalize_vpc_flow(records: list[dict], ctx: NormalizeContext) -> Iterator[U
             dest_port=dport or None,
             dest_bytes=nbytes or None,
             related_ip=[ip for ip in (src, dst) if ip],
-            related_resource=[flow.get("interface_id", "")] if flow.get("interface_id") else [],
+            related_resource=related,
             message=f"{action or 'FLOW'} {src} -> {dst}:{dport} ({nbytes} bytes)",
             case_id=ctx.case_id,
             ventra_source="vpc_flow",

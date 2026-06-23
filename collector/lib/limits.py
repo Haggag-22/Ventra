@@ -2,15 +2,15 @@
 
 from __future__ import annotations
 
-# Triage default when acquisition.yaml omits max_records_per_source.
-DEFAULT_MAX_RECORDS = 200_000
-
-# Paginator ceiling when max_records_per_source is 0 or negative (unlimited within window).
+# Paginator ceiling for full-window collection (since/until). Optional triage caps use a
+# positive max_records_per_source in acquisition.yaml instead.
 UNLIMITED_RECORDS = 1_000_000_000
-
-# S3 object scan cap for triage; unlimited runs use UNLIMITED_OBJECTS.
-DEFAULT_MAX_LOG_OBJECTS = 2000
 UNLIMITED_OBJECTS = 1_000_000_000
+
+# Legacy alias — collectors import this as a per-source fallback constant; effective caps come
+# from Collector.max_records() which defaults to unlimited when acquisition.yaml omits a cap.
+DEFAULT_MAX_RECORDS = UNLIMITED_RECORDS
+DEFAULT_MAX_LOG_OBJECTS = UNLIMITED_OBJECTS
 
 
 def records_unlimited(max_records: int) -> bool:

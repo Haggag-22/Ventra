@@ -19,19 +19,19 @@ chmod +x run.sh ventra.py
 
 | | Cloud Shell |
 |---|-------------|
-| **Best for** | Quick scoped pulls, proof-of-access, small/medium log volume |
-| **Avoid when** | You need every record from large S3-resident logs, or runs longer than ~20 minutes |
+| **Best for** | Quick proof-of-access, small/medium log volume |
+| **Avoid when** | Multi-GB S3-resident logs that won't fit ~1 GB home, or runs longer than ~20 minutes |
 
 **Capacity & time**
 
 - Home directory is typically **~1 GB**. The sealed evidence package and temp files must fit there — large multi-source pulls can fail with “disk full” even when IAM is correct.
 - Sessions **idle out** after roughly **20 minutes** without activity. Long collections may stop mid-run; there is no built-in resume.
-- If `max_records_per_source` is manually set in `acquisition.yaml`, Ventra **stops at that cap per source** — you will **not** get all records. For a full pull, use an EC2/VM profile and omit that field from the yaml.
+- If `max_records_per_source` is set to a **positive** value in `acquisition.yaml`, Ventra stops at that cap per source. Omit it (default) to collect the full since/until window.
 
 **Data completeness**
 
-- Cloud Shell is fine for API-backed sources (CloudTrail API, GuardDuty, etc.) within caps and time limits.
-- **S3-heavy sources** (VPC Flow from buckets, CloudTrail archives, large access-log prefixes) may be **truncated or skipped** when local staging space or session time runs out. Treat Cloud Shell output as **best-effort scoped collection**, not a forensic mirror of every object in the account.
+- Cloud Shell collects the full configured time window for API-backed sources when disk and session time allow.
+- **S3-heavy sources** (VPC Flow from buckets, CloudTrail archives, large access-log prefixes) may **fail or stall** when local staging space or session time runs out — use EC2 and `--stream-to s3://...` for multi-GB handoff.
 
 **Other**
 

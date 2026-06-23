@@ -17,7 +17,7 @@ from ..common import graph_time_filter, window_bounds
 
 # Graph sign-in logs retain ~30 days on Entra P1.
 DEFAULT_WINDOW_DAYS = 30
-MAX_RECORDS = 200_000
+from collector.lib.limits import DEFAULT_MAX_RECORDS as MAX_RECORDS
 
 
 class EntraSignInCollector(Collector):

@@ -30,7 +30,7 @@ python3 ventra.py --profile ir-readonly --out ./ventra-evidence
 
 - Disk and runtime limits depend on **your machine**, not the cloud provider’s shell quota — usually better than Cloud Shell for moderate packages.
 - Local machines can sleep, VPN-drop, or lose network; long unattended runs are less reliable than EC2.
-- If `max_records_per_source` is manually set in `acquisition.yaml`, collection still **stops at that cap** — omit it if you need more complete API pulls.
+- Optional: set `max_records_per_source` to a positive value in `acquisition.yaml` to cap per source. Default collects the full since/until window.
 
 **Data completeness**
 
