@@ -1,18 +1,14 @@
 "use client";
 
-import { Badge, Button } from "@/components/ui";
+import { ArtifactIcon } from "@/components/artifact-icon";
+import { Button } from "@/components/ui";
 import { api } from "@/lib/api";
+import { displayArtifactLabel } from "@/lib/artifact-icons";
 import type { Artifact } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
 import { Info, Loader2, X } from "lucide-react";
 import { useState } from "react";
-
-const SEV_COLOR: Record<string, string> = {
-  critical: "border-bad-red/40 bg-bad-red/10 text-bad-red",
-  extended: "border-warn-amber/40 bg-warn-amber/10 text-warn-amber",
-  optional: "border-border bg-surface-2 text-fg-subtle",
-};
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   if (!children) return null;
@@ -36,11 +32,6 @@ function ArtifactBody({ art }: { art: Artifact }) {
       </Field>
       <Field label="Version">{art.version}</Field>
       <Field label="Category">{art.category}</Field>
-      <Field label="Severity">
-        {art.severity ? (
-          <Badge className={SEV_COLOR[art.severity] ?? SEV_COLOR.optional}>{art.severity}</Badge>
-        ) : null}
-      </Field>
       <Field label="Volume">{art.estimated_volume}</Field>
       <Field label="Description">{art.description}</Field>
       {art.aliases?.length ? (
@@ -123,8 +114,8 @@ export function ArtifactDetailDialog({
       >
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <h3 className="flex items-center gap-2 text-sm font-semibold">
-            <Info className="h-4 w-4 text-accent" />
-            <span className="mono">{collector}</span>
+            <ArtifactIcon cloud={cloud} collector={collector} size={22} />
+            <span>{displayArtifactLabel(collector)}</span>
           </h3>
           <button type="button" onClick={onClose} className="text-fg-subtle hover:text-fg">
             <X className="h-4 w-4" />

@@ -5,8 +5,8 @@ Captures:
      log validation, and S3 delivery settings.
   2. **Management events** — from the trail's S3 log files (the authoritative copy that
      validate-logs covers and that reaches past the API's ~90-day window). Falls back to
-     LookupEvents only when no trail delivers management logs to readable S3.
-  3. **Insight events** — from S3 log files (and LookupEvents in the fallback path).
+     LookupEvents (Event History) only when no trails are discovered in the account.
+  3. **Insight events** — from S3 log files when trails exist (LookupEvents only when no trails).
   4. **Data events** — from the trail's S3 log files when data events are enabled.
   5. **Network activity events** — from the trail's S3 log files when enabled.
 """
@@ -45,8 +45,8 @@ class CloudTrailCollector(Collector):
     priority = 1
     description = (
         "CloudTrail trail config; management, insight, data and network-activity events "
-        "from the trail's S3 logs (LookupEvents fallback for management when no trail "
-        "delivers to S3), plus S3 log integrity validation (validate-logs)."
+        "from the trail's S3 logs (LookupEvents only when no trails exist), plus "
+        "S3 log integrity validation (validate-logs)."
     )
     required_actions = (
         "cloudtrail:DescribeTrails",
@@ -82,8 +82,8 @@ class CloudTrailCollector(Collector):
 
         # Discover trails, then collect their logs straight from the delivery buckets — the
         # authoritative copy that validate-logs covers and that reaches past the API's ~90-day
-        # window. CloudTrail Event History (LookupEvents) is only a backup, used when no trail
-        # delivers management logs to S3 or every trail bucket read fails.
+        # window. CloudTrail Event History (LookupEvents) is used only when DescribeTrails
+        # finds no trails; otherwise management events come from S3 exclusively.
         mgmt_records, lookup_insight_records, mgmt_collection = self._collect_management_events(
             cf, config, gaps, start, end, s3_by_bucket
         )
@@ -280,31 +280,31 @@ class CloudTrailCollector(Collector):
         end: datetime,
         s3_by_bucket: dict[str, dict[str, Any]],
     ) -> tuple[list[dict], list[dict], dict[str, Any]]:
-        """Collect management events from trail S3 logs, backing off to Event History.
+        """Collect management events from trail S3 logs.
 
-        Returns ``(management_records, lookup_insight_records, collection)``. ``collection.mode``
-        is ``"trails"`` when at least one trail's S3 logs were read, else ``"event_history"``.
-        ``lookup_insight_records`` is populated only on the Event-History path — insights are
-        otherwise read from S3 like every other category.
+        When ``DescribeTrails`` finds no trails, falls back to CloudTrail Event History
+        (``LookupEvents``). When any trail exists, management events come from S3 only —
+        Event History is not consulted even if S3 returns zero records.
+
+        Returns ``(management_records, lookup_insight_records, collection)``.
+        ``lookup_insight_records`` is populated only on the no-trails Event-History path.
         """
         trails = config.get("trails", [])
-        s3_trails = [
-            t for t in trails if management_events_configured(t) and trail_is_logging_to_s3(t)
-        ]
         collection: dict[str, Any] = {
-            "mode": "event_history",
+            "mode": "trails",
             "trails": [],
-            "trails_total": len(s3_trails),
+            "trails_total": len(trails),
             "trails_collected": 0,
             "buckets": [],
             "records": 0,
             "fallback_reason": "",
         }
 
-        # No trail delivers management logs to S3 — Event History is the only source.
-        if not s3_trails:
-            collection["fallback_reason"] = "no_s3_trail"
-            self._log("No trail delivers logs to S3 — collecting from CloudTrail Event History.")
+        if not trails:
+            collection["mode"] = "event_history"
+            collection["trails_total"] = 0
+            collection["fallback_reason"] = "no_trails"
+            self._log("No CloudTrail trails found — collecting from CloudTrail Event History.")
             mgmt, lookup_insight = self._collect_lookup_events(cf, gaps, start, end)
             collection["records"] = len(mgmt)
             return mgmt, lookup_insight, collection
@@ -312,11 +312,29 @@ class CloudTrailCollector(Collector):
         account_id = self.ctx.account_id
         records: list[dict] = []
         buckets: list[str] = []
-        any_success = False
-        any_denied = False
+        s3_attempts = 0
 
-        for trail in s3_trails:
-            self._log(f"Collecting trail logs for {trail.get('Name', '')}…")
+        for trail in trails:
+            trail_name = trail.get("Name", "")
+            trail_arn = trail.get("TrailARN", "")
+            bucket = trail.get("S3BucketName") or ""
+
+            if not trail_is_logging_to_s3(trail):
+                collection["trails"].append(
+                    {
+                        "trail_name": trail_name,
+                        "trail_arn": trail_arn,
+                        "bucket": bucket,
+                        "status": "skipped",
+                        "records": 0,
+                        "objects_read": 0,
+                        "reason": "s3_logging_disabled",
+                    }
+                )
+                continue
+
+            s3_attempts += 1
+            self._log(f"Collecting trail logs for {trail_name}…")
             trail_gaps: list[tuple[str, GapReason, str]] = []
             recs, stats = collect_s3_trail_records(
                 cf,
@@ -333,27 +351,27 @@ class CloudTrailCollector(Collector):
             gaps.extend(trail_gaps)
             denied = any(reason == GapReason.ACCESS_DENIED for _, reason, _ in trail_gaps)
             objects_read = int(stats.get("objects_read") or 0)
-            bucket = stats.get("bucket") or trail.get("S3BucketName") or ""
+            bucket = stats.get("bucket") or bucket
 
-            if objects_read > 0 or recs:
+            if recs:
                 status, reason = "collected", ""
-                any_success = True
                 records.extend(recs)
                 self._merge_s3_bucket_stats(
                     s3_by_bucket, trail, "management_events", len(recs), stats
                 )
                 if bucket and bucket not in buckets:
                     buckets.append(bucket)
+            elif objects_read > 0:
+                status, reason = "empty", "no_events_in_window"
             elif denied:
                 status, reason = "denied", "access_denied"
-                any_denied = True
             else:
                 status, reason = "empty", "no_logs_in_window"
 
             collection["trails"].append(
                 {
-                    "trail_name": trail.get("Name", ""),
-                    "trail_arn": trail.get("TrailARN", ""),
+                    "trail_name": trail_name,
+                    "trail_arn": trail_arn,
                     "bucket": bucket,
                     "status": status,
                     "records": len(recs),
@@ -362,33 +380,17 @@ class CloudTrailCollector(Collector):
                 }
             )
 
-        if any_success:
-            collection["mode"] = "trails"
-            collection["trails_collected"] = sum(
-                1 for t in collection["trails"] if t["status"] == "collected"
-            )
-            collection["buckets"] = buckets
-            collection["records"] = len(records)
+        collection["trails_collected"] = sum(
+            1 for t in collection["trails"] if t["status"] == "collected"
+        )
+        collection["buckets"] = buckets
+        collection["records"] = len(records)
+        if collection["trails_collected"]:
             self._log(
-                f"Collected logs from {collection['trails_collected']}/{len(s3_trails)} trail(s) "
+                f"Collected logs from {collection['trails_collected']}/{s3_attempts} trail(s) "
                 f"across {len(buckets)} bucket(s)."
             )
-            return records, [], collection
-
-        # Every trail bucket read failed — back off to CloudTrail Event History.
-        collection["fallback_reason"] = "access_denied" if any_denied else "no_logs"
-        gaps.append(
-            (
-                "management_events",
-                GapReason.ACCESS_DENIED if any_denied else GapReason.NOT_PRESENT,
-                "Trail S3 log collection produced no management events for any trail; "
-                "fell back to CloudTrail Event History (LookupEvents).",
-            )
-        )
-        self._log("Trail log collection failed for all trails — using CloudTrail Event History.")
-        mgmt, lookup_insight = self._collect_lookup_events(cf, gaps, start, end)
-        collection["records"] = len(mgmt)
-        return mgmt, lookup_insight, collection
+        return records, [], collection
 
     def _validate_trail_logs(
         self,

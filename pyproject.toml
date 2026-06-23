@@ -14,6 +14,7 @@ keywords = ["dfir", "incident-response", "aws", "forensics", "cloud"]
 dependencies = [
     "boto3>=1.34",
     "botocore>=1.34",
+    "requests>=2.31",
     "rich>=13.7",
     "zstandard>=0.22",
     "PyYAML>=6.0",
@@ -29,6 +30,7 @@ gcp = [
     "protobuf>=4.25",
 ]
 azure = [
+    "requests>=2.31",
     "azure-identity>=1.16",
     "azure-mgmt-resource>=23.0",
     "azure-mgmt-monitor>=6.0",

@@ -1,0 +1,11 @@
+# Copy to terraform.tfvars and customize before apply.
+region       = "us-east-1"
+project_name = "ventra-lab"
+environment  = "collector-test"
+
+# Reduce cost for first smoke test:
+# enable_eks                = false
+# enable_detective          = false
+# enable_macie              = false
+# enable_cloudfront         = false
+# enable_route53_resolver   = false

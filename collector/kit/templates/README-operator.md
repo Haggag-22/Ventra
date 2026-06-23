@@ -57,3 +57,31 @@ cloud named in `acquisition.yaml`.
 
 The client machine needs network access for `pip install` and cloud API credentials with the
 permissions in `iam/` for the selected artifacts only.
+
+### Bundled ventra wheel (`dist/`)
+
+Every kit from Acquire includes `dist/ventra-*.whl` — the Ventra Python package pinned to
+`ventra_version` in `acquisition.yaml`.
+
+When the IR lead builds from a **Ventra source checkout** (`ventra gui`), the wheel is built
+fresh from that working tree (unreleased changes included). When built outside a clone, the
+console downloads `ventra==ventra_version` from **PyPI** instead.
+
+Install the wheel in the kit venv so collection works **without downloading from the public
+internet (PyPI)** at run time:
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+pip install dist/ventra-*.whl   # offline — no PyPI needed for ventra itself
+python3 ventra.py --out ./ventra-evidence
+```
+
+| | With wheel in `dist/` | Without wheel (not used for Acquire kits) |
+|---|----------------------|----------------------------------------|
+| **Best for** | Air-gapped hosts, strict egress, reproducible version | N/A — Acquire always bundles the wheel |
+| **Tradeoff** | Slightly larger zip | — |
+| **Version** | Matches `ventra_version` in `acquisition.yaml` (from PyPI) | — |
+
+If `dist/` is empty, the kit build failed — rebuild from a machine with PyPI access and an
+installed Ventra release matching what you published.

@@ -11,7 +11,8 @@ import yaml
 
 from collector.cli import main
 from collector.engine.acquisition import load_acquisition, resolve_collectors_from_acquisition
-from collector.kit.build import build_kit
+from collector.kit.build import _bundle_wheel, _download_pypi_wheel, build_kit
+from collector.kit.preview import preview_kit
 
 ARTIFACTS = Path("artifacts")
 IAM = Path("docs/iam-policies")
@@ -131,3 +132,103 @@ def test_kit_ships_ventra_py_and_requirements(tmp_path: Path) -> None:
     assert "--project" in ventra_py
     assert "PyYAML" in reqs
     assert "ventra.py" in run_sh
+
+
+def test_build_kit_deployment_profile_ec2(tmp_path: Path) -> None:
+    out = build_kit(
+        tmp_path / "kit.zip",
+        cloud="aws",
+        case_id="CASE-EC2",
+        artifact_names=["guardduty"],
+        artifacts_root=ARTIFACTS,
+        deployment_profile="ec2",
+        bundle_wheel=False,
+    )
+    with zipfile.ZipFile(out) as zf:
+        names = zf.namelist()
+        assert "deployment-profile.txt" in names
+        assert "ec2-bootstrap.sh" in names
+        profile_txt = zf.read("deployment-profile.txt").decode()
+        assert profile_txt.startswith("profile: ec2")
+        assert "TRADEOFFS" in profile_txt
+        acq = yaml.safe_load(zf.read("acquisition.yaml"))
+        readme = zf.read("README-operator.md").decode()
+    assert acq["deployment_profile"] == "ec2"
+    assert "EC2 collector instance" in readme
+    assert "Tradeoffs (read before you run)" in readme
+
+
+def test_build_kit_cloudshell_tradeoffs_in_profile_txt(tmp_path: Path) -> None:
+    out = build_kit(
+        tmp_path / "kit.zip",
+        cloud="aws",
+        case_id="CASE-CS",
+        artifact_names=["guardduty"],
+        artifacts_root=ARTIFACTS,
+        deployment_profile="cloudshell",
+        bundle_wheel=False,
+    )
+    with zipfile.ZipFile(out) as zf:
+        profile_txt = zf.read("deployment-profile.txt").decode()
+        readme = zf.read("README-operator.md").decode()
+    assert "does NOT pull all records" in profile_txt.lower() or "Does NOT pull all records" in profile_txt
+    assert "Tradeoffs (read before you run)" in readme
+
+
+def test_bundle_wheel_source_first_in_dev_clone(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    order: list[str] = []
+
+    def fake_pypi(dist: Path, version: str) -> bool:
+        order.append("pypi")
+        return False
+
+    def fake_source(dist: Path) -> bool:
+        order.append("source")
+        (dist / "ventra-test-py3-none-any.whl").write_bytes(b"")
+        return True
+
+    monkeypatch.setattr("collector.kit.build._is_source_checkout", lambda: True)
+    monkeypatch.setattr("collector.kit.build._download_pypi_wheel", fake_pypi)
+    monkeypatch.setattr("collector.kit.build._wheel_from_source_tree", fake_source)
+    staging = tmp_path / "staging"
+    staging.mkdir()
+    _bundle_wheel(staging, required=True)
+    assert order == ["source"]
+    assert list((staging / "dist").glob("ventra-*.whl"))
+
+
+def test_bundle_wheel_pypi_first_outside_clone(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    order: list[str] = []
+
+    def fake_pypi(dist: Path, version: str) -> bool:
+        order.append("pypi")
+        return False
+
+    def fake_source(dist: Path) -> bool:
+        order.append("source")
+        (dist / "ventra-test-py3-none-any.whl").write_bytes(b"")
+        return True
+
+    monkeypatch.setattr("collector.kit.build._is_source_checkout", lambda: False)
+    monkeypatch.setattr("collector.kit.build._download_pypi_wheel", fake_pypi)
+    monkeypatch.setattr("collector.kit.build._wheel_from_source_tree", fake_source)
+    staging = tmp_path / "staging"
+    staging.mkdir()
+    _bundle_wheel(staging, required=True)
+    assert order == ["pypi", "source"]
+
+
+def test_preview_kit_iam_narrowing() -> None:
+    preview = preview_kit(
+        cloud="gcp",
+        artifact_names=["scc_findings"],
+        artifacts_root=ARTIFACTS,
+        iam_policy_paths=[IAM / "gcp-collector-readonly.json"],
+    )
+    assert preview["artifact_count"] == 1
+    assert preview["iam_action_count"] == 1
+    assert preview["iam_actions"] == ["securitycenter.findings.list"]
+    assert "gcp-collector-readonly.json" in preview["iam_policies"]
+    assert preview["iam_policies"]["gcp-collector-readonly.json"]["permissions"] == [
+        "securitycenter.findings.list"
+    ]

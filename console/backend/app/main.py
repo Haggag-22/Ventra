@@ -36,6 +36,12 @@ class AcquisitionBuildRequest(BaseModel):
     subscription: str = ""
     max_records_per_source: int | None = None
     artifact_parameters: dict[str, dict[str, Any]] = {}
+    deployment_profile: str = "cloudshell"
+
+
+class AcquisitionPreviewRequest(AcquisitionBuildRequest):
+    """Same shape as build — used for IAM / metadata preview only."""
+
 
 app = FastAPI(
     title="Ventra Console API",
@@ -280,6 +286,8 @@ def _artifact_view(art: dict[str, Any], *, full: bool = False) -> dict[str, Any]
         "estimated_volume": art.get("estimated_volume", ""),
         "required_actions": art.get("required_actions", []),
         "parameters": art.get("parameters", {}),
+        "implicit": bool(art.get("implicit")),
+        "selectable": art.get("selectable", True) is not False and not art.get("implicit"),
     }
     if full:
         view["aliases"] = art.get("aliases", [])
@@ -296,6 +304,7 @@ def list_artifacts(
     from collector.engine.loader import load_artifacts_dir
 
     arts = [_artifact_view(a) for a in load_artifacts_dir(settings.artifacts_root, cloud=cloud)]
+    arts = [a for a in arts if a.get("selectable", True)]
     if search:
         s = search.lower()
         arts = [
@@ -327,14 +336,9 @@ def list_acquisition_packs(cloud: str | None = Query(None), _: Role = Depends(cu
     return {"packs": list_packs(cloud, settings.artifacts_root)}
 
 
-@app.post("/api/acquisitions/build")
-def build_acquisition(
-    body: AcquisitionBuildRequest, _: Role = Depends(_check("build_acquisition"))
-) -> Response:
-    import tempfile
-
-    from collector.engine.acquisition import AcquisitionError, load_pack
-    from collector.kit.build import build_kit
+def _resolve_acquisition_request(body: AcquisitionBuildRequest) -> tuple[str, list[str], list[Path] | None]:
+    """Validate cloud + artifact selection; return (cloud, collector names, optional IAM paths)."""
+    from collector.engine.acquisition import AcquisitionError, augment_collectors, load_pack
 
     cloud = body.cloud.strip().lower()
     if cloud not in ("aws", "azure", "gcp"):
@@ -349,12 +353,56 @@ def build_acquisition(
     if not names:
         raise HTTPException(status_code=400, detail="Select at least one artifact or a pack.")
 
-    case_id = _normalize_case_id(body.case_id) or "CASE-PENDING"
-    iam_paths = None
+    names = augment_collectors(cloud, names)
+    iam_paths: list[Path] | None = None
     if body.include_iam:
         iam = settings.artifacts_root.parent / "docs" / "iam-policies" / f"{cloud}-collector-readonly.json"
         if iam.is_file():
             iam_paths = [iam]
+    return cloud, names, iam_paths
+
+
+@app.post("/api/acquisitions/preview")
+def preview_acquisition(
+    body: AcquisitionPreviewRequest, _: Role = Depends(_check("build_acquisition"))
+) -> dict[str, Any]:
+    from collector.kit.preview import preview_kit
+
+    cloud, names, iam_paths = _resolve_acquisition_request(body)
+    profile = body.deployment_profile.strip().lower() or "cloudshell"
+    if profile not in ("cloudshell", "workstation", "ec2"):
+        raise HTTPException(status_code=400, detail=f"Unknown deployment profile: {body.deployment_profile!r}")
+    try:
+        preview = preview_kit(
+            cloud=cloud,
+            artifact_names=names,
+            artifacts_root=settings.artifacts_root,
+            iam_policy_paths=iam_paths,
+            include_iam=body.include_iam,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    preview["deployment_profile"] = profile
+    preview["bundle_wheel"] = True
+    from collector.kit.build import kit_wheel_source
+
+    preview["wheel_source"] = kit_wheel_source()
+    return preview
+
+
+@app.post("/api/acquisitions/build")
+def build_acquisition(
+    body: AcquisitionBuildRequest, _: Role = Depends(_check("build_acquisition"))
+) -> Response:
+    import tempfile
+
+    from collector.kit.build import build_kit
+
+    cloud, names, iam_paths = _resolve_acquisition_request(body)
+    case_id = _normalize_case_id(body.case_id) or "CASE-PENDING"
+    profile = body.deployment_profile.strip().lower() or "cloudshell"
+    if profile not in ("cloudshell", "workstation", "ec2"):
+        raise HTTPException(status_code=400, detail=f"Unknown deployment profile: {body.deployment_profile!r}")
 
     with tempfile.TemporaryDirectory(prefix="ventra-kit-") as tmp:
         out = Path(tmp) / "kit.zip"
@@ -373,6 +421,9 @@ def build_acquisition(
                 subscription=body.subscription.strip(),
                 max_records_per_source=body.max_records_per_source,
                 artifact_parameters=body.artifact_parameters or None,
+                bundle_wheel=True,
+                require_wheel=True,
+                deployment_profile=profile,
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc

@@ -320,6 +320,8 @@ def cmd_dev(args: Namespace) -> int:
         _terminate(procs)
         return 1
 
+    _repair_next_dev_build(frontend_dir, force=args.setup)
+
     procs.append(
         subprocess.Popen(
             ["npm", "run", "dev"],
@@ -346,6 +348,25 @@ def cmd_dev(args: Namespace) -> int:
             )
 
     return _wait_procs(procs)
+
+
+def _repair_next_dev_build(frontend_dir: Path, *, force: bool = False) -> None:
+    """Refresh Next.js dev output so client chunks match the dev server."""
+    next_dir = frontend_dir / ".next"
+    if force and next_dir.is_dir():
+        print("Clearing Next.js dev build (.next)…")
+        shutil.rmtree(next_dir, ignore_errors=True)
+        return
+    if not next_dir.is_dir():
+        return
+    webpack_cache = next_dir / "cache" / "webpack"
+    if webpack_cache.is_dir():
+        shutil.rmtree(webpack_cache, ignore_errors=True)
+    server = next_dir / "server"
+    static = next_dir / "static"
+    if server.is_dir() and not static.is_dir():
+        print("Repairing stale Next.js dev build (.next)…")
+        shutil.rmtree(next_dir, ignore_errors=True)
 
 
 def cmd_gui(args: Namespace) -> int:

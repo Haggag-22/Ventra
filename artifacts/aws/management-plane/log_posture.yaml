@@ -30,4 +30,5 @@ sources:
 - type: log_posture
   format: json
 severity: extended
+implicit: true
 estimated_volume: medium
