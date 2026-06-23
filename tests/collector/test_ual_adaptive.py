@@ -19,11 +19,12 @@ def test_adaptive_splits_dense_window() -> None:
             return [{"i": i} for i in range(4600)]
         return [{"i": i} for i in range(10)]
 
-    records, warnings = collect_adaptive(
+    count, warnings = collect_adaptive(
         start, end, search_window=search_window, target_events_per_window=3000, max_records=50_000
     )
-    assert len(records) > 0
+    assert count > 0
     assert len(calls) > 1
+    assert not warnings
 
 
 def test_adaptive_reports_global_cap() -> None:
@@ -33,8 +34,8 @@ def test_adaptive_reports_global_cap() -> None:
     def search_window(_s: datetime, _e: datetime) -> list[dict]:
         return [{"n": 1}] * 100
 
-    records, warnings = collect_adaptive(
+    count, warnings = collect_adaptive(
         start, end, search_window=search_window, target_events_per_window=3000, max_records=50
     )
-    assert len(records) == 50
+    assert count == 50
     assert any("global cap" in w for w in warnings)

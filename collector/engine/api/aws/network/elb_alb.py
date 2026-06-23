@@ -83,13 +83,20 @@ class ElbAlbCollector(Collector):
                 )
             )
 
-        records: list[dict] = []
+        cap = self.max_records(200_000)
         per_lb: list[dict] = []
-        for lb in logging_on:
-            self._log(f"Reading access logs for {lb['name']} ({lb['bucket']})…")
-            recs, stats = self._read_lb_logs(cf, lb, start, end, gaps)
-            records.extend(recs)
-            per_lb.append({**lb, "records": len(recs), "objects_read": stats["objects_read"]})
+        record_count = 0
+        event_files: list = []
+        with self.open_jsonl("events.jsonl.gz") as writer:
+            for lb in logging_on:
+                self._log(f"Reading access logs for {lb['name']} ({lb['bucket']})…")
+                _, stats = self._read_lb_logs(cf, lb, start, end, gaps, writer=writer, max_records=cap)
+                per_lb.append(
+                    {**lb, "records": int(stats.get("records") or 0), "objects_read": stats["objects_read"]}
+                )
+            record_count = writer.count
+            if writer.count:
+                event_files.append(writer.finalize())
 
         config = {
             "load_balancers": lbs,
@@ -98,20 +105,18 @@ class ElbAlbCollector(Collector):
             "collection": per_lb,
             "window": window.to_manifest(),
         }
-        files = [self.write_json(config, "config.json")]
-        if records:
-            files.append(self.write_jsonl(records, "events.jsonl.gz"))
+        files = [self.write_json(config, "config.json"), *event_files]
         self.write_meta(
             {
                 "source": self.name,
-                "records": len(records),
+                "records": record_count,
                 "load_balancers": len(lbs),
                 "logging_enabled": len(logging_on),
                 "window": window.to_manifest(),
             }
         )
 
-        if records:
+        if record_count:
             status = SourceStatus.PARTIAL if gaps else SourceStatus.COLLECTED
         elif logging_on:
             status = SourceStatus.PARTIAL if gaps else SourceStatus.EMPTY
@@ -124,9 +129,9 @@ class ElbAlbCollector(Collector):
             name=self.name,
             status=status,
             files=files,
-            record_count=len(records),
+            record_count=record_count,
             gaps=gaps,
-            notes=f"{len(records)} access-log lines from "
+            notes=f"{record_count} access-log lines from "
             f"{len(logging_on)}/{len(lbs)} load balancer(s) with logging enabled.",
         )
 
@@ -197,7 +202,7 @@ class ElbAlbCollector(Collector):
             return {}
 
     def _read_lb_logs(
-        self, cf, lb: dict[str, Any], start: datetime, end: datetime, gaps
+        self, cf, lb: dict[str, Any], start: datetime, end: datetime, gaps, *, writer=None, max_records=200_000
     ) -> tuple[list[dict], dict]:
         bucket = lb["bucket"]
         prefix = (lb["prefix"] or "").strip("/")
@@ -229,4 +234,6 @@ class ElbAlbCollector(Collector):
             line_to_record,
             gaps,
             "elb_alb",
+            max_records=max_records,
+            writer=writer,
         )

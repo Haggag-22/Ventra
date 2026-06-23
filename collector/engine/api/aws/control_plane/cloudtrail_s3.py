@@ -12,33 +12,34 @@ import io
 import json
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from collector.lib.limits import (
+    DEFAULT_MAX_LOG_OBJECTS,
+    DEFAULT_MAX_RECORDS,
+    records_unlimited,
+    resolve_max_objects,
+)
 from collector.lib.models import GapReason
 from collector.clouds.aws.client_factory import AccessDenied
 
-# Keep CloudShell runs bounded.
-MAX_LOG_OBJECTS = 2000
-MAX_CATEGORY_RECORDS = 200_000
+if TYPE_CHECKING:
+    from collector.lib.base import JsonlWriter
+
+MAX_LOG_OBJECTS = DEFAULT_MAX_LOG_OBJECTS
+MAX_CATEGORY_RECORDS = DEFAULT_MAX_RECORDS
 
 DATA_CATEGORIES = frozenset({"Data"})
 NETWORK_CATEGORIES = frozenset({"NetworkActivity"})
 INSIGHT_CATEGORIES = frozenset({"Insight"})
 MANAGEMENT_CATEGORIES = frozenset({"Management"})
 
-# CloudTrail delivers each event category to its own folder under AWSLogs/<account>/
-# (see "Finding your CloudTrail log files" in the CloudTrail user guide):
-#   management + data   -> CloudTrail/
-#   insights            -> CloudTrail-Insight/
-#   network activity    -> CloudTrail-NetworkActivity/
 CATEGORY_SUBFOLDERS: dict[frozenset[str], str] = {
     MANAGEMENT_CATEGORIES: "CloudTrail",
     DATA_CATEGORIES: "CloudTrail",
     INSIGHT_CATEGORIES: "CloudTrail-Insight",
     NETWORK_CATEGORIES: "CloudTrail-NetworkActivity",
 }
-# The shared folder also contains management events, so records scanned there must be
-# strictly category-filtered; dedicated folders contain only their own category.
 SHARED_SUBFOLDER = "CloudTrail"
 
 
@@ -52,11 +53,6 @@ def trail_s3_prefix(trail: dict[str, Any]) -> str | None:
 
 
 def trail_log_base(trail: dict[str, Any]) -> str | None:
-    """The key prefix under which AWSLogs/ lives.
-
-    CloudTrail always delivers to ``<custom prefix>/AWSLogs/...`` — a custom S3KeyPrefix is
-    *prepended* to AWSLogs/, it does not replace it.
-    """
     prefix = trail_s3_prefix(trail)
     if prefix is None:
         return None
@@ -94,13 +90,6 @@ def network_activity_configured(trail: dict[str, Any]) -> bool:
 
 
 def management_events_configured(trail: dict[str, Any]) -> bool:
-    """True if the trail delivers management events.
-
-    Management events are logged by default; only an explicit selector turns them off. With
-    classic selectors, any selector that includes management events counts. With advanced
-    selectors, a ``eventCategory == Management`` field selector counts. When no selector data
-    is available (a default trail, or selectors we could not fetch), assume the default — ON.
-    """
     es = trail.get("EventSelectors") or {}
     classic = es.get("EventSelectors")
     advanced = es.get("AdvancedEventSelectors")
@@ -124,7 +113,6 @@ def insight_events_configured(trail: dict[str, Any]) -> bool:
 
 
 def lookup_event_category(ev: dict[str, Any]) -> str:
-    """Return CloudTrail eventCategory from a LookupEvents record."""
     inner = ev.get("CloudTrailEvent")
     if isinstance(inner, str):
         try:
@@ -162,7 +150,6 @@ def merge_dedupe(*groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def coverage_summary(trails: list[dict[str, Any]]) -> dict[str, Any]:
-    """Summarize which optional event categories are configured on any trail."""
     return {
         "data_events_configured": any(data_events_configured(t) for t in trails),
         "network_activity_configured": any(network_activity_configured(t) for t in trails),
@@ -182,10 +169,6 @@ def _iter_days(start: datetime, end: datetime):
 def _day_prefixes(
     account_base: str, subfolder: str, region: str, start: datetime, end: datetime
 ) -> list[str]:
-    """Daily key prefixes, e.g. ``AWSLogs/<acct>/CloudTrail/<region>/2026/06/11/``.
-
-    ``account_base`` already ends with ``<account id>/`` (and includes the org id for
-    organization trails)."""
     return [
         f"{account_base}{subfolder}/{region}/{d.year:04d}/{d.month:02d}/{d.day:02d}/"
         for d in _iter_days(start, end)
@@ -193,12 +176,6 @@ def _day_prefixes(
 
 
 def _account_base(cf, trail: dict[str, Any], account_id: str, home: str) -> str | None:
-    """Resolve the per-account key base, handling organization trails.
-
-    Organization trails deliver to ``AWSLogs/<org id>/<account id>/...``. The trail config
-    does not carry the org id, so discover it by listing the AWSLogs/ folder for an ``o-*``
-    common prefix; fall back to the plain layout when nothing is found or listing is denied.
-    """
     base = trail_log_base(trail)
     bucket = trail.get("S3BucketName")
     if not base or not bucket:
@@ -212,7 +189,7 @@ def _account_base(cf, trail: dict[str, Any], account_id: str, home: str) -> str 
                 folder = cp.get("Prefix", "")[len(base):].strip("/")
                 if folder.startswith("o-"):
                     return f"{base}{folder}/{account_id}/"
-        except Exception:  # noqa: BLE001 - fall back to non-org layout
+        except Exception:  # noqa: BLE001
             pass
     return f"{base}{account_id}/"
 
@@ -232,6 +209,10 @@ def _in_window(ts: datetime | None, start: datetime, end: datetime) -> bool:
     return ts is not None and start <= ts <= end
 
 
+def _written_count(writer: JsonlWriter | None, records: list[dict[str, Any]]) -> int:
+    return writer.count if writer is not None else len(records)
+
+
 def collect_s3_trail_records(
     cf,
     trail: dict[str, Any],
@@ -244,9 +225,13 @@ def collect_s3_trail_records(
     *,
     log: Callable[[str], None] | None = None,
     max_records: int = MAX_CATEGORY_RECORDS,
+    max_objects: int | None = None,
+    writer: JsonlWriter | None = None,
+    seen_event_ids: set[str] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Pull records for ``categories`` from the trail's S3 log files in the time window."""
     subfolder = CATEGORY_SUBFOLDERS.get(categories, SHARED_SUBFOLDER)
+    obj_cap = resolve_max_objects(max_records, max_objects)
     stats: dict[str, Any] = {
         "objects_scanned": 0,
         "objects_read": 0,
@@ -264,12 +249,12 @@ def collect_s3_trail_records(
 
     s3 = cf.client("s3", home)
     trail_regions = regions if trail.get("IsMultiRegionTrail") else [home]
+    seen = seen_event_ids if seen_event_ids is not None else set()
 
     try:
         for region in trail_regions:
             for prefix in _day_prefixes(account_base, subfolder, region, start, end):
-                if stats["objects_scanned"] >= MAX_LOG_OBJECTS:
-                    stats["truncated"] = True
+                if stats["truncated"]:
                     break
                 try:
                     for obj in cf.paginate(
@@ -281,7 +266,7 @@ def collect_s3_trail_records(
                         Prefix=prefix,
                     ):
                         stats["objects_scanned"] += 1
-                        if stats["objects_scanned"] > MAX_LOG_OBJECTS:
+                        if stats["objects_scanned"] > obj_cap:
                             stats["truncated"] = True
                             break
                         key = obj.get("Key", "")
@@ -292,14 +277,10 @@ def collect_s3_trail_records(
                         with gzip.GzipFile(fileobj=io.BytesIO(body)) as gz:
                             payload = json.loads(gz.read().decode("utf-8"))
                         for rec in payload.get("Records") or []:
-                            if len(records) >= max_records:
+                            if not records_unlimited(max_records) and _written_count(writer, records) >= max_records:
                                 stats["truncated"] = True
                                 break
                             cat = rec.get("eventCategory") or ""
-                            # The shared CloudTrail/ folder mixes management and data
-                            # events, so filter strictly there. Dedicated folders only
-                            # ever contain their own category — keep records even when
-                            # eventCategory is absent from the payload.
                             if cat:
                                 if cat not in categories:
                                     continue
@@ -309,11 +290,19 @@ def collect_s3_trail_records(
                             if not _in_window(ts, start, end):
                                 continue
                             out = dict(rec)
+                            eid = event_id(out)
+                            if eid and eid in seen:
+                                continue
+                            if eid:
+                                seen.add(eid)
                             out["_ventra_region"] = out.get("awsRegion") or region
                             out["_ventra_log_key"] = key
                             out["_ventra_s3_bucket"] = bucket
                             out["_ventra_collect_source"] = "s3_logs"
-                            records.append(out)
+                            if writer is not None:
+                                writer.write_record(out)
+                            else:
+                                records.append(out)
                             stats["records"] += 1
                         if stats["truncated"]:
                             break
@@ -332,6 +321,16 @@ def collect_s3_trail_records(
     except AccessDenied as exc:
         gaps.append(
             ("cloudtrail_s3", GapReason.ACCESS_DENIED, f"{bucket}: {exc.message}")
+        )
+
+    if stats["truncated"] and not records_unlimited(max_records):
+        gaps.append(
+            (
+                "cloudtrail_s3",
+                GapReason.COLLECTOR_ERROR,
+                f"{bucket}: truncated at {obj_cap} objects / {max_records} records; "
+                "narrow the window (--since/--until) or use enterprise profile.",
+            )
         )
 
     if log and stats["records"]:

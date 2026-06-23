@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from collector.lib.limits import records_unlimited
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 from ..common import window_bounds
@@ -98,50 +99,57 @@ def collect_log_analytics(collector) -> SourceResult:
             )
         )
 
-    records: list[dict[str, Any]] = []
+    record_count = 0
     per_workspace: list[dict[str, Any]] = []
     truncated = False
+    files = []
 
-    for workspace_id, categories in sorted(workspaces.items()):
-        if len(records) >= cap:
-            truncated = True
-            break
-        remaining = cap - len(records)
-        query = _kql(sorted(categories), start, end, limit=remaining)
-        try:
-            rows = cf.log_analytics_query(workspace_id, query, max_records=remaining)
-        except AzureAccessDenied as exc:
-            gaps.append(
-                (name, GapReason.ACCESS_DENIED, f"{workspace_id}: {exc.message} {PERMISSION_NOTE}")
+    with collector.open_jsonl("events.jsonl.gz") as writer:
+        for workspace_id, categories in sorted(workspaces.items()):
+            if not records_unlimited(cap) and record_count >= cap:
+                truncated = True
+                break
+            remaining = cap - record_count if not records_unlimited(cap) else cap
+            query = _kql(sorted(categories), start, end, limit=remaining)
+            before = record_count
+            try:
+                for row in cf.log_analytics_query(workspace_id, query, max_records=remaining):
+                    writer.write_record(_tag_record(row, workspace_id=workspace_id))
+                    record_count += 1
+                    if not records_unlimited(cap) and record_count >= cap:
+                        truncated = True
+                        break
+            except AzureAccessDenied as exc:
+                gaps.append(
+                    (name, GapReason.ACCESS_DENIED, f"{workspace_id}: {exc.message} {PERMISSION_NOTE}")
+                )
+                record_count = before
+                continue
+            except AzureServiceNotEnabled as exc:
+                gaps.append((name, GapReason.NOT_PRESENT, f"{workspace_id}: {exc.message}"))
+                record_count = before
+                continue
+            per_workspace.append(
+                {
+                    "workspace_id": workspace_id,
+                    "records": record_count - before,
+                    "categories": sorted(categories),
+                }
             )
-            continue
-        except AzureServiceNotEnabled as exc:
-            gaps.append((name, GapReason.NOT_PRESENT, f"{workspace_id}: {exc.message}"))
-            continue
-        tagged = [_tag_record(r, workspace_id=workspace_id) for r in rows]
-        records.extend(tagged)
-        per_workspace.append(
-            {"workspace_id": workspace_id, "records": len(tagged), "categories": sorted(categories)}
-        )
-        if len(records) >= cap:
-            truncated = True
+        if writer.count:
+            files.append(writer.finalize())
 
     if truncated:
-        gaps.append(
-            (
-                name,
-                GapReason.COLLECTOR_ERROR,
-                f"Truncated at {cap:,} Log Analytics records — narrow --since/--until.",
-            )
+        collector.append_truncation_gap(
+            gaps,
+            name,
+            cap,
+            f"Truncated at {cap:,} Log Analytics records — narrow --since/--until.",
         )
-
-    files = []
-    if records:
-        files.append(collector.write_jsonl(records, "events.jsonl.gz"))
     collector.write_meta(
         {
             "source": name,
-            "records": len(records),
+            "records": record_count,
             "workspaces_queried": len(per_workspace),
             "la_routed_resources": la_only_hits,
             "window": collector.ctx.time_window.to_manifest(),
@@ -151,16 +159,16 @@ def collect_log_analytics(collector) -> SourceResult:
     )
 
     status = SourceStatus.EMPTY
-    if records:
+    if record_count:
         status = SourceStatus.PARTIAL if gaps else SourceStatus.COLLECTED
     return SourceResult(
         name=name,
         status=status,
         files=files,
-        record_count=len(records),
+        record_count=record_count,
         gaps=gaps,
         notes=(
-            f"{len(records)} Log Analytics record(s) from {len(per_workspace)} workspace(s) "
+            f"{record_count} Log Analytics record(s) from {len(per_workspace)} workspace(s) "
             f"({DEFAULT_WINDOW_DAYS}d default window)."
         ),
     )

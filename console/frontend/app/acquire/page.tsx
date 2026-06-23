@@ -7,6 +7,11 @@ import { CloudProviderIcon } from "@/components/cloud-provider-icon";
 import { Button, Card, EmptyState, Input, LoadingPanel } from "@/components/ui";
 import { saveKitHandoff, type KitHandoffRecord } from "@/lib/acquire-handoff";
 import {
+  buildTransportSpec,
+  HANDOFF_MODES,
+  type HandoffMode,
+} from "@/lib/handoff-modes";
+import {
   missingRequiredParams,
   paramHint,
   paramKeys,
@@ -18,6 +23,7 @@ import { displayArtifactLabel } from "@/lib/artifact-icons";
 import { CLOUDS, CLOUD_LABELS, type Cloud } from "@/lib/catalog";
 import {
   DEPLOYMENT_PROFILES,
+  isEnterpriseProfile,
   parseDeploymentProfile,
   type DeploymentProfile,
 } from "@/lib/deployment-profiles";
@@ -83,6 +89,7 @@ function buildRequestBody(
   artifactParams: Record<string, Record<string, string>>,
   cartForCloud: Artifact[],
   deploymentProfile: DeploymentProfile,
+  transport?: string,
 ): AcquisitionBuild {
   const regionList = regions
     .split(",")
@@ -109,6 +116,7 @@ function buildRequestBody(
     subscription: cloud === "azure" ? subscription.trim() || undefined : undefined,
     artifact_parameters: Object.keys(params).length ? params : undefined,
     deployment_profile: deploymentProfile,
+    transport: transport?.trim() || undefined,
     bundle_wheel: true,
     require_wheel: true,
   };
@@ -142,6 +150,10 @@ function AcquireContent() {
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [includeIam, setIncludeIam] = useState(true);
   const [deploymentProfile, setDeploymentProfile] = useState<DeploymentProfile>("cloudshell");
+  const [handoffMode, setHandoffMode] = useState<HandoffMode>("file");
+  const [s3Bucket, setS3Bucket] = useState("");
+  const [s3Prefix, setS3Prefix] = useState("cases");
+  const [presignedUrl, setPresignedUrl] = useState("");
   const [building, setBuilding] = useState(false);
   const [error, setError] = useState("");
   const [iamPreview, setIamPreview] = useState<Awaited<ReturnType<typeof previewAcquisitionKit>> | null>(
@@ -203,6 +215,11 @@ function AcquireContent() {
 
   const collectors = useMemo(() => cartForCloud.map((a) => a.collector), [cartForCloud]);
 
+  const transportSpec = useMemo(() => {
+    if (!isEnterpriseProfile(deploymentProfile)) return "";
+    return buildTransportSpec(handoffMode, s3Bucket, s3Prefix, presignedUrl);
+  }, [deploymentProfile, handoffMode, s3Bucket, s3Prefix, presignedUrl]);
+
   const requestBody = useMemo(
     () =>
       buildRequestBody(
@@ -218,6 +235,7 @@ function AcquireContent() {
         artifactParams,
         cartForCloud,
         deploymentProfile,
+        isEnterpriseProfile(deploymentProfile) ? transportSpec : undefined,
       ),
     [
       cloud,
@@ -232,6 +250,7 @@ function AcquireContent() {
       artifactParams,
       cartForCloud,
       deploymentProfile,
+      transportSpec,
     ],
   );
 
@@ -296,6 +315,16 @@ function AcquireContent() {
       setExpanded((prev) => new Set([...prev, ...validation.errors.map((e) => e.collector)]));
       return;
     }
+    if (isEnterpriseProfile(deploymentProfile)) {
+      if (handoffMode === "s3_ir_bucket" && !s3Bucket.trim()) {
+        setError("IR bucket handoff needs your evidence bucket name.");
+        return;
+      }
+      if (handoffMode === "presigned" && !presignedUrl.trim()) {
+        setError("Presigned handoff needs a PUT URL for the client kit.");
+        return;
+      }
+    }
     setBuilding(true);
     setError("");
     try {
@@ -308,6 +337,8 @@ function AcquireContent() {
         builtAt: new Date().toISOString(),
         ventraVersion: iamPreview?.ventra_version,
         includeIam,
+        handoffMode: isEnterpriseProfile(deploymentProfile) ? handoffMode : "file",
+        transport: transportSpec || undefined,
       };
       saveKitHandoff(record);
       setHandoff(record);
@@ -323,6 +354,11 @@ function AcquireContent() {
     setHandoffOpen(false);
     router.push(`${CASES_HREF}?import_case=${encodeURIComponent(handoff?.caseId || caseId.trim() || "CASE-PENDING")}`);
   }, [router, handoff?.caseId, caseId]);
+
+  const openImportS3 = useCallback(() => {
+    setHandoffOpen(false);
+    router.push(`${CASES_HREF}?import_s3=1`);
+  }, [router]);
 
   const tabs = CLOUDS.map((c) => ({ id: c, label: CLOUD_LABELS[c] }));
 
@@ -640,6 +676,95 @@ function AcquireContent() {
                 </div>
               </div>
 
+              {isEnterpriseProfile(deploymentProfile) && (
+                <div className="space-y-3 border-t border-border pt-3">
+                  <p className="text-2xs font-medium uppercase tracking-wide text-fg-subtle">
+                    Evidence handoff
+                  </p>
+                  <div className="space-y-2">
+                    {HANDOFF_MODES.map((mode) => (
+                      <label
+                        key={mode.id}
+                        className={cn(
+                          "flex cursor-pointer gap-2 rounded-md border px-2.5 py-2 text-xs transition-colors",
+                          handoffMode === mode.id
+                            ? "border-accent/50 bg-accent/5"
+                            : "border-border hover:border-accent/30",
+                        )}
+                      >
+                        <input
+                          type="radio"
+                          name="handoff_mode"
+                          checked={handoffMode === mode.id}
+                          onChange={() => setHandoffMode(mode.id)}
+                          className="mt-0.5"
+                        />
+                        <span>
+                          <span className="font-medium text-fg">{mode.label}</span>
+                          <span className="mt-0.5 block text-2xs text-fg-subtle">{mode.summary}</span>
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+
+                  {handoffMode === "s3_ir_bucket" && (
+                    <>
+                      <p className="text-2xs text-fg-subtle">
+                        Your Ventra server must be able to read this bucket (Import from S3 uses
+                        server-side AWS credentials, not the client browser).
+                      </p>
+                      <label className="block space-y-1">
+                        <span className="text-2xs text-fg-subtle">Your IR bucket</span>
+                        <Input
+                          value={s3Bucket}
+                          onChange={(e) => setS3Bucket(e.target.value)}
+                          placeholder="ir-evidence-bucket"
+                          className="mono text-xs"
+                        />
+                      </label>
+                      <label className="block space-y-1">
+                        <span className="text-2xs text-fg-subtle">Prefix</span>
+                        <Input
+                          value={s3Prefix}
+                          onChange={(e) => setS3Prefix(e.target.value)}
+                          placeholder="cases"
+                          className="mono text-xs"
+                        />
+                      </label>
+                    </>
+                  )}
+
+                  {handoffMode === "presigned" && (
+                    <>
+                      <p className="text-2xs text-fg-subtle">
+                        Generate a presigned PUT URL in your IR bucket, paste it here, and send
+                        the kit to the client. After upload, ingest from your bucket.
+                      </p>
+                      <label className="block space-y-1">
+                        <span className="text-2xs text-fg-subtle">Presigned PUT URL</span>
+                        <Input
+                          value={presignedUrl}
+                          onChange={(e) => setPresignedUrl(e.target.value)}
+                          placeholder="https://bucket.s3.amazonaws.com/key?X-Amz-..."
+                          className="mono text-xs"
+                        />
+                      </label>
+                    </>
+                  )}
+
+                  {handoffMode === "file" && (
+                    <p className="text-2xs text-fg-subtle">
+                      No automatic upload — client returns the sealed package and you use Import
+                      package on Cases.
+                    </p>
+                  )}
+
+                  {transportSpec && (
+                    <p className="mono text-2xs text-accent">{transportSpec}</p>
+                  )}
+                </div>
+              )}
+
               <div className="space-y-3 border-t border-border pt-3">
                 <p className="text-2xs font-medium uppercase tracking-wide text-fg-subtle">
                   Global collection window
@@ -789,6 +914,7 @@ function AcquireContent() {
         handoff={handoff}
         onClose={() => setHandoffOpen(false)}
         onImport={openImport}
+        onImportS3={openImportS3}
       />
     </div>
   );

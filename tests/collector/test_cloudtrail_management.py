@@ -127,9 +127,10 @@ def test_collects_from_trails_when_s3_readable(tmp_path: Path) -> None:
     assert collection["mode"] == "trails"
     assert collection["trails_collected"] == 1
     assert collection["buckets"] == ["trail-bucket"]
-    assert [r["eventID"] for r in records] == ["m1"]
-    assert records[0]["_ventra_collect_source"] == "s3_logs"
+    assert collection["records"] == 1
+    assert records == []
     assert lookup_insight == []
+    assert len(collection.get("s3_files") or []) == 1
     assert collection["trails"][0]["status"] == "collected"
 
 
@@ -161,7 +162,10 @@ def test_uses_event_history_when_no_trails_found(tmp_path: Path) -> None:
     assert collection["mode"] == "event_history"
     assert collection["fallback_reason"] == "no_trails"
     assert collection["trails_total"] == 0
-    assert len(records) == 2
+    assert collection["records"] == 2
+    assert records == []
+    assert len(collection.get("lookup_files") or []) == 1
+    assert collection["lookup_files"][0].record_count == 2
 
 
 def test_does_not_use_event_history_when_trail_not_logging_to_s3(tmp_path: Path) -> None:

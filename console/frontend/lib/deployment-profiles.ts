@@ -1,4 +1,4 @@
-export type DeploymentProfile = "cloudshell" | "workstation" | "ec2";
+export type DeploymentProfile = "cloudshell" | "workstation" | "ec2" | "enterprise";
 
 export type DeploymentProfileInfo = {
   id: DeploymentProfile;
@@ -22,6 +22,11 @@ export const DEPLOYMENT_PROFILES: DeploymentProfileInfo[] = [
     label: "EC2 / VM",
     summary: "Dedicated VM in the client account for large pulls",
   },
+  {
+    id: "enterprise",
+    label: "Enterprise",
+    summary: "Complete collection in your time window, no record cap, S3 handoff",
+  },
 ];
 
 export function deploymentProfileLabel(id: string): string {
@@ -31,4 +36,8 @@ export function deploymentProfileLabel(id: string): string {
 export function parseDeploymentProfile(raw: string | null | undefined): DeploymentProfile {
   const v = (raw || "cloudshell").toLowerCase();
   return DEPLOYMENT_PROFILES.some((p) => p.id === v) ? (v as DeploymentProfile) : "cloudshell";
+}
+
+export function isEnterpriseProfile(id: string): boolean {
+  return id === "enterprise";
 }

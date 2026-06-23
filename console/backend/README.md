@@ -19,6 +19,7 @@ parameterized path (`app/store.py`). RBAC is enforced here, server-side.
 | GET | `/api/cases/{id}/resources` | EC2 / S3 inventory |
 | GET | `/api/cases/{id}/inventory/{source}` | Raw inventory snapshot |
 | POST | `/api/cases/import` | Ingest an uploaded package (RBAC: `import_case`) |
+| POST | `/api/cases/{id}/export/elastic` | Export NDJSON zip for Elastic/Logstash (RBAC: `export_report`) |
 
 ## Configuration (env)
 

@@ -10,7 +10,7 @@ import re
 from pathlib import Path
 from typing import Any
 
-from fastapi import Depends, FastAPI, Form, HTTPException, Query, UploadFile
+from fastapi import BackgroundTasks, Depends, FastAPI, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from pydantic import BaseModel
@@ -37,10 +37,18 @@ class AcquisitionBuildRequest(BaseModel):
     max_records_per_source: int | None = None
     artifact_parameters: dict[str, dict[str, Any]] = {}
     deployment_profile: str = "cloudshell"
+    transport: str = ""
 
 
 class AcquisitionPreviewRequest(AcquisitionBuildRequest):
     """Same shape as build — used for IAM / metadata preview only."""
+
+
+class S3ImportRequest(BaseModel):
+    s3_prefix: str = ""
+
+
+_ALLOWED_PROFILES = frozenset({"cloudshell", "workstation", "ec2", "enterprise"})
 
 
 app = FastAPI(
@@ -73,7 +81,12 @@ def health() -> dict[str, Any]:
 
 @app.get("/api/me")
 def me(role: Role = Depends(current_role)) -> dict[str, Any]:
-    return {"role": role.value}
+    from .rbac import CAPABILITIES
+
+    return {
+        "role": role.value,
+        "capabilities": sorted(cap for cap, roles in CAPABILITIES.items() if role in roles),
+    }
 
 
 # -- cases -------------------------------------------------------------------------------
@@ -445,7 +458,7 @@ def preview_acquisition(
 
     cloud, names, iam_paths = _resolve_acquisition_request(body)
     profile = body.deployment_profile.strip().lower() or "cloudshell"
-    if profile not in ("cloudshell", "workstation", "ec2"):
+    if profile not in _ALLOWED_PROFILES:
         raise HTTPException(status_code=400, detail=f"Unknown deployment profile: {body.deployment_profile!r}")
     try:
         preview = preview_kit(
@@ -476,7 +489,7 @@ def build_acquisition(
     cloud, names, iam_paths = _resolve_acquisition_request(body)
     case_id = _normalize_case_id(body.case_id) or "CASE-PENDING"
     profile = body.deployment_profile.strip().lower() or "cloudshell"
-    if profile not in ("cloudshell", "workstation", "ec2"):
+    if profile not in _ALLOWED_PROFILES:
         raise HTTPException(status_code=400, detail=f"Unknown deployment profile: {body.deployment_profile!r}")
 
     with tempfile.TemporaryDirectory(prefix="ventra-kit-") as tmp:
@@ -496,6 +509,7 @@ def build_acquisition(
                 subscription=body.subscription.strip(),
                 max_records_per_source=body.max_records_per_source,
                 artifact_parameters=body.artifact_parameters or None,
+                transport=body.transport.strip(),
                 bundle_wheel=True,
                 require_wheel=True,
                 deployment_profile=profile,
@@ -542,6 +556,86 @@ async def import_case(
         "inventory_loaded": result.inventory_loaded,
         "warnings": result.warnings,
     }
+
+
+@app.get("/api/enterprise/settings")
+def enterprise_settings(_: Role = Depends(_check("import_case"))) -> dict[str, Any]:
+    return {
+        "ingest_s3_prefix": settings.ingest_s3_prefix,
+        "max_upload_mb": settings.max_upload_mb,
+    }
+
+
+@app.post("/api/cases/import/s3")
+def import_cases_from_s3(
+    body: S3ImportRequest,
+    _: Role = Depends(_check("import_case")),
+) -> dict[str, Any]:
+    from ventra_ingester.ingest_watch import poll_s3_once
+
+    prefix = (body.s3_prefix or settings.ingest_s3_prefix).strip()
+    if not prefix:
+        raise HTTPException(
+            status_code=400,
+            detail="Set VENTRA_INGEST_S3_PREFIX on the backend or provide s3_prefix in the request.",
+        )
+    try:
+        result = poll_s3_once(
+            prefix,
+            settings.case_store,
+            download_dir=settings.ingest_download_dir,
+            state_file=settings.ingest_state_file,
+        )
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    return {
+        "ingested": [
+            {
+                "case_id": item.case_id,
+                "events": item.event_count,
+                "integrity": item.integrity,
+                "s3_key": item.s3_key,
+                "warnings": item.warnings,
+            }
+            for item in result.ingested
+        ],
+        "skipped": result.skipped,
+        "errors": result.errors,
+    }
+
+
+@app.post("/api/cases/{case_id}/export/elastic")
+def export_case_elastic(
+    case_id: str,
+    background_tasks: BackgroundTasks,
+    _: Role = Depends(_check("export_report")),
+) -> FileResponse:
+    """Export ingested case events as an NDJSON zip for Logstash pickup."""
+    import shutil
+    import tempfile
+    import zipfile
+
+    from ventra_ingester.exporters.elastic_ndjson import export_elastic_ndjson
+
+    case_dir = store.case_dir(case_id)
+    tmp = Path(tempfile.mkdtemp(prefix="ventra-export-"))
+    try:
+        out_dir = tmp / "export"
+        export_elastic_ndjson(case_dir, out_dir)
+        zip_path = tmp / f"{case_id}-elastic-export.zip"
+        with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
+            for path in sorted(out_dir.rglob("*")):
+                if path.is_file():
+                    zf.write(path, arcname=path.relative_to(out_dir).as_posix())
+    except Exception as exc:  # noqa: BLE001
+        shutil.rmtree(tmp, ignore_errors=True)
+        raise HTTPException(status_code=400, detail=f"Export failed: {exc}") from exc
+    background_tasks.add_task(shutil.rmtree, tmp, True)
+    return FileResponse(
+        zip_path,
+        media_type="application/zip",
+        filename=f"{case_id}-elastic-export.zip",
+    )
 
 
 # -- delete (RBAC: delete_case — Data Custodian only) ------------------------------------

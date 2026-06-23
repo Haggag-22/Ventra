@@ -4,6 +4,7 @@ import { useCase } from "@/components/case-context";
 import { PanelBody, PanelHeader } from "@/components/panel";
 import { Button, Card, LoadingPanel } from "@/components/ui";
 import { clearKitHandoff, getKitHandoff } from "@/lib/acquire-handoff";
+import { handoffModeLabel, parseHandoffMode } from "@/lib/handoff-modes";
 import { api } from "@/lib/api";
 import { displayArtifactLabel } from "@/lib/artifact-icons";
 import { CLOUD_IMPLEMENTED, type Cloud } from "@/lib/catalog";
@@ -17,7 +18,7 @@ import {
   resolveCollectorCoverage,
   type CoverageState,
 } from "@/lib/collection-coverage";
-import { deploymentProfileLabel } from "@/lib/deployment-profiles";
+import { deploymentProfileLabel, isEnterpriseProfile } from "@/lib/deployment-profiles";
 import { fmtNum } from "@/lib/format";
 import { acquireHref, CASES_HREF } from "@/lib/routes";
 import { cn } from "@/lib/utils";
@@ -32,6 +33,7 @@ import {
   Square,
   Upload,
   XSquare,
+  CloudDownload,
 } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
@@ -123,10 +125,23 @@ export default function CollectionPage() {
                 <p className="text-fg-subtle">
                   Built{" "}
                   <span className="mono">{new Date(pendingKit.builtAt).toLocaleString()}</span> ·{" "}
-                  {deploymentProfileLabel(pendingKit.deploymentProfile)} ·{" "}
-                  {pendingKit.collectors.length} expected artifact
+                  {deploymentProfileLabel(pendingKit.deploymentProfile)}
+                  {isEnterpriseProfile(pendingKit.deploymentProfile) && (
+                    <> · {handoffModeLabel(parseHandoffMode(pendingKit.handoffMode))}</>
+                  )}{" "}
+                  · {pendingKit.collectors.length} expected artifact
                   {pendingKit.collectors.length === 1 ? "" : "s"}
                 </p>
+                {pendingKit.transport && (
+                  <p className="mono break-all text-2xs text-accent">{pendingKit.transport}</p>
+                )}
+                {isEnterpriseProfile(pendingKit.deploymentProfile) &&
+                  parseHandoffMode(pendingKit.handoffMode) === "s3_ir_bucket" && (
+                    <p className="text-2xs text-fg-subtle">
+                      Import from S3 reads your IR bucket using server-side AWS credentials on the
+                      Ventra host — not the client browser.
+                    </p>
+                  )}
                 <ul className="mt-2 max-h-20 space-y-0.5 overflow-auto mono text-2xs text-fg-subtle">
                   {pendingKit.collectors.map((c) => (
                     <li key={c}>{displayArtifactLabel(c)}</li>
@@ -134,11 +149,21 @@ export default function CollectionPage() {
                 </ul>
               </div>
               <div className="flex flex-wrap gap-2">
-                <Link href={`${CASES_HREF}?import_case=${encodeURIComponent(caseId)}`}>
-                  <Button variant="primary-dark" icon={Upload} className="h-8 text-xs">
-                    Import evidence
-                  </Button>
-                </Link>
+                {isEnterpriseProfile(pendingKit.deploymentProfile) &&
+                parseHandoffMode(pendingKit.handoffMode) !== "file" &&
+                pendingKit.transport ? (
+                  <Link href={`${CASES_HREF}?import_s3=1`}>
+                    <Button variant="primary-dark" icon={CloudDownload} className="h-8 text-xs">
+                      Import from S3
+                    </Button>
+                  </Link>
+                ) : (
+                  <Link href={`${CASES_HREF}?import_case=${encodeURIComponent(caseId)}`}>
+                    <Button variant="primary-dark" icon={Upload} className="h-8 text-xs">
+                      Import evidence
+                    </Button>
+                  </Link>
+                )}
                 <Button
                   variant="ghost"
                   className="h-8 text-xs"

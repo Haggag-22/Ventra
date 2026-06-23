@@ -1,12 +1,4 @@
-"""Route53 Resolver query-log collector.
-
-DNS query logs are the C2 / exfiltration lens — every name a workload resolved, from which
-ENI, with which response code. This collector discovers resolver query-log configs and their
-VPC associations, then reads the JSON query records from the configured destination:
-S3 (``AWSLogs/<acct>/vpcdnsquerylogs/<vpc>/...``) or CloudWatch Logs. Firehose destinations
-cannot be read retrospectively and are recorded as a gap. Absent configs are recorded as a
-gap — DNS logging that was never enabled is itself evidence.
-"""
+"""Route53 Resolver query-log collector."""
 
 from __future__ import annotations
 
@@ -17,12 +9,13 @@ from typing import Any
 from botocore.exceptions import ClientError
 
 from collector.lib.base import Collector
+from collector.lib.limits import DEFAULT_MAX_RECORDS
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
-from ..common.cw_logs import collect_cw_log_events
 from ..common.s3_logs import bucket_region, collect_s3_line_records, slash_day_prefixes
 
 DEFAULT_WINDOW_DAYS = 7
+MAX_RECORDS = DEFAULT_MAX_RECORDS
 
 
 class Route53ResolverCollector(Collector):
@@ -44,6 +37,7 @@ class Route53ResolverCollector(Collector):
         window = self.ctx.time_window
         start = window.since or (datetime.now(UTC) - timedelta(days=DEFAULT_WINDOW_DAYS))
         end = window.until or datetime.now(UTC)
+        cap = self.max_records(MAX_RECORDS)
 
         configs, associations = self._discover(cf, gaps)
         if not configs:
@@ -68,56 +62,60 @@ class Route53ResolverCollector(Collector):
             if cid and rid:
                 vpcs_by_config.setdefault(cid, []).append(rid)
 
-        records: list[dict] = []
         per_config: list[dict] = []
-        for config in configs:
-            dest = str(config.get("DestinationArn") or "")
-            cid = config.get("Id", "")
-            vpcs = vpcs_by_config.get(cid, [])
-            entry: dict[str, Any] = {
-                "id": cid,
-                "name": config.get("Name", ""),
-                "region": config.get("_ventra_region", ""),
-                "destination_arn": dest,
-                "vpcs": vpcs,
-                "records": 0,
-            }
-            if dest.startswith("arn:aws:s3"):
-                recs = self._from_s3(cf, dest, vpcs, start, end, gaps)
-            elif ":logs:" in dest:
-                recs = self._from_cloudwatch(cf, config, dest, start, end, gaps)
-            else:
-                gaps.append(
-                    (
-                        "route53_resolver",
-                        GapReason.OUT_OF_SCOPE,
-                        f"Config {cid} delivers to Firehose ({dest}) — streamed logs cannot "
-                        "be read retrospectively; collect from the Firehose destination.",
+        record_count = 0
+        event_files: list = []
+        with self.open_jsonl("events.jsonl.gz") as writer:
+            for config in configs:
+                dest = str(config.get("DestinationArn") or "")
+                cid = config.get("Id", "")
+                vpcs = vpcs_by_config.get(cid, [])
+                entry: dict[str, Any] = {
+                    "id": cid,
+                    "name": config.get("Name", ""),
+                    "region": config.get("_ventra_region", ""),
+                    "destination_arn": dest,
+                    "vpcs": vpcs,
+                    "records": 0,
+                }
+                before = writer.count
+                if dest.startswith("arn:aws:s3"):
+                    self._from_s3(cf, dest, vpcs, start, end, gaps, writer=writer, max_records=cap)
+                elif ":logs:" in dest:
+                    self._from_cloudwatch(
+                        cf, config, dest, start, end, gaps, writer=writer, max_records=cap
                     )
-                )
-                recs = []
-            entry["records"] = len(recs)
-            per_config.append(entry)
-            records.extend(recs)
+                else:
+                    gaps.append(
+                        (
+                            "route53_resolver",
+                            GapReason.OUT_OF_SCOPE,
+                            f"Config {cid} delivers to Firehose ({dest}) — streamed logs cannot "
+                            "be read retrospectively; collect from the Firehose destination.",
+                        )
+                    )
+                entry["records"] = writer.count - before
+                per_config.append(entry)
+            record_count = writer.count
+            if writer.count:
+                event_files.append(writer.finalize())
 
         config_doc = {
             "query_log_configs": per_config,
             "associations": associations,
             "window": window.to_manifest(),
         }
-        files = [self.write_json(config_doc, "config.json")]
-        if records:
-            files.append(self.write_jsonl(records, "events.jsonl.gz"))
+        files = [self.write_json(config_doc, "config.json"), *event_files]
         self.write_meta(
             {
                 "source": self.name,
-                "records": len(records),
+                "records": record_count,
                 "configs": len(configs),
                 "window": window.to_manifest(),
             }
         )
 
-        if records:
+        if record_count:
             status = SourceStatus.PARTIAL if gaps else SourceStatus.COLLECTED
         else:
             status = SourceStatus.PARTIAL if gaps else SourceStatus.EMPTY
@@ -133,9 +131,9 @@ class Route53ResolverCollector(Collector):
             name=self.name,
             status=status,
             files=files,
-            record_count=len(records),
+            record_count=record_count,
             gaps=gaps,
-            notes=f"{len(records)} DNS query record(s) from {len(configs)} config(s).",
+            notes=f"{record_count} DNS query record(s) from {len(configs)} config(s).",
         )
 
     def _discover(self, cf, gaps) -> tuple[list[dict], list[dict]]:
@@ -167,15 +165,22 @@ class Route53ResolverCollector(Collector):
         return configs, associations
 
     def _from_s3(
-        self, cf, dest_arn: str, vpcs: list[str], start: datetime, end: datetime, gaps
-    ) -> list[dict]:
-        # arn:aws:s3:::bucket[/prefix]
+        self,
+        cf,
+        dest_arn: str,
+        vpcs: list[str],
+        start: datetime,
+        end: datetime,
+        gaps,
+        *,
+        writer=None,
+        max_records: int = MAX_RECORDS,
+    ) -> None:
         path = dest_arn.split(":::", 1)[-1]
         bucket, _, prefix = path.partition("/")
         if prefix and not prefix.endswith("/"):
             prefix += "/"
         region = bucket_region(cf, bucket)
-        out: list[dict] = []
         for vpc in vpcs:
             base = f"{prefix}AWSLogs/{self.ctx.account_id}/vpcdnsquerylogs/{vpc}/"
 
@@ -192,7 +197,7 @@ class Route53ResolverCollector(Collector):
                 rec["_ventra_vpc_id"] = _vpc
                 return rec
 
-            recs, _ = collect_s3_line_records(
+            collect_s3_line_records(
                 cf,
                 region,
                 bucket,
@@ -200,32 +205,65 @@ class Route53ResolverCollector(Collector):
                 line_to_record,
                 gaps,
                 "route53_resolver",
+                max_records=max_records,
+                writer=writer,
             )
-            out.extend(recs)
-        return out
 
     @staticmethod
     def _from_cloudwatch(
-        cf, config: dict, dest_arn: str, start: datetime, end: datetime, gaps
-    ) -> list[dict]:
-        # arn:aws:logs:region:acct:log-group:NAME[:*]
+        cf,
+        config: dict,
+        dest_arn: str,
+        start: datetime,
+        end: datetime,
+        gaps,
+        *,
+        writer=None,
+        max_records: int = MAX_RECORDS,
+    ) -> None:
+        from collector.lib.limits import records_unlimited
+
         parts = dest_arn.split(":log-group:", 1)
         if len(parts) != 2:
-            return []
+            return
         group = parts[1].split(":")[0]
         region = config.get("_ventra_region") or dest_arn.split(":")[3]
-        events, _ = collect_cw_log_events(
-            cf, region, group, start, end, gaps, "route53_resolver"
-        )
-        out: list[dict] = []
-        for ev in events:
-            rec = _parse_json_line(ev.get("message", ""))
-            if rec is None:
-                continue
-            rec["_ventra_region"] = region
-            rec["_ventra_log_group"] = group
-            out.append(rec)
-        return out
+        count = writer.count if writer is not None else 0
+        try:
+            for ev in cf.paginate(
+                "logs",
+                region,
+                "filter_log_events",
+                "events",
+                logGroupName=group,
+                startTime=int(start.timestamp() * 1000),
+                endTime=int(end.timestamp() * 1000),
+            ):
+                if not records_unlimited(max_records) and count >= max_records:
+                    if not records_unlimited(max_records):
+                        gaps.append(
+                            (
+                                "route53_resolver",
+                                GapReason.COLLECTOR_ERROR,
+                                f"{group}: truncated at {max_records} records.",
+                            )
+                        )
+                    break
+                rec = _parse_json_line(ev.get("message", ""))
+                if rec is None:
+                    continue
+                ts = _query_time(rec)
+                if ts is not None and not (start <= ts <= end):
+                    continue
+                rec["_ventra_region"] = region
+                rec["_ventra_log_group"] = group
+                if writer is not None:
+                    writer.write_record(rec)
+                count += 1
+        except AccessDenied as exc:
+            gaps.append(("route53_resolver", GapReason.ACCESS_DENIED, f"{group}: {exc.message}"))
+        except ServiceNotEnabled:
+            pass
 
 
 def _parse_json_line(line: str) -> dict[str, Any] | None:

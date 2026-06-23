@@ -158,6 +158,24 @@ def test_build_kit_deployment_profile_ec2(tmp_path: Path) -> None:
     assert "Tradeoffs (read before you run)" in readme
 
 
+def test_build_kit_enterprise_sets_unlimited_records(tmp_path: Path) -> None:
+    out = build_kit(
+        tmp_path / "kit.zip",
+        cloud="aws",
+        case_id="CASE-ENT",
+        artifact_names=["guardduty"],
+        artifacts_root=ARTIFACTS,
+        deployment_profile="enterprise",
+        bundle_wheel=False,
+    )
+    with zipfile.ZipFile(out) as zf:
+        acq = yaml.safe_load(zf.read("acquisition.yaml"))
+        profile_txt = zf.read("deployment-profile.txt").decode()
+    assert acq["deployment_profile"] == "enterprise"
+    assert acq["max_records_per_source"] == 0
+    assert "no artificial record cap" in profile_txt.lower() or "No artificial record cap" in profile_txt
+
+
 def test_build_kit_cloudshell_tradeoffs_in_profile_txt(tmp_path: Path) -> None:
     out = build_kit(
         tmp_path / "kit.zip",

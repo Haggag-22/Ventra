@@ -3,6 +3,7 @@
 import { IntegrityBadge } from "@/components/badges";
 import { CloudProviderIcon } from "@/components/cloud-provider-icon";
 import { ImportDialog } from "@/components/import-dialog";
+import { S3ImportDialog } from "@/components/s3-import-dialog";
 import { clearKitHandoff } from "@/lib/acquire-handoff";
 import { Button, Card, EmptyState, LoadingPanel } from "@/components/ui";
 import { api, deleteCase } from "@/lib/api";
@@ -10,7 +11,7 @@ import { CASE_PLATFORM_LABELS, CASE_PLATFORMS, type CasePlatform } from "@/lib/c
 import type { CaseSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Anchor, Boxes, FolderOpen, ShieldAlert, Trash2, Upload } from "lucide-react";
+import { Anchor, Boxes, CloudDownload, FolderOpen, ShieldAlert, Trash2, Upload } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 
@@ -21,8 +22,14 @@ function readImportCaseParam(): string {
   return new URLSearchParams(window.location.search).get("import_case")?.trim() || "";
 }
 
+function readImportS3Param(): boolean {
+  if (typeof window === "undefined") return false;
+  return new URLSearchParams(window.location.search).get("import_s3") === "1";
+}
+
 export default function CasesPage() {
   const [importOpen, setImportOpen] = useState(false);
+  const [s3ImportOpen, setS3ImportOpen] = useState(false);
   const [importCaseId, setImportCaseId] = useState("");
   const [tab, setTab] = useState<Tab>("all");
   const cases = useQuery({ queryKey: ["cases"], queryFn: api.cases });
@@ -32,6 +39,9 @@ export default function CasesPage() {
     if (id) {
       setImportCaseId(id);
       setImportOpen(true);
+    }
+    if (readImportS3Param()) {
+      setS3ImportOpen(true);
     }
   }, []);
 
@@ -63,6 +73,9 @@ export default function CasesPage() {
                 Acquire
               </Button>
             </Link>
+            <Button variant="secondary" icon={CloudDownload} onClick={() => setS3ImportOpen(true)}>
+              Import from S3
+            </Button>
             <Button variant="primary-dark" icon={Upload} onClick={() => setImportOpen(true)}>
               Import package
             </Button>
@@ -172,6 +185,7 @@ export default function CasesPage() {
         defaultCaseId={importCaseId}
         onImported={(caseId) => clearKitHandoff(caseId)}
       />
+      <S3ImportDialog open={s3ImportOpen} onClose={() => setS3ImportOpen(false)} />
     </div>
   );
 }

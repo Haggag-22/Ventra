@@ -37,6 +37,7 @@ class EntraDirectoryCollector(Collector):
             "service_principals": [],
         }
 
+        cap = self.max_records(MAX_RECORDS)
         endpoints = (
             ("users", "users"),
             ("groups", "groups"),
@@ -46,7 +47,7 @@ class EntraDirectoryCollector(Collector):
         for key, path in endpoints:
             try:
                 snapshot[key] = list(
-                    cf.graph_paginate(path, params={"$top": 999}, max_records=MAX_RECORDS)
+                    cf.graph_paginate(path, params={"$top": 999}, max_records=cap)
                 )
             except AzureAccessDenied as exc:
                 gaps.append(("entra_directory", GapReason.ACCESS_DENIED, f"{path}: {exc.message}"))
