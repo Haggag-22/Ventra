@@ -35,13 +35,22 @@ class Settings:
     upload_dir: Path = Path(os.environ.get("VENTRA_UPLOAD_DIR", "./.ventra-uploads")).resolve()
     # Hard cap on an uploaded evidence package, in MB. Streamed to disk; the request is
     # rejected once the limit is exceeded so a large upload can't exhaust memory or disk.
-    max_upload_mb: int = int(os.environ.get("VENTRA_MAX_UPLOAD_MB", "4096"))
+    max_upload_mb: int = int(os.environ.get("VENTRA_MAX_UPLOAD_MB", "20480"))
     # CORS origins for the frontend dev server.
     cors_origins: list[str] = os.environ.get(
         "VENTRA_CORS", "http://localhost:3000,http://localhost:8080"
     ).split(",")
     # Telemetry is OFF and not configurable to on. Stated explicitly for auditors.
     telemetry: bool = False
+    # S3 prefix polled by Import from S3 in the console (s3://bucket/prefix/).
+    ingest_s3_prefix: str = os.environ.get("VENTRA_INGEST_S3_PREFIX", "").strip()
+    ingest_download_dir: Path = Path(
+        os.environ.get("VENTRA_INGEST_DOWNLOAD_DIR", "./.ventra-ingest-watch")
+    ).resolve()
+    _ingest_state = os.environ.get("VENTRA_INGEST_STATE_FILE", "").strip()
+    ingest_state_file: Path | None = (
+        Path(_ingest_state).resolve() if _ingest_state else None
+    )
 
 
 settings = Settings()

@@ -38,9 +38,10 @@ class ResourceGraphCollector(Collector):
                 notes="No subscriptions discovered or specified.",
             )
 
+        cap = self.max_records(MAX_RECORDS)
         try:
             resources = cf.resource_graph_query(
-                INVENTORY_QUERY.strip(), subscriptions, max_records=MAX_RECORDS
+                INVENTORY_QUERY.strip(), subscriptions, max_records=cap
             )
         except AzureAccessDenied as exc:
             return SourceResult(

@@ -10,6 +10,7 @@ from __future__ import annotations
 from typing import Any
 
 from collector.lib.base import Collector
+from collector.lib.limits import records_unlimited
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 
@@ -40,13 +41,15 @@ class DefenderCollector(Collector):
                 notes="No subscriptions discovered or specified.",
             )
 
+        cap = self.max_records(MAX_RECORDS)
         for sub in subscriptions:
             before = len(alerts)
             try:
-                for alert in cf.security_alerts(sub, max_records=MAX_RECORDS - len(alerts)):
+                remaining = cap - len(alerts) if not records_unlimited(cap) else cap
+                for alert in cf.security_alerts(sub, max_records=remaining):
                     alert["_ventra_subscription_id"] = sub
                     alerts.append(alert)
-                    if len(alerts) >= MAX_RECORDS:
+                    if not records_unlimited(cap) and len(alerts) >= cap:
                         break
             except AzureAccessDenied as exc:
                 gaps.append(("defender", GapReason.ACCESS_DENIED, f"{sub}: {exc.message}"))

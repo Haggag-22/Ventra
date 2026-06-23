@@ -2,11 +2,16 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+from collector.lib.limits import records_unlimited
 
 from .ual_common import API_CAP_PER_SEARCH_CALL
+
+if TYPE_CHECKING:
+    from collector.lib.base import JsonlWriter
 
 MIN_WINDOW = timedelta(minutes=1)
 
@@ -22,40 +27,43 @@ def collect_adaptive(
     search_window: Callable[[datetime, datetime], list[dict[str, Any]]],
     target_events_per_window: int,
     max_records: int,
-) -> tuple[list[dict[str, Any]], list[str]]:
-    """Split intervals when a window is too dense; return records + truncation warnings."""
+    writer: JsonlWriter | None = None,
+) -> tuple[int, list[str]]:
+    """Split intervals when a window is too dense; return record count + truncation warnings."""
     threshold = shrink_threshold(target_events_per_window)
     stack: list[tuple[datetime, datetime]] = [(start, end)]
-    records: list[dict[str, Any]] = []
     warnings: list[str] = []
+    count = 0
 
-    while stack and len(records) < max_records:
+    while stack and (records_unlimited(max_records) or count < max_records):
         win_start, win_end = stack.pop()
         if win_end <= win_start:
             continue
         batch = search_window(win_start, win_end)
-        count = len(batch)
+        batch_count = len(batch)
         width = win_end - win_start
 
-        if count >= threshold and width > MIN_WINDOW:
+        if batch_count >= threshold and width > MIN_WINDOW:
             mid = win_start + width / 2
             stack.append((mid, win_end))
             stack.append((win_start, mid))
             continue
 
-        if count >= API_CAP_PER_SEARCH_CALL and width <= MIN_WINDOW:
+        if batch_count >= API_CAP_PER_SEARCH_CALL and width <= MIN_WINDOW:
             warnings.append(
                 f"{win_start.isoformat()}–{win_end.isoformat()}: hit {API_CAP_PER_SEARCH_CALL}-event "
                 "API cap at minimum window — some events may be missing."
             )
 
         for rec in batch:
-            records.append(rec)
-            if len(records) >= max_records:
+            if writer is not None:
+                writer.write_record(rec)
+            count += 1
+            if not records_unlimited(max_records) and count >= max_records:
                 warnings.append(
                     f"Stopped at global cap ({max_records:,} records); narrow filters "
                     "(--ual-users, --ual-operations) or time window for full coverage."
                 )
-                return records, warnings
+                return count, warnings
 
-    return records, warnings
+    return count, warnings

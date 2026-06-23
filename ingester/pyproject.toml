@@ -24,6 +24,8 @@ dev = ["pytest>=8.0", "ruff>=0.4", "mypy>=1.10"]
 [project.scripts]
 ventra-ingest = "ventra_ingester.cli:ingest_main"
 ventra-verify = "ventra_ingester.cli:verify_main"
+ventra-ingest-watch = "ventra_ingester.ingest_watch:ingest_watch_main"
+ventra-export = "ventra_ingester.cli:export_main"
 
 [tool.setuptools.packages.find]
 where = ["."]

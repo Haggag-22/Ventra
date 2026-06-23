@@ -10,10 +10,12 @@ import abc
 import gzip
 import hashlib
 import json
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator
+from pathlib import Path
 from typing import Any
 
-from .models import CollectionContext, SourceResult, WrittenFile
+from .limits import DEFAULT_MAX_RECORDS, UNLIMITED_RECORDS, records_unlimited
+from .models import CollectionContext, GapReason, SourceResult, WrittenFile
 
 # Verbs that may never appear in a collector's declared actions. The readonly-guard CI check
 # and tools.verify_readonly both rely on this list.
@@ -64,12 +66,40 @@ READONLY_EXCEPTIONS = frozenset(
 )
 
 
-# Default per-source record cap. A collector may override via ``ctx.max_records_per_source``
-# (raised for large pulls, or 0/negative for no cap). Kept here so the cap is one number.
-DEFAULT_MAX_RECORDS = 200_000
-# Effective "no cap" ceiling — large enough to never truncate in practice while still bounding
-# paginators that require a finite limit.
-_UNLIMITED_RECORDS = 1_000_000_000
+class JsonlWriter:
+    """Incremental gzip JSON-lines writer for streaming collection."""
+
+    def __init__(self, out_path: Path, *, relative_to: Path) -> None:
+        self._path = out_path
+        self._relative = relative_to
+        self._gz: gzip.GzipFile | None = None
+        self.count = 0
+
+    def __enter__(self) -> JsonlWriter:
+        self._path.parent.mkdir(parents=True, exist_ok=True)
+        self._gz = gzip.GzipFile(filename=self._path, mode="wb", mtime=0)
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        if self._gz is not None:
+            self._gz.close()
+            self._gz = None
+
+    def write_record(self, rec: dict[str, Any]) -> None:
+        if self._gz is None:
+            raise RuntimeError("JsonlWriter used outside context manager")
+        line = json.dumps(rec, default=str, separators=(",", ":")) + "\n"
+        self._gz.write(line.encode("utf-8"))
+        self.count += 1
+
+    def finalize(self) -> WrittenFile:
+        data = self._path.read_bytes()
+        return WrittenFile(
+            path=self._path.relative_to(self._relative).as_posix(),
+            sha256=hashlib.sha256(data).hexdigest(),
+            bytes=len(data),
+            record_count=self.count,
+        )
 
 
 class Collector(abc.ABC):
@@ -97,7 +127,28 @@ class Collector(abc.ABC):
         cap = getattr(self.ctx, "max_records_per_source", None)
         if cap is None:
             return default
-        return _UNLIMITED_RECORDS if cap <= 0 else cap
+        return UNLIMITED_RECORDS if cap <= 0 else cap
+
+    def records_unlimited(self) -> bool:
+        """True when this run collects without an artificial Ventra record cap."""
+        cap = getattr(self.ctx, "max_records_per_source", None)
+        return cap is not None and cap <= 0
+
+    def open_jsonl(self, filename: str) -> JsonlWriter:
+        """Open a streaming JSON-lines writer under this collector's source directory."""
+        out_path = self.ctx.source_dir(self.name) / filename
+        return JsonlWriter(out_path, relative_to=self.ctx.staging)
+
+    def append_truncation_gap(
+        self,
+        gaps: list[tuple[str, GapReason, str]],
+        gap_name: str,
+        cap: int,
+        detail: str,
+    ) -> None:
+        """Record a Ventra-side truncation gap only when a real cap is in effect."""
+        if not records_unlimited(cap):
+            gaps.append((gap_name, GapReason.COLLECTOR_ERROR, detail))
 
     def artifact_params(self) -> dict[str, Any]:
         """Per-artifact filter values for this collector from the acquisition spec (may be empty)."""

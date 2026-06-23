@@ -11,16 +11,23 @@ import gzip
 import io
 from collections.abc import Callable, Iterator
 from datetime import datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
+from collector.lib.limits import (
+    DEFAULT_MAX_LOG_OBJECTS,
+    DEFAULT_MAX_RECORDS,
+    records_unlimited,
+    resolve_max_objects,
+)
 from collector.lib.models import GapReason
 from collector.clouds.aws.client_factory import AccessDenied
 
-# Keep CloudShell runs bounded.
-MAX_LOG_OBJECTS = 2000
-MAX_RECORDS = 200_000
+if TYPE_CHECKING:
+    from collector.lib.base import JsonlWriter
 
-# (key, line) -> record dict, or None to skip (comment line / out of window).
+MAX_LOG_OBJECTS = DEFAULT_MAX_LOG_OBJECTS
+MAX_RECORDS = DEFAULT_MAX_RECORDS
+
 LineToRecord = Callable[[str, str], dict[str, Any] | None]
 
 
@@ -62,6 +69,10 @@ def _object_lines(body: bytes, key: str) -> Iterator[str]:
             yield line
 
 
+def _record_count(writer: JsonlWriter | None, records: list[dict[str, Any]]) -> int:
+    return writer.count if writer is not None else len(records)
+
+
 def collect_s3_line_records(
     cf,
     region: str,
@@ -71,10 +82,15 @@ def collect_s3_line_records(
     gaps: list[tuple[str, GapReason, str]],
     gap_name: str,
     *,
-    max_objects: int = MAX_LOG_OBJECTS,
+    max_objects: int | None = None,
     max_records: int = MAX_RECORDS,
+    writer: JsonlWriter | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
-    """Read line logs under ``prefixes`` in ``bucket``; returns (records, stats)."""
+    """Read line logs under ``prefixes`` in ``bucket``; returns (records, stats).
+
+    When ``writer`` is set, records stream to disk and the returned list is empty.
+    """
+    obj_cap = resolve_max_objects(max_records, max_objects)
     stats: dict[str, Any] = {
         "bucket": bucket,
         "objects_scanned": 0,
@@ -93,7 +109,7 @@ def collect_s3_line_records(
                 "s3", region, "list_objects_v2", "Contents", Bucket=bucket, Prefix=prefix
             ):
                 stats["objects_scanned"] += 1
-                if stats["objects_scanned"] > max_objects:
+                if stats["objects_scanned"] > obj_cap:
                     stats["truncated"] = True
                     break
                 key = obj.get("Key", "")
@@ -106,25 +122,28 @@ def collect_s3_line_records(
                     continue
                 stats["objects_read"] += 1
                 for line in _object_lines(body, key):
-                    if len(records) >= max_records:
+                    if not records_unlimited(max_records) and _record_count(writer, records) >= max_records:
                         stats["truncated"] = True
                         break
                     rec = line_to_record(key, line)
                     if rec is not None:
-                        records.append(rec)
+                        if writer is not None:
+                            writer.write_record(rec)
+                        else:
+                            records.append(rec)
                         stats["records"] += 1
                 if stats["truncated"]:
                     break
         except AccessDenied as exc:
             gaps.append((gap_name, GapReason.ACCESS_DENIED, f"{bucket}/{prefix}: {exc.message}"))
 
-    if stats["truncated"]:
+    if stats["truncated"] and not records_unlimited(max_records):
         gaps.append(
             (
                 gap_name,
                 GapReason.COLLECTOR_ERROR,
-                f"{bucket}: truncated at {max_objects} objects / {max_records} records; "
-                "narrow the window (--since/--until) for full coverage.",
+                f"{bucket}: truncated at {obj_cap} objects / {max_records} records; "
+                "narrow the window (--since/--until) or use enterprise profile for full coverage.",
             )
         )
     return records, stats

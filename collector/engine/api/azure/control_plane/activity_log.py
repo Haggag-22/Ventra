@@ -1,13 +1,4 @@
-"""Azure Activity Log collector.
-
-The Activity Log is the Azure equivalent of CloudTrail management events: subscription-scoped
-control-plane operations — who created/modified/deleted which resource, from which IP, with
-what outcome. Pulled per in-scope subscription via the Monitor management API.
-
-Invictus parity: default 89-day window, all subscriptions (or ``--subscription``), optional
-``--since`` / ``--until``. Ventra also writes per-subscription event files and queries in
-7-day chunks to improve completeness on busy tenants.
-"""
+"""Azure Activity Log collector."""
 
 from __future__ import annotations
 
@@ -15,6 +6,7 @@ from datetime import datetime, timedelta
 from typing import Any
 
 from collector.lib.base import Collector
+from collector.lib.limits import records_unlimited
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 from ..common import arm_time_filter, window_bounds
@@ -65,74 +57,73 @@ class ActivityLogCollector(Collector):
                 notes="No subscriptions discovered or specified.",
             )
 
-        records: list[dict[str, Any]] = []
+        record_count = 0
         per_sub: list[dict[str, Any]] = []
         truncated = False
         files = []
 
         for sub in subscriptions:
-            if len(records) >= cap:
+            if not records_unlimited(cap) and record_count >= cap:
                 truncated = True
                 break
-            sub_records: list[dict[str, Any]] = []
+            sub_count_before = record_count
             sub_truncated = False
             chunks = _chunk_slices(start, end, days=CHUNK_DAYS)
+            fname = f"events-{_safe_sub_filename(sub)}.jsonl.gz"
             try:
-                for chunk_start, chunk_end in chunks:
-                    if len(records) >= cap:
-                        sub_truncated = True
-                        truncated = True
-                        break
-                    filter_str = arm_time_filter(chunk_start, chunk_end)
-                    remaining = cap - len(records)
-                    for ev in cf.activity_log_events(sub, filter_str, max_records=remaining):
-                        tagged = dict(ev)
-                        tagged.setdefault("subscriptionId", sub)
-                        tagged["_ventra_subscription_id"] = sub
-                        sub_records.append(tagged)
-                        records.append(tagged)
-                        if len(records) >= cap:
+                with self.open_jsonl(fname) as writer:
+                    for chunk_start, chunk_end in chunks:
+                        if not records_unlimited(cap) and record_count >= cap:
                             sub_truncated = True
                             truncated = True
                             break
+                        filter_str = arm_time_filter(chunk_start, chunk_end)
+                        remaining = cap - record_count if not records_unlimited(cap) else cap
+                        for ev in cf.activity_log_events(sub, filter_str, max_records=remaining):
+                            tagged = dict(ev)
+                            tagged.setdefault("subscriptionId", sub)
+                            tagged["_ventra_subscription_id"] = sub
+                            writer.write_record(tagged)
+                            record_count += 1
+                            if not records_unlimited(cap) and record_count >= cap:
+                                sub_truncated = True
+                                truncated = True
+                                break
+                    if writer.count:
+                        files.append(writer.finalize())
             except AzureAccessDenied as exc:
                 gaps.append(
                     ("activity_log", GapReason.ACCESS_DENIED, f"{sub}: {exc.message} {PERMISSION_NOTE}")
                 )
+                record_count = sub_count_before
                 continue
             except AzureServiceNotEnabled as exc:
                 gaps.append(("activity_log", GapReason.NOT_PRESENT, f"{sub}: {exc.message}"))
+                record_count = sub_count_before
                 continue
 
-            if sub_records:
-                fname = f"events-{_safe_sub_filename(sub)}.jsonl.gz"
-                files.append(self.write_jsonl(sub_records, fname))
             per_sub.append(
                 {
                     "subscription_id": sub,
-                    "records": len(sub_records),
+                    "records": record_count - sub_count_before,
                     "chunks": len(chunks),
                     "truncated": sub_truncated,
                 }
             )
 
-        if records:
-            files.insert(0, self.write_jsonl(records, "events.jsonl.gz"))
-
         if truncated:
-            gaps.append(
-                (
-                    "activity_log",
-                    GapReason.NOT_PRESENT,
-                    f"Collection stopped at {cap:,} records — data may be truncated. "
-                    "Narrow --since/--until or use --subscription for one subscription at a time.",
-                )
+            self.append_truncation_gap(
+                gaps,
+                "activity_log",
+                cap,
+                f"Collection stopped at {cap:,} records — data may be truncated. "
+                "Narrow --since/--until or use --subscription for one subscription at a time.",
             )
 
         self.write_meta(
             {
                 "source": self.name,
-                "records": len(records),
+                "records": record_count,
                 "subscriptions": per_sub,
                 "truncated": truncated,
                 "chunk_days": CHUNK_DAYS,
@@ -144,7 +135,7 @@ class ActivityLogCollector(Collector):
             }
         )
 
-        if records:
+        if record_count:
             status = SourceStatus.PARTIAL if gaps else SourceStatus.COLLECTED
         else:
             status = SourceStatus.EMPTY
@@ -152,7 +143,7 @@ class ActivityLogCollector(Collector):
                 gaps.append(("activity_log", GapReason.NOT_PRESENT, "No Activity Log events in window."))
 
         notes = (
-            f"{len(records)} Activity Log event(s) across {len(subscriptions)} subscription(s) "
+            f"{record_count} Activity Log event(s) across {len(subscriptions)} subscription(s) "
             f"({CHUNK_DAYS}d chunks, {DEFAULT_WINDOW_DAYS}d default window)."
         )
         if truncated:
@@ -161,7 +152,7 @@ class ActivityLogCollector(Collector):
             name=self.name,
             status=status,
             files=files,
-            record_count=len(records),
+            record_count=record_count,
             gaps=gaps,
             notes=notes,
         )

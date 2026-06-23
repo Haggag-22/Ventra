@@ -1,0 +1,117 @@
+{
+  "index_patterns": ["ventra-*"],
+  "template": {
+    "settings": {
+      "index.number_of_shards": 1,
+      "index.number_of_replicas": 0
+    },
+    "mappings": {
+      "dynamic": true,
+      "properties": {
+        "@timestamp": { "type": "date" },
+        "timestamp": { "type": "date" },
+        "message": { "type": "text" },
+        "ventra": {
+          "properties": {
+            "case_id": { "type": "keyword" },
+            "source": { "type": "keyword" },
+            "severity": { "type": "keyword" },
+            "parser_version": { "type": "keyword" },
+            "resource": {
+              "properties": {
+                "type": { "type": "keyword" },
+                "id": { "type": "keyword" },
+                "arn": { "type": "keyword" }
+              }
+            },
+            "related": {
+              "properties": {
+                "ip": { "type": "keyword" },
+                "user": { "type": "keyword" },
+                "resource": { "type": "keyword" }
+              }
+            },
+            "user_agent": {
+              "properties": {
+                "category": { "type": "keyword" }
+              }
+            }
+          }
+        },
+        "event": {
+          "properties": {
+            "action": { "type": "keyword" },
+            "category": { "type": "keyword" },
+            "kind": { "type": "keyword" },
+            "outcome": { "type": "keyword" },
+            "provider": { "type": "keyword" }
+          }
+        },
+        "user": {
+          "properties": {
+            "name": { "type": "keyword" },
+            "id": { "type": "keyword" },
+            "target": {
+              "properties": {
+                "id": { "type": "keyword" },
+                "type": { "type": "keyword" }
+              }
+            }
+          }
+        },
+        "source": {
+          "properties": {
+            "ip": { "type": "ip" },
+            "geo": {
+              "properties": {
+                "country_iso_code": { "type": "keyword" }
+              }
+            },
+            "as": {
+              "properties": {
+                "number": { "type": "long" }
+              }
+            }
+          }
+        },
+        "destination": {
+          "properties": {
+            "ip": { "type": "ip" },
+            "port": { "type": "long" }
+          }
+        },
+        "cloud": {
+          "properties": {
+            "provider": { "type": "keyword" },
+            "region": { "type": "keyword" },
+            "account": {
+              "properties": {
+                "id": { "type": "keyword" }
+              }
+            },
+            "service": {
+              "properties": {
+                "name": { "type": "keyword" }
+              }
+            }
+          }
+        },
+        "user_agent": {
+          "properties": {
+            "original": { "type": "keyword" }
+          }
+        },
+        "network": {
+          "properties": {
+            "bytes": { "type": "long" }
+          }
+        },
+        "raw": { "type": "object", "enabled": false }
+      }
+    }
+  },
+  "priority": 200,
+  "_meta": {
+    "description": "Ventra normalized IR events exported via ventra-export / Logstash"
+  }
+}

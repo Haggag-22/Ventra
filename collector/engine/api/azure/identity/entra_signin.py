@@ -34,34 +34,37 @@ class EntraSignInCollector(Collector):
             "$filter": graph_time_filter("createdDateTime", start, end),
             "$top": 1000,
         }
-
-        records: list[dict] = []
-        try:
-            for ev in cf.graph_paginate("auditLogs/signIns", params=params, max_records=MAX_RECORDS):
-                records.append(ev)
-        except AzureAccessDenied as exc:
-            gaps.append(("entra_signin", GapReason.ACCESS_DENIED, exc.message))
-        except AzureServiceNotEnabled as exc:
-            gaps.append(
-                (
-                    "entra_signin",
-                    GapReason.SERVICE_NOT_ENABLED,
-                    f"Sign-in logs unavailable (Entra ID P1/P2 required?): {exc.message}",
-                )
-            )
+        cap = self.max_records(MAX_RECORDS)
 
         files = []
-        if records:
-            files.append(self.write_jsonl(records, "events.jsonl.gz"))
+        record_count = 0
+        with self.open_jsonl("events.jsonl.gz") as writer:
+            try:
+                for ev in cf.graph_paginate("auditLogs/signIns", params=params, max_records=cap):
+                    writer.write_record(ev)
+            except AzureAccessDenied as exc:
+                gaps.append(("entra_signin", GapReason.ACCESS_DENIED, exc.message))
+            except AzureServiceNotEnabled as exc:
+                gaps.append(
+                    (
+                        "entra_signin",
+                        GapReason.SERVICE_NOT_ENABLED,
+                        f"Sign-in logs unavailable (Entra ID P1/P2 required?): {exc.message}",
+                    )
+                )
+            record_count = writer.count
+            if record_count:
+                files.append(writer.finalize())
+
         self.write_meta(
             {
                 "source": self.name,
-                "records": len(records),
+                "records": record_count,
                 "window": self.ctx.time_window.to_manifest(),
             }
         )
 
-        if records:
+        if record_count:
             status = SourceStatus.PARTIAL if gaps else SourceStatus.COLLECTED
         elif gaps:
             status = SourceStatus.EMPTY
@@ -73,7 +76,7 @@ class EntraSignInCollector(Collector):
             name=self.name,
             status=status,
             files=files,
-            record_count=len(records),
+            record_count=record_count,
             gaps=gaps,
-            notes=f"{len(records)} sign-in event(s).",
+            notes=f"{record_count} sign-in event(s).",
         )

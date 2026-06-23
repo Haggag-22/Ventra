@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import abc
 from pathlib import Path
+from urllib.parse import urlparse
 
 
 class Transport(abc.ABC):
@@ -33,14 +34,43 @@ class S3PresignedTransport(Transport):
     def deliver(self, package_path: Path) -> str:
         import urllib.request
 
-        data = package_path.read_bytes()
-        req = urllib.request.Request(self.url, data=data, method="PUT")
+        req = urllib.request.Request(self.url, method="PUT")
         req.add_header("Content-Type", "application/zstd")
-        with urllib.request.urlopen(req, timeout=300) as resp:  # noqa: S310 - operator-supplied
-            status = resp.status
+        with package_path.open("rb") as body:
+            with urllib.request.urlopen(req, data=body, timeout=3600) as resp:  # noqa: S310
+                status = resp.status
         if status not in (200, 204):
             raise RuntimeError(f"Upload failed with HTTP {status}")
         return f"uploaded to presigned URL (HTTP {status})"
+
+
+class S3Transport(Transport):
+    """Upload a sealed package to S3 using operator IAM credentials (multipart for large files)."""
+
+    def __init__(self, bucket: str, prefix: str = "", *, region: str | None = None) -> None:
+        self.bucket = bucket
+        self.prefix = prefix.strip("/")
+        self.region = region
+
+    def deliver(self, package_path: Path) -> str:
+        try:
+            import boto3
+            from boto3.s3.transfer import TransferConfig
+        except ImportError as exc:  # pragma: no cover
+            raise RuntimeError("S3 transport requires boto3 (pip install boto3)") from exc
+
+        client = boto3.client("s3", region_name=self.region or None)
+        key = f"{self.prefix}/{package_path.name}" if self.prefix else package_path.name
+        config = TransferConfig(
+            multipart_threshold=64 * 1024 * 1024,
+            multipart_chunksize=64 * 1024 * 1024,
+        )
+        client.upload_file(str(package_path), self.bucket, key, Config=config)
+        sidecar = package_path.parent / f"{package_path.name}.sha256"
+        if sidecar.is_file():
+            sidecar_key = f"{self.prefix}/{sidecar.name}" if self.prefix else sidecar.name
+            client.upload_file(str(sidecar), self.bucket, sidecar_key, Config=config)
+        return f"s3://{self.bucket}/{key}"
 
 
 class SftpTransport(Transport):
@@ -76,12 +106,20 @@ class SftpTransport(Transport):
 def get_transport(spec: str | None) -> Transport:
     """Build a transport from a CLI spec.
 
-    Examples: ``local`` (default), ``s3-presigned:<url>``, ``sftp:user@host:/path``.
+    Examples: ``local`` (default), ``s3://bucket/prefix/``, ``s3-presigned:<url>``,
+    ``sftp:user@host:/path``.
     """
     if not spec or spec == "local":
         return LocalTransport()
     if spec.startswith("s3-presigned:"):
         return S3PresignedTransport(spec.split(":", 1)[1])
+    if spec.startswith("s3://"):
+        parsed = urlparse(spec)
+        bucket = parsed.netloc
+        prefix = parsed.path.lstrip("/")
+        if not bucket:
+            raise ValueError(f"Invalid S3 transport spec (missing bucket): {spec!r}")
+        return S3Transport(bucket, prefix)
     if spec.startswith("sftp:"):
         rest = spec.split(":", 1)[1]
         userhost, path = rest.split(":", 1)

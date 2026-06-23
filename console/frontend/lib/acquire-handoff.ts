@@ -1,6 +1,7 @@
 /** Tracks kits sent to clients so analysts see "awaiting upload" in Investigate. */
 
 import type { DeploymentProfile } from "./deployment-profiles";
+import type { HandoffMode } from "./handoff-modes";
 
 const STORAGE_KEY = "ventra:kit-handoffs";
 
@@ -12,6 +13,8 @@ export type KitHandoffRecord = {
   builtAt: string;
   ventraVersion?: string;
   includeIam: boolean;
+  handoffMode?: HandoffMode;
+  transport?: string;
 };
 
 type HandoffStore = Record<string, KitHandoffRecord>;

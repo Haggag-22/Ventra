@@ -71,7 +71,8 @@ def verify_main(argv: list[str] | None = None) -> int:
     from .verify import verify_package
 
     pkg = EvidencePackage(Path(args.package))
-    report = verify_package(pkg)
+    with EvidencePackage(Path(args.package)) as pkg:
+        report = verify_package(pkg)
     if args.json:
         import json
 
@@ -86,6 +87,31 @@ def verify_main(argv: list[str] | None = None) -> int:
         for n in report.notes:
             print(f"  note: {n}")
     return 0 if report.overall != "red" else 3
+
+
+def export_main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(
+        prog="ventra-export",
+        description="Export an ingested case to Elastic-friendly NDJSON.",
+    )
+    p.add_argument("--case-dir", required=True, help="Path to cases/<case_id> directory.")
+    p.add_argument("--out", required=True, help="Output directory for NDJSON files.")
+    p.add_argument("--format", default="elastic-ndjson", choices=["elastic-ndjson"])
+    p.add_argument("--version", action="version", version=f"ventra-ingester {__version__}")
+    args = p.parse_args(argv)
+
+    from .exporters.elastic_ndjson import export_elastic_ndjson
+
+    say = _reporter()
+    try:
+        written = export_elastic_ndjson(Path(args.case_dir), Path(args.out))
+    except Exception as exc:  # noqa: BLE001
+        print(f"Export failed: {exc}", file=sys.stderr)
+        return 1
+    say(f"Exported {len(written)} source file(s) to {args.out}")
+    for source, path in sorted(written.items()):
+        say(f"  {source}: {path.name}")
+    return 0
 
 
 if __name__ == "__main__":  # pragma: no cover

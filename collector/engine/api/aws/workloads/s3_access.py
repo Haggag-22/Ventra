@@ -106,44 +106,51 @@ class S3AccessCollector(Collector):
                 )
             )
 
-        records: list[dict] = []
+        cap = self.max_records(200_000)
         per_dest: list[dict] = []
-        for (target_bucket, target_prefix), source_buckets in destinations.items():
-            self._log(f"Reading access logs from {target_bucket}/{target_prefix}…")
-            region = bucket_region(cf, target_bucket)
+        record_count = 0
+        event_files: list = []
+        with self.open_jsonl("events.jsonl.gz") as writer:
+            for (target_bucket, target_prefix), source_buckets in destinations.items():
+                self._log(f"Reading access logs from {target_bucket}/{target_prefix}…")
+                region = bucket_region(cf, target_bucket)
 
-            def line_to_record(
-                key: str, line: str, _tb: str = target_bucket, _region: str = region
-            ) -> dict[str, Any] | None:
-                ts = _parse_line_time(line)
-                if ts is not None and not (start <= ts <= end):
-                    return None
-                return {
-                    "line": line,
-                    "_ventra_region": _region,
-                    "_ventra_s3_bucket": _tb,
-                    "_ventra_log_key": key,
-                }
+                def line_to_record(
+                    key: str, line: str, _tb: str = target_bucket, _region: str = region
+                ) -> dict[str, Any] | None:
+                    ts = _parse_line_time(line)
+                    if ts is not None and not (start <= ts <= end):
+                        return None
+                    return {
+                        "line": line,
+                        "_ventra_region": _region,
+                        "_ventra_s3_bucket": _tb,
+                        "_ventra_log_key": key,
+                    }
 
-            recs, stats = collect_s3_line_records(
-                cf,
-                region,
-                target_bucket,
-                dash_day_prefixes(target_prefix, start, end),
-                line_to_record,
-                gaps,
-                "s3_access",
-            )
-            records.extend(recs)
-            per_dest.append(
-                {
-                    "target_bucket": target_bucket,
-                    "target_prefix": target_prefix,
-                    "source_buckets": source_buckets,
-                    "records": len(recs),
-                    "objects_read": stats["objects_read"],
-                }
-            )
+                _, stats = collect_s3_line_records(
+                    cf,
+                    region,
+                    target_bucket,
+                    dash_day_prefixes(target_prefix, start, end),
+                    line_to_record,
+                    gaps,
+                    "s3_access",
+                    max_records=cap,
+                    writer=writer,
+                )
+                per_dest.append(
+                    {
+                        "target_bucket": target_bucket,
+                        "target_prefix": target_prefix,
+                        "source_buckets": source_buckets,
+                        "records": int(stats.get("records") or 0),
+                        "objects_read": stats["objects_read"],
+                    }
+                )
+            record_count = writer.count
+            if writer.count:
+                event_files.append(writer.finalize())
 
         config = {
             "buckets_total": len(buckets),
@@ -152,20 +159,18 @@ class S3AccessCollector(Collector):
             "destinations": per_dest,
             "window": window.to_manifest(),
         }
-        files = [self.write_json(config, "config.json")]
-        if records:
-            files.append(self.write_jsonl(records, "events.jsonl.gz"))
+        files = [self.write_json(config, "config.json"), *event_files]
         self.write_meta(
             {
                 "source": self.name,
-                "records": len(records),
+                "records": record_count,
                 "buckets_total": len(buckets),
                 "buckets_logged": len(buckets) - len(unlogged),
                 "window": window.to_manifest(),
             }
         )
 
-        if records:
+        if record_count:
             status = SourceStatus.PARTIAL if gaps else SourceStatus.COLLECTED
         elif destinations:
             status = SourceStatus.PARTIAL if gaps else SourceStatus.EMPTY
@@ -178,9 +183,9 @@ class S3AccessCollector(Collector):
             name=self.name,
             status=status,
             files=files,
-            record_count=len(records),
+            record_count=record_count,
             gaps=gaps,
-            notes=f"{len(records)} access-log lines; "
+            notes=f"{record_count} access-log lines; "
             f"{len(buckets) - len(unlogged)}/{len(buckets)} bucket(s) logged.",
         )
 
