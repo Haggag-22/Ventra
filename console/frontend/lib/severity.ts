@@ -69,7 +69,7 @@ export function severityHex(sev: Severity): string {
   }[sev];
 }
 
-// Stable color per event category so timeline + tables read consistently.
+// Stable color per event category so charts + tables read consistently.
 export const CATEGORY_COLORS: Record<string, string> = {
   authentication: "rgb(96 165 250)",
   iam: "rgb(167 139 250)",

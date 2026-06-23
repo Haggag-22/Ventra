@@ -175,7 +175,7 @@ export function CloudTrailCollectionSummary({ data }: { data: CloudTrailCollecti
                             />
                           ) : null}
                           {b.events?.data ? (
-                            <FlowStat label="Data events" value={fmtNum(b.events.data)} />
+                            <FlowStat label="Data Events" value={fmtNum(b.events.data)} />
                           ) : null}
                           {b.events?.insight ? (
                             <FlowStat label="Insight events" value={fmtNum(b.events.insight)} />

@@ -6,7 +6,7 @@ import { ImportDialog } from "@/components/import-dialog";
 import { clearKitHandoff } from "@/lib/acquire-handoff";
 import { Button, Card, EmptyState, LoadingPanel } from "@/components/ui";
 import { api, deleteCase } from "@/lib/api";
-import { CLOUDS, CLOUD_LABELS, type Cloud } from "@/lib/catalog";
+import { CASE_PLATFORM_LABELS, CASE_PLATFORMS, type CasePlatform } from "@/lib/catalog";
 import type { CaseSummary } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -14,7 +14,7 @@ import { Anchor, Boxes, FolderOpen, ShieldAlert, Trash2, Upload } from "lucide-r
 import Link from "next/link";
 import { useEffect, useState, type ReactNode } from "react";
 
-type Tab = "all" | Cloud;
+type Tab = "all" | CasePlatform;
 
 function readImportCaseParam(): string {
   if (typeof window === "undefined") return "";
@@ -41,7 +41,7 @@ export default function CasesPage() {
 
   const tabs: { id: Tab; label: string }[] = [
     { id: "all", label: "All" },
-    ...CLOUDS.map((c) => ({ id: c as Tab, label: CLOUD_LABELS[c] })),
+    ...CASE_PLATFORMS.map((c) => ({ id: c as Tab, label: CASE_PLATFORM_LABELS[c] })),
   ];
 
   return (
@@ -78,7 +78,7 @@ export default function CasesPage() {
           </p>
         </div>
 
-        {/* Cloud division: AWS / Azure / GCP */}
+        {/* Platform division: AWS / Azure / GCP / Kubernetes */}
         <div className="mb-6 flex items-center gap-1 border-b border-border">
           {tabs.map((t) => {
             const active = tab === t.id;
@@ -132,12 +132,14 @@ export default function CasesPage() {
         ) : tab !== "all" ? (
           <Card className="py-4">
             <CloudTabEmpty
-              cloud={tab as Cloud}
-              title={`No ${CLOUD_LABELS[tab as Cloud]} cases`}
+              cloud={tab}
+              title={`No ${CASE_PLATFORM_LABELS[tab]} cases`}
               description={
                 tab === "aws"
                   ? "Import an AWS evidence package collected with Ventra to begin."
-                  : `The ${CLOUD_LABELS[tab as Cloud]} collector is on the roadmap. Cases will appear here once ${CLOUD_LABELS[tab as Cloud]} packages are imported.`
+                  : tab === "kubernetes"
+                    ? "Standalone Kubernetes evidence packages are coming soon. Cases will appear here once in-cluster collection is available."
+                    : `The ${CASE_PLATFORM_LABELS[tab]} collector is on the roadmap. Cases will appear here once ${CASE_PLATFORM_LABELS[tab]} packages are imported.`
               }
               action={
                 tab === "aws" ? (
@@ -178,6 +180,7 @@ const CLOUD_BADGE: Record<string, string> = {
   aws: "border-border bg-surface-2",
   azure: "border-border bg-surface-2",
   gcp: "border-border bg-surface-2",
+  kubernetes: "border-border bg-surface-2",
 };
 
 function CaseCard({ c }: { c: CaseSummary }) {
@@ -271,7 +274,7 @@ function CloudTabEmpty({
   description,
   action,
 }: {
-  cloud: Cloud;
+  cloud: CasePlatform;
   title: string;
   description: string;
   action?: ReactNode;

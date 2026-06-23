@@ -12,6 +12,7 @@ import { api } from "@/lib/api";
 import { fmtBytes, fmtNum } from "@/lib/format";
 import { usePagination } from "@/lib/pagination";
 import { caseCloud, flowSources } from "@/lib/cloud-sources";
+import { panelLabel } from "@/lib/panel-labels";
 import {
   ALL_VPC_FLOW_COL_KEYS,
   VPC_FLOW_VISIBLE_COLS_KEY,
@@ -51,7 +52,7 @@ function Bar({ value, max, tone = "bg-accent/60" }: { value: number; max: number
   );
 }
 
-function VpcFlowTimeline({ caseId, sources }: { caseId: string; sources: string[] }) {
+function VpcFlowLog({ caseId, sources }: { caseId: string; sources: string[] }) {
   const [filters, setFilters] = useState<VpcFlowFilters>({ order: "desc" });
   const [visibleColumns, setVisibleColumns] = useState<VpcFlowColKey[]>(ALL_VPC_FLOW_COL_KEYS);
   const { page, setPage, pageSize, setPageSize } = usePagination("ventra.vpc-flow.page-size");
@@ -123,7 +124,7 @@ function VpcFlowTimeline({ caseId, sources }: { caseId: string; sources: string[
   }, [setPage]);
 
   return (
-    <div className="cloudtrail-view vpc-flow-timeline mt-8">
+    <div className="cloudtrail-view vpc-flow-log mt-8">
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold text-fg">Flow log</h2>
@@ -172,7 +173,7 @@ export default function NetworkPage() {
   if (n.totals.flows === 0) {
     return (
       <>
-        <PanelHeader icon={Network} title="Network Activity" panel="network" />
+        <PanelHeader icon={Network} title={panelLabel(cloud, "network")} panel="network" />
         <PanelBody>
           <Card className="py-4">
             <EmptyState
@@ -180,8 +181,10 @@ export default function NetworkPage() {
               title="No flow logs in this case"
               description={
                 cloud === "azure"
-                  ? "NSG flow logging was not configured, or its records are in storage and weren't in scope. Egress volume cannot be quantified for this window — this gap is recorded in the manifest."
-                  : "Flow logging was not configured, or its records are delivered to S3 and weren't in scope. Egress volume cannot be quantified for this window — this gap is recorded in the manifest."
+                  ? "NSG or VNet flow logging was not configured, or its records are in storage and weren't in scope. Egress volume cannot be quantified for this window — this gap is recorded in the manifest."
+                  : cloud === "gcp"
+                    ? "VPC Flow Logs or firewall rule logging was not configured, or records weren't in scope. Egress volume cannot be quantified for this window — this gap is recorded in the manifest."
+                    : "VPC flow logging was not configured, or its records are delivered to S3 and weren't in scope. Egress volume cannot be quantified for this window — this gap is recorded in the manifest."
               }
             />
           </Card>
@@ -196,7 +199,7 @@ export default function NetworkPage() {
     <>
       <PanelHeader
         icon={Network}
-        title="Network Activity"
+        title={panelLabel(cloud, "network")}
         panel="network"
       />
       <PanelBody className="space-y-6">
@@ -373,7 +376,7 @@ export default function NetworkPage() {
           </table>
         </Card>
 
-        <VpcFlowTimeline caseId={caseId} sources={flowSource} />
+        <VpcFlowLog caseId={caseId} sources={flowSource} />
       </PanelBody>
     </>
   );

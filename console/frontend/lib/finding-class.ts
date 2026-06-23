@@ -68,20 +68,3 @@ export function findingClass(event: UnifiedEvent): FindingClass {
   return "Other";
 }
 
-export function findingClassClass(cls: FindingClass): string {
-  switch (cls) {
-    case "Threat":
-      return "finding-class-threat";
-    case "Vulnerability":
-      return "finding-class-vuln";
-    case "Compliance":
-      return "finding-class-compliance";
-    case "Sensitive data":
-    case "Data exposure":
-      return "finding-class-data";
-    case "Configuration":
-      return "finding-class-config";
-    default:
-      return "finding-class-other";
-  }
-}

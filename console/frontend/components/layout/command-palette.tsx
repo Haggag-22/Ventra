@@ -6,7 +6,7 @@ import { caseCloud } from "@/lib/cloud-sources";
 import { panelLabel } from "@/lib/panel-labels";
 import { useQuery } from "@tanstack/react-query";
 import {
-  Activity,
+  Container,
   CornerDownLeft,
   Database,
   FileText,
@@ -32,14 +32,15 @@ interface Item {
 }
 
 const PANELS = [
-  { href: "timeline", panel: "timeline" as const, icon: Activity },
   { href: "cloudtrail", panel: "cloudtrail" as const, icon: ScrollText },
   { href: "search", panel: "search" as const, icon: ShieldAlert },
   { href: "identity", panel: "identity" as const, icon: Fingerprint },
   { href: "network", panel: "network" as const, icon: Network },
   { href: "web", panel: "web" as const, icon: Globe2 },
+  { href: "kubernetes-audit", panel: "kubernetes-audit" as const, icon: Container },
   { href: "data-access", panel: "data-access" as const, icon: Database },
   { href: "collection", panel: "collection" as const, icon: Gauge },
+  { href: "files", panel: "files" as const, icon: FileText },
   { href: "report", panel: "report" as const, icon: FileText },
 ];
 
@@ -91,7 +92,7 @@ export function CommandPalette({
       hint: `Principal · ${f.count} events`,
       icon: User,
       run: () => {
-        router.push(`/cases/${caseId}/timeline?related_user=${encodeURIComponent(f.value)}`);
+        router.push(`/cases/${caseId}/cloudtrail?related_user=${encodeURIComponent(f.value)}`);
         onClose();
       },
     }));
@@ -101,7 +102,7 @@ export function CommandPalette({
       hint: `Source IP · ${f.count} events`,
       icon: Globe,
       run: () => {
-        router.push(`/cases/${caseId}/timeline?related_ip=${encodeURIComponent(f.value)}`);
+        router.push(`/cases/${caseId}/cloudtrail?related_ip=${encodeURIComponent(f.value)}`);
         onClose();
       },
     }));

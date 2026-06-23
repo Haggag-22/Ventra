@@ -118,17 +118,6 @@ export interface IntegrityReport {
   }[];
 }
 
-export interface TimelinePoint {
-  t: string;
-  severity: Severity;
-  source: string;
-}
-export interface TimelineResponse {
-  min: string | null;
-  max: string | null;
-  points: TimelinePoint[];
-}
-
 export interface GraphNode {
   id: string;
   label: string;
@@ -357,4 +346,41 @@ export interface ArtifactPack {
   description: string;
   version: string;
   artifacts: string[];
+}
+
+export interface EvidenceFileEntry {
+  path: string;
+  size: number;
+  kind: string;
+  source: string | null;
+  sha256?: string | null;
+  record_count?: number | null;
+  status?: string | null;
+  notes?: string | null;
+}
+
+export interface EvidenceIndex {
+  case_id: string;
+  root: string;
+  files: EvidenceFileEntry[];
+  total_files: number;
+  total_bytes: number;
+}
+
+export interface EvidenceContent {
+  path: string;
+  size: number;
+  truncated: boolean;
+  content_type: "json" | "text";
+  text?: string;
+  json?: unknown;
+}
+
+export interface EvidenceLines {
+  path: string;
+  total_lines: number;
+  offset: number;
+  count: number;
+  has_more: boolean;
+  records: unknown[];
 }

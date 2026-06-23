@@ -1,5 +1,6 @@
-import { CLOUD_LABELS, type Cloud } from "@/lib/catalog";
+import { CASE_PLATFORM_LABELS, CLOUD_LABELS, type Cloud } from "@/lib/catalog";
 import { cn } from "@/lib/utils";
+import { Container } from "lucide-react";
 import Image from "next/image";
 
 const LOGOS: Record<Cloud, { src: string; alt: string; aspect: number }> = {
@@ -19,8 +20,20 @@ export function CloudProviderIcon({
   size?: number;
   variant?: "icon" | "badge";
 }) {
-  const key = cloud.toLowerCase() as Cloud;
-  const meta = LOGOS[key];
+  const key = cloud.toLowerCase();
+  if (key === "kubernetes") {
+    return (
+      <span
+        className={cn("inline-flex shrink-0 items-center justify-center text-accent", className)}
+        style={{ width: size, height: size }}
+        title="Kubernetes"
+      >
+        <Container className="h-full w-full" strokeWidth={1.75} />
+      </span>
+    );
+  }
+
+  const meta = LOGOS[key as Cloud];
 
   if (!meta) {
     return (
@@ -84,8 +97,11 @@ export function CloudPlatformLabel({
   className?: string;
   size?: number;
 }) {
-  const key = cloud.toLowerCase() as Cloud;
-  const label = CLOUD_LABELS[key] ?? cloud.toUpperCase();
+  const key = cloud.toLowerCase();
+  const label =
+    CASE_PLATFORM_LABELS[key as keyof typeof CASE_PLATFORM_LABELS]
+    ?? CLOUD_LABELS[key as Cloud]
+    ?? cloud.toUpperCase();
 
   return (
     <span className={cn("inline-flex items-center gap-1.5", className)}>

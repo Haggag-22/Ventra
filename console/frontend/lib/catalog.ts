@@ -14,10 +14,19 @@ export interface CatalogGroup {
 export const CLOUDS = ["aws", "azure", "gcp"] as const;
 export type Cloud = (typeof CLOUDS)[number];
 
+/** Case list tabs — cloud providers plus standalone Kubernetes packages (roadmap). */
+export const CASE_PLATFORMS = [...CLOUDS, "kubernetes"] as const;
+export type CasePlatform = (typeof CASE_PLATFORMS)[number];
+
 export const CLOUD_LABELS: Record<Cloud, string> = {
   aws: "AWS",
   azure: "Azure",
   gcp: "GCP",
+};
+
+export const CASE_PLATFORM_LABELS: Record<CasePlatform, string> = {
+  ...CLOUD_LABELS,
+  kubernetes: "Kubernetes",
 };
 
 /** Labels for inventory / identity collectors not listed on the logs cheat sheet. */

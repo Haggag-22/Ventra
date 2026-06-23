@@ -9,7 +9,9 @@ import { PanelBody, PanelHeader } from "@/components/panel";
 import { StatCard } from "@/components/stat";
 import { LoadingPanel } from "@/components/ui";
 import { api } from "@/lib/api";
+import { caseCloud } from "@/lib/cloud-sources";
 import { fmtNum } from "@/lib/format";
+import { panelLabel } from "@/lib/panel-labels";
 import { useQuery } from "@tanstack/react-query";
 import {
   Fingerprint,
@@ -31,6 +33,7 @@ function countUnusedActiveKeys(users: any[]): number {
 
 export default function IdentityPage() {
   const { caseId, summary } = useCase();
+  const cloud = caseCloud(summary?.cloud);
   const collected = new Set(summary?.collection?.collected ?? []);
   const hasIdentitySnapshot = collected.has("iam") || collected.has("rbac") || collected.has("entra_directory");
   const q = useQuery({ queryKey: ["identity", caseId], queryFn: () => api.identity(caseId) });
@@ -62,7 +65,7 @@ export default function IdentityPage() {
     <>
       <PanelHeader
         icon={Fingerprint}
-        title="Identity & Access"
+        title={panelLabel(cloud, "identity")}
         panel="identity"
       />
       <PanelBody className="space-y-6">

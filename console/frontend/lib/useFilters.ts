@@ -17,6 +17,7 @@ const ARRAY_KEYS = new Set([
   "regions",
   "services",
   "users",
+  "outcomes",
 ]);
 
 export function useFilters() {

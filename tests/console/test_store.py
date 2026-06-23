@@ -77,6 +77,17 @@ def test_source_filter(store_case) -> None:
     assert {e["ventra_source"] for e in res["events"]} == {"cloudtrail"}
 
 
+def test_kubernetes_audit_source_filter(store_case) -> None:
+    """EKS audit events are queryable by ventra_source when present (demo case has none)."""
+    store, case_id = store_case
+    res = store.query_events(case_id, EventQuery(sources=["eks_audit"], limit=50))
+    assert res["total"] >= 0
+    assert all(e["ventra_source"] == "eks_audit" for e in res["events"])
+    facets = store.facets(case_id, EventQuery(sources=["eks_audit"]))
+    assert "event_action" in facets
+    assert "event_severity" in facets
+
+
 def test_free_text_search(store_case) -> None:
     store, case_id = store_case
     res = store.query_events(case_id, EventQuery(q="StopLogging", limit=50))
@@ -117,14 +128,6 @@ def test_facets(store_case) -> None:
     sources = {f["value"] for f in facets["ventra_source"]}
     assert "cloudtrail" in sources
     assert all(f["count"] > 0 for f in facets["ventra_source"])
-
-
-def test_timeline_buckets(store_case) -> None:
-    store, case_id = store_case
-    tl = store.timeline_buckets(case_id, EventQuery())
-    assert tl["min"] and tl["max"]
-    assert len(tl["points"]) > 0
-    assert {"t", "severity", "source"} <= set(tl["points"][0])
 
 
 def test_identity_role_graph(store_case) -> None:

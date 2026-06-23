@@ -8,32 +8,39 @@ export type NavPanelId =
   | "identity"
   | "network"
   | "web"
+  | "kubernetes-audit"
   | "data-access"
   | "collection"
   | "resources"
-  | "report"
-  | "timeline";
+  | "files"
+  | "report";
 
 const DEFAULT_LABELS: Record<NavPanelId, string> = {
-  timeline: "Timeline",
   cloudtrail: "CloudTrail Timeline",
   search: "Security Findings",
   identity: "Identity & Access",
   network: "Network Activity",
   web: "Web & DNS",
+  "kubernetes-audit": "Kubernetes Audit",
   "data-access": "Data Access",
   collection: "Logs Coverage",
   resources: "Resource Inventory",
+  files: "Raw Evidence",
   report: "Report",
 };
 
 const CLOUD_OVERRIDES: Record<Cloud, Partial<Record<NavPanelId, string>>> = {
-  aws: {},
+  aws: {
+    "kubernetes-audit": "EKS Audit Logs",
+  },
   azure: {
-    cloudtrail: "Activity Log Timeline",
+    cloudtrail: "Activity Log",
+    "kubernetes-audit": "AKS Audit Logs",
+    "data-access": "Storage & Key Vault",
   },
   gcp: {
-    cloudtrail: "Audit Log Timeline",
+    cloudtrail: "Audit Log",
+    "kubernetes-audit": "GKE Audit Logs",
     search: "Security Command Center",
     identity: "Identity & IAM",
     network: "VPC & Firewall",
