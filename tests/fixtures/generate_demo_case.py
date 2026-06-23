@@ -692,10 +692,10 @@ def generate(out_dir: Path, case_id: str = "CASE-2026-0042") -> Path:
                 ("apigateway", GapReason.OUT_OF_SCOPE,
                  "Access logging enabled on 1/2 stage(s) → "
                  "arn:aws:logs:us-east-1:123456789012:log-group:apigw-prod. "
-                 "Collection not yet supported — pull from the destination manually."),
+                 "Coming soon — Ventra does not collect this source yet."),
                 ("lambda_logs", GapReason.OUT_OF_SCOPE,
-                 "4 Lambda log group(s) in CloudWatch Logs. Collection not yet supported "
-                 "— pull the relevant function groups manually."),
+                 "4 Lambda log group(s) in CloudWatch Logs. "
+                 "Coming soon — Ventra does not collect this source yet."),
                 ("opensearch", GapReason.NOT_PRESENT, "No OpenSearch domains in scope."),
                 ("rds", GapReason.LOGGING_NOT_CONFIGURED,
                  "Log export disabled on all 1 RDS instance(s)."),

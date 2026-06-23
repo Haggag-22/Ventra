@@ -147,121 +147,83 @@ body {
   }
 
   .panel-collectors {
-    @apply mt-2.5 flex flex-wrap items-center gap-x-2 gap-y-1.5 text-2xs text-fg-subtle;
+    @apply mt-3;
   }
 
-  .panel-collectors-icon {
-    @apply h-3.5 w-3.5 shrink-0 text-fg-subtle/70;
+  .panel-collectors-row {
+    @apply flex flex-wrap items-stretch gap-2;
   }
 
-  .panel-collectors-label {
-    @apply shrink-0 font-semibold uppercase tracking-wide text-fg-subtle/80;
+  .panel-collector-card {
+    @apply inline-flex min-h-9 max-w-full items-center gap-2.5 rounded-lg border px-3 py-2;
   }
 
-  .panel-collectors-text {
-    @apply text-fg-subtle/90;
+  .panel-collector-card.is-ok {
+    border-color: rgb(var(--ok-green) / 0.35);
+    background: rgb(var(--ok-green) / 0.1);
   }
 
-  .panel-collectors-chips {
-    @apply flex flex-wrap items-center gap-1.5;
+  .panel-collector-card.is-partial {
+    border-color: rgb(var(--warn-amber) / 0.35);
+    background: rgb(var(--warn-amber) / 0.1);
   }
 
-  .panel-collector-chip {
-    @apply inline-flex max-w-full items-center gap-1 rounded-md border px-2 py-0.5 text-2xs text-fg;
+  .panel-collector-card.is-bad {
+    border-color: rgb(var(--bad-red) / 0.3);
+    background: rgb(var(--bad-red) / 0.08);
   }
 
-  .panel-collector-chip.is-collected {
-    border-color: rgb(var(--ok-green) / 0.25);
-    background: rgb(var(--ok-green) / 0.08);
+  .panel-collector-icon {
+    @apply rounded-md;
   }
 
-  .panel-collector-chip.is-missing {
-    border-color: rgb(var(--warn-amber) / 0.25);
-    background: rgb(var(--warn-amber) / 0.08);
+  .panel-collector-name {
+    @apply text-xs font-medium leading-none text-fg;
   }
 
-  .panel-collector-dot {
-    @apply h-1.5 w-1.5 shrink-0 rounded-full;
+  .panel-collector-checkbox {
+    @apply ml-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border;
+  }
+
+  .panel-collector-checkbox.is-ok {
+    border-color: rgb(var(--ok-green) / 0.55);
+    background: rgb(var(--ok-green) / 0.18);
+    color: rgb(var(--ok-green));
+  }
+
+  .panel-collector-checkbox.is-partial {
+    border-color: rgb(var(--warn-amber) / 0.55);
+    background: rgb(var(--warn-amber) / 0.18);
+    color: rgb(var(--warn-amber));
+  }
+
+  .panel-collector-checkbox.is-bad {
+    border-color: rgb(var(--bad-red) / 0.45);
+    background: rgb(var(--bad-red) / 0.12);
   }
 
   .panel-collector-note {
     @apply hidden text-fg-subtle sm:inline;
   }
 
-  .finding-origin-badge {
-    @apply inline-block max-w-full truncate rounded-md border px-2 py-0.5 text-2xs font-semibold uppercase tracking-wide;
+  .panel-collector-group {
+    @apply inline-flex w-fit max-w-full min-h-9 flex-row flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border border-border bg-surface-2 px-3 py-2;
   }
 
-  .finding-origin-guardduty {
-    border-color: rgb(var(--sev-high) / 0.25);
-    background: rgb(var(--sev-high) / 0.1);
-    color: rgb(var(--sev-high));
+  .panel-collector-group-header {
+    @apply flex shrink-0 items-center gap-2.5;
   }
 
-  .finding-origin-macie {
-    border-color: rgb(147 51 234 / 0.25);
-    background: rgb(147 51 234 / 0.1);
-    color: rgb(196 181 253);
+  .panel-collector-group-rows {
+    @apply flex flex-row flex-wrap items-center gap-x-4 gap-y-1;
   }
 
-  .finding-origin-detective {
-    border-color: rgb(var(--accent) / 0.25);
-    background: rgb(var(--accent) / 0.1);
-    color: rgb(var(--accent));
+  .panel-collector-aspect-row {
+    @apply inline-flex shrink-0 items-center gap-1.5;
   }
 
-  .finding-origin-inspector {
-    border-color: rgb(var(--sev-medium) / 0.25);
-    background: rgb(var(--sev-medium) / 0.1);
-    color: rgb(var(--sev-medium));
-  }
-
-  .finding-origin-securityhub {
-    border-color: rgb(var(--sev-info) / 0.25);
-    background: rgb(var(--sev-info) / 0.1);
-    color: rgb(var(--sev-info));
-  }
-
-  .finding-origin-other {
-    @apply border-border bg-surface-2 text-fg-subtle;
-  }
-
-  .finding-class-badge {
-    @apply inline-block max-w-full truncate rounded-md border px-2 py-0.5 text-2xs font-semibold;
-  }
-
-  .finding-class-threat {
-    border-color: rgb(var(--bad-red) / 0.3);
-    background: rgb(var(--bad-red) / 0.1);
-    color: rgb(var(--bad-red));
-  }
-
-  .finding-class-vuln {
-    border-color: rgb(var(--warn-amber) / 0.3);
-    background: rgb(var(--warn-amber) / 0.1);
-    color: rgb(var(--warn-amber));
-  }
-
-  .finding-class-compliance {
-    border-color: rgb(var(--accent) / 0.25);
-    background: rgb(var(--accent) / 0.1);
-    color: rgb(var(--accent));
-  }
-
-  .finding-class-data {
-    border-color: rgb(147 51 234 / 0.3);
-    background: rgb(147 51 234 / 0.1);
-    color: rgb(196 181 253);
-  }
-
-  .finding-class-config {
-    border-color: rgb(var(--ok-green) / 0.3);
-    background: rgb(var(--ok-green) / 0.1);
-    color: rgb(var(--ok-green));
-  }
-
-  .finding-class-other {
-    @apply border-border bg-surface-2 text-fg-subtle;
+  .panel-collector-aspect-label {
+    @apply whitespace-nowrap text-xs text-fg-subtle;
   }
 
   .kbd {
@@ -766,20 +728,26 @@ body {
     overflow: auto;
   }
 
-  /* CloudTrail Timeline: give the events table more vertical room so more rows show. */
-  .cloudtrail-timeline .ct-table-wrap {
+  /* CloudTrail events: give the table more vertical room so more rows show. */
+  .cloudtrail-events .ct-table-wrap {
     max-height: calc(100vh - 140px);
   }
 
-  .edge-requests-timeline .ct-table-wrap {
+  /* Security Findings: scroll with the page instead of a nested viewport. */
+  .findings-events .ct-table-wrap {
+    max-height: none;
+    overflow-y: visible;
+  }
+
+  .edge-requests-log .ct-table-wrap {
     max-height: calc(100vh - 320px);
   }
 
-  .dns-queries-timeline .ct-table-wrap {
+  .dns-queries-log .ct-table-wrap {
     max-height: calc(100vh - 360px);
   }
 
-  .vpc-flow-timeline .ct-table-wrap {
+  .vpc-flow-log .ct-table-wrap {
     max-height: calc(100vh - 320px);
   }
 

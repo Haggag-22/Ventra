@@ -12,8 +12,10 @@ import type {
   DataAccessResponse,
   IntegrityReport,
   InventorySummary,
+  EvidenceContent,
+  EvidenceIndex,
+  EvidenceLines,
   NetworkResponse,
-  TimelineResponse,
   WebDnsResponse,
 } from "./types";
 
@@ -86,8 +88,6 @@ export const api = {
   events: (c: string, p: EventParams = {}) =>
     get<EventsResponse>(`/cases/${c}/events${qs(p)}`),
   facets: (c: string, p: EventParams = {}) => get<Facets>(`/cases/${c}/events/facets${qs(p)}`),
-  timeline: (c: string, p: EventParams = {}) =>
-    get<TimelineResponse>(`/cases/${c}/timeline${qs(p)}`),
   identity: (c: string) => get<IdentityResponse>(`/cases/${c}/identity`),
   network: (c: string) => get<NetworkResponse>(`/cases/${c}/network`),
   webDns: (c: string) => get<WebDnsResponse>(`/cases/${c}/web-dns`),
@@ -98,6 +98,17 @@ export const api = {
     get<{ source: string; data: any }>(`/cases/${c}/inventory/${source}`),
   cloudtrailCollection: (c: string) =>
     get<CloudTrailCollection>(`/cases/${c}/cloudtrail/collection`),
+  evidenceIndex: (c: string) => get<EvidenceIndex>(`/cases/${c}/evidence`),
+  evidenceContent: (c: string, path: string, maxBytes?: number) =>
+    get<EvidenceContent>(
+      `/cases/${c}/evidence/content${qs({ path, max_bytes: maxBytes })}`,
+    ),
+  evidenceLines: (c: string, path: string, offset = 0, limit?: number) =>
+    get<EvidenceLines>(
+      `/cases/${c}/evidence/lines${qs({ path, offset, limit })}`,
+    ),
+  evidenceDownloadUrl: (c: string, path: string) =>
+    `/api/cases/${encodeURIComponent(c)}/evidence/download?path=${encodeURIComponent(path)}`,
   artifacts: (cloud?: string, search?: string) =>
     get<{ artifacts: Artifact[]; count: number }>(`/artifacts${qs({ cloud, search })}`),
   artifact: (collector: string, cloud?: string) =>

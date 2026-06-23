@@ -1,57 +1,60 @@
 "use client";
 
 import { useCase } from "@/components/case-context";
-import { CloudTrailCollectionSummary } from "@/components/cloudtrail-collection-summary";
-import { CloudTrailTable } from "@/components/cloudtrail-table";
-import { CloudTrailToolbar,
-  type CloudTrailFilters,
-} from "@/components/cloudtrail-toolbar";
-import { PanelBody, PanelHeader } from "@/components/panel";
-import { api, type EventParams } from "@/lib/api";
+import { KubernetesAuditTable } from "@/components/kubernetes-audit-table";
 import {
-  ALL_CLOUDTRAIL_COL_KEYS,
-  CLOUDTRAIL_VISIBLE_COLS_KEY,
-  loadVisibleCloudTrailCols,
-  type CloudTrailColKey,
-} from "@/lib/cloudtrail-columns";
-import { usePagination } from "@/lib/pagination";
-import { caseCloud, controlPlaneSources } from "@/lib/cloud-sources";
-import { panelLabel } from "@/lib/panel-labels";
+  KubernetesAuditToolbar,
+  type K8sAuditFilters,
+} from "@/components/kubernetes-audit-toolbar";
+import { PanelBody, PanelHeader } from "@/components/panel";
 import { TablePager } from "@/components/table-pager";
+import { api, type EventParams } from "@/lib/api";
+import { caseCloud, kubernetesAuditSources } from "@/lib/cloud-sources";
+import {
+  ALL_K8S_AUDIT_COL_KEYS,
+  K8S_AUDIT_VISIBLE_COLS_KEY,
+  loadVisibleK8sAuditCols,
+  type K8sAuditColKey,
+} from "@/lib/kubernetes-audit-columns";
+import { usePagination } from "@/lib/pagination";
+import { panelLabel } from "@/lib/panel-labels";
 import { useFilters } from "@/lib/useFilters";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { ScrollText } from "lucide-react";
+import { Container } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-const PAGE_SIZE_KEY = "ventra.cloudtrail.page-size";
+const PAGE_SIZE_KEY = "ventra.kubernetes-audit.page-size";
 
 function baseSources(cloud: ReturnType<typeof caseCloud>) {
-  return controlPlaneSources(cloud);
+  return kubernetesAuditSources(cloud);
 }
 
-function filtersFromParams(params: EventParams): CloudTrailFilters {
+function filtersFromParams(params: EventParams): K8sAuditFilters {
   return {
     q: params.q,
     actions: params.actions,
-    services: params.services,
+    severities: params.severity,
+    outcomes: params.outcomes,
     regions: params.regions,
     users: params.users,
-    trailCategories: params.trail_category,
     order: params.order ?? "desc",
     user: params.user,
     ip: params.ip,
   };
 }
 
-function paramsFromFilters(filters: CloudTrailFilters, cloud: ReturnType<typeof caseCloud>): EventParams {
+function paramsFromFilters(
+  filters: K8sAuditFilters,
+  cloud: ReturnType<typeof caseCloud>,
+): EventParams {
   return {
     q: filters.q,
     source: baseSources(cloud),
     actions: filters.actions,
-    services: filters.services,
+    severity: filters.severities,
+    outcomes: filters.outcomes,
     regions: filters.regions,
     users: filters.users,
-    trail_category: filters.trailCategories,
     user: filters.user,
     ip: filters.ip,
     sort: "timestamp",
@@ -59,23 +62,22 @@ function paramsFromFilters(filters: CloudTrailFilters, cloud: ReturnType<typeof 
   };
 }
 
-export default function CloudTrailPage() {
+export default function KubernetesAuditPage() {
   const { caseId, summary } = useCase();
   const cloud = caseCloud(summary?.cloud);
+  const sources = baseSources(cloud);
   const { params, write, clearAll } = useFilters();
   const { page, setPage, pageSize, setPageSize } = usePagination(PAGE_SIZE_KEY);
-  const [visibleColumns, setVisibleColumns] = useState<CloudTrailColKey[]>(
-    ALL_CLOUDTRAIL_COL_KEYS,
-  );
+  const [visibleColumns, setVisibleColumns] = useState<K8sAuditColKey[]>(ALL_K8S_AUDIT_COL_KEYS);
 
   useEffect(() => {
-    setVisibleColumns(loadVisibleCloudTrailCols());
+    setVisibleColumns(loadVisibleK8sAuditCols());
   }, []);
 
-  const handleColumnsChange = useCallback((cols: CloudTrailColKey[]) => {
+  const handleColumnsChange = useCallback((cols: K8sAuditColKey[]) => {
     setVisibleColumns(cols);
     try {
-      localStorage.setItem(CLOUDTRAIL_VISIBLE_COLS_KEY, JSON.stringify(cols));
+      localStorage.setItem(K8S_AUDIT_VISIBLE_COLS_KEY, JSON.stringify(cols));
     } catch {
       /* ignore */
     }
@@ -85,36 +87,38 @@ export default function CloudTrailPage() {
   const effective = useMemo(() => paramsFromFilters(filters, cloud), [filters, cloud]);
 
   const totalQ = useQuery({
-    queryKey: ["ct-total", caseId, cloud],
-    queryFn: () => api.events(caseId, { source: baseSources(cloud), limit: 1, offset: 0 }),
+    queryKey: ["k8s-total", caseId, cloud],
+    queryFn: () => api.events(caseId, { source: sources, limit: 1, offset: 0 }),
   });
 
   const eventsQ = useQuery({
-    queryKey: ["ct-events", caseId, effective, page, pageSize],
+    queryKey: ["k8s-events", caseId, effective, page, pageSize],
     queryFn: () =>
       api.events(caseId, { ...effective, limit: pageSize, offset: page * pageSize }),
     placeholderData: keepPreviousData,
   });
 
   const facetsQ = useQuery({
-    queryKey: ["ct-facets", caseId, cloud],
-    queryFn: () => api.facets(caseId, { source: baseSources(cloud) }),
+    queryKey: ["k8s-facets", caseId, cloud],
+    queryFn: () => api.facets(caseId, { source: sources }),
   });
 
   const matched = eventsQ.data?.total ?? 0;
+  const totalAvailable = totalQ.data?.total ?? 0;
   const eventsFailed = totalQ.isError || eventsQ.isError;
+  const gcpStub = cloud === "gcp" && totalAvailable === 0 && !totalQ.isLoading;
 
   const handleChange = useCallback(
-    (next: Partial<CloudTrailFilters>) => {
+    (next: Partial<K8sAuditFilters>) => {
       const merged = { ...filters, ...next };
       write({
         q: merged.q,
-        source: baseSources(cloud),
+        source: sources,
         actions: merged.actions,
-        services: merged.services,
+        severity: merged.severities,
+        outcomes: merged.outcomes,
         regions: merged.regions,
         users: merged.users,
-        trail_category: merged.trailCategories,
         user: merged.user,
         ip: merged.ip,
         order: merged.order ?? "desc",
@@ -122,7 +126,7 @@ export default function CloudTrailPage() {
       });
       setPage(0);
     },
-    [filters, write, cloud],
+    [filters, write, sources],
   );
 
   const handleApply = useCallback(() => {
@@ -140,18 +144,27 @@ export default function CloudTrailPage() {
 
   return (
     <>
-      <PanelHeader icon={ScrollText} title={panelLabel(cloud, "cloudtrail")} panel="cloudtrail" />
+      <PanelHeader
+        icon={Container}
+        title={panelLabel(cloud, "kubernetes-audit")}
+        panel="kubernetes-audit"
+      />
       <PanelBody className="cloudtrail-view cloudtrail-events space-y-4">
-        {cloud === "aws" && <CloudTrailCollectionPanel caseId={caseId} />}
-
-        {eventsFailed && (
-          <div className="rounded-lg border border-bad-red/30 bg-bad-red/10 px-4 py-3 text-sm text-bad-red">
-            Could not load CloudTrail events from the case store. Restart the backend after upgrading,
-            or re-import the case with <span className="mono">make ingest</span>.
+        {gcpStub && (
+          <div className="rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm text-fg-subtle">
+            GKE audit log collection is not yet available. Kubernetes API audit events for GCP
+            cases will appear here once the <span className="mono">gke_audit</span> collector ships.
           </div>
         )}
 
-        <CloudTrailToolbar
+        {eventsFailed && (
+          <div className="rounded-lg border border-bad-red/30 bg-bad-red/10 px-4 py-3 text-sm text-bad-red">
+            Could not load Kubernetes audit events from the case store. Restart the backend after
+            upgrading, or re-import the case with <span className="mono">make ingest</span>.
+          </div>
+        )}
+
+        <KubernetesAuditToolbar
           facets={facetsQ.data}
           filters={filters}
           visibleColumns={visibleColumns}
@@ -162,7 +175,7 @@ export default function CloudTrailPage() {
         />
 
         <div className="ct-panel">
-          <CloudTrailTable
+          <KubernetesAuditTable
             events={eventsQ.data?.events ?? []}
             loading={eventsQ.isPending && !eventsQ.data}
             visibleColumns={visibleColumns}
@@ -179,36 +192,5 @@ export default function CloudTrailPage() {
         />
       </PanelBody>
     </>
-  );
-}
-
-function CloudTrailCollectionPanel({ caseId }: { caseId: string }) {
-  const q = useQuery({
-    queryKey: ["ct-collection", caseId],
-    queryFn: () => api.cloudtrailCollection(caseId),
-    retry: 1,
-  });
-
-  if (q.isLoading) {
-    return (
-      <div className="ct-panel px-4 py-6 text-sm text-fg-subtle">Loading CloudTrail collection…</div>
-    );
-  }
-
-  if (q.isError || !q.data) {
-    return null;
-  }
-
-  const hasTrails = (q.data.trails?.length ?? 0) > 0;
-  const hasEvents =
-    (q.data.events?.lookup_api?.total ?? 0) > 0 || (q.data.events?.s3?.total ?? 0) > 0;
-  if (!hasTrails && !hasEvents) {
-    return null;
-  }
-
-  return (
-    <div className="ct-panel p-4">
-      <CloudTrailCollectionSummary data={q.data} />
-    </div>
   );
 }

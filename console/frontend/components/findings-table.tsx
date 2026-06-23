@@ -3,7 +3,7 @@
 import { ContextDrawer } from "@/components/context-drawer";
 import { Entity } from "@/components/pivot";
 import { Spinner } from "@/components/ui";
-import { findingClass, findingClassClass } from "@/lib/finding-class";
+import { findingClass } from "@/lib/finding-class";
 import {
   ALL_FINDING_COL_KEYS,
   DEFAULT_FINDING_WIDTHS,
@@ -13,7 +13,7 @@ import {
   orderedVisibleFindingCols,
   type FindingColKey,
 } from "@/lib/findings-columns";
-import { findingOrigin, findingOriginClass } from "@/lib/finding-origin";
+import { findingOrigin } from "@/lib/finding-origin";
 import { fmtTimeCloudTrail } from "@/lib/format";
 import { SEVERITY_META } from "@/lib/severity";
 import type { UnifiedEvent } from "@/lib/types";
@@ -48,19 +48,18 @@ function renderCell(
       );
     case "finding_source":
       return (
-        <td key={key} className="truncate">
-          <span
-            className={cn("finding-origin-badge", findingOriginClass(origin))}
-            title={`Collector: ${e.ventra_source}`}
-          >
-            {origin}
-          </span>
+        <td
+          key={key}
+          className="truncate font-semibold text-fg"
+          title={`Collector: ${e.ventra_source}`}
+        >
+          {origin}
         </td>
       );
     case "finding_class":
       return (
-        <td key={key} className="truncate">
-          <span className={cn("finding-class-badge", findingClassClass(cls))}>{cls}</span>
+        <td key={key} className="truncate text-fg-subtle">
+          {cls}
         </td>
       );
     case "event_action":
@@ -194,7 +193,7 @@ export function FindingsTable({
         </div>
       ) : (
         <>
-          <div className="ct-table-wrap overflow-x-auto overflow-y-auto">
+          <div className="ct-table-wrap overflow-x-auto">
             <table className="ct-table w-full border-collapse text-left" style={{ tableLayout: "fixed", width: totalWeight, minWidth: "100%" }}>
               <colgroup>
                 {cols.map((c) => (

@@ -13,7 +13,9 @@ import { StatCard } from "@/components/stat";
 import { TablePager } from "@/components/table-pager";
 import { Card, CardHeader, EmptyState, LoadingPanel } from "@/components/ui";
 import { api } from "@/lib/api";
+import { caseCloud } from "@/lib/cloud-sources";
 import { fmtNum } from "@/lib/format";
+import { panelLabel } from "@/lib/panel-labels";
 import {
   ALL_EDGE_REQUEST_COL_KEYS,
   EDGE_REQUEST_VISIBLE_COLS_KEY,
@@ -73,7 +75,7 @@ const STATUS_TONE: Record<string, string> = {
   other: "bg-surface-3",
 };
 
-function DnsQueryTimeline({ caseId }: { caseId: string }) {
+function DnsQueryLog({ caseId }: { caseId: string }) {
   const [q, setQ] = useState("");
   const { page, setPage, pageSize, setPageSize } = usePagination("ventra.dns-queries.page-size");
 
@@ -178,7 +180,7 @@ function StatusBar({ classes }: { classes: { cls: string; count: number }[] }) {
   );
 }
 
-function EdgeRequestTimeline({ caseId }: { caseId: string }) {
+function EdgeRequestLog({ caseId }: { caseId: string }) {
   const [filters, setFilters] = useState<EdgeRequestFilters>({});
   const [visibleColumns, setVisibleColumns] = useState<EdgeRequestColKey[]>(
     ALL_EDGE_REQUEST_COL_KEYS,
@@ -248,7 +250,7 @@ function EdgeRequestTimeline({ caseId }: { caseId: string }) {
   }, [setPage]);
 
   return (
-    <div className="cloudtrail-view edge-requests-timeline mt-8">
+    <div className="cloudtrail-view edge-requests-log mt-8">
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold text-fg">Request log</h2>
@@ -288,7 +290,9 @@ function EdgeRequestTimeline({ caseId }: { caseId: string }) {
 }
 
 export default function WebDnsPage() {
-  const { caseId } = useCase();
+  const { caseId, summary } = useCase();
+  const cloud = caseCloud(summary?.cloud);
+  const title = panelLabel(cloud, "web");
   const q = useQuery({ queryKey: ["web-dns", caseId], queryFn: () => api.webDns(caseId) });
 
   if (q.isLoading || !q.data) return <LoadingPanel label="Loading web & DNS…" />;
@@ -303,13 +307,19 @@ export default function WebDnsPage() {
   if (empty) {
     return (
       <>
-        <PanelHeader icon={Globe2} title="Web & DNS" panel="web" />
+        <PanelHeader icon={Globe2} title={title} panel="web" />
         <PanelBody>
           <Card className="py-4">
             <EmptyState
               icon={Globe2}
               title="No L7 edge, WAF, or DNS records in this case"
-              description="ELB/ALB and CloudFront access logging, WAF sampled requests, and Route53 Resolver query logs were not in scope for this window. Any gaps are recorded in the manifest."
+              description={
+                cloud === "azure"
+                  ? "Application Gateway, Front Door, and DNS query logs were not in scope for this window. Any gaps are recorded in the manifest."
+                  : cloud === "gcp"
+                    ? "Cloud Load Balancer and API Gateway access logs were not in scope for this window. Any gaps are recorded in the manifest."
+                    : "ELB/ALB and CloudFront access logging, WAF sampled requests, and Route53 Resolver query logs were not in scope for this window. Any gaps are recorded in the manifest."
+              }
             />
           </Card>
         </PanelBody>
@@ -319,7 +329,7 @@ export default function WebDnsPage() {
 
   return (
     <>
-      <PanelHeader icon={Globe2} title="Web & DNS" panel="web" />
+      <PanelHeader icon={Globe2} title={title} panel="web" />
       <PanelBody className="space-y-6">
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
           <StatCard label="Edge requests" value={fmtNum(edge.totals.requests)} icon={Network} />
@@ -503,15 +513,15 @@ export default function WebDnsPage() {
             </Card>
           )}
 
-          <EdgeRequestTimeline caseId={caseId} />
+          <EdgeRequestLog caseId={caseId} />
         </div>
 
         {/* -- DNS + WAF -------------------------------------------------------------------- */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <Card className="overflow-hidden p-0">
             <CardHeader title="DNS resolver queries" icon={Server} className="px-4 py-3" />
-            <div className="cloudtrail-view dns-queries-timeline">
-              <DnsQueryTimeline caseId={caseId} />
+            <div className="cloudtrail-view dns-queries-log">
+              <DnsQueryLog caseId={caseId} />
             </div>
           </Card>
 

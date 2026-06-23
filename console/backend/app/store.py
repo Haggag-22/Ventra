@@ -605,30 +605,6 @@ class CaseStore:
         ).fetchall()
         return [{"value": r[0], "count": r[1]} for r in rows]
 
-    def timeline_buckets(self, case_id: str, q: EventQuery, buckets: int = 80) -> dict[str, Any]:
-        """Bucketed event counts over the case time span, split by severity, for the Timeline."""
-        path = self._events_path(case_id)
-        where, params = self._build_where(q)
-        con = self._connect()
-        try:
-            events = self._events_table(con, path)
-            span = con.execute(
-                f"SELECT min(timestamp), max(timestamp) FROM {events} {where} "
-                f"{'AND' if where else 'WHERE'} timestamp <> ''",
-                [path, *params],
-            ).fetchone()
-            tmin, tmax = span
-            rows = con.execute(
-                f"SELECT timestamp, event_severity, ventra_source FROM {events} {where} "
-                f"{'AND' if where else 'WHERE'} timestamp <> '' ORDER BY timestamp",
-                [path, *params],
-            ).fetchall()
-        finally:
-            con.close()
-        return {"min": tmin, "max": tmax, "points": [
-            {"t": r[0], "severity": r[1], "source": r[2]} for r in rows
-        ]}
-
     def role_assumption_graph(self, case_id: str) -> dict[str, Any]:
         """Build the Identity panel's who-assumed-what graph from session/STS events."""
         path = self._events_path(case_id)

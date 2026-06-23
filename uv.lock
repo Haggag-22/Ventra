@@ -1715,6 +1715,7 @@ dependencies = [
     { name = "boto3" },
     { name = "botocore" },
     { name = "pyyaml" },
+    { name = "requests" },
     { name = "rich" },
     { name = "zstandard" },
 ]
@@ -1728,6 +1729,7 @@ azure = [
     { name = "azure-mgmt-resource" },
     { name = "azure-mgmt-security" },
     { name = "azure-storage-blob" },
+    { name = "requests" },
 ]
 console = [
     { name = "duckdb" },
@@ -1819,6 +1821,8 @@ requires-dist = [
     { name = "pyyaml", specifier = ">=6.0" },
     { name = "pyyaml", marker = "extra == 'console'", specifier = ">=6.0" },
     { name = "pyyaml", marker = "extra == 'dev'", specifier = ">=6.0" },
+    { name = "requests", specifier = ">=2.31" },
+    { name = "requests", marker = "extra == 'azure'", specifier = ">=2.31" },
     { name = "rich", specifier = ">=13.7" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.4" },
     { name = "uvicorn", extras = ["standard"], marker = "extra == 'console'", specifier = ">=0.29" },
