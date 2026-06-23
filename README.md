@@ -421,43 +421,12 @@ For M365 UAL filters: `--ual-users`, `--ual-operations`, and related `--ual-*` f
 
 ---
 
-## Design principles
-
-Ventra follows standard cloud DFIR practice, including AWS guidance on
-[forensic investigation environments](https://aws.amazon.com/blogs/security/forensic-investigation-environment-strategies-in-the-aws-cloud/):
-
-1. **Read only at the source:** collector policies contain no mutating actions; CI enforces this.
-2. **Hash on acquisition:** SHA 256 for every artifact before it leaves the account.
-3. **Immutable evidence:** packages are sealed; the ingester works on copies only.
-4. **Chain of custody:** operator, account, time window, tool version, and invocation are in every manifest.
-5. **Separation of duties:** collection and analysis roles are distinct.
-6. **Offline analysis:** the console requires no cloud connectivity after ingest.
-7. **Document the gaps:** unconfigured or denied log sources are first class outputs.
-
----
-
 ## What Ventra is not
 
 - **Not a SIEM:** cases are scoped investigations, not always on log pipelines.
 - **Not EDR or disk forensics:** OS internals, memory, and imaging stay with dedicated tools.
 - **Not a containment platform:** the collector never modifies, isolates, or terminates resources.
 - **Not long term storage:** Ventra defines the evidence format; retention is the IR team's choice.
-
----
-
-## Repository layout
-
-```
-bin/           CloudShell install and collection scripts
-artifacts/     YAML artifact catalog and IR packs (aws, azure, gcp)
-collector/     Read only acquisition engine, kit builder, CLI
-ingester/      Verify, parse, normalize, load (DuckDB / Parquet)
-console/       Analyst UI (FastAPI + Next.js): Investigate + Acquire
-schemas/       JSON Schemas: manifest, package, unified event
-docs/          EPF spec, IAM policies, runbooks, architecture
-deploy/        Reference Terraform for a forensic environment
-tests/         Fixtures and unit / integration tests
-```
 
 ---
 
