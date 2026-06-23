@@ -173,7 +173,7 @@ def test_build_kit_enterprise_sets_unlimited_records(tmp_path: Path) -> None:
         profile_txt = zf.read("deployment-profile.txt").decode()
     assert acq["deployment_profile"] == "enterprise"
     assert acq["max_records_per_source"] == 0
-    assert "no artificial record cap" in profile_txt.lower() or "No artificial record cap" in profile_txt
+    assert "full window" in profile_txt.lower() or "since/until" in profile_txt.lower()
 
 
 def test_build_kit_cloudshell_tradeoffs_in_profile_txt(tmp_path: Path) -> None:
@@ -189,7 +189,7 @@ def test_build_kit_cloudshell_tradeoffs_in_profile_txt(tmp_path: Path) -> None:
     with zipfile.ZipFile(out) as zf:
         profile_txt = zf.read("deployment-profile.txt").decode()
         readme = zf.read("README-operator.md").decode()
-    assert "does NOT pull all records" in profile_txt.lower() or "Does NOT pull all records" in profile_txt
+    assert "1 GB home disk" in profile_txt.lower() or "~1 GB home disk" in profile_txt
     assert "Tradeoffs (read before you run)" in readme
 
 

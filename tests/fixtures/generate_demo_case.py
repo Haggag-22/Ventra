@@ -406,26 +406,34 @@ def build_guardduty() -> list[dict]:
 def build_vpc_flow() -> list[dict]:
     """CloudWatch-style flow records (message holds the v2 line)."""
     eni = "eni-0a1b2c3d4e5f6"
+    vpc_primary = "vpc-0demo1234"
+    vpc_secondary = "vpc-0demo5678"
     out = []
     start = int((BASE + timedelta(seconds=1400)).timestamp())
-    # Normal internal chatter.
+    # Normal internal chatter (primary VPC).
     for i in range(30):
         s = start + i * 5
-        out.append({"_ventra_region": REGION, "timestamp": s * 1000,
+        out.append({"_ventra_region": REGION, "_ventra_vpc_id": vpc_primary, "timestamp": s * 1000,
                     "message": f"2 {ACCOUNT} {eni} 10.0.1.20 10.0.2.30 51514 443 6 12 1500 "
                                f"{s} {s+10} ACCEPT OK"})
+    # Secondary VPC — smaller internal volume for filter testing.
+    for i in range(8):
+        s = start + 400 + i * 4
+        out.append({"_ventra_region": REGION, "_ventra_vpc_id": vpc_secondary, "timestamp": s * 1000,
+                    "message": f"2 {ACCOUNT} {eni} 10.0.3.10 10.0.3.20 52000 443 6 8 900 "
+                               f"{s} {s+8} ACCEPT OK"})
     # Large exfil egress to a public IP.
     for i in range(12):
         s = start + 200 + i * 7
         nbytes = rng.randint(40_000_000, 90_000_000)
-        out.append({"_ventra_region": REGION, "timestamp": s * 1000,
+        out.append({"_ventra_region": REGION, "_ventra_vpc_id": vpc_primary, "timestamp": s * 1000,
                     "message": f"2 {ACCOUNT} {eni} 10.0.1.20 {EXFIL_IP} 49888 443 6 8000 {nbytes} "
                                f"{s} {s+30} ACCEPT OK"})
     # Rejected recon scans inbound.
     for i in range(20):
         s = start + 50 + i * 3
         port = rng.choice([22, 3389, 445, 23])
-        out.append({"_ventra_region": REGION, "timestamp": s * 1000,
+        out.append({"_ventra_region": REGION, "_ventra_vpc_id": vpc_primary, "timestamp": s * 1000,
                     "message": f"2 {ACCOUNT} {eni} {ATTACKER_IP} 10.0.1.20 40000 {port} 6 3 120 "
                                f"{s} {s+5} REJECT OK"})
     return out
@@ -656,8 +664,22 @@ def generate(out_dir: Path, case_id: str = "CASE-2026-0042") -> Path:
         src("vpc_flow", [("events.jsonl.gz", _write_gz_jsonl(sd / "vpc_flow/events.jsonl.gz",
                                                             build_vpc_flow())),
                          ("config.json", _write_json(sd / "vpc_flow/config.json",
-                             {"flow_logs": [{"LogDestinationType": "cloud-watch-logs",
-                                             "LogGroupName": "/vpc/flowlogs"}]}))],
+                             {"flow_logs": [
+                                 {"LogDestinationType": "cloud-watch-logs",
+                                  "LogGroupName": "/vpc/flowlogs-primary",
+                                  "ResourceId": "vpc-0demo1234",
+                                  "FlowLogStatus": "ACTIVE"},
+                                 {"LogDestinationType": "cloud-watch-logs",
+                                  "LogGroupName": "/vpc/flowlogs-secondary",
+                                  "ResourceId": "vpc-0demo5678",
+                                  "FlowLogStatus": "ACTIVE"},
+                              ],
+                              "vpcs": [
+                                  {"VpcId": "vpc-0demo1234",
+                                   "Tags": [{"Key": "Name", "Value": "demo-primary-vpc"}]},
+                                  {"VpcId": "vpc-0demo5678",
+                                   "Tags": [{"Key": "Name", "Value": "demo-secondary-vpc"}]},
+                              ]}))],
             notes="Flow records incl. exfil egress.")
         src("elb_alb", [("events.jsonl.gz", _write_gz_jsonl(sd / "elb_alb/events.jsonl.gz",
                                                             build_elb_alb()))],

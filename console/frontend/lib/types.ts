@@ -135,6 +135,9 @@ export interface IdentityResponse {
 }
 
 export interface NetworkResponse {
+  case_totals: {
+    flows: number;
+  };
   totals: {
     flows: number;
     accepted: number;
@@ -149,6 +152,16 @@ export interface NetworkResponse {
   top_ports: { port: number; flows: number; bytes: number; rejected: number }[];
   rejected: { source_ip: string; dest_ip: string; dest_port: number; count: number }[];
   protocols: { protocol: string; count: number }[];
+}
+
+export interface NetworkVpc {
+  id: string;
+  name: string;
+  flows: number;
+}
+
+export interface NetworkVpcsResponse {
+  vpcs: NetworkVpc[];
 }
 
 export interface WebDnsResponse {

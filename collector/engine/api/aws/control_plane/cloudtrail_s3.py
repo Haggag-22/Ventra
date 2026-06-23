@@ -266,7 +266,7 @@ def collect_s3_trail_records(
                         Prefix=prefix,
                     ):
                         stats["objects_scanned"] += 1
-                        if stats["objects_scanned"] > obj_cap:
+                        if not records_unlimited(obj_cap) and stats["objects_scanned"] > obj_cap:
                             stats["truncated"] = True
                             break
                         key = obj.get("Key", "")

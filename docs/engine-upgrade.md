@@ -164,9 +164,9 @@ ingest-gcp:
 
 Add short section to `docs/runbooks/operator.md`:
 
-- ~200k records per source cap
-- 4 GB console upload cap
-- Not blockers; Phase 4 addresses streaming/S3
+- Full since/until window collection by default (optional `max_records_per_source` for triage caps)
+- ~20 GB console upload cap by default (`VENTRA_MAX_UPLOAD_MB`)
+- Use EC2 / S3 transport for multi-GB packages
 
 ---
 

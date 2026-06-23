@@ -14,7 +14,7 @@ from collector.lib.limits import records_unlimited
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 
-MAX_RECORDS = 200_000
+from collector.lib.limits import DEFAULT_MAX_RECORDS as MAX_RECORDS
 
 
 class DefenderCollector(Collector):

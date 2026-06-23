@@ -36,8 +36,11 @@ MANAGE_SCOPE = "https://manage.office.com/.default"
 EXO_ADMIN_BASE = "https://outlook.office365.com/adminapi/beta"
 EXO_SCOPE = "https://outlook.office365.com/.default"
 
-# Bound in-memory pulls so a large tenant can't exhaust the workstation (mirrors AWS caps).
-MAX_RECORDS = 200_000
+from collector.lib.limits import UNLIMITED_RECORDS
+
+# Default pagination ceiling for API-backed pulls (full since/until window unless acquisition.yaml
+# sets max_records_per_source to a positive triage cap).
+MAX_RECORDS = UNLIMITED_RECORDS
 # Graph throttles aggressively; cap retry waits so a run can't hang indefinitely.
 MAX_RETRIES = 5
 

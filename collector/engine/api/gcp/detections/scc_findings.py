@@ -8,7 +8,7 @@ from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.clouds.gcp.client_factory import GcpAccessDenied, GcpServiceNotEnabled
 
-MAX_RECORDS = 200_000
+from collector.lib.limits import DEFAULT_MAX_RECORDS as MAX_RECORDS
 
 
 class SccFindingsCollector(Collector):

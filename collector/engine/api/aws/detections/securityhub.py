@@ -13,9 +13,7 @@ from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
-# Bound the in-memory findings pull; large estates can hold hundreds of thousands of
-# ACTIVE findings and the collector must stay viable inside a CloudShell.
-MAX_FINDINGS = 50_000
+from collector.lib.limits import records_unlimited
 
 
 class SecurityHubCollector(Collector):
@@ -36,6 +34,7 @@ class SecurityHubCollector(Collector):
         enabled_anywhere = False
 
         truncated = False
+        cap = self.max_records()
         for region in self.ctx.regions:
             try:
                 cf.call("securityhub", region, "describe_hub")
@@ -56,7 +55,7 @@ class SecurityHubCollector(Collector):
                     Filters={"RecordState": [{"Value": "ACTIVE", "Comparison": "EQUALS"}]},
                     MaxResults=100,
                 ):
-                    if len(findings) >= MAX_FINDINGS:
+                    if not records_unlimited(cap) and len(findings) >= cap:
                         truncated = True
                         break
                     f["_ventra_region"] = region
@@ -73,7 +72,7 @@ class SecurityHubCollector(Collector):
                     (
                         "securityhub",
                         GapReason.COLLECTOR_ERROR,
-                        f"Findings truncated at {MAX_FINDINGS}; export the rest from "
+                        f"Findings truncated at {cap:,}; export the rest from "
                         "Security Hub directly if full coverage is required.",
                     )
                 )

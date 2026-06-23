@@ -16,6 +16,7 @@ import type {
   EvidenceIndex,
   EvidenceLines,
   NetworkResponse,
+  NetworkVpcsResponse,
   WebDnsResponse,
 } from "./types";
 
@@ -48,6 +49,7 @@ export type EventParams = {
   source_ips?: string[];
   dest_ips?: string[];
   dest_ports?: string[];
+  vpcs?: string[];
   data_access?: boolean;
   since?: string;
   until?: string;
@@ -89,7 +91,9 @@ export const api = {
     get<EventsResponse>(`/cases/${c}/events${qs(p)}`),
   facets: (c: string, p: EventParams = {}) => get<Facets>(`/cases/${c}/events/facets${qs(p)}`),
   identity: (c: string) => get<IdentityResponse>(`/cases/${c}/identity`),
-  network: (c: string) => get<NetworkResponse>(`/cases/${c}/network`),
+  network: (c: string, p: { vpc?: string } = {}) =>
+    get<NetworkResponse>(`/cases/${c}/network${qs(p)}`),
+  networkVpcs: (c: string) => get<NetworkVpcsResponse>(`/cases/${c}/network/vpcs`),
   webDns: (c: string) => get<WebDnsResponse>(`/cases/${c}/web-dns`),
   dataAccess: (c: string) => get<DataAccessResponse>(`/cases/${c}/data-access`),
   resources: (c: string) => get<InventorySummary>(`/cases/${c}/resources`),

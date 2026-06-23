@@ -16,7 +16,7 @@ Resources
 | project id, name, type, location, resourceGroup, subscriptionId, tags
 | order by type asc, name asc
 """
-MAX_RECORDS = 200_000
+from collector.lib.limits import DEFAULT_MAX_RECORDS as MAX_RECORDS
 
 
 class ResourceGraphCollector(Collector):

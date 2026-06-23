@@ -30,12 +30,12 @@ See `ec2-bootstrap.sh` for a minimal Python venv + dependency install using the 
 
 - Disk and runtime scale with **instance type and volume size** — attach enough EBS for the sealed package plus temp staging (often tens to hundreds of GB for big flow/log pulls).
 - Sessions via SSM can stay up for **hours**; no Cloud Shell ~20 min idle limit.
-- Still respects `max_records_per_source` in `acquisition.yaml` if manually set — omit it for maximum API completeness.
+- Optional `max_records_per_source` in `acquisition.yaml` caps per source for scoped triage only — omit for full-window collection.
 
 **Data completeness**
 
-- **Most complete** profile in this kit: best chance to pull **all records** within configured caps for API and S3-backed sources.
-- Does not bypass Ventra’s per-source caps or client-side S3 listing limits — check manifest gaps after ingest.
+- **Most complete** runtime profile: large disk, long SSM sessions, full since/until collection by default.
+- Does not bypass client-side access gaps or optional `max_records_per_source` caps — check manifest gaps after ingest.
 
 **Operational cost**
 

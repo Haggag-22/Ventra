@@ -18,7 +18,7 @@ from collector.lib.limits import DEFAULT_MAX_RECORDS, records_unlimited
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from ..common.cw_logs import collect_cw_log_events
-from .vpc_flow_s3 import collect_s3_flow_records, flow_log_s3_target
+from .vpc_flow_s3 import collect_s3_flow_records, flow_log_s3_target, _flow_scope_tags
 
 MAX_CW_RECORDS = DEFAULT_MAX_RECORDS
 
@@ -42,6 +42,7 @@ class VpcFlowCollector(Collector):
         flow_configs: list[dict] = []
         vpcs: list[dict] = []
         cw_log_groups: set[str] = set()
+        cw_log_tags: dict[str, dict[str, str]] = {}
 
         for region in self.ctx.regions:
             try:
@@ -55,7 +56,9 @@ class VpcFlowCollector(Collector):
                 fl["_ventra_region"] = region
                 flow_configs.append(fl)
                 if fl.get("LogDestinationType") == "cloud-watch-logs" and fl.get("LogGroupName"):
-                    cw_log_groups.add(f"{region}::{fl['LogGroupName']}")
+                    entry = f"{region}::{fl['LogGroupName']}"
+                    cw_log_groups.add(entry)
+                    cw_log_tags[entry] = _flow_scope_tags(fl)
             try:
                 for vpc in cf.paginate("ec2", region, "describe_vpcs", "Vpcs"):
                     vpc["_ventra_region"] = region
@@ -121,6 +124,7 @@ class VpcFlowCollector(Collector):
                     "vpc_flow_cw",
                     max_records=remaining,
                     writer=cw_writer,
+                    record_extra=cw_log_tags.get(entry),
                 )
                 cw_record_count += int(stats.get("records") or 0)
                 if stats.get("truncated"):

@@ -178,6 +178,8 @@ export function SelectDropdown({
   displayLabel,
   variant = "default",
   align = "right",
+  className,
+  menuClassName,
 }: {
   value: string;
   options: { value: string; label: string }[];
@@ -186,6 +188,8 @@ export function SelectDropdown({
   displayLabel?: string;
   variant?: "default" | "cloudtrail";
   align?: "left" | "right";
+  className?: string;
+  menuClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -209,6 +213,7 @@ export function SelectDropdown({
           ct
             ? "ct-btn"
             : "flex h-9 items-center gap-2 rounded-md border border-border bg-surface-2 px-3 text-xs text-fg-subtle hover:text-fg",
+          className,
         )}
       >
         {Icon && <Icon className="h-3.5 w-3.5" />}
@@ -220,6 +225,7 @@ export function SelectDropdown({
           className={cn(
             "absolute top-full z-50 mt-1 w-40 animate-fade-in rounded-lg border border-border bg-surface p-1 shadow-pop",
             align === "right" ? "right-0" : "left-0",
+            menuClassName,
           )}
         >
           {options.map((o) => (

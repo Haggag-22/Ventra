@@ -81,16 +81,21 @@ cosign verify-blob --key ventra-release.pub \
   --signature ventra-collector.whl.sig ventra-collector.whl
 ```
 
-## Scale caps (current)
+## Scale (current)
 
-Ventra today targets single-engagement triage, not always-on log warehousing. Two limits to
-know about:
+Ventra collects **every record in the configured ``since`` / ``until`` window** by default
+across AWS, Azure, and GCP log collectors. Collection may be slow on busy accounts — that is
+expected.
 
-- **~200,000 records per source.** Log-based collectors stop at ~200k records per source and
-  mark the source `partial` (the cap is recorded in the source `_meta.json`). Narrow the
-  `--since` / `--until` window to capture a denser slice of a busy log.
-- **4 GB console upload cap.** The analyst console rejects evidence packages larger than 4 GB
-  on import. Split very large collections by time window or by collector pack.
+Optional triage cap: set ``max_records_per_source`` to a positive integer in
+``acquisition.yaml`` to stop early per source (legacy scoped pulls only).
 
-Neither is a hard blocker for incident triage — they bound memory and disk on a workstation.
-Streaming transport (S3) and bulk ingest that lift both caps are tracked as Phase 4 work.
+Practical environment limits still apply:
+
+- **CloudShell ~1 GB home** — stage large packages with ``--stream-to s3://...`` or run on EC2.
+- **Console upload** — default ~20 GB package import cap (``VENTRA_MAX_UPLOAD_MB``).
+- **Posture/inventory collectors** (IAM snapshots, log-posture scans) sample resource lists —
+  they are not time-series logs.
+
+``partial`` status on a **log source** means a real gap (access denied, logging off, or an
+optional ``max_records_per_source`` cap) — check manifest gaps and the Collection panel.

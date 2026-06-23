@@ -3,6 +3,26 @@
 Ventra normalizes every source into one schema. After ingest, export NDJSON and forward it
 into the client's Elastic stack with Logstash.
 
+## Local Docker demo (free, no Elastic Cloud account)
+
+From this directory:
+
+```bash
+# Export a case (console **Export to Elastic** or CLI)
+ventra-export --case-dir ../../cases/Test-AWS --out ./export
+
+# Or point at an existing unzip:
+EXPORT_DIR=~/Downloads/Test-AWS-elastic-export ./demo.sh
+
+# Load all sources (slow — large NDJSON files):
+EXPORT_DIR=~/Downloads/Test-AWS-elastic-export ./demo.sh --all
+```
+
+Opens **Kibana** at http://localhost:5601. Create a data view `ventra-*` with time field
+`@timestamp`, then filter `ventra.case_id:"Test-AWS"`. Open **Security** for the SIEM UI.
+
+Stop: `docker compose -f docker-compose.yml down`
+
 ## 1. Ingest and export
 
 ```bash
