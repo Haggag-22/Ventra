@@ -3,6 +3,7 @@
 import { ArtifactIcon } from "@/components/artifact-icon";
 import { Button } from "@/components/ui";
 import { api } from "@/lib/api";
+import { paramLabel } from "@/lib/artifact-params";
 import { displayArtifactLabel } from "@/lib/artifact-icons";
 import type { Artifact } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -60,8 +61,7 @@ function ArtifactBody({ art }: { art: Artifact }) {
               ];
               return (
                 <li key={key} className="mono">
-                  {key}
-                  {p?.type ? ` · ${p.type}` : ""}
+                  {paramLabel(key)}
                   {p?.required ? " · required" : ""}
                 </li>
               );

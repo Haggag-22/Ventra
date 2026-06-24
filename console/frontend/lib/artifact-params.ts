@@ -22,11 +22,21 @@ export function requiredParamKeys(schema: ParamSchema | undefined): string[] {
   return paramKeys(schema).filter((k) => schema?.[k]?.required);
 }
 
+export function paramLabel(key: string): string {
+  if (!key) return key;
+  return key.charAt(0).toUpperCase() + key.slice(1);
+}
+
 export function paramHint(schema: ParamSchema | undefined, key: string): string {
   const field = schema?.[key];
   if (field?.description) return String(field.description);
-  if (field?.type) return String(field.type);
-  return key;
+  return "";
+}
+
+export function paramPlaceholder(schema: ParamSchema | undefined, key: string): string {
+  const field = schema?.[key];
+  if (field?.default != null && String(field.default).trim()) return String(field.default);
+  return "";
 }
 
 export function missingRequiredParams(
@@ -48,7 +58,7 @@ export function validateArtifactParams(
         collector: artifact.collector,
         label: displayArtifactLabel(artifact.collector),
         param,
-        message: `Required parameter "${param}" is missing`,
+        message: `Required parameter "${paramLabel(param)}" is missing`,
       });
     }
   }

@@ -897,11 +897,26 @@ def _azure_auth_from_args(args) -> AzureAuthOptions:
     )
 
 
-def _azure_subscription_from_args(args) -> str | None:
+def _azure_subscription_from_args(args, spec) -> str | None:
     import os
 
     raw = (getattr(args, "subscription", "") or os.environ.get("AZURE_SUBSCRIPTION_ID", "")).strip()
-    return raw or None
+    if raw:
+        return raw
+    if spec and spec.subscription:
+        return spec.subscription.strip()
+    return None
+
+
+def _aws_profile_from_args(args, spec) -> str:
+    import os
+
+    cli = (getattr(args, "profile", "") or "").strip()
+    if cli:
+        return cli
+    if spec and spec.aws_profile:
+        return spec.aws_profile.strip()
+    return (os.environ.get("AWS_PROFILE", "") or "").strip()
 
 
 def _resolve_collectors(requested: str, all_names: list[str], registry) -> list[str]:
@@ -1078,7 +1093,7 @@ def _run_aws(args) -> int:
         engagement_id=args.engagement or eng_override,
         key_path=Path(args.key) if args.key else None,
         reporter=reporter,
-        aws_profile=(args.profile or "").strip(),
+        aws_profile=_aws_profile_from_args(args, spec),
         artifact_refs=artifact_refs,
         max_records_per_source=spec.max_records_per_source if spec else None,
         artifact_parameters=spec.artifact_parameters() if spec else {},
@@ -1216,7 +1231,7 @@ def _run_azure(args) -> int:
 
     regions = _regions_from_args(args, spec)
     window = _window_from_args(args, spec)
-    subscription = _azure_subscription_from_args(args) or (spec.subscription if spec else "") or None
+    subscription = _azure_subscription_from_args(args, spec) or None
 
     json_mode = args.json_output
     reporter, console = _cli_reporter(quiet=args.quiet, json_mode=json_mode, cloud="azure")

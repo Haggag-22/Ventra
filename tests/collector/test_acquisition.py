@@ -76,6 +76,7 @@ cloud: aws
 since: 2026-05-01
 until: 2026-06-01
 regions: [us-east-1, us-west-2]
+aws_profile: default
 max_records_per_source: 0
 artifacts:
   - collector: cloudtrail
@@ -84,6 +85,7 @@ artifacts:
     assert spec.since == "2026-05-01"
     assert spec.until == "2026-06-01"
     assert spec.regions == ["us-east-1", "us-west-2"]
+    assert spec.aws_profile == "default"
     assert spec.max_records_per_source == 0
     assert spec.artifact_parameters() == {"cloudtrail": {"since": "30d"}}
 
