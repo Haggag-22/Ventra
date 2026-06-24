@@ -34,6 +34,7 @@ class AcquisitionBuildRequest(BaseModel):
     regions: list[str] = []
     project: str = ""
     subscription: str = ""
+    aws_profile: str = ""
     max_records_per_source: int | None = None
     artifact_parameters: dict[str, dict[str, Any]] = {}
     deployment_profile: str = "cloudshell"
@@ -518,6 +519,7 @@ def build_acquisition(
                 regions=[r.strip() for r in body.regions if r.strip()] or None,
                 project=body.project.strip(),
                 subscription=body.subscription.strip(),
+                aws_profile=body.aws_profile.strip(),
                 max_records_per_source=body.max_records_per_source,
                 artifact_parameters=body.artifact_parameters or None,
                 transport=body.transport.strip(),

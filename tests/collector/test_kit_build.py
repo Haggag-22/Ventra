@@ -52,6 +52,26 @@ def test_build_kit_full_schema_acquisition(tmp_path: Path) -> None:
     assert "vpc_flow" not in entry
 
 
+
+
+def test_build_kit_aws_profile(tmp_path: Path) -> None:
+    out = build_kit(
+        tmp_path / "kit.zip",
+        cloud="aws",
+        case_id="CASE-AWS-PROF",
+        artifact_names=["cloudtrail"],
+        artifacts_root=ARTIFACTS,
+        aws_profile="default",
+        bundle_wheel=False,
+    )
+    with zipfile.ZipFile(out) as zf:
+        acq = yaml.safe_load(zf.read("acquisition.yaml"))
+    assert acq["aws_profile"] == "default"
+    acq_path = tmp_path / "acq.yaml"
+    acq_path.write_text(yaml.dump(acq))
+    spec = load_acquisition(acq_path)
+    assert spec.aws_profile == "default"
+
 def test_kit_acquisition_roundtrips(tmp_path: Path) -> None:
     out = build_kit(
         tmp_path / "kit.zip",

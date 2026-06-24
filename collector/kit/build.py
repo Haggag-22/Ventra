@@ -107,6 +107,7 @@ def build_kit(
     regions: list[str] | None = None,
     project: str = "",
     subscription: str = "",
+    aws_profile: str = "",
     max_records_per_source: int | None = None,
     artifact_parameters: dict[str, dict[str, Any]] | None = None,
     transport: str = "",
@@ -147,6 +148,8 @@ def build_kit(
         acq["project"] = project
     if subscription:
         acq["subscription"] = subscription
+    if aws_profile:
+        acq["aws_profile"] = aws_profile
     if max_records_per_source is not None:
         acq["max_records_per_source"] = max_records_per_source
     elif profile == "enterprise":
