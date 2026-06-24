@@ -15,6 +15,8 @@ import {
   missingRequiredParams,
   paramHint,
   paramKeys,
+  paramLabel,
+  paramPlaceholder,
   validateArtifactParams,
   type ParamSchema,
 } from "@/lib/artifact-params";
@@ -86,6 +88,7 @@ function buildRequestBody(
   regions: string,
   project: string,
   subscription: string,
+  awsProfile: string,
   artifactParams: Record<string, Record<string, string>>,
   cartForCloud: Artifact[],
   deploymentProfile: DeploymentProfile,
@@ -115,6 +118,7 @@ function buildRequestBody(
     regions: regionList.length ? regionList : undefined,
     project: cloud === "gcp" ? project.trim() || undefined : undefined,
     subscription: cloud === "azure" ? subscription.trim() || undefined : undefined,
+    aws_profile: cloud === "aws" ? awsProfile.trim() || undefined : undefined,
     artifact_parameters: Object.keys(params).length ? params : undefined,
     deployment_profile: deploymentProfile,
     max_records_per_source: (() => {
@@ -154,6 +158,7 @@ function AcquireContent() {
   const [regions, setRegions] = useState("");
   const [project, setProject] = useState("");
   const [subscription, setSubscription] = useState("");
+  const [awsProfile, setAwsProfile] = useState("");
   const [maxRecordsPerSource, setMaxRecordsPerSource] = useState("");
   const [artifactParams, setArtifactParams] = useState<Record<string, Record<string, string>>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
@@ -241,6 +246,7 @@ function AcquireContent() {
         regions,
         project,
         subscription,
+        awsProfile,
         artifactParams,
         cartForCloud,
         deploymentProfile,
@@ -257,6 +263,7 @@ function AcquireContent() {
       regions,
       project,
       subscription,
+      awsProfile,
       maxRecordsPerSource,
       artifactParams,
       cartForCloud,
@@ -392,7 +399,7 @@ function AcquireContent() {
             className="inline-flex items-center gap-1 rounded bg-warn-amber/15 px-1.5 py-0.5 text-2xs text-warn-amber"
           >
             <AlertCircle className="h-3 w-3" />
-            {key} required
+            {paramLabel(key)} required
           </span>
         ))}
       </div>
@@ -422,13 +429,15 @@ function AcquireContent() {
               return (
                 <label key={key} className="block space-y-1">
                   <span className="flex items-center gap-1 text-2xs text-fg-subtle">
-                    <span className="mono">{key}</span>
+                    <span>{paramLabel(key)}</span>
                     {required && <span className="text-warn-amber">*</span>}
                   </span>
-                  <p className="text-2xs leading-snug text-fg-subtle">{paramHint(schema, key)}</p>
+                  {paramHint(schema, key) ? (
+                    <p className="text-2xs leading-snug text-fg-subtle">{paramHint(schema, key)}</p>
+                  ) : null}
                   <Input
                     className="h-8 text-xs"
-                    placeholder={String(schema?.[key]?.type || key)}
+                    placeholder={paramPlaceholder(schema, key)}
                     value={artifactParams[a.collector]?.[key] || ""}
                     onChange={(e) => setParam(a.collector, key, e.target.value)}
                   />
@@ -829,6 +838,17 @@ function AcquireContent() {
                       value={project}
                       onChange={(e) => setProject(e.target.value)}
                       placeholder="my-project"
+                    />
+                  </label>
+                )}
+                {cloud === "aws" && (
+                  <label className="block space-y-1">
+                    <span className="text-2xs text-fg-subtle">AWS profile (optional)</span>
+                    <Input
+                      value={awsProfile}
+                      onChange={(e) => setAwsProfile(e.target.value)}
+                      placeholder="Named profile from ~/.aws/credentials"
+                      className="mono text-xs"
                     />
                   </label>
                 )}

@@ -5,7 +5,7 @@ Bootstraps a local venv, installs the bundled ventra wheel (with dependencies), 
 ``ventra collect`` against ``acquisition.yaml`` in this directory.
 
 Usage:
-    python3 ventra.py --profile my-aws-profile
+    python3 ventra.py --out ./ventra-evidence
     python3 ventra.py --profile my-aws-profile --out ./ventra-evidence
     python3 ventra.py --subscription <azure-sub-id> --out ./evidence
     python3 ventra.py --project my-gcp-project --out ./evidence
@@ -114,7 +114,11 @@ def _ensure_ventra(cloud: str) -> Path:
 def _cloud_extra_args(cloud: str, args: argparse.Namespace) -> list[str]:
     extra: list[str] = []
     if cloud == "aws":
-        profile = (args.profile or os.environ.get("AWS_PROFILE", "")).strip()
+        profile = (
+            (args.profile or "").strip()
+            or _read_acquisition_field("aws_profile").strip()
+            or os.environ.get("AWS_PROFILE", "").strip()
+        )
         if profile:
             extra.extend(["--profile", profile])
     elif cloud == "azure":
