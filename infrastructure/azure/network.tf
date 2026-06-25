@@ -93,7 +93,7 @@ resource "azurerm_linux_virtual_machine" "web" {
   name                  = "${local.name}-vm"
   resource_group_name   = azurerm_resource_group.lab.name
   location              = azurerm_resource_group.lab.location
-  size                  = "Standard_B1s"
+  size                  = var.vm_size
   admin_username        = "azureuser"
   network_interface_ids = [azurerm_network_interface.web.id]
 
