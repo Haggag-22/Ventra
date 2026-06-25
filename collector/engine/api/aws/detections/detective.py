@@ -3,6 +3,7 @@
 Detective does not expose GuardDuty-style findings; open investigations are the closest
 IR-ready signal. This collector lists graph membership and active investigations per region.
 """
+#Test
 
 from __future__ import annotations
 

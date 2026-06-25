@@ -12,6 +12,7 @@ resource "azurerm_monitor_diagnostic_setting" "subscription_activity" {
   name                       = "${local.name}-activity"
   target_resource_id         = "/subscriptions/${var.subscription_id}"
   log_analytics_workspace_id = azurerm_log_analytics_workspace.lab.id
+  storage_account_id         = azurerm_storage_account.logs.id
 
   enabled_log {
     category = "Administrative"

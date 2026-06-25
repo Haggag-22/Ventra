@@ -5,8 +5,9 @@ variable "subscription_id" {
 }
 
 variable "location" {
-  type    = string
-  default = "eastus"
+  type        = string
+  description = "Azure region. eastus2/centralus often have more free-tier VM capacity than eastus."
+  default     = "eastus2"
 }
 
 variable "project_name" {
@@ -24,26 +25,40 @@ variable "vnet_cidr" {
   default = "10.50.0.0/16"
 }
 
+variable "vm_size" {
+  type        = string
+  description = "Lab VM SKU. Standard_B2s avoids common B1s capacity errors on trial subs."
+  default     = "Standard_B2s"
+}
+
 variable "enable_aks" {
   type        = bool
-  description = "AKS cluster (aks_audit). Expensive."
-  default     = true
+  description = "AKS cluster (aks_audit). Expensive; blocked on some trial subs."
+  default     = false
+}
+
+variable "aks_kubernetes_version" {
+  type        = string
+  description = "AKS version. Leave empty to use the region default supported version."
+  default     = ""
 }
 
 variable "enable_firewall" {
   type        = bool
   description = "Azure Firewall (azure_firewall). ~$1+/hr."
-  default     = true
+  default     = false
 }
 
 variable "enable_front_door" {
-  type    = bool
-  default = true
+  type        = bool
+  description = "Front Door Standard. Not available on Free Trial / Student subscriptions."
+  default     = false
 }
 
 variable "enable_app_gateway" {
-  type    = bool
-  default = true
+  type        = bool
+  description = "Application Gateway v2 + diagnostics."
+  default     = true
 }
 
 variable "tenant_id" {

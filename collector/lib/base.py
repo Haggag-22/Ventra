@@ -93,6 +93,11 @@ class JsonlWriter:
         self.count += 1
 
     def finalize(self) -> WrittenFile:
+        # Close the gzip stream before hashing — the manifest must match the sealed file bytes
+        # (including the gzip trailer). Collectors call finalize() inside the ``with`` block.
+        if self._gz is not None:
+            self._gz.close()
+            self._gz = None
         data = self._path.read_bytes()
         return WrittenFile(
             path=self._path.relative_to(self._relative).as_posix(),

@@ -12,8 +12,7 @@ Terraform stack for **22 Azure Ventra collectors**. Entra/M365 identity collecto
 | diag_posture | Diagnostic settings on storage, KV, firewall, appgw |
 | resource_graph | Inventory (existing RG resources) |
 | defender | Defender for Cloud Standard pricing |
-| vnet_flow | NSG flow logs + Traffic Analytics |
-| nsg_flow | Same flow log pipeline |
+| vnet_flow | VNet flow logs + Traffic Analytics (NSG flow logs deprecated for new deployments) |
 | azure_firewall | Azure Firewall + diagnostics (toggle) |
 | app_gateway | Application Gateway v2 + diagnostics (toggle) |
 | front_door | Front Door Standard + diagnostics (toggle) |
@@ -50,7 +49,7 @@ terraform plan
 terraform apply
 ```
 
-Toggle `enable_firewall`, `enable_aks`, `enable_front_door` to control cost.
+Defaults disable `enable_firewall`, `enable_aks`, and `enable_front_door` for Free Trial / Student subscriptions. Set `vm_size = "Standard_B2s"` if B-series capacity errors occur.
 
 ## Acquire
 
@@ -58,4 +57,4 @@ Use pack `baseline-ir-azure`. Grant the collector app/service principal `docs/ia
 
 ## Logging
 
-See `logging.tf` — separate VNet and NSG flow logs, subscription activity to Storage + Log Analytics, and diagnostic settings on every in-scope resource (DNS, VM, firewall, appgw, front door, storage, KV, AKS).
+See `logging.tf` — VNet flow logs, subscription activity to Storage + Log Analytics (single diagnostic setting), and diagnostic settings on in-scope resources (VM, firewall, appgw, storage, KV, AKS when enabled). Public DNS zones do not support diagnostic settings.

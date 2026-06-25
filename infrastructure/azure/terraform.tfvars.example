@@ -1,9 +1,10 @@
 subscription_id = "YOUR-SUBSCRIPTION-ID"
 tenant_id       = "YOUR-TENANT-ID"
-location        = "eastus"
+location        = "eastus2"
 project_name    = "ventra-lab"
+vm_size         = "Standard_B2s"
 
-# Cost savers for first run:
-# enable_aks        = false
-# enable_firewall   = false
-# enable_front_door = false
+enable_aks         = false
+enable_firewall    = false
+enable_front_door  = false
+enable_app_gateway = true
