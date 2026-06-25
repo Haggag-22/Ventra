@@ -1,4 +1,4 @@
-# Targets: storage_access, nsg_flow (flow logs to storage), vnet_flow
+# Targets: storage_access, vnet_flow (flow logs to storage)
 
 resource "azurerm_storage_account" "logs" {
   name                     = replace("${local.name}logs", "-", "")
@@ -29,11 +29,10 @@ resource "azurerm_storage_container" "exports" {
 }
 
 resource "azurerm_storage_blob" "sample" {
-  name                   = "sample-export.csv"
-  storage_account_name   = azurerm_storage_account.app.name
-  storage_container_name = azurerm_storage_container.exports.name
-  type                   = "Block"
-  source_content         = "id,value\n1,demo\n"
+  name                 = "sample-export.csv"
+  storage_container_id = azurerm_storage_container.exports.id
+  type                 = "Block"
+  source_content       = "id,value\n1,demo\n"
 }
 
 resource "azurerm_monitor_diagnostic_setting" "storage" {
@@ -42,9 +41,7 @@ resource "azurerm_monitor_diagnostic_setting" "storage" {
   log_analytics_workspace_id = azurerm_log_analytics_workspace.lab.id
   storage_account_id         = azurerm_storage_account.logs.id
 
-  enabled_log {
-    category_group = "allLogs"
-  }
+  # Storage account-level diagnostics support metrics only (logs require blob service target).
   enabled_metric {
     category = "Transaction"
   }

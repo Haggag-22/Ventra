@@ -255,9 +255,12 @@ function CaseCard({ c }: { c: CaseSummary }) {
             onClick={stop}
             className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-[inherit] bg-surface/95 px-4 text-center backdrop-blur-sm"
           >
-            <p className="text-sm text-fg">
-              Delete <span className="mono font-semibold">{c.case_id}</span> and all its evidence?
-            </p>
+            <div className="w-full max-w-full space-y-2">
+              <p className="text-sm text-fg">Delete this case and all its evidence?</p>
+              <p className="rounded border border-border bg-surface-2 px-2 py-1.5 mono text-2xs font-semibold leading-relaxed text-fg break-all">
+                {c.case_id}
+              </p>
+            </div>
             {del.error && (
               <p className="text-xs text-bad-red">{(del.error as Error).message}</p>
             )}

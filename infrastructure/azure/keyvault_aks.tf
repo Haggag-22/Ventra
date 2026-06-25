@@ -50,7 +50,7 @@ resource "azurerm_kubernetes_cluster" "lab" {
   location            = azurerm_resource_group.lab.location
   resource_group_name = azurerm_resource_group.lab.name
   dns_prefix          = local.name
-  kubernetes_version  = "1.29"
+  kubernetes_version  = var.aks_kubernetes_version != "" ? var.aks_kubernetes_version : null
 
   default_node_pool {
     name           = "default"
