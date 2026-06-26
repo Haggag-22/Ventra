@@ -14,4 +14,3 @@ account, cloudtrail, iam, vpc_flow, waf, guardduty, securityhub, config, detecti
 
 **Terraform:** project, iam_policy, cloud_audit_admin, cloud_audit_system, cloud_audit_data, login_events, vpc_flow, firewall_logs, load_balancer, storage_access, cloud_functions, api_gateway, cloud_monitoring, vm_logs
 
-**Manual / optional:** workspace_audit (Workspace), scc_findings (org_id + enable_scc)

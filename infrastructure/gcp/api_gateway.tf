@@ -9,6 +9,7 @@ resource "google_endpoints_service" "lab" {
     info:
       title: "${local.name} API"
       version: "1.0.0"
+    host: "${local.name}.endpoints.${var.project_id}.cloud.goog"
     schemes:
       - "https"
     paths:

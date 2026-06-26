@@ -17,6 +17,8 @@ from botocore.exceptions import ClientError
 
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.params import effective_window
+from collector.lib.scoping import filter_eks_clusters
 from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from ..common.cw_logs import collect_cw_log_events
 
@@ -44,11 +46,9 @@ class EksAuditCollector(Collector):
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
-        window = self.ctx.time_window
-        start = window.since or (datetime.now(UTC) - timedelta(days=DEFAULT_WINDOW_DAYS))
-        end = window.until or datetime.now(UTC)
+        start, end = effective_window(self.ctx, self.name, default_days=DEFAULT_WINDOW_DAYS)
 
-        clusters = self._discover_clusters(cf, gaps)
+        clusters = filter_eks_clusters(self._discover_clusters(cf, gaps), self.artifact_params())
         if not clusters:
             return SourceResult(
                 name=self.name,
@@ -102,7 +102,8 @@ class EksAuditCollector(Collector):
             "audit_enabled_count": len(audited),
             "audit_disabled_count": len(unaudited),
             "collection": per_cluster,
-            "window": window.to_manifest(),
+            "window": {"since": start.isoformat(), "until": end.isoformat()},
+            "artifact_parameters": self.artifact_params(),
         }
         files = [self.write_json(config, "config.json")]
         if records:
@@ -113,7 +114,7 @@ class EksAuditCollector(Collector):
                 "records": len(records),
                 "clusters": len(clusters),
                 "audit_enabled": len(audited),
-                "window": window.to_manifest(),
+                "window": {"since": start.isoformat(), "until": end.isoformat()},
             }
         )
 

@@ -16,7 +16,12 @@ from .enrichment import Enricher
 from .evidence_extract import extract_package
 from .loaders.casestore import CaseStore, SummaryAccumulator
 from .normalizer.base import NormalizeContext, UnifiedEvent, has_normalizer, normalize_source
-from .normalizer.inventory import INVENTORY_SOURCES, iam_state_events, parse_credential_report
+from .normalizer.inventory import (
+    INVENTORY_SOURCES,
+    iam_policy_state_events,
+    iam_state_events,
+    parse_credential_report,
+)
 from .package import EvidencePackage
 from .verify import verify_package
 
@@ -140,6 +145,11 @@ def _ingest_open_package(
                     inventory_loaded.append(source)
                     if source == "iam" and isinstance(snapshot, dict):
                         for ev in iam_state_events(snapshot, ctx):
+                            ev = enricher.enrich(ev)
+                            writer.write(ev)
+                            summary_acc.add(ev)
+                    if source == "iam_policy" and isinstance(snapshot, dict):
+                        for ev in iam_policy_state_events(snapshot, ctx):
                             ev = enricher.enrich(ev)
                             writer.write(ev)
                             summary_acc.add(ev)

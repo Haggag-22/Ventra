@@ -32,6 +32,7 @@ class SubscriptionCollector(Collector):
             "tenant_name": identity.tenant_name,
             "operator_principal": identity.principal,
             "subscriptions_in_scope": self.ctx.subscription_ids,
+            "artifact_parameters": self.artifact_params(),
         }
 
         try:

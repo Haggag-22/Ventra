@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.params import param_strings
+from collector.lib.scoping import matches_any
 from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 
 from collector.lib.limits import DEFAULT_MAX_RECORDS as MAX_RECORDS
@@ -26,6 +28,9 @@ class OAuthConsentCollector(Collector):
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
+        artifact_params = self.artifact_params()
+        client_ids = param_strings(artifact_params, "client_ids")
+        scope_contains = param_strings(artifact_params, "scope_contains")
         cap = self.max_records(MAX_RECORDS)
 
         files = []
@@ -33,6 +38,12 @@ class OAuthConsentCollector(Collector):
         with self.open_jsonl("events.jsonl.gz") as writer:
             try:
                 for grant in cf.graph_paginate("oauth2PermissionGrants", max_records=cap):
+                    cid = str(grant.get("clientId") or "")
+                    scope = str(grant.get("scope") or "")
+                    if client_ids and not matches_any(cid, client_ids):
+                        continue
+                    if scope_contains and not any(s.lower() in scope.lower() for s in scope_contains):
+                        continue
                     writer.write_record(grant)
             except AzureAccessDenied as exc:
                 gaps.append(("oauth_consent", GapReason.ACCESS_DENIED, exc.message))
@@ -42,7 +53,7 @@ class OAuthConsentCollector(Collector):
             if record_count:
                 files.append(writer.finalize())
 
-        self.write_meta({"source": self.name, "records": record_count})
+        self.write_meta({"source": self.name, "records": record_count, "artifact_parameters": artifact_params})
 
         if record_count:
             status = SourceStatus.PARTIAL if gaps else SourceStatus.COLLECTED

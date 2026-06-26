@@ -4,7 +4,7 @@ aliases:
 - gcp.vm_logs
 cloud: gcp
 category: Workloads
-description: Compute Engine VM logs collected by the Cloud Logging agent.
+description: GCE VM logs collected by the Cloud Logging agent.
 version: 1.0.0
 collector: vm_logs
 type: vm_logs

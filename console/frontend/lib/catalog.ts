@@ -52,12 +52,18 @@ export const EXTRA_COLLECTOR_LABELS: Record<string, string> = {
   app_gateway: "Application Gateway",
   front_door: "Front Door",
   dns: "DNS query logs",
-  storage_access: "Storage access logs",
+  storage_access: "GCS access logs",
+  bigquery_audit: "BigQuery audit logs",
+  cloud_sql: "Cloud SQL logs",
+  secret_manager: "Secret Manager access",
   key_vault: "Key Vault audit",
   aks_audit: "AKS audit logs",
   log_analytics: "Log Analytics diagnostics",
+  gce: "GCE / persistent disks",
+  logging_posture: "Logging posture",
+  network_posture: "Network posture",
   project: "Project context",
-  iam_policy: "IAM policy bindings",
+  iam_policy: "IAM snapshot",
 };
 
 // BEGIN GENERATED CATALOG — run: python scripts/generate-catalog-ts.py
@@ -108,7 +114,7 @@ const AZURE: CatalogGroup[] = [
       { id: "log_analytics", label: "Log Analytics (LA-routed diagnostics)", description: "" },
       { id: "nsg_flow", label: "NSG flow logs", description: "" },
       { id: "oauth_consent", label: "OAuth consent grants", description: "" },
-      { id: "storage_access", label: "Storage access logs", description: "" },
+      { id: "storage_access", label: "GCS Access Logs", description: "" },
       { id: "unified_audit", label: "M365 Unified Audit Log", description: "" },
       { id: "unified_audit_search", label: "M365 UAL (Search-UnifiedAuditLog)", description: "" },
       { id: "vnet_flow", label: "VNet flow logs", description: "" },
@@ -119,33 +125,46 @@ const AZURE: CatalogGroup[] = [
 /** GCP IR cheat sheet — categories mirror the Google Cloud incident response reference. */
 const GCP: CatalogGroup[] = [
   {
+    category: "DataStorage",
+    items: [
+      { id: "bigquery_audit", label: "BigQuery Audit Logs", description: "" },
+      { id: "cloud_sql", label: "Cloud SQL Logs", description: "" },
+      { id: "secret_manager", label: "Secret Manager Access", description: "" },
+      { id: "storage_access", label: "GCS Access Logs", description: "" },
+    ],
+  },
+  {
     category: "Detections",
     items: [
-      { id: "cloud_monitoring", label: "Cloud Monitoring Alerts", description: "" },
-      { id: "scc_findings", label: "Security Command Center", description: "" },
+      { id: "cloud_monitoring", label: "Cloud Monitoring Alert Logs", description: "" },
+      { id: "scc_findings", label: "SCC Findings", description: "" },
     ],
   },
   {
     category: "Identity",
     items: [
-      { id: "login_events", label: "Login Audit Logs", description: "" },
-      { id: "workspace_audit", label: "Workspace Group Audit Logs", description: "" },
+      { id: "login_events", label: "Cloud Login Audit Logs", description: "" },
     ],
   },
   {
     category: "ManagementPlane",
     items: [
-      { id: "cloud_audit_admin", label: "Admin Activity Logs", description: "" },
-      { id: "cloud_audit_data", label: "Data Access Logs", description: "" },
-      { id: "cloud_audit_system", label: "System Event Logs", description: "" },
+      { id: "cloud_audit_admin", label: "Admin Activity Audit Logs", description: "" },
+      { id: "cloud_audit_data", label: "Data Access Audit Logs", description: "" },
+      { id: "cloud_audit_system", label: "System Event Audit Logs", description: "" },
+      { id: "logging_posture", label: "Logging Posture", description: "" },
     ],
   },
   {
     category: "Network",
     items: [
-      { id: "api_gateway", label: "API Gateway Logs", description: "" },
-      { id: "firewall_logs", label: "VPC Firewall Logs", description: "" },
-      { id: "load_balancer", label: "Cloud Load Balancer Logs", description: "" },
+      { id: "api_gateway", label: "API Gateway Access Logs", description: "" },
+      { id: "cloud_armor", label: "Cloud Armor Logs", description: "" },
+      { id: "cloud_dns", label: "Cloud DNS Logs", description: "" },
+      { id: "cloud_nat", label: "Cloud NAT Logs", description: "" },
+      { id: "firewall_logs", label: "Firewall Rules Logging", description: "" },
+      { id: "load_balancer", label: "Load Balancer Access Logs", description: "" },
+      { id: "network_posture", label: "Network Posture", description: "" },
       { id: "vpc_flow", label: "VPC Flow Logs", description: "" },
     ],
   },
@@ -153,8 +172,9 @@ const GCP: CatalogGroup[] = [
     category: "Workloads",
     items: [
       { id: "cloud_functions", label: "Cloud Functions Logs", description: "" },
-      { id: "storage_access", label: "Storage access logs", description: "" },
-      { id: "vm_logs", label: "Compute Engine VM Logs", description: "" },
+      { id: "gce", label: "GCE Inventory", description: "" },
+      { id: "gke_audit", label: "GKE Audit Logs", description: "" },
+      { id: "vm_logs", label: "GCE VM Logs", description: "" },
     ],
   },
 ];
@@ -167,6 +187,26 @@ export const CATALOG: Record<Cloud, CatalogGroup[]> = {
 };
 
 export const CLOUD_IMPLEMENTED: Record<Cloud, boolean> = { aws: true, azure: true, gcp: true };
+
+/** Acquire page category display order — Identity first, Detections second, then IR workflow order. */
+export const COLLECTOR_CATEGORY_ORDER = [
+  "Identity",
+  "Detections",
+  "ManagementPlane",
+  "Network",
+  "DataStorage",
+  "Workloads",
+  "M365",
+] as const;
+
+export function compareCollectorCategories(a: string, b: string): number {
+  const rank = (category: string) => {
+    const idx = (COLLECTOR_CATEGORY_ORDER as readonly string[]).indexOf(category);
+    return idx === -1 ? COLLECTOR_CATEGORY_ORDER.length : idx;
+  };
+  const diff = rank(a) - rank(b);
+  return diff !== 0 ? diff : a.localeCompare(b);
+}
 
 export function catalogItemForId(cloud: Cloud, id: string): CatalogItem | undefined {
   for (const group of CATALOG[cloud] ?? []) {

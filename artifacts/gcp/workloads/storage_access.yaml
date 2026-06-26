@@ -3,8 +3,8 @@ aliases:
 - storage_access
 - gcp.storage_access
 cloud: gcp
-category: Workloads
-description: Cloud Storage bucket access and data-plane audit logs.
+category: DataStorage
+description: GCS bucket access and data-plane audit logs from Cloud Logging.
 version: 1.0.0
 collector: storage_access
 type: storage_access

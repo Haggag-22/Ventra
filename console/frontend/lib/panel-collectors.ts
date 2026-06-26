@@ -59,9 +59,9 @@ export const AWS_CLOUDTRAIL_ASPECTS: PanelCollectorRef[] = [
 
 /** GCP Cloud Audit log types grouped on the Audit Log panel. */
 export const GCP_CLOUD_AUDIT_ASPECTS: PanelCollectorRef[] = [
-  { id: "cloud_audit_admin", label: "Admin Activity", aspectGroup: "cloud_audit" },
-  { id: "cloud_audit_system", label: "System Event", aspectGroup: "cloud_audit" },
-  { id: "cloud_audit_data", label: "Data Access", aspectGroup: "cloud_audit" },
+  { id: "cloud_audit_admin", label: "Admin Activity Audit Logs", aspectGroup: "cloud_audit" },
+  { id: "cloud_audit_system", label: "System Event Audit Logs", aspectGroup: "cloud_audit" },
+  { id: "cloud_audit_data", label: "Data Access Audit Logs", aspectGroup: "cloud_audit" },
 ];
 
 export const PANEL_COLLECTORS: Record<PanelId, PanelCollectorDef> = {
@@ -208,7 +208,6 @@ const PANEL_COLLECTORS_GCP: Record<PanelId, PanelCollectorDef> = {
     collectors: [
       ...GCP_CLOUD_AUDIT_ASPECTS,
       { id: "login_events", note: "Google Cloud console sign-ins" },
-      { id: "workspace_audit", note: "Workspace / group directory audit" },
     ],
   },
   findings: {
@@ -219,50 +218,57 @@ const PANEL_COLLECTORS_GCP: Record<PanelId, PanelCollectorDef> = {
     ],
   },
   identity: {
-    blurb: "IAM policy bindings, login audit, and Workspace directory events.",
+    blurb: "IAM policy bindings and login audit events.",
     collectors: [
-      { id: "iam_policy", note: "role bindings per project" },
+      { id: "iam_policy", note: "IAM snapshot per project" },
       { id: "login_events", note: "Google Cloud console sign-ins" },
-      { id: "workspace_audit", note: "group / directory audit" },
     ],
   },
   network: {
-    blurb: "VPC Flow Logs and firewall rule hits for exfiltration and lateral movement.",
+    blurb: "VPC flow, firewall, and NAT logs plus network posture (rules, topology, mirroring).",
     collectors: [
-      { id: "vpc_flow", note: "sampled VPC flow records" },
-      { id: "firewall_logs", note: "VPC firewall rule logs" },
+      { id: "vpc_flow", note: "VPC / subnets" },
+      { id: "firewall_logs", note: "VPC firewall" },
+      { id: "cloud_nat", note: "Cloud NAT" },
+      { id: "network_posture", note: "firewall rules, VPC topology, packet mirroring" },
     ],
   },
   web: {
-    blurb: "Load balancer and API Gateway request logs (L7).",
+    blurb: "Edge requests, WAF verdicts, and DNS (L7) — what was requested, by whom, with what result.",
     collectors: [
-      { id: "load_balancer", note: "HTTP(S) / TCP load balancer access" },
+      { id: "load_balancer", note: "Cloud Load Balancing" },
       { id: "api_gateway", note: "API Gateway request logs" },
+      { id: "cloud_dns", note: "Cloud DNS" },
+      { id: "cloud_armor", note: "Cloud Armor WAF" },
     ],
   },
   "kubernetes-audit": {
-    blurb: "GKE audit logs (coming soon).",
-    collectors: [{ id: "gke_audit", note: "coming soon — use Cloud Audit Logs for now" }],
+    blurb: "GKE Kubernetes API-server audit logs from managed clusters.",
+    collectors: [{ id: "gke_audit" }],
   },
   "data-access": {
-    blurb: "Cloud Storage bucket access and data-plane audit events.",
+    blurb: "Cloud Storage, BigQuery, Cloud SQL, and Secret Manager access — who read or wrote which resource, from where.",
     collectors: [
       { id: "storage_access", note: "GCS bucket access logs" },
+      { id: "bigquery_audit", note: "BigQuery data access audit" },
+      { id: "cloud_sql", note: "Cloud SQL query and connection logs" },
+      { id: "secret_manager", note: "Secret Manager access audit" },
       {
         id: "cloud_audit_data",
-        label: "Cloud Audit Data Access",
+        label: "Data Access Audit Logs",
         note: "data access audit trail — not admin or system event logs",
       },
     ],
   },
   collection: {
     blurb: "Log sources from the GCP IR cheat sheet — what ran, what was missing, and why.",
-    collectors: [],
+    collectors: [{ id: "logging_posture", note: "flow logs, firewall logging, audit sinks" }],
   },
   resources: {
     blurb: "Resources",
     collectors: [
       { id: "project", note: "project + organization context" },
+      { id: "gce", note: "GCE instances, disks, snapshots, NICs" },
       { id: "vm_logs", note: "Compute Engine VM logs" },
       { id: "cloud_functions", note: "Cloud Functions execution logs" },
     ],

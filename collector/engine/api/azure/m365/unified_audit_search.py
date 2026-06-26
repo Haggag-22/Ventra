@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.params import effective_window, param_strings
 from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 from ..common import window_bounds
 from .ual_adaptive import collect_adaptive
@@ -27,14 +28,15 @@ class UnifiedAuditSearchCollector(Collector):
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         opts = self.ctx.ual
+        artifact_params = self.artifact_params()
         gaps: list[tuple[str, GapReason, str]] = []
         cap = self.max_records(MAX_RECORDS)
-        start, end = window_bounds(self.ctx.time_window, DEFAULT_WINDOW_DAYS)
+        start, end = effective_window(self.ctx, self.name, default_days=DEFAULT_WINDOW_DAYS)
 
-        record_types = list(opts.record_types)
-        users = list(opts.users)
-        operations = list(opts.operations)
-        ips = list(opts.ip_addresses)
+        record_types = param_strings(artifact_params, "record_types") or list(opts.record_types)
+        users = param_strings(artifact_params, "users") or list(opts.users)
+        operations = param_strings(artifact_params, "operations") or list(opts.operations)
+        ips = param_strings(artifact_params, "ip_addresses") or list(opts.ip_addresses)
 
         def search_window(win_start, win_end):  # noqa: ANN001
             return list(

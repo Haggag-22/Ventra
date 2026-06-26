@@ -1,0 +1,25 @@
+name: GCP.Network.CloudArmor
+aliases:
+- cloud_armor
+- gcp.cloud_armor
+cloud: gcp
+category: Network
+description: Cloud Armor security policy inventory and enforced request logs.
+version: 1.0.0
+collector: cloud_armor
+type: cloud_armor
+required_actions:
+- compute.securityPolicies.list
+- logging.logEntries.list
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: cloud_armor
+  format: json
+severity: extended
+estimated_volume: medium

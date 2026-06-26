@@ -8,9 +8,17 @@ artifacts:
 - cloud_audit_admin
 - cloud_audit_system
 - cloud_audit_data
+- logging_posture
 - login_events
 - vpc_flow
 - firewall_logs
+- cloud_nat
+- network_posture
 - load_balancer
 - storage_access
+- bigquery_audit
+- cloud_sql
+- secret_manager
+- gce
+- gke_audit
 - scc_findings

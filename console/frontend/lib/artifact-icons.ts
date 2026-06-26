@@ -42,6 +42,9 @@ export const ARTIFACT_ICON_LABELS: Record<string, string> = {
   rbac: "rbac",
   resource_graph: "resource graph",
   storage_access: "storage access logs",
+  bigquery_audit: "bigquery audit",
+  cloud_sql: "cloud sql",
+  secret_manager: "secret manager",
   subscription: "subscription",
   unified_audit: "unified audit",
   unified_audit_search: "unified audit search",
@@ -53,14 +56,32 @@ export const ARTIFACT_ICON_LABELS: Record<string, string> = {
   cloud_functions: "cloud functions",
   cloud_monitoring: "cloud monitoring",
   firewall_logs: "firewall logs",
+  gce: "compute engine",
   iam_policy: "iam policy",
   load_balancer: "load balancer access logs",
+  logging_posture: "logging posture",
   login_events: "login events",
+  network_posture: "network posture",
   project: "project",
   scc_findings: "scc findings",
   vm_logs: "vm logs",
-  workspace_audit: "workspace audit",
   gke_audit: "gke audit",
+  cloud_dns: "cloud dns",
+  cloud_armor: "cloud armor",
+  cloud_nat: "cloud nat",
+};
+
+/** Per-cloud icon filename overrides when the default label differs by provider. */
+const CLOUD_ARTIFACT_ICON_LABELS: Partial<Record<Cloud, Record<string, string>>> = {
+  aws: {
+    storage_access: "s3 access logs",
+  },
+  azure: {
+    storage_access: "storage access logs",
+  },
+  gcp: {
+    storage_access: "gcs access logs",
+  },
 };
 
 /** UI display names (proper product / acronym casing). Icon filenames stay lowercase in ``ARTIFACT_ICON_LABELS``. */
@@ -104,26 +125,34 @@ const ARTIFACT_DISPLAY_LABELS: Record<string, string> = {
   oauth_consent: "OAuth Consent",
   rbac: "RBAC",
   resource_graph: "Resource Graph",
-  storage_access: "Storage Access Logs",
+  storage_access: "GCS Access Logs",
+  bigquery_audit: "BigQuery Audit Logs",
+  cloud_sql: "Cloud SQL Logs",
+  secret_manager: "Secret Manager Access",
   subscription: "Subscription",
   unified_audit: "Unified Audit",
   unified_audit_search: "Unified Audit Search",
   vnet_flow: "VNet Flow Logs",
-  api_gateway: "API Gateway",
-  cloud_audit_admin: "Cloud Audit Admin",
-  cloud_audit_data: "Cloud Audit Data",
-  cloud_audit_system: "Cloud Audit System",
-  cloud_functions: "Cloud Functions",
-  cloud_monitoring: "Cloud Monitoring",
-  firewall_logs: "Firewall Logs",
-  iam_policy: "IAM Policy",
+  api_gateway: "API Gateway Access Logs",
+  cloud_audit_admin: "Admin Activity Audit Logs",
+  cloud_audit_data: "Data Access Audit Logs",
+  cloud_audit_system: "System Event Audit Logs",
+  cloud_functions: "Cloud Functions Logs",
+  cloud_monitoring: "Cloud Monitoring Alert Logs",
+  firewall_logs: "Firewall Rules Logging",
+  gce: "GCE Inventory",
+  iam_policy: "IAM Snapshot",
   load_balancer: "Load Balancer Access Logs",
-  login_events: "Login Events",
-  project: "Project",
+  logging_posture: "Logging Posture",
+  login_events: "Cloud Login Audit Logs",
+  network_posture: "Network Posture",
+  project: "Project Context",
   scc_findings: "SCC Findings",
-  vm_logs: "VM Logs",
-  workspace_audit: "Workspace Audit",
-  gke_audit: "GKE Audit",
+  vm_logs: "GCE VM Logs",
+  gke_audit: "GKE Audit Logs",
+  cloud_dns: "Cloud DNS Logs",
+  cloud_armor: "Cloud Armor Logs",
+  cloud_nat: "Cloud NAT Logs",
 };
 
 export function displayArtifactLabel(collector: string): string {
@@ -136,8 +165,15 @@ function iconExtension(cloud: Cloud): string {
   return cloud === "azure" ? ".svg" : ".png";
 }
 
+export function resolveArtifactIconLabel(cloud: string, collector: string): string | null {
+  const c = cloud.toLowerCase() as Cloud;
+  const cloudLabel = CLOUD_ARTIFACT_ICON_LABELS[c]?.[collector];
+  if (cloudLabel) return cloudLabel;
+  return ARTIFACT_ICON_LABELS[collector] ?? null;
+}
+
 export function artifactIconSrc(cloud: string, collector: string): string | null {
-  const label = ARTIFACT_ICON_LABELS[collector];
+  const label = resolveArtifactIconLabel(cloud, collector);
   if (!label) return null;
   const c = cloud.toLowerCase() as Cloud;
   return `/icons/${c}/${encodeURIComponent(label)}${iconExtension(c)}`;

@@ -1,0 +1,24 @@
+name: GCP.Network.CloudNat
+aliases:
+- cloud_nat
+- gcp.cloud_nat
+cloud: gcp
+category: Network
+description: Cloud NAT gateway translation logs from Cloud Logging.
+version: 1.0.0
+collector: cloud_nat
+type: cloud_nat
+required_actions:
+- logging.logEntries.list
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: cloud_nat
+  format: json
+severity: critical
+estimated_volume: medium

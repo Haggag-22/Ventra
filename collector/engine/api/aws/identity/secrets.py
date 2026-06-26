@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.scoping import filter_secrets
 from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
 
@@ -21,6 +22,7 @@ class SecretsCollector(Collector):
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
+        params = self.artifact_params()
         secrets: list[dict] = []
 
         for region in self.ctx.regions:
@@ -36,6 +38,8 @@ class SecretsCollector(Collector):
             except ServiceNotEnabled:
                 continue
 
+        secrets = filter_secrets(secrets, params)
+
         if not secrets:
             return SourceResult(
                 name=self.name,
@@ -44,7 +48,7 @@ class SecretsCollector(Collector):
                 notes="No Secrets Manager secrets found.",
             )
 
-        wf = self.write_json({"secrets": secrets}, "snapshot.json")
+        wf = self.write_json({"secrets": secrets, "artifact_parameters": params}, "snapshot.json")
         self.write_meta({"source": self.name, "secrets": len(secrets)})
         return SourceResult(
             name=self.name,

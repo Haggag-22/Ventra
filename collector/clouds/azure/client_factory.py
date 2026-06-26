@@ -45,6 +45,23 @@ MAX_RECORDS = UNLIMITED_RECORDS
 MAX_RETRIES = 5
 
 
+def _subscription_client(credential: Any) -> Any:
+    """Compatible with azure-mgmt-resource 24.x (top-level) and 25+ (subscriptions package)."""
+    try:
+        from azure.mgmt.resource.subscriptions import SubscriptionClient
+    except ImportError:
+        from azure.mgmt.resource import SubscriptionClient
+    return SubscriptionClient(credential)
+
+
+def _resource_management_client(credential: Any, subscription_id: str) -> Any:
+    try:
+        from azure.mgmt.resource.resources import ResourceManagementClient
+    except ImportError:
+        from azure.mgmt.resource import ResourceManagementClient
+    return ResourceManagementClient(credential, subscription_id)
+
+
 class AzureAccessDenied(Exception):
     """Raised when an API returns an authorization/consent failure (a recorded gap)."""
 
@@ -176,9 +193,7 @@ class AzureClientFactory:
         if self._subscription_id:
             return [s.strip() for s in self._subscription_id.split(",") if s.strip()]
         try:
-            from azure.mgmt.resource import SubscriptionClient
-
-            client = SubscriptionClient(self.credential())
+            client = _subscription_client(self.credential())
             return [s.subscription_id for s in client.subscriptions.list() if s.subscription_id]
         except Exception as exc:  # noqa: BLE001
             _raise_typed_azure(exc, "subscriptions:list")
@@ -472,9 +487,7 @@ class AzureClientFactory:
         """List resources of the given ARM types in a subscription (no per-service SDK needed)."""
         out: list[dict[str, Any]] = []
         try:
-            from azure.mgmt.resource import ResourceManagementClient
-
-            client = ResourceManagementClient(self.credential(), subscription_id)
+            client = _resource_management_client(self.credential(), subscription_id)
             for rt in resource_types:
                 for r in client.resources.list(filter=f"resourceType eq '{rt}'"):
                     out.append(
@@ -608,9 +621,7 @@ class AzureClientFactory:
     def subscription_details(self) -> list[dict[str, Any]]:
         """In-scope subscription metadata (id, name, tenant, state)."""
         try:
-            from azure.mgmt.resource import SubscriptionClient
-
-            client = SubscriptionClient(self.credential())
+            client = _subscription_client(self.credential())
             out: list[dict[str, Any]] = []
             for sub in client.subscriptions.list():
                 out.append(

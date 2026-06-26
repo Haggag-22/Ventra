@@ -13,8 +13,11 @@ export const DATA_ACCESS_SOURCE_LABELS: Record<Cloud, Record<string, string>> = 
     log_analytics: "Log Analytics",
   },
   gcp: {
-    storage_access: "Cloud Storage access logs",
-    cloud_audit_data: "Cloud Audit data access",
+  storage_access: "GCS access logs",
+  bigquery_audit: "BigQuery data access audit",
+  cloud_sql: "Cloud SQL query and connection logs",
+  secret_manager: "Secret Manager access audit",
+  cloud_audit_data: "Cloud Audit data access",
   },
 };
 
@@ -38,9 +41,9 @@ export const DATA_ACCESS_COPY: Record<
   },
   gcp: {
     emptyDescription:
-      "Collectors ran for this window but Cloud Storage access logs and Cloud Audit data access events produced no object-level records. Enable bucket access logs and Data Access audit logs for storage APIs, or widen the time window — gaps are recorded in the manifest.",
+      "Collectors ran for this window but GCS access logs, BigQuery audit, Cloud SQL logs, and Secret Manager access events produced no object-level records. Enable bucket access logs, Data Access audit logs for storage and secret APIs, and Cloud SQL logging export, or widen the time window — gaps are recorded in the manifest.",
     panelDescription:
-      "Who read or wrote which Cloud Storage object, from where — bucket access logs paired with Cloud Audit data access events. Reads are the exfil lens; writes/deletes are destruction or ransomware.",
+      "Who read or wrote which Cloud Storage object, BigQuery dataset, Cloud SQL database, or secret — bucket access logs paired with service-specific data access audit events. Reads are the exfil lens; writes/deletes are destruction or ransomware.",
     objectNoun: "object",
   },
 };

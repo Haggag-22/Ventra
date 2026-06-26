@@ -19,7 +19,6 @@ Terraform stack for **16 GCP Ventra collectors**.
 | cloud_monitoring | Alert policy + notification channel |
 | vm_logs | GCE instance + nginx |
 | scc_findings | Org SCC notification (toggle, needs org_id) |
-| workspace_audit | **Manual** — Google Workspace audit (Workspace admin) |
 
 ## Deploy
 

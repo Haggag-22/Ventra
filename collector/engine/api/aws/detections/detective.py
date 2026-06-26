@@ -11,6 +11,7 @@ from botocore.exceptions import ClientError
 
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.scoping import filter_detective_graphs, filter_detective_investigations
 from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
 
@@ -26,6 +27,7 @@ class DetectiveCollector(Collector):
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
+        params = self.artifact_params()
         investigations: list[dict] = []
         graphs: list[dict] = []
         enabled_anywhere = False
@@ -45,6 +47,12 @@ class DetectiveCollector(Collector):
                 gaps.append(("detective", GapReason.COLLECTOR_ERROR, f"{region}: {exc}"))
                 continue
 
+            if not graph_list:
+                continue
+
+            graph_list = filter_detective_graphs(
+                [dict(g) for g in graph_list], params
+            )
             if not graph_list:
                 continue
 
@@ -74,6 +82,8 @@ class DetectiveCollector(Collector):
                         ("detective", GapReason.COLLECTOR_ERROR, f"{graph_arn}: {exc}")
                     )
 
+        investigations = filter_detective_investigations(investigations, params)
+
         if not enabled_anywhere:
             return SourceResult(
                 name=self.name,
@@ -83,7 +93,7 @@ class DetectiveCollector(Collector):
                 notes="Detective not enabled — recorded as a gap.",
             )
 
-        files = [self.write_json({"graphs": graphs}, "config.json")]
+        files = [self.write_json({"graphs": graphs, "artifact_parameters": params}, "config.json")]
         if investigations:
             files.append(self.write_jsonl(investigations, "events.jsonl.gz"))
         self.write_meta(

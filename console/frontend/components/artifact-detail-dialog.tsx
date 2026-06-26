@@ -1,9 +1,10 @@
 "use client";
 
 import { ArtifactIcon } from "@/components/artifact-icon";
+import { ParamFieldInfo } from "@/components/param-field-info";
 import { Button } from "@/components/ui";
 import { api } from "@/lib/api";
-import { paramLabel } from "@/lib/artifact-params";
+import { resolvedParamFields } from "@/lib/artifact-params";
 import { displayArtifactLabel } from "@/lib/artifact-icons";
 import type { Artifact } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -22,59 +23,39 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 function ArtifactBody({ art }: { art: Artifact }) {
-  const paramKeys = Object.keys(art.parameters ?? {});
+  const paramFields = resolvedParamFields(art);
   return (
     <div className="space-y-1">
-      <Field label="Name">
-        <span className="mono text-xs">{art.name}</span>
-      </Field>
-      <Field label="Collector">
-        <span className="mono text-xs">{art.collector}</span>
-      </Field>
-      <Field label="Version">{art.version}</Field>
-      <Field label="Category">{art.category}</Field>
-      <Field label="Volume">{art.estimated_volume}</Field>
       <Field label="Description">{art.description}</Field>
-      {art.aliases?.length ? (
-        <Field label="Aliases">
-          <span className="mono text-xs">{art.aliases.join(", ")}</span>
-        </Field>
-      ) : null}
-      {art.sources?.length ? (
-        <Field label="Sources">
-          <ul className="space-y-1 text-xs">
-            {art.sources.map((s, i) => (
-              <li key={i} className="mono">
-                {s.type}
-                {s.format ? ` (${s.format})` : ""}
-              </li>
-            ))}
-          </ul>
-        </Field>
-      ) : null}
-      {paramKeys.length ? (
-        <Field label="Parameters">
-          <ul className="space-y-1 text-xs">
-            {paramKeys.map((key) => {
-              const p = (art.parameters as Record<string, { type?: string; required?: boolean }>)[
-                key
-              ];
-              return (
-                <li key={key} className="mono">
-                  {paramLabel(key)}
-                  {p?.required ? " · required" : ""}
-                </li>
-              );
-            })}
-          </ul>
-        </Field>
-      ) : null}
       {art.required_actions?.length ? (
         <Field label="IAM actions">
           <ul className="max-h-40 space-y-0.5 overflow-auto text-2xs">
             {art.required_actions.map((a) => (
               <li key={a} className="mono text-fg-subtle">
                 {a}
+              </li>
+            ))}
+          </ul>
+        </Field>
+      ) : null}
+      {paramFields.length ? (
+        <Field label="Parameters">
+          <ul className="space-y-2 text-xs">
+            {paramFields.map((field) => (
+              <li key={field.key}>
+                <div className="flex items-center gap-1">
+                  <span className="mono">
+                    {field.label}
+                    {field.required ? " · required" : ""}
+                  </span>
+                  <ParamFieldInfo
+                    label={field.label}
+                    description={field.description}
+                    docUrl={field.docUrl}
+                    className="h-4 w-4"
+                    iconClassName="h-3 w-3"
+                  />
+                </div>
               </li>
             ))}
           </ul>
@@ -113,7 +94,7 @@ export function ArtifactDetailDialog({
         onMouseDown={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
-          <h3 className="flex items-center gap-2 text-sm font-semibold">
+          <h3 className="flex flex-wrap items-center gap-2 text-sm font-semibold">
             <ArtifactIcon cloud={cloud} collector={collector} size={22} />
             <span>{displayArtifactLabel(collector)}</span>
           </h3>

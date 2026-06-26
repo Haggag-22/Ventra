@@ -1,7 +1,9 @@
 "use client";
 
 import { AcquireHandoffDialog } from "@/components/acquire-handoff-dialog";
+import { AcquireParamFields, MultiValueInput, serializeParamValues, type ParamValues } from "@/components/acquire-param-fields";
 import { ArtifactInfoButton } from "@/components/artifact-detail-dialog";
+import { IamActionsDialog } from "@/components/iam-actions-dialog";
 import { ArtifactIcon } from "@/components/artifact-icon";
 import { CloudProviderIcon } from "@/components/cloud-provider-icon";
 import { Button, Card, EmptyState, Input, LoadingPanel } from "@/components/ui";
@@ -13,16 +15,12 @@ import {
 } from "@/lib/handoff-modes";
 import {
   missingRequiredParams,
-  paramHint,
-  paramKeys,
-  paramLabel,
-  paramPlaceholder,
+  resolvedParamFields,
   validateArtifactParams,
-  type ParamSchema,
 } from "@/lib/artifact-params";
 import { api, buildAcquisitionKit, previewAcquisitionKit, type AcquisitionBuild } from "@/lib/api";
 import { displayArtifactLabel } from "@/lib/artifact-icons";
-import { CLOUDS, CLOUD_LABELS, type Cloud } from "@/lib/catalog";
+import { CLOUDS, CLOUD_LABELS, compareCollectorCategories, type Cloud } from "@/lib/catalog";
 import {
   DEPLOYMENT_PROFILES,
   isEnterpriseProfile,
@@ -30,6 +28,7 @@ import {
   type DeploymentProfile,
 } from "@/lib/deployment-profiles";
 import { downloadTextFile } from "@/lib/download";
+import { displayCategoryLabel } from "@/lib/format";
 import { CASES_HREF } from "@/lib/routes";
 import type { Artifact } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -78,18 +77,24 @@ function parseCloud(raw: string | null): Cloud {
   return CLOUDS.includes(c as Cloud) ? (c as Cloud) : "aws";
 }
 
+function joinScopeValues(values: string[]): string | undefined {
+  const cleaned = values.map((v) => v.trim()).filter(Boolean);
+  return cleaned.length ? cleaned.join(",") : undefined;
+}
+
 function buildRequestBody(
   cloud: Cloud,
   caseId: string,
   collectors: string[],
-  includeIam: boolean,
   since: string,
   until: string,
   regions: string,
-  project: string,
-  subscription: string,
+  projectIds: string[],
+  subscriptionIds: string[],
+  azureTenantId: string,
+  azureClientId: string,
   awsProfile: string,
-  artifactParams: Record<string, Record<string, string>>,
+  artifactParams: Record<string, ParamValues>,
   cartForCloud: Artifact[],
   deploymentProfile: DeploymentProfile,
   maxRecordsPerSource: string,
@@ -102,22 +107,24 @@ function buildRequestBody(
   const params: Record<string, Record<string, unknown>> = {};
   for (const a of cartForCloud) {
     const p = artifactParams[a.collector];
-    if (p && Object.values(p).some((v) => v.trim())) {
-      params[a.collector] = Object.fromEntries(
-        Object.entries(p).filter(([, v]) => v.trim()).map(([k, v]) => [k, v.trim()]),
-      );
+    if (!p) continue;
+    const serialized = serializeParamValues(p);
+    if (Object.keys(serialized).length) {
+      params[a.collector] = serialized;
     }
   }
   return {
     cloud,
     case_id: caseId.trim() || "CASE-PENDING",
     artifacts: collectors,
-    include_iam: includeIam,
+    include_iam: true,
     since: since.trim() || undefined,
     until: until.trim() || undefined,
     regions: regionList.length ? regionList : undefined,
-    project: cloud === "gcp" ? project.trim() || undefined : undefined,
-    subscription: cloud === "azure" ? subscription.trim() || undefined : undefined,
+    project: cloud === "gcp" ? joinScopeValues(projectIds) : undefined,
+    subscription: cloud === "azure" ? joinScopeValues(subscriptionIds) : undefined,
+    azure_tenant_id: cloud === "azure" ? azureTenantId.trim() || undefined : undefined,
+    azure_client_id: cloud === "azure" ? azureClientId.trim() || undefined : undefined,
     aws_profile: cloud === "aws" ? awsProfile.trim() || undefined : undefined,
     artifact_parameters: Object.keys(params).length ? params : undefined,
     deployment_profile: deploymentProfile,
@@ -156,13 +163,14 @@ function AcquireContent() {
   const [since, setSince] = useState("");
   const [until, setUntil] = useState("");
   const [regions, setRegions] = useState("");
-  const [project, setProject] = useState("");
-  const [subscription, setSubscription] = useState("");
+  const [projectIds, setProjectIds] = useState<string[]>([]);
+  const [subscriptionIds, setSubscriptionIds] = useState<string[]>([]);
+  const [azureTenantId, setAzureTenantId] = useState("");
+  const [azureClientId, setAzureClientId] = useState("");
   const [awsProfile, setAwsProfile] = useState("");
   const [maxRecordsPerSource, setMaxRecordsPerSource] = useState("");
-  const [artifactParams, setArtifactParams] = useState<Record<string, Record<string, string>>>({});
+  const [artifactParams, setArtifactParams] = useState<Record<string, ParamValues>>({});
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
-  const [includeIam, setIncludeIam] = useState(true);
   const [deploymentProfile, setDeploymentProfile] = useState<DeploymentProfile>("cloudshell");
   const [handoffMode, setHandoffMode] = useState<HandoffMode>("file");
   const [s3Bucket, setS3Bucket] = useState("");
@@ -174,7 +182,7 @@ function AcquireContent() {
     null,
   );
   const [iamPreviewError, setIamPreviewError] = useState("");
-  const [iamExpanded, setIamExpanded] = useState(false);
+  const [iamActionsOpen, setIamActionsOpen] = useState(false);
   const [handoff, setHandoff] = useState<KitHandoffRecord | null>(null);
   const [handoffOpen, setHandoffOpen] = useState(false);
 
@@ -219,7 +227,7 @@ function AcquireContent() {
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(a);
     }
-    return [...groups.entries()].sort((a, b) => a[0].localeCompare(b[0]));
+    return [...groups.entries()].sort((a, b) => compareCollectorCategories(a[0], b[0]));
   }, [visible]);
 
   const cartForCloud = useMemo(
@@ -240,12 +248,13 @@ function AcquireContent() {
         cloud,
         caseId,
         collectors,
-        includeIam,
         since,
         until,
         regions,
-        project,
-        subscription,
+        projectIds,
+        subscriptionIds,
+        azureTenantId,
+        azureClientId,
         awsProfile,
         artifactParams,
         cartForCloud,
@@ -257,12 +266,13 @@ function AcquireContent() {
       cloud,
       caseId,
       collectors,
-      includeIam,
       since,
       until,
       regions,
-      project,
-      subscription,
+      projectIds,
+      subscriptionIds,
+      azureTenantId,
+      azureClientId,
       awsProfile,
       maxRecordsPerSource,
       artifactParams,
@@ -292,26 +302,33 @@ function AcquireContent() {
     return () => window.clearTimeout(timer);
   }, [requestBody, collectors.length]);
 
-  const toggle = (collector: string) =>
+  const toggle = (collector: string) => {
+    const wasSelected = cart.has(collector);
     setCart((prev) => {
       const next = new Set(prev);
       next.has(collector) ? next.delete(collector) : next.add(collector);
       return next;
     });
+    if (wasSelected) {
+      setExpanded((prev) => {
+        const next = new Set(prev);
+        next.delete(collector);
+        return next;
+      });
+    }
+  };
 
-  const toggleExpand = (collector: string, e: React.MouseEvent) => {
-    e.stopPropagation();
+  const toggleParamExpand = (collector: string) =>
     setExpanded((prev) => {
       const next = new Set(prev);
       next.has(collector) ? next.delete(collector) : next.add(collector);
       return next;
     });
-  };
 
-  const setParam = (collector: string, key: string, value: string) =>
+  const setCollectorParams = (collector: string, values: ParamValues) =>
     setArtifactParams((prev) => ({
       ...prev,
-      [collector]: { ...(prev[collector] || {}), [key]: value },
+      [collector]: values,
     }));
 
   const addPack = (artifactKeys: string[]) =>
@@ -362,7 +379,7 @@ function AcquireContent() {
         deploymentProfile,
         builtAt: new Date().toISOString(),
         ventraVersion: iamPreview?.ventra_version,
-        includeIam,
+        includeIam: true,
         handoffMode: isEnterpriseProfile(deploymentProfile) ? handoffMode : "file",
         transport: transportSpec || undefined,
       };
@@ -399,53 +416,9 @@ function AcquireContent() {
             className="inline-flex items-center gap-1 rounded bg-warn-amber/15 px-1.5 py-0.5 text-2xs text-warn-amber"
           >
             <AlertCircle className="h-3 w-3" />
-            {paramLabel(key)} required
+            {key.replace(/_/g, " ")} required
           </span>
         ))}
-      </div>
-    );
-  };
-
-  const renderParams = (a: Artifact) => {
-    const keys = paramKeys(a.parameters as ParamSchema | undefined);
-    if (!keys.length) return null;
-    const open = expanded.has(a.collector);
-    return (
-      <div className="mt-2 border-t border-border/60 pt-2" onClick={(e) => e.stopPropagation()}>
-        <button
-          type="button"
-          onClick={(e) => toggleExpand(a.collector, e)}
-          className="flex items-center gap-1 text-2xs text-fg-subtle hover:text-fg"
-        >
-          {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
-          <Settings2 className="h-3 w-3" /> Parameters
-        </button>
-        {renderParamHints(a)}
-        {open && (
-          <div className="mt-2 space-y-2">
-            {keys.map((key) => {
-              const schema = a.parameters as ParamSchema | undefined;
-              const required = schema?.[key]?.required;
-              return (
-                <label key={key} className="block space-y-1">
-                  <span className="flex items-center gap-1 text-2xs text-fg-subtle">
-                    <span>{paramLabel(key)}</span>
-                    {required && <span className="text-warn-amber">*</span>}
-                  </span>
-                  {paramHint(schema, key) ? (
-                    <p className="text-2xs leading-snug text-fg-subtle">{paramHint(schema, key)}</p>
-                  ) : null}
-                  <Input
-                    className="h-8 text-xs"
-                    placeholder={paramPlaceholder(schema, key)}
-                    value={artifactParams[a.collector]?.[key] || ""}
-                    onChange={(e) => setParam(a.collector, key, e.target.value)}
-                  />
-                </label>
-              );
-            })}
-          </div>
-        )}
       </div>
     );
   };
@@ -473,7 +446,8 @@ function AcquireContent() {
         </div>
       </header>
 
-      <main className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-6 py-8 lg:grid-cols-[1fr_22rem]">
+      <main className="mx-auto max-w-6xl space-y-6 px-6 py-8">
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_24rem]">
         {fromCase && preselectedCount > 0 && (
           <div className="lg:col-span-2 rounded-lg border border-accent/30 bg-accent/5 px-4 py-3 text-xs text-fg">
             Pre-selected <span className="mono font-medium">{preselectedCount}</span> missing log
@@ -570,29 +544,41 @@ function AcquireContent() {
               {byCategory.map(([category, items]) => (
                 <div key={category}>
                   <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-subtle">
-                    {category}
+                    {displayCategoryLabel(category)}
                   </h3>
-                  <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                  <div className="overflow-hidden rounded-lg border border-border divide-y divide-border">
                     {items.map((a) => {
                       const selected = cart.has(a.collector);
+                      const fields = resolvedParamFields(a);
+                      const hasParams = fields.length > 0;
+                      const paramsExpanded = expanded.has(a.collector);
+                      const missing = selected ? missingRequiredParams(a, artifactParams[a.collector]) : [];
                       return (
                         <div
                           key={a.collector}
-                          role="button"
-                          tabIndex={0}
-                          onClick={() => toggle(a.collector)}
-                          onKeyDown={(e) => e.key === "Enter" && toggle(a.collector)}
                           className={cn(
-                            "group flex cursor-pointer flex-col rounded-lg border p-3 text-left transition-colors",
-                            selected
-                              ? "border-accent/50 bg-accent/5"
-                              : "border-border bg-surface hover:border-accent/30",
+                            "transition-colors",
+                            selected ? "bg-accent/5" : "bg-surface hover:bg-surface-2/50",
                           )}
                         >
-                          <div className="flex items-start gap-3">
+                          <div
+                            role="button"
+                            tabIndex={0}
+                            onClick={() => toggle(a.collector)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter" || e.key === " ") {
+                                e.preventDefault();
+                                toggle(a.collector);
+                              }
+                            }}
+                            className={cn(
+                              "flex cursor-pointer items-center gap-3 px-3 py-2.5 text-left",
+                              selected ? "border-l-2 border-l-accent pl-[10px]" : "border-l-2 border-l-transparent",
+                            )}
+                          >
                             <span
                               className={cn(
-                                "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border",
+                                "flex h-4 w-4 shrink-0 items-center justify-center rounded border",
                                 selected
                                   ? "border-accent bg-accent text-accent-fg"
                                   : "border-border bg-surface-2",
@@ -600,22 +586,63 @@ function AcquireContent() {
                             >
                               {selected && <Check className="h-3 w-3" />}
                             </span>
-                            <ArtifactIcon cloud={cloud} collector={a.collector} size={32} className="mt-0.5" />
+                            <ArtifactIcon cloud={cloud} collector={a.collector} size={24} />
                             <div className="min-w-0 flex-1">
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-wrap items-center gap-2">
                                 <span className="truncate text-sm font-medium text-fg">
                                   {displayArtifactLabel(a.collector)}
                                 </span>
-                                <ArtifactInfoButton collector={a.collector} cloud={cloud} />
+                                {selected && hasParams && !paramsExpanded && (
+                                  <span className="inline-flex shrink-0 items-center gap-1 text-2xs text-fg-subtle">
+                                    <Settings2 className="h-3 w-3" />
+                                    {fields.length}
+                                  </span>
+                                )}
+                                {missing.length > 0 && (
+                                  <span className="inline-flex shrink-0 items-center gap-0.5 text-2xs text-warn-amber">
+                                    <AlertCircle className="h-3 w-3" />
+                                    {missing.length}
+                                  </span>
+                                )}
                               </div>
-                              {a.description ? (
-                                <p className="mt-0.5 line-clamp-2 text-xs leading-snug text-fg-subtle">
+                              {paramsExpanded && a.description ? (
+                                <p className="mt-0.5 line-clamp-1 text-2xs text-fg-subtle">
                                   {a.description}
                                 </p>
                               ) : null}
-                              {selected && renderParams(a)}
                             </div>
+                            <ArtifactInfoButton collector={a.collector} cloud={cloud} />
+                            {selected && hasParams && (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  toggleParamExpand(a.collector);
+                                }}
+                                className="inline-flex h-7 w-7 shrink-0 items-center justify-center rounded text-fg-subtle hover:bg-surface-2 hover:text-fg"
+                                aria-label={paramsExpanded ? "Collapse parameters" : "Expand parameters"}
+                                aria-expanded={paramsExpanded}
+                              >
+                                {paramsExpanded ? (
+                                  <ChevronDown className="h-4 w-4" />
+                                ) : (
+                                  <ChevronRight className="h-4 w-4" />
+                                )}
+                              </button>
+                            )}
                           </div>
+                          {selected && hasParams && paramsExpanded && (
+                            <div className="border-t border-border/60 bg-surface-2/30 px-3 py-3 pl-11">
+                              {renderParamHints(a)}
+                              <AcquireParamFields
+                                compact
+                                className="mt-2"
+                                fields={fields}
+                                values={artifactParams[a.collector] || {}}
+                                onChange={(values) => setCollectorParams(a.collector, values)}
+                              />
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -652,9 +679,9 @@ function AcquireContent() {
                   {cartForCloud.map((a) => (
                     <li
                       key={a.collector}
-                      className="flex items-center justify-between gap-2 rounded px-1.5 py-1 text-xs"
+                      className="flex items-center gap-2 rounded px-1.5 py-1 text-xs"
                     >
-                      <span className="flex min-w-0 flex-col gap-0.5">
+                      <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <span className="flex min-w-0 items-center gap-2">
                           <ArtifactIcon cloud={cloud} collector={a.collector} size={18} />
                           <span className="truncate text-fg">{displayArtifactLabel(a.collector)}</span>
@@ -832,14 +859,14 @@ function AcquireContent() {
                   />
                 </label>
                 {cloud === "gcp" && (
-                  <label className="block space-y-1">
+                  <div className="block space-y-1">
                     <span className="text-2xs text-fg-subtle">Project ID(s)</span>
-                    <Input
-                      value={project}
-                      onChange={(e) => setProject(e.target.value)}
+                    <MultiValueInput
+                      items={projectIds}
                       placeholder="my-project"
+                      onChange={setProjectIds}
                     />
-                  </label>
+                  </div>
                 )}
                 {cloud === "aws" && (
                   <label className="block space-y-1">
@@ -853,14 +880,38 @@ function AcquireContent() {
                   </label>
                 )}
                 {cloud === "azure" && (
-                  <label className="block space-y-1">
-                    <span className="text-2xs text-fg-subtle">Subscription ID(s)</span>
-                    <Input
-                      value={subscription}
-                      onChange={(e) => setSubscription(e.target.value)}
-                      placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
-                    />
-                  </label>
+                  <>
+                    <div className="block space-y-1">
+                      <span className="text-2xs text-fg-subtle">Subscription ID(s)</span>
+                      <MultiValueInput
+                        items={subscriptionIds}
+                        placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
+                        onChange={setSubscriptionIds}
+                      />
+                    </div>
+                    <label className="block space-y-1">
+                      <span className="text-2xs text-fg-subtle">Entra tenant ID (optional)</span>
+                      <Input
+                        value={azureTenantId}
+                        onChange={(e) => setAzureTenantId(e.target.value)}
+                        placeholder="Embedded in acquisition.yaml — or use AZURE_TENANT_ID"
+                        className="mono text-xs"
+                      />
+                    </label>
+                    <label className="block space-y-1">
+                      <span className="text-2xs text-fg-subtle">App client ID (optional)</span>
+                      <Input
+                        value={azureClientId}
+                        onChange={(e) => setAzureClientId(e.target.value)}
+                        placeholder="Embedded in acquisition.yaml — or use AZURE_CLIENT_ID"
+                        className="mono text-xs"
+                      />
+                    </label>
+                    <p className="text-2xs text-fg-subtle">
+                      Set <span className="mono">AZURE_CLIENT_SECRET</span> in the environment before
+                      running <span className="mono">ventra.py</span> — never put secrets in the kit zip.
+                    </p>
+                  </>
                 )}
                 <label className="block space-y-1">
                   <span className="text-2xs text-fg-subtle">Records count to collect (optional)</span>
@@ -877,25 +928,19 @@ function AcquireContent() {
               </div>
 
               <div className="mt-3 space-y-2 border-t border-border pt-3">
-                <label className="flex cursor-pointer items-center gap-2 text-xs text-fg-subtle">
-                  <input
-                    type="checkbox"
-                    checked={includeIam}
-                    onChange={(e) => setIncludeIam(e.target.checked)}
-                    className="h-3.5 w-3.5 rounded border-border"
-                  />
-                  <ShieldCheck className="h-3.5 w-3.5" />
-                  Bundle read-only IAM policy
-                </label>
-                {includeIam && collectors.length > 0 && (
-                  <div className="rounded-md border border-border bg-surface-2 px-2.5 py-2 text-2xs">
+                <div className="flex items-center gap-2 text-xs font-medium text-fg">
+                  <ShieldCheck className="h-3.5 w-3.5 text-fg-subtle" />
+                  Read-only IAM policy
+                </div>
+                {collectors.length > 0 && (
+                  <div className="rounded-md border border-border bg-surface-2 px-2.5 py-2.5">
                     {iamPreviewError ? (
-                      <p className="text-bad-red">{iamPreviewError}</p>
+                      <p className="text-xs text-bad-red">{iamPreviewError}</p>
                     ) : iamPreview ? (
                       <>
-                        <p className="text-fg">
+                        <p className="text-xs text-fg">
                           <span className="mono font-medium">{iamPreview.iam_action_count}</span> IAM
-                          action{iamPreview.iam_action_count === 1 ? "" : "s"} after narrowing
+                          action{iamPreview.iam_action_count === 1 ? "" : "s"}
                           {iamPreview.implicit_collectors.length > 0 && (
                             <span className="text-fg-subtle">
                               {" "}
@@ -903,41 +948,31 @@ function AcquireContent() {
                             </span>
                           )}
                         </p>
-                        <p className="mt-1 text-fg-subtle">
-                          Kit pins ventra{" "}
-                          <span className="mono">{iamPreview.ventra_version}</span>
-                          {iamPreview.wheel_source === "local"
-                            ? " · wheel built from local source"
-                            : " · wheel bundled from PyPI"}
-                        </p>
-                        <div className="mt-2 flex flex-wrap gap-2">
-                          <button
+                        <div className="mt-3 flex flex-wrap gap-2">
+                          <Button
                             type="button"
-                            onClick={() => setIamExpanded((v) => !v)}
-                            className="text-accent hover:underline"
+                            variant="secondary"
+                            size="sm"
+                            onClick={() => setIamActionsOpen(true)}
+                            disabled={iamPreview.iam_actions.length === 0}
                           >
-                            {iamExpanded ? "Hide Actions" : "Show Actions"}
-                          </button>
+                            Show IAM actions
+                          </Button>
                           {Object.keys(iamPreview.iam_policies).length > 0 && (
-                            <button
+                            <Button
                               type="button"
+                              variant="secondary"
+                              size="sm"
+                              icon={FileJson}
                               onClick={downloadIamPreview}
-                              className="inline-flex items-center gap-1 text-accent hover:underline"
                             >
-                              <FileJson className="h-3 w-3" /> Download
-                            </button>
+                              Download
+                            </Button>
                           )}
                         </div>
-                        {iamExpanded && (
-                          <ul className="mt-2 max-h-28 space-y-0.5 overflow-auto mono text-fg-subtle">
-                            {iamPreview.iam_actions.map((a) => (
-                              <li key={a}>{a}</li>
-                            ))}
-                          </ul>
-                        )}
                       </>
                     ) : (
-                      <p className="text-fg-subtle">Calculating IAM preview…</p>
+                      <p className="text-xs text-fg-subtle">Calculating IAM preview…</p>
                     )}
                   </div>
                 )}
@@ -958,7 +993,17 @@ function AcquireContent() {
             </div>
           </Card>
         </aside>
+        </div>
       </main>
+
+      <IamActionsDialog
+        open={iamActionsOpen}
+        onClose={() => setIamActionsOpen(false)}
+        cloud={cloud}
+        actions={iamPreview?.iam_actions ?? []}
+        actionCount={iamPreview?.iam_action_count ?? 0}
+        implicitCount={iamPreview?.implicit_collectors.length ?? 0}
+      />
 
       <AcquireHandoffDialog
         open={handoffOpen}

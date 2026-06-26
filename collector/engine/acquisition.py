@@ -45,6 +45,8 @@ class AcquisitionSpec:
     regions: list[str] = field(default_factory=list)
     project: str = ""  # GCP project id(s), comma-separated
     subscription: str = ""  # Azure subscription id(s)
+    azure_tenant_id: str = ""
+    azure_client_id: str = ""
     aws_profile: str = ""  # AWS named profile from ~/.aws/credentials (workstation kits)
     max_records_per_source: int | None = None  # None/0 = unlimited; positive = cap per source
 
@@ -100,6 +102,8 @@ def load_acquisition(path: Path) -> AcquisitionSpec:
         regions=[str(r).strip() for r in regions if str(r).strip()],
         project=str(data.get("project") or "").strip(),
         subscription=str(data.get("subscription") or "").strip(),
+        azure_tenant_id=str(data.get("azure_tenant_id") or "").strip(),
+        azure_client_id=str(data.get("azure_client_id") or "").strip(),
         aws_profile=str(data.get("aws_profile") or "").strip(),
         max_records_per_source=int(cap) if cap is not None and str(cap) != "" else None,
     )

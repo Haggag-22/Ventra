@@ -1,0 +1,28 @@
+name: GCP.Network.NetworkPosture
+aliases:
+- network_posture
+- gcp.network_posture
+cloud: gcp
+category: Network
+description: VPC firewall rules, network topology, and packet mirroring policies.
+version: 1.0.0
+collector: network_posture
+type: network_posture
+required_actions:
+- compute.firewalls.list
+- compute.networks.list
+- compute.subnetworks.list
+- compute.routes.list
+- compute.packetMirrorings.list
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: network_posture
+  format: json
+severity: extended
+estimated_volume: medium

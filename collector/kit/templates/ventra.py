@@ -8,7 +8,7 @@ Usage:
     python3 ventra.py --out ./ventra-evidence
     python3 ventra.py --profile my-aws-profile --out ./ventra-evidence
     python3 ventra.py --subscription <azure-sub-id> --out ./evidence
-    python3 ventra.py --project my-gcp-project --out ./evidence
+    python3 ventra.py --project my-gcp-project --credentials /path/to/sa-key.json --out ./evidence
 """
 
 from __future__ import annotations
@@ -81,6 +81,7 @@ def _ensure_ventra(cloud: str) -> Path:
                 "requests>=2.31",
                 "azure-identity>=1.16",
                 "azure-mgmt-resource>=23.0",
+                "azure-mgmt-resource-subscriptions>=1.0.0b2",
                 "azure-mgmt-monitor>=6.0",
                 "azure-mgmt-network>=25.0",
                 "azure-mgmt-security>=7.0",
@@ -111,6 +112,26 @@ def _ensure_ventra(cloud: str) -> Path:
     return ventra_bin
 
 
+
+
+def _azure_auth_extra_args() -> list[str]:
+    """Pass SP tenant/client from acquisition.yaml; secret stays in env only."""
+    extra: list[str] = []
+    tenant = _read_acquisition_field("azure_tenant_id").strip() or os.environ.get("AZURE_TENANT_ID", "").strip()
+    client = _read_acquisition_field("azure_client_id").strip() or os.environ.get("AZURE_CLIENT_ID", "").strip()
+    if tenant:
+        extra.extend(["--tenant-id", tenant])
+    if client:
+        extra.extend(["--client-id", client])
+    secret = os.environ.get("AZURE_CLIENT_SECRET", "").strip()
+    if secret:
+        extra.extend(["--client-secret", secret])
+    cert = os.environ.get("AZURE_CLIENT_CERTIFICATE_PATH", "").strip()
+    if cert:
+        extra.extend(["--client-certificate", cert])
+    return extra
+
+
 def _cloud_extra_args(cloud: str, args: argparse.Namespace) -> list[str]:
     extra: list[str] = []
     if cloud == "aws":
@@ -122,13 +143,28 @@ def _cloud_extra_args(cloud: str, args: argparse.Namespace) -> list[str]:
         if profile:
             extra.extend(["--profile", profile])
     elif cloud == "azure":
-        sub = (args.subscription or os.environ.get("AZURE_SUBSCRIPTION_ID", "")).strip()
+        sub = (
+            (args.subscription or "").strip()
+            or _read_acquisition_field("subscription").strip()
+            or os.environ.get("AZURE_SUBSCRIPTION_ID", "").strip()
+        )
         if sub:
             extra.extend(["--subscription", sub])
+        extra.extend(_azure_auth_extra_args())
     elif cloud == "gcp":
-        proj = (args.project or os.environ.get("GOOGLE_CLOUD_PROJECT", "")).strip()
+        proj = (
+            (args.project or "").strip()
+            or _read_acquisition_field("project").strip()
+            or os.environ.get("GOOGLE_CLOUD_PROJECT", "").strip()
+        )
         if proj:
             extra.extend(["--project", proj])
+        creds = (
+            (getattr(args, "credentials", "") or "").strip()
+            or os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "").strip()
+        )
+        if creds:
+            extra.extend(["--credentials", creds])
     return extra
 
 
@@ -150,7 +186,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument(
         "--project",
         metavar="ID",
-        help="GCP: project id(s), comma-separated (same as GOOGLE_CLOUD_PROJECT)",
+        help="GCP: project id(s), comma-separated (acquisition.yaml, GOOGLE_CLOUD_PROJECT)",
+    )
+    parser.add_argument(
+        "--credentials",
+        metavar="PATH",
+        help="GCP: path to service account JSON key (GOOGLE_APPLICATION_CREDENTIALS)",
     )
     parser.add_argument(
         "--out",

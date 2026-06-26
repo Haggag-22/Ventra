@@ -11,6 +11,8 @@ from botocore.exceptions import ClientError
 from collector.lib.base import Collector
 from collector.lib.limits import DEFAULT_MAX_RECORDS
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.params import effective_window, param_strings
+from collector.lib.scoping import filter_route53_query_log_configs
 from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from ..common.s3_logs import bucket_region, collect_s3_line_records, slash_day_prefixes
 
@@ -34,12 +36,15 @@ class Route53ResolverCollector(Collector):
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
-        window = self.ctx.time_window
-        start = window.since or (datetime.now(UTC) - timedelta(days=DEFAULT_WINDOW_DAYS))
-        end = window.until or datetime.now(UTC)
+        params = self.artifact_params()
+        start, end = effective_window(self.ctx, self.name, default_days=DEFAULT_WINDOW_DAYS)
         cap = self.max_records(MAX_RECORDS)
 
         configs, associations = self._discover(cf, gaps)
+        configs = filter_route53_query_log_configs(
+            [{**c, "associations": [a for a in associations if a.get("ResolverQueryLogConfigId") == c.get("Id")]} for c in configs],
+            params,
+        )
         if not configs:
             return SourceResult(
                 name=self.name,
@@ -103,7 +108,8 @@ class Route53ResolverCollector(Collector):
         config_doc = {
             "query_log_configs": per_config,
             "associations": associations,
-            "window": window.to_manifest(),
+            "window": {"since": start.isoformat(), "until": end.isoformat()},
+            "artifact_parameters": params,
         }
         files = [self.write_json(config_doc, "config.json"), *event_files]
         self.write_meta(
@@ -111,7 +117,7 @@ class Route53ResolverCollector(Collector):
                 "source": self.name,
                 "records": record_count,
                 "configs": len(configs),
-                "window": window.to_manifest(),
+                "window": {"since": start.isoformat(), "until": end.isoformat()},
             }
         )
 

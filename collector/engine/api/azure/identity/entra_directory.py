@@ -11,6 +11,8 @@ from typing import Any
 
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.params import param_strings
+from collector.lib.scoping import matches_any
 from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 
 from collector.lib.limits import DEFAULT_MAX_RECORDS as MAX_RECORDS
@@ -30,6 +32,7 @@ class EntraDirectoryCollector(Collector):
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
+        artifact_params = self.artifact_params()
         snapshot: dict[str, Any] = {
             "users": [],
             "groups": [],
@@ -56,7 +59,23 @@ class EntraDirectoryCollector(Collector):
                     ("entra_directory", GapReason.SERVICE_NOT_ENABLED, f"{path}: {exc.message}")
                 )
 
-        total = sum(len(snapshot[k]) for k in snapshot)
+        user_ids = param_strings(artifact_params, "user_ids")
+        group_ids = param_strings(artifact_params, "group_ids")
+        app_ids = param_strings(artifact_params, "app_ids")
+        if user_ids:
+            snapshot["users"] = [u for u in snapshot["users"] if matches_any(str(u.get("id") or ""), user_ids)]
+        if group_ids:
+            snapshot["groups"] = [g for g in snapshot["groups"] if matches_any(str(g.get("id") or ""), group_ids)]
+        if app_ids:
+            snapshot["applications"] = [
+                a for a in snapshot["applications"] if matches_any(str(a.get("id") or ""), app_ids)
+            ]
+            snapshot["service_principals"] = [
+                s for s in snapshot["service_principals"] if matches_any(str(s.get("id") or ""), app_ids)
+            ]
+
+        snapshot["artifact_parameters"] = artifact_params
+        total = sum(len(snapshot[k]) for k in snapshot if k != "artifact_parameters")
         if total == 0 and gaps:
             return SourceResult(
                 name=self.name,

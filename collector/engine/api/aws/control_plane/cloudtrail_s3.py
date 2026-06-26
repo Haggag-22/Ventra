@@ -228,6 +228,7 @@ def collect_s3_trail_records(
     max_objects: int | None = None,
     writer: JsonlWriter | None = None,
     seen_event_ids: set[str] | None = None,
+    record_filter: Callable[[dict[str, Any]], bool] | None = None,
 ) -> tuple[list[dict[str, Any]], dict[str, Any]]:
     """Pull records for ``categories`` from the trail's S3 log files in the time window."""
     subfolder = CATEGORY_SUBFOLDERS.get(categories, SHARED_SUBFOLDER)
@@ -290,6 +291,8 @@ def collect_s3_trail_records(
                             if not _in_window(ts, start, end):
                                 continue
                             out = dict(rec)
+                            if record_filter is not None and not record_filter(out):
+                                continue
                             eid = event_id(out)
                             if eid and eid in seen:
                                 continue

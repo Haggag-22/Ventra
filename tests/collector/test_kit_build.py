@@ -150,6 +150,7 @@ def test_kit_ships_ventra_py_and_requirements(tmp_path: Path) -> None:
     assert "--profile" in ventra_py
     assert "--subscription" in ventra_py
     assert "--project" in ventra_py
+    assert "--credentials" in ventra_py
     assert "PyYAML" in reqs
     assert "ventra.py" in run_sh
 

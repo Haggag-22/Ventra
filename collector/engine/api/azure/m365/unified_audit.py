@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from collector.lib.base import Collector
 from collector.lib.limits import records_unlimited
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.params import effective_window, param_strings
 from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 from ..common import window_bounds
 from .ual_common import (
@@ -33,29 +34,33 @@ class UnifiedAuditCollector(Collector):
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         opts = self.ctx.ual
+        artifact_params = self.artifact_params()
         gaps: list[tuple[str, GapReason, str]] = []
         cap = self.max_records(MAX_RECORDS)
-        start, end = window_bounds(self.ctx.time_window, DEFAULT_WINDOW_DAYS)
+        start, end = effective_window(self.ctx, self.name, default_days=DEFAULT_WINDOW_DAYS)
+        content_types = param_strings(artifact_params, "content_types") or list(MANAGEMENT_CONTENT_TYPES)
+        filter_users = param_strings(artifact_params, "users") or list(opts.users)
+        filter_ops = param_strings(artifact_params, "operations") or list(opts.operations)
 
         per_type: list[dict] = []
         truncated = False
         files = []
 
         with self.open_jsonl("events.jsonl.gz") as writer:
-            for content_type in MANAGEMENT_CONTENT_TYPES:
+            for content_type in content_types:
                 if not records_unlimited(cap) and writer.count >= cap:
                     truncated = True
                     break
                 before = writer.count
                 try:
                     for rec in cf.management_content(content_type, start, end, max_records=cap):
-                        if opts.operations:
+                        if filter_ops:
                             op = (rec.get("Operation") or "").lower()
-                            if not any(o.lower() in op for o in opts.operations):
+                            if not any(o.lower() in op for o in filter_ops):
                                 continue
-                        if opts.users:
+                        if filter_users:
                             user = (rec.get("UserId") or "").lower()
-                            if not any(u.lower() in user for u in opts.users):
+                            if not any(u.lower() in user for u in filter_users):
                                 continue
                         writer.write_record(tag_management_record(rec))
                         if not records_unlimited(cap) and writer.count >= cap:
@@ -91,9 +96,12 @@ class UnifiedAuditCollector(Collector):
                 "content_types": per_type,
                 "truncated": truncated,
                 "filters": {
-                    "users": opts.users,
-                    "operations": opts.operations,
+                    "users": filter_users,
+                    "operations": filter_ops,
+                    "content_types": content_types,
                 },
+                "artifact_parameters": artifact_params,
+                "window": {"since": start.isoformat(), "until": end.isoformat()},
                 "retention_note": RETENTION_NOTE,
                 "feed_runbook": FEED_ENABLE_RUNBOOK,
                 "ingestion_lag_warning": lag_warning,

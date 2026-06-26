@@ -1,10 +1,34 @@
 "use client";
 
+import { artifactSeverityLabel, artifactSeverityMeta } from "@/lib/artifact-severity";
 import { INTEGRITY_META, SEVERITY_META } from "@/lib/severity";
 import type { Integrity, Outcome, Severity } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { CheckCircle2, ShieldCheck, XCircle } from "lucide-react";
 import { Badge, Tooltip } from "./ui";
+
+export function ArtifactSeverityBadge({
+  severity,
+  className,
+}: {
+  severity: string;
+  className?: string;
+}) {
+  const label = artifactSeverityLabel(severity);
+  if (!label) return null;
+  const meta = artifactSeverityMeta(severity);
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center rounded-full border px-2 py-0.5 text-2xs font-medium",
+        meta?.className ?? "border-border bg-surface-2 text-fg-subtle",
+        className,
+      )}
+    >
+      {label}
+    </span>
+  );
+}
 
 export function SeverityBadge({ severity, withIcon = true }: { severity: Severity; withIcon?: boolean }) {
   const meta = SEVERITY_META[severity] ?? SEVERITY_META.info;

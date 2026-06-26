@@ -4,7 +4,7 @@ aliases:
 - gcp.firewall_logs
 cloud: gcp
 category: Network
-description: VPC Firewall rule hit logs.
+description: Firewall Rules Logging for VPC firewall rule hits.
 version: 1.0.0
 collector: firewall_logs
 type: firewall_logs
