@@ -10,6 +10,8 @@ from typing import Any
 
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.params import param_strings
+from collector.lib.scoping import matches_any
 from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 
 
@@ -25,6 +27,7 @@ class RbacCollector(Collector):
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
+        artifact_params = self.artifact_params()
         snapshot: dict[str, Any] = {
             "subscriptions": [],
             "role_definitions": [],
@@ -56,6 +59,23 @@ class RbacCollector(Collector):
             for ra in data.get("role_assignments") or []:
                 ra["_ventra_subscription_id"] = sub
                 snapshot["role_assignments"].append(ra)
+
+        principal_ids = param_strings(artifact_params, "principal_ids")
+        role_names = param_strings(artifact_params, "role_names")
+        if principal_ids:
+            snapshot["role_assignments"] = [
+                ra for ra in snapshot["role_assignments"]
+                if matches_any(str((ra.get("properties") or ra).get("principalId") or ""), principal_ids)
+            ]
+        if role_names:
+            rd_map = {str(rd.get("id") or ""): str(rd.get("properties", rd).get("roleName") or rd.get("roleName") or "")
+                      for rd in snapshot["role_definitions"]}
+            snapshot["role_assignments"] = [
+                ra for ra in snapshot["role_assignments"]
+                if matches_any(rd_map.get(str((ra.get("properties") or ra).get("roleDefinitionId") or ""), role_names)
+                               or matches_any(str((ra.get("properties") or ra).get("roleDefinitionId") or ""), role_names))
+            ]
+        snapshot["artifact_parameters"] = artifact_params
 
         if not snapshot["role_definitions"] and not snapshot["role_assignments"] and gaps:
             return SourceResult(

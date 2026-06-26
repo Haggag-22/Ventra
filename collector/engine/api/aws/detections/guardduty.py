@@ -11,6 +11,8 @@ from botocore.exceptions import ClientError
 
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.params import effective_window, param_strings
+from collector.lib.scoping import filter_guardduty_findings
 from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
 
@@ -30,6 +32,9 @@ class GuardDutyCollector(Collector):
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
+        params = self.artifact_params()
+        start, end = effective_window(self.ctx, self.name, default_days=90)
+        detector_filter = set(param_strings(params, "detector_ids"))
         findings: list[dict] = []
         detectors_meta: list[dict] = []
         enabled_anywhere = False
@@ -48,6 +53,8 @@ class GuardDutyCollector(Collector):
                 gaps.append(("guardduty", GapReason.COLLECTOR_ERROR, f"{region}: {exc}"))
                 continue
             for did in detector_ids:
+                if detector_filter and did not in detector_filter:
+                    continue
                 enabled_anywhere = True
                 try:
                     detector = cf.call("guardduty", region, "get_detector", DetectorId=did)
@@ -58,7 +65,9 @@ class GuardDutyCollector(Collector):
                 detectors_meta.append(
                     {"region": region, "detector_id": did, "detector": detector, "filters": filters}
                 )
-                findings.extend(self._findings(cf, region, did))
+                findings.extend(self._findings(cf, region, did, start, end))
+
+        findings = filter_guardduty_findings(findings, params)
 
         if not enabled_anywhere:
             return SourceResult(
@@ -69,7 +78,7 @@ class GuardDutyCollector(Collector):
                 notes="GuardDuty not enabled — recorded as a gap.",
             )
 
-        files = [self.write_json({"detectors": detectors_meta}, "config.json")]
+        files = [self.write_json({"detectors": detectors_meta, "artifact_parameters": params, "window": {"since": start.isoformat(), "until": end.isoformat()}}, "config.json")]
         if findings:
             files.append(self.write_jsonl(findings, "events.jsonl.gz"))
         self.write_meta(
@@ -95,22 +104,30 @@ class GuardDutyCollector(Collector):
             pass
         return out
 
-    def _findings(self, cf, region, did) -> list[dict]:
+    def _findings(self, cf, region, did, start, end) -> list[dict]:
         out: list[dict] = []
         try:
             ids = list(cf.paginate("guardduty", region, "list_findings", "FindingIds",
                                    DetectorId=did))
         except (AccessDenied, ServiceNotEnabled, ClientError):
             return out
-        # GetFindings accepts up to 50 ids per call.
         for i in range(0, len(ids), 50):
             chunk = ids[i : i + 50]
             try:
                 got = cf.call("guardduty", region, "get_findings",
                               DetectorId=did, FindingIds=chunk).get("Findings", [])
                 for f in got:
+                    updated = f.get("UpdatedAt") or f.get("CreatedAt")
+                    if updated:
+                        try:
+                            from datetime import datetime
+                            ts = datetime.fromisoformat(str(updated).replace("Z", "+00:00"))
+                            if ts < start or ts > end:
+                                continue
+                        except ValueError:
+                            pass
                     f["_ventra_region"] = region
-                out.extend(got)
+                    out.append(f)
             except (AccessDenied, ServiceNotEnabled, ClientError):
                 continue
         return out

@@ -11,6 +11,8 @@ from typing import Any
 
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.params import param_strings
+from collector.lib.scoping import filter_azure_resources
 from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 
 MAX_RESOURCES = 200
@@ -61,11 +63,15 @@ class DiagPostureCollector(Collector):
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
+        artifact_params = self.artifact_params()
         posture: dict[str, Any] = {}
+        source_filter = param_strings(artifact_params, "source_ids")
 
         for source_id, resource_types in POSTURE_CHECKS.items():
+            if source_filter and source_id not in source_filter:
+                continue
             try:
-                result = self._check_source(cf, resource_types)
+                result = self._check_source(cf, resource_types, artifact_params)
             except Exception as exc:  # noqa: BLE001
                 result = {"error": str(exc)}
                 gaps.append((source_id, GapReason.COLLECTOR_ERROR, f"Posture check failed: {exc}"))
@@ -76,7 +82,7 @@ class DiagPostureCollector(Collector):
             if gap:
                 gaps.append((source_id, gap[0], gap[1]))
 
-        files = [self.write_json(posture, "config.json")]
+        files = [self.write_json({**posture, "artifact_parameters": artifact_params}, "config.json")]
         self.write_meta({"source": self.name, "checks": len(POSTURE_CHECKS)})
         return SourceResult(
             name=self.name,
@@ -87,7 +93,7 @@ class DiagPostureCollector(Collector):
             notes=f"Diagnostic posture recorded for {len(POSTURE_CHECKS)} source(s).",
         )
 
-    def _check_source(self, cf, resource_types: list[str]) -> dict[str, Any]:
+    def _check_source(self, cf, resource_types: list[str], params: dict) -> dict[str, Any]:
         total = 0
         storage = 0
         la_only = 0
@@ -102,7 +108,7 @@ class DiagPostureCollector(Collector):
                 raise
             except AzureServiceNotEnabled:
                 continue
-            for res in resources[:MAX_RESOURCES]:
+            for res in filter_azure_resources(resources[:MAX_RESOURCES], params):
                 total += 1
                 try:
                     settings = cf.diagnostic_settings(res["id"])

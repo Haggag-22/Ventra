@@ -6,7 +6,7 @@ from ..common.logging_collector import GcpLoggingCollector
 class LoadBalancerCollector(GcpLoggingCollector):
     name = "load_balancer"
     priority = 1
-    description = "Cloud Load Balancer request logs (HTTP(S), TCP/UDP proxy)."
+    description = "Load Balancer Access Logs for HTTP(S) and TCP/UDP proxy load balancers."
     required_actions = ("logging.logEntries.list",)
     log_filter = (
         'logName:("compute.googleapis.com%2Frequests" '

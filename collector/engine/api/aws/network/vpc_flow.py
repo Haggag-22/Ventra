@@ -16,6 +16,8 @@ from datetime import UTC, datetime, timedelta
 from collector.lib.base import Collector
 from collector.lib.limits import DEFAULT_MAX_RECORDS, records_unlimited
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.params import effective_window
+from collector.lib.scoping import filter_vpc_flow_logs
 from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from ..common.cw_logs import collect_cw_log_events
 from .vpc_flow_s3 import collect_s3_flow_records, flow_log_s3_target, _flow_scope_tags
@@ -55,16 +57,23 @@ class VpcFlowCollector(Collector):
             for fl in fls:
                 fl["_ventra_region"] = region
                 flow_configs.append(fl)
-                if fl.get("LogDestinationType") == "cloud-watch-logs" and fl.get("LogGroupName"):
-                    entry = f"{region}::{fl['LogGroupName']}"
-                    cw_log_groups.add(entry)
-                    cw_log_tags[entry] = _flow_scope_tags(fl)
             try:
                 for vpc in cf.paginate("ec2", region, "describe_vpcs", "Vpcs"):
                     vpc["_ventra_region"] = region
                     vpcs.append(vpc)
             except (AccessDenied, ServiceNotEnabled):
                 pass
+
+        params = self.artifact_params()
+        flow_configs = filter_vpc_flow_logs(flow_configs, params)
+        cw_log_groups = set()
+        cw_log_tags = {}
+        for fl in flow_configs:
+            if fl.get("LogDestinationType") == "cloud-watch-logs" and fl.get("LogGroupName"):
+                region = fl.get("_ventra_region", "")
+                entry = f"{region}::{fl['LogGroupName']}"
+                cw_log_groups.add(entry)
+                cw_log_tags[entry] = _flow_scope_tags(fl)
 
         # VPCs with no VPC-level flow log are themselves evidence of a visibility gap.
         # (Subnet/ENI-level logs may still cover parts of them — recorded for the analyst.)
@@ -99,9 +108,7 @@ class VpcFlowCollector(Collector):
             )
 
         # Pull recent records from CloudWatch-destined flow logs.
-        window = self.ctx.time_window
-        end = window.until or datetime.now(UTC)
-        start = window.since or (end - timedelta(days=14))
+        start, end = effective_window(self.ctx, self.name, default_days=14)
         cw_record_count = 0
         truncated = False
         cw_writer = None
@@ -161,6 +168,8 @@ class VpcFlowCollector(Collector):
             "flow_logs": flow_configs,
             "vpcs": vpcs,
             "vpcs_without_flow_logs": uncovered_vpcs,
+            "artifact_parameters": params,
+            "window": {"since": start.isoformat(), "until": end.isoformat()},
         }
         files.append(self.write_json(config_doc, "config.json"))
         if cw_record_count:
@@ -217,6 +226,8 @@ class VpcFlowCollector(Collector):
                 "s3_truncated": s3_truncated,
                 "records": total_records,
                 "destinations": sorted({f.get("LogDestinationType") for f in flow_configs}),
+                "artifact_parameters": params,
+                "window": {"since": start.isoformat(), "until": end.isoformat()},
             }
         )
         return SourceResult(

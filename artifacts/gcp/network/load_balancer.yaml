@@ -4,7 +4,7 @@ aliases:
 - gcp.load_balancer
 cloud: gcp
 category: Network
-description: Cloud Load Balancer request logs (HTTP(S), TCP/UDP proxy).
+description: Load Balancer Access Logs for HTTP(S) and TCP/UDP proxy load balancers.
 version: 1.0.0
 collector: load_balancer
 type: load_balancer

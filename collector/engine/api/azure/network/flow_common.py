@@ -14,6 +14,8 @@ from datetime import UTC, datetime
 from typing import Any
 
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.params import scoped_window
+from collector.lib.scoping import filter_nsg_flow_logs, filter_vnet_flow_logs
 from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 from ..common.storage_logs import FLOW_CONTAINER, read_log_records
 
@@ -25,7 +27,7 @@ def _iso_from_epoch(value: str) -> str:
         n = int(value)
     except (TypeError, ValueError):
         return ""
-    if n > 1_000_000_000_000:  # milliseconds
+    if n > 1_000_000_000_000:
         n //= 1000
     try:
         return datetime.fromtimestamp(n, tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
@@ -69,11 +71,7 @@ def flatten_nsg_record(rec: dict, region: str = "") -> Iterator[dict]:
 
 
 def flatten_vnet_record(rec: dict, region: str = "") -> Iterator[dict]:
-    """VNet flow log v4: properties.flowRecords.flows[].flowGroups[].flowTuples.
-
-    Protocol is numeric, an encryption field sits at index 8 (shifting the byte counters), and
-    deny is signalled by flowState == 'D'.
-    """
+    """VNet flow log v4: properties.flowRecords.flows[].flowGroups[].flowTuples."""
     rid = rec.get("resourceId", "")
     props = rec.get("properties") or {}
     flow_records = props.get("flowRecords") or {}
@@ -91,15 +89,29 @@ def flatten_vnet_record(rec: dict, region: str = "") -> Iterator[dict]:
                 yield _flat(p[0], p[1], p[2], p[4], action, b1, b2, target, region)
 
 
+def _record_in_window(rec: dict[str, Any], start: datetime, end: datetime) -> bool:
+    ts = rec.get("timestamp") or ""
+    if not ts:
+        return True
+    try:
+        dt = datetime.fromisoformat(str(ts).replace("Z", "+00:00"))
+    except ValueError:
+        return True
+    return start <= dt <= end
+
+
 def collect_flow_logs(collector, *, flow_type: str, flatten: FlattenFn) -> SourceResult:
     """Discover + read flow logs of ``flow_type`` ('vnet'|'nsg') across in-scope subscriptions."""
     cf = collector.ctx.client_factory
     name = collector.name
+    params = collector.artifact_params()
     container = FLOW_CONTAINER[flow_type]
     gaps: list[tuple[str, GapReason, str]] = []
     records: list[dict] = []
     per_log: list[dict] = []
     any_enabled = False
+    start, end = scoped_window(collector.ctx, name, default_days=7)
+    window_start, window_end = (start, end) if start and end else (None, None)
 
     for sub in collector.ctx.subscription_ids:
         try:
@@ -110,6 +122,10 @@ def collect_flow_logs(collector, *, flow_type: str, flatten: FlattenFn) -> Sourc
         except AzureServiceNotEnabled as exc:
             gaps.append((name, GapReason.NOT_PRESENT, f"{sub}: {exc.message}"))
             continue
+        if flow_type == "vnet":
+            flow_logs = filter_vnet_flow_logs(flow_logs, params)
+        else:
+            flow_logs = filter_nsg_flow_logs(flow_logs, params)
         for fl in flow_logs:
             if fl.get("flow_type") != flow_type or not fl.get("enabled"):
                 continue
@@ -117,8 +133,10 @@ def collect_flow_logs(collector, *, flow_type: str, flatten: FlattenFn) -> Sourc
             before = len(records)
             try:
                 cc = cf.container_client(fl["storage_id"], container)
-                for rec in read_log_records(cc):
-                    records.extend(flatten(rec, ""))
+                for rec in read_log_records(cc, start=window_start, end=window_end):
+                    for flat in flatten(rec, ""):
+                        if window_start is None or window_end is None or _record_in_window(flat, window_start, window_end):
+                            records.append(flat)
             except AzureAccessDenied as exc:
                 gaps.append((name, GapReason.ACCESS_DENIED, f"{fl['name']}: {exc.message}"))
             except AzureServiceNotEnabled as exc:
@@ -145,7 +163,12 @@ def collect_flow_logs(collector, *, flow_type: str, flatten: FlattenFn) -> Sourc
             "source": name,
             "records": len(records),
             "flow_logs": per_log,
-            "window": collector.ctx.time_window.to_manifest(),
+            "window": (
+                {"since": start.isoformat(), "until": end.isoformat()}
+                if start and end
+                else collector.ctx.time_window.to_manifest()
+            ),
+            "artifact_parameters": params,
         }
     )
 

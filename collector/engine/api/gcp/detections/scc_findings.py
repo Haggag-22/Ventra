@@ -6,6 +6,7 @@ from typing import Any
 
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.scoping import filter_scc_findings
 from collector.clouds.gcp.client_factory import GcpAccessDenied, GcpServiceNotEnabled
 
 from collector.lib.limits import DEFAULT_MAX_RECORDS as MAX_RECORDS
@@ -20,6 +21,7 @@ class SccFindingsCollector(Collector):
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
+        params = self.artifact_params()
         identity = cf.caller_identity()
         org_id = identity.organization_id
 
@@ -48,7 +50,13 @@ class SccFindingsCollector(Collector):
         except GcpServiceNotEnabled as exc:
             gaps.append(("scc_findings", GapReason.SERVICE_NOT_ENABLED, exc.message))
 
-        files = [self.write_json({"organization_id": org_id}, "config.json")]
+        findings = filter_scc_findings(findings, params)
+
+        files = [
+            self.write_json(
+                {"organization_id": org_id, "artifact_parameters": params}, "config.json"
+            )
+        ]
         if findings:
             files.append(self.write_jsonl(findings, "events.jsonl.gz"))
 

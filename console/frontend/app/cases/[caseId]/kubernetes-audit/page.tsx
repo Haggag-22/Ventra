@@ -104,9 +104,7 @@ export default function KubernetesAuditPage() {
   });
 
   const matched = eventsQ.data?.total ?? 0;
-  const totalAvailable = totalQ.data?.total ?? 0;
   const eventsFailed = totalQ.isError || eventsQ.isError;
-  const gcpStub = cloud === "gcp" && totalAvailable === 0 && !totalQ.isLoading;
 
   const handleChange = useCallback(
     (next: Partial<K8sAuditFilters>) => {
@@ -150,13 +148,6 @@ export default function KubernetesAuditPage() {
         panel="kubernetes-audit"
       />
       <PanelBody className="cloudtrail-view cloudtrail-events space-y-4">
-        {gcpStub && (
-          <div className="rounded-lg border border-border bg-surface-2 px-4 py-3 text-sm text-fg-subtle">
-            GKE audit log collection is not yet available. Kubernetes API audit events for GCP
-            cases will appear here once the <span className="mono">gke_audit</span> collector ships.
-          </div>
-        )}
-
         {eventsFailed && (
           <div className="rounded-lg border border-bad-red/30 bg-bad-red/10 px-4 py-3 text-sm text-bad-red">
             Could not load Kubernetes audit events from the case store. Restart the backend after

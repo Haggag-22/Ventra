@@ -1,0 +1,26 @@
+name: GCP.Workloads.Gce
+aliases:
+- gce
+- gcp.gce
+cloud: gcp
+category: Workloads
+description: GCE instance, disk, snapshot, and NIC inventory (metadata only).
+version: 1.0.0
+collector: gce
+type: gce
+required_actions:
+- compute.instances.list
+- compute.disks.list
+- compute.snapshots.list
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: gce
+  format: json
+severity: extended
+estimated_volume: medium

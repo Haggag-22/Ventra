@@ -13,6 +13,7 @@ it to the role the responder will assume in the client account, or to a dedicate
 | File | Scope |
 |------|-------|
 | [`aws-collector-readonly.json`](aws-collector-readonly.json) | All Tier 1 + Tier 2 AWS collectors. |
+| [`gcp-collector-readonly.json`](gcp-collector-readonly.json) | All GCP collectors. See [`../gcp-authentication.md`](../gcp-authentication.md) for kit auth. |
 
 For a Tier-1-only engagement you can trim the `VentraTier2ReadOnly` and
 `VentraReadLogObjects` statements.

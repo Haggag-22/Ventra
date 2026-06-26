@@ -1,0 +1,24 @@
+name: GCP.DataStorage.BigQueryAudit
+aliases:
+- bigquery_audit
+- gcp.bigquery_audit
+cloud: gcp
+category: DataStorage
+description: BigQuery data access audit logs from Cloud Logging.
+version: 1.0.0
+collector: bigquery_audit
+type: bigquery_audit
+required_actions:
+- logging.logEntries.list
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: bigquery_audit
+  format: json
+severity: extended
+estimated_volume: medium

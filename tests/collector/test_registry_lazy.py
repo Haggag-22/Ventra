@@ -75,6 +75,7 @@ def test_build_kit_azure_requirements_exclude_aws_and_gcp_sdks(tmp_path: Path) -
     with zipfile.ZipFile(out) as zf:
         reqs = zf.read("requirements.txt").decode().lower()
     assert "azure-identity" in reqs
+    assert "azure-mgmt-resource-subscriptions" in reqs
     assert "requests" in reqs
     assert "boto3" not in reqs
     assert "google-cloud" not in reqs

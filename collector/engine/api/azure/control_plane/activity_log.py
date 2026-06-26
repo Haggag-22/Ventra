@@ -8,8 +8,9 @@ from typing import Any
 from collector.lib.base import Collector
 from collector.lib.limits import records_unlimited
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.params import effective_window
+from collector.lib.scoping import arm_activity_log_filter
 from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
-from ..common import arm_time_filter, window_bounds
 from .activity_log_common import (
     CHUNK_DAYS,
     DEFAULT_WINDOW_DAYS,
@@ -46,7 +47,8 @@ class ActivityLogCollector(Collector):
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
         cap = self.max_records(MAX_RECORDS)
-        start, end = window_bounds(self.ctx.time_window, DEFAULT_WINDOW_DAYS)
+        artifact_params = self.artifact_params()
+        start, end = effective_window(self.ctx, self.name, default_days=DEFAULT_WINDOW_DAYS)
 
         subscriptions = self.ctx.subscription_ids
         if not subscriptions:
@@ -77,7 +79,7 @@ class ActivityLogCollector(Collector):
                             sub_truncated = True
                             truncated = True
                             break
-                        filter_str = arm_time_filter(chunk_start, chunk_end)
+                        filter_str = arm_activity_log_filter(artifact_params, chunk_start, chunk_end)
                         remaining = cap - record_count if not records_unlimited(cap) else cap
                         for ev in cf.activity_log_events(sub, filter_str, max_records=remaining):
                             tagged = dict(ev)
@@ -130,7 +132,8 @@ class ActivityLogCollector(Collector):
                 "default_window_days": DEFAULT_WINDOW_DAYS,
                 "retention_note": RETENTION_NOTE,
                 "permission_note": PERMISSION_NOTE,
-                "window": self.ctx.time_window.to_manifest(),
+                "window": {"since": start.isoformat(), "until": end.isoformat()},
+                "artifact_parameters": artifact_params,
                 "invictus_parity": "Get-ActivityLogs: 89d default, all/--subscription, date range",
             }
         )

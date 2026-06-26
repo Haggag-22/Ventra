@@ -22,5 +22,6 @@ class KeyVaultCollector(Collector):
 
     def collect(self) -> SourceResult:
         return collect_diagnostic_logs(
-            self, resource_types=_RESOURCE_TYPES, log_categories=_LOG_CATEGORIES
+            self, resource_types=_RESOURCE_TYPES, log_categories=_LOG_CATEGORIES,
+            name_param="vault_names",
         )

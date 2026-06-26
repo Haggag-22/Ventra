@@ -39,6 +39,7 @@ _KIT_CLOUD_REQUIREMENTS: dict[str, list[str]] = {
         "requests>=2.31",
         "azure-identity>=1.16",
         "azure-mgmt-resource>=23.0",
+        "azure-mgmt-resource-subscriptions>=1.0.0b2",
         "azure-mgmt-monitor>=6.0",
         "azure-mgmt-network>=25.0",
         "azure-mgmt-security>=7.0",
@@ -49,6 +50,7 @@ _KIT_CLOUD_REQUIREMENTS: dict[str, list[str]] = {
         "google-cloud-logging>=3.10",
         "google-cloud-resource-manager>=1.12",
         "google-cloud-securitycenter>=1.28",
+        "google-cloud-compute>=1.19",
         "google-auth>=2.29",
         "google-api-core>=2.19",
         "protobuf>=4.25",
@@ -107,6 +109,8 @@ def build_kit(
     regions: list[str] | None = None,
     project: str = "",
     subscription: str = "",
+    azure_tenant_id: str = "",
+    azure_client_id: str = "",
     aws_profile: str = "",
     max_records_per_source: int | None = None,
     artifact_parameters: dict[str, dict[str, Any]] | None = None,
@@ -148,6 +152,10 @@ def build_kit(
         acq["project"] = project
     if subscription:
         acq["subscription"] = subscription
+    if azure_tenant_id:
+        acq["azure_tenant_id"] = azure_tenant_id
+    if azure_client_id:
+        acq["azure_client_id"] = azure_client_id
     if aws_profile:
         acq["aws_profile"] = aws_profile
     if max_records_per_source is not None:

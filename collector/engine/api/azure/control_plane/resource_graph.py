@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.params import param_raw
 from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 
 INVENTORY_QUERY = """
@@ -39,9 +40,12 @@ class ResourceGraphCollector(Collector):
             )
 
         cap = self.max_records(MAX_RECORDS)
+        artifact_params = self.artifact_params()
+        custom = param_raw(artifact_params, "query")
+        query = custom.strip() if isinstance(custom, str) and custom.strip() else INVENTORY_QUERY.strip()
         try:
             resources = cf.resource_graph_query(
-                INVENTORY_QUERY.strip(), subscriptions, max_records=cap
+                query, subscriptions, max_records=cap
             )
         except AzureAccessDenied as exc:
             return SourceResult(
@@ -58,7 +62,7 @@ class ResourceGraphCollector(Collector):
                 notes="Resource Graph unavailable.",
             )
 
-        snapshot = {"resources": resources, "subscriptions": subscriptions}
+        snapshot = {"resources": resources, "subscriptions": subscriptions, "query": query, "artifact_parameters": artifact_params}
         wf = self.write_json(snapshot, "snapshot.json")
         self.write_meta(
             {

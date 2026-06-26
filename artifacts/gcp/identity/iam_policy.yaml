@@ -1,15 +1,21 @@
-name: GCP.Identity.IamPolicy
+name: GCP.Identity.IamSnapshot
 aliases:
 - iam_policy
+- iam
 - gcp.iam_policy
+- gcp.iam
 cloud: gcp
 category: Identity
-description: IAM policy bindings and role assignments per in-scope project.
+description: IAM snapshot per project — bindings, service accounts, key metadata, custom roles.
 version: 1.0.0
 collector: iam_policy
 type: iam_policy
 required_actions:
 - resourcemanager.projects.getIamPolicy
+- iam.serviceAccounts.list
+- iam.serviceAccounts.getIamPolicy
+- iam.serviceAccountKeys.list
+- iam.roles.list
 parameters:
   since:
     type: datetime

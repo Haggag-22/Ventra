@@ -11,6 +11,8 @@ from typing import Any
 
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.params import scoped_window, param_strings
+from collector.lib.scoping import matches_any
 from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 from ..common.diagnostics import _container_for
 from ..common.storage_logs import read_log_records
@@ -44,6 +46,10 @@ class AksAuditCollector(Collector):
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
+        artifact_params = self.artifact_params()
+        start, end = scoped_window(self.ctx, self.name, default_days=7)
+        cluster_names = param_strings(artifact_params, "cluster_names")
+        cluster_ids = param_strings(artifact_params, "cluster_ids")
         clusters: list[dict[str, Any]] = []
         records: list[dict] = []
         per_cluster: list[dict[str, Any]] = []
@@ -59,6 +65,10 @@ class AksAuditCollector(Collector):
             for cluster in found:
                 rid = cluster.get("id") or ""
                 name = cluster.get("name") or rid.rsplit("/", 1)[-1]
+                if cluster_names and not matches_any(name, cluster_names):
+                    continue
+                if cluster_ids and not matches_any(rid, cluster_ids):
+                    continue
                 entry = {
                     "name": name,
                     "id": rid,
@@ -94,7 +104,9 @@ class AksAuditCollector(Collector):
                 for storage_id, category in routes:
                     try:
                         cc = cf.container_client(storage_id, _container_for(category))
-                        for rec in read_log_records(cc, prefix=f"resourceId={rid.upper()}"):
+                        for rec in read_log_records(
+                            cc, prefix=f"resourceId={rid.upper()}", start=start, end=end
+                        ):
                             rec["_ventra_cluster"] = name
                             rec["_ventra_resource_id"] = rid
                             records.append(rec)
@@ -117,7 +129,12 @@ class AksAuditCollector(Collector):
             "audit_enabled_count": sum(1 for c in clusters if c.get("audit_routed")),
             "audit_disabled_count": sum(1 for c in clusters if not c.get("audit_routed")),
             "collection": per_cluster,
-            "window": self.ctx.time_window.to_manifest(),
+            "window": (
+                {"since": start.isoformat(), "until": end.isoformat()}
+                if start and end
+                else self.ctx.time_window.to_manifest()
+            ),
+            "artifact_parameters": artifact_params,
         }
         files = [self.write_json(config, "config.json")]
         if records:

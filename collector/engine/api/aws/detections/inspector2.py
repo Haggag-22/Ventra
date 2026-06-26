@@ -12,6 +12,8 @@ from botocore.exceptions import ClientError
 
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.params import effective_window
+from collector.lib.scoping import filter_inspector_findings
 from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
 from collector.lib.limits import records_unlimited
@@ -29,6 +31,8 @@ class Inspector2Collector(Collector):
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
+        params = self.artifact_params()
+        start, end = effective_window(self.ctx, self.name, default_days=90)
         findings: list[dict] = []
         status_by_region: list[dict] = []
         enabled_anywhere = False
@@ -49,7 +53,9 @@ class Inspector2Collector(Collector):
             if not region_enabled:
                 continue
             enabled_anywhere = True
-            findings.extend(self._findings(cf, region, gaps))
+            findings.extend(self._findings(cf, region, gaps, start, end))
+
+        findings = filter_inspector_findings(findings, params)
 
         if not enabled_anywhere:
             return SourceResult(
@@ -66,7 +72,7 @@ class Inspector2Collector(Collector):
                 notes="Inspector2 not enabled — recorded as a gap.",
             )
 
-        files = [self.write_json({"account_status": status_by_region}, "config.json")]
+        files = [self.write_json({"account_status": status_by_region, "artifact_parameters": params}, "config.json")]
         if findings:
             files.append(self.write_jsonl(findings, "events.jsonl.gz"))
         self.write_meta(
@@ -81,7 +87,7 @@ class Inspector2Collector(Collector):
             notes=f"{len(findings)} Inspector2 finding(s).",
         )
 
-    def _findings(self, cf, region: str, gaps) -> list[dict]:
+    def _findings(self, cf, region: str, gaps, start, end) -> list[dict]:
         out: list[dict] = []
         truncated = False
         cap = self.max_records()
@@ -90,6 +96,15 @@ class Inspector2Collector(Collector):
                 if not records_unlimited(cap) and len(out) >= cap:
                     truncated = True
                     break
+                updated = f.get("updatedAt") or f.get("firstObservedAt")
+                if updated:
+                    try:
+                        from datetime import datetime
+                        ts = datetime.fromisoformat(str(updated).replace("Z", "+00:00"))
+                        if ts < start or ts > end:
+                            continue
+                    except ValueError:
+                        pass
                 f["_ventra_region"] = region
                 out.append(f)
         except AccessDenied as exc:
