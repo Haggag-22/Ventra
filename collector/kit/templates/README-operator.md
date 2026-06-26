@@ -33,23 +33,22 @@ chmod +x run.sh ventra.py
 |-------|------|----------------|
 | **AWS** | `--profile NAME` | Named profile from `~/.aws/credentials` (same as `AWS_PROFILE`) |
 | **Azure** | `--subscription ID` | Subscription id(s), comma-separated (same as `AZURE_SUBSCRIPTION_ID`) |
-| **GCP** | `--project ID` | Project id(s), comma-separated (same as `GOOGLE_CLOUD_PROJECT`) |
+| **GCP** | `--project ID` | Project id(s), comma-separated (`acquisition.yaml`, `GOOGLE_CLOUD_PROJECT`) |
+| **GCP** | `--credentials PATH` | Service account JSON key (`GOOGLE_APPLICATION_CREDENTIALS`) |
 
 | Flag | What it does |
 |------|----------------|
 | `--out DIR` | Where to write the sealed `.tar.zst` package (default: `./ventra-evidence`) |
 
-Azure and GCP do not use a “profile” name like AWS. Azure auth comes from `az login` or a service principal in env vars; GCP auth comes from Application Default Credentials (`gcloud auth application-default login`) or `GOOGLE_APPLICATION_CREDENTIALS`.
-
 ```bash
 # AWS
 python3 ventra.py --profile ir-readonly --out ./ventra-evidence
 
-# Azure
-python3 ventra.py --subscription xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+# Azure (subscription can also live in acquisition.yaml)
+python3 ventra.py --out ./evidence
 
-# GCP
-python3 ventra.py --project my-gcp-project --out ./evidence
+# GCP (project can also live in acquisition.yaml)
+python3 ventra.py --project my-gcp-project --credentials /secure/ventra-sa.json --out ./evidence
 ```
 
 Set `VENTRA_CLOUD` to `aws`, `azure`, or `gcp` before running if you need to override the
@@ -57,6 +56,53 @@ cloud named in `acquisition.yaml`.
 
 The client machine needs network access for `pip install` and cloud API credentials with the
 permissions in `iam/` for the selected artifacts only.
+
+### GCP — before you run
+
+1. **Create a dedicated collector service account** in the client org (e.g. `ventra-collector@...`).
+2. **Grant the read-only role** from `iam/gcp-collector-readonly.json` on every in-scope project (or at folder/org scope).
+3. **Generate a JSON key** for that service account (or run on Cloud Shell / GCE with the SA attached and skip the key).
+4. **Set scope and credentials before running** (never put secrets in the zip):
+
+```bash
+python3 ventra.py \
+  --project proj-a,proj-b \
+  --credentials /secure/ventra-sa.json \
+  --out ./evidence
+```
+
+`acquisition.yaml` may include `project` (comma-separated). The service account key stays on
+disk outside the kit — use `--credentials` or `GOOGLE_APPLICATION_CREDENTIALS`.
+
+See `docs/gcp-authentication.md` in the Ventra repository for full scenarios.
+
+### Azure — before you run
+
+1. **Create / use an Entra app registration** (service principal) for collection.
+2. **Grant admin consent** for Microsoft Graph application permissions listed in `iam/azure-collector-graph.json` (or the merged policy in `iam/`).
+3. **Assign ARM read access on each in-scope subscription** using the custom role in `iam/azure-collector-readonly.json` (or **Reader** as a minimum). Without this, activity log, RBAC, flow logs, and network collectors return `AuthorizationFailed`.
+4. **Add Storage Blob Data Reader** on storage accounts that hold flow logs and storage diagnostics (or at subscription scope).
+5. **Set credentials before running** (never put secrets in the zip):
+
+```bash
+export AZURE_CLIENT_SECRET='<app-secret>'
+# Optional if not already in acquisition.yaml:
+export AZURE_TENANT_ID='xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+export AZURE_CLIENT_ID='xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+export AZURE_SUBSCRIPTION_ID='xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx'
+python3 ventra.py --out ./evidence
+```
+
+`acquisition.yaml` may include `subscription`, `azure_tenant_id`, and `azure_client_id`. The client secret or certificate password stays in environment variables only.
+
+**Expected gaps on trial / student tenants:** Entra sign-in logs need Entra ID P1/P2; M365 Unified Audit needs extra Graph/M365 permissions; Front Door / Firewall / AKS collectors gap when those resources are not deployed.
+
+**After downloading a new kit:** delete the `.venv` folder in the kit directory so `ventra.py` reinstalls updated dependencies:
+
+```bash
+rm -rf .venv
+python3 ventra.py --out ./evidence
+```
 
 ### Bundled ventra wheel (`dist/`)
 

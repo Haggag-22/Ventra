@@ -8,6 +8,8 @@ from typing import Any
 from collector.lib.base import Collector
 from collector.lib.limits import records_unlimited
 from collector.lib.models import GapReason, SourceResult, SourceStatus, TimeWindow
+from collector.lib.params import effective_window, param_int, param_raw, param_strings
+from collector.lib.scoping import gcp_logging_filter_extension
 from collector.clouds.gcp.client_factory import GcpAccessDenied, GcpServiceNotEnabled
 
 DEFAULT_WINDOW_DAYS = 90
@@ -20,14 +22,6 @@ def window_bounds(tw: TimeWindow, default_days: int = DEFAULT_WINDOW_DAYS) -> tu
     return start, end
 
 
-def _parse_relative_since(value: str, end: datetime) -> datetime | None:
-    """Parse artifact parameter values like ``30d`` into an absolute start time."""
-    val = value.strip().lower()
-    if val.endswith("d") and val[:-1].isdigit():
-        return end - timedelta(days=int(val[:-1]))
-    return None
-
-
 class GcpLoggingCollector(Collector):
     """Query Cloud Logging across in-scope projects with a shared filter pattern."""
 
@@ -35,23 +29,47 @@ class GcpLoggingCollector(Collector):
     default_window_days: int = DEFAULT_WINDOW_DAYS
 
     def _window(self) -> tuple[datetime, datetime]:
+        default_days = param_int(self.artifact_params(), "window_days", default=self.default_window_days)
+        return effective_window(
+            self.ctx,
+            self.name,
+            default_days=default_days or self.default_window_days,
+        )
+
+    def _combined_log_filter(self) -> str:
+        base = self.log_filter.strip()
         params = self.artifact_params()
-        default_days = int(params.get("window_days", self.default_window_days))
-        start, end = window_bounds(self.ctx.time_window, default_days)
-        rel = params.get("since")
-        if isinstance(rel, str) and rel.strip():
-            parsed = _parse_relative_since(rel, end)
-            if parsed is not None:
-                start = parsed
-        return start, end
+        service_names = param_strings(params, "service_names")
+        method_names = param_strings(params, "method_names")
+        extra_parts: list[str] = []
+        if service_names:
+            inner = " OR ".join(f'protoPayload.serviceName="{s}"' for s in service_names)
+            extra_parts.append(f"({inner})")
+        if method_names:
+            inner = " OR ".join(f'protoPayload.methodName="{m}"' for m in method_names)
+            extra_parts.append(f"({inner})")
+        scoped = gcp_logging_filter_extension(params)
+        if scoped:
+            extra_parts.append(scoped)
+        if not extra_parts:
+            return base
+        joined = " AND ".join(extra_parts)
+        return f"({base}) AND ({joined})" if base else joined
 
     def _cap(self) -> int:
         return self.max_records(MAX_RECORDS)
 
+    def _projects(self) -> list[str]:
+        params = self.artifact_params()
+        audit_project = param_raw(params, "audit_project_id")
+        if isinstance(audit_project, str) and audit_project.strip():
+            return [audit_project.strip()]
+        return self.ctx.project_ids
+
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
-        projects = self.ctx.project_ids
+        projects = self._projects()
         if not projects:
             return SourceResult(
                 name=self.name,
@@ -61,6 +79,7 @@ class GcpLoggingCollector(Collector):
             )
 
         start, end = self._window()
+        log_filter = self._combined_log_filter()
         cap = self._cap()
         per_project: list[dict[str, Any]] = []
         truncated = False
@@ -76,7 +95,7 @@ class GcpLoggingCollector(Collector):
                     remaining = cap - record_count if not records_unlimited(cap) else cap
                     for entry in cf.list_log_entries(
                         project_id,
-                        log_filter=self.log_filter,
+                        log_filter=log_filter,
                         start=start,
                         end=end,
                         max_records=remaining,
@@ -112,7 +131,16 @@ class GcpLoggingCollector(Collector):
                 f"Truncated at {cap:,} records; narrow the window or use enterprise profile.",
             )
 
-        files = [self.write_json({"projects": per_project, "log_filter": self.log_filter}, "config.json")]
+        files = [
+            self.write_json(
+                {
+                    "projects": per_project,
+                    "log_filter": log_filter,
+                    "artifact_parameters": self.artifact_params(),
+                },
+                "config.json",
+            )
+        ]
         if record_count:
             files.append(writer.finalize())
 

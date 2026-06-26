@@ -19,6 +19,8 @@ from botocore.exceptions import ClientError
 
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.params import effective_window, param_strings
+from collector.lib.scoping import matches_any
 from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from ..common.s3_logs import bucket_region, collect_s3_line_records, dash_day_prefixes
 
@@ -52,9 +54,8 @@ class S3AccessCollector(Collector):
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
-        window = self.ctx.time_window
-        start = window.since or (datetime.now(UTC) - timedelta(days=DEFAULT_WINDOW_DAYS))
-        end = window.until or datetime.now(UTC)
+        params = self.artifact_params()
+        start, end = effective_window(self.ctx, self.name, default_days=DEFAULT_WINDOW_DAYS)
 
         try:
             buckets = [
@@ -84,6 +85,12 @@ class S3AccessCollector(Collector):
                 notes="No buckets.",
             )
 
+        source_filter = param_strings(params, "source_bucket_names")
+        if source_filter:
+            buckets = [b for b in buckets if matches_any(b, source_filter)]
+        target_filter = set(param_strings(params, "target_bucket_names"))
+        key_prefixes = param_strings(params, "object_key_prefix")
+
         # destination (target_bucket, target_prefix) -> source buckets logging there.
         destinations: dict[tuple[str, str], list[str]] = {}
         unlogged: list[str] = []
@@ -93,6 +100,11 @@ class S3AccessCollector(Collector):
                 destinations.setdefault(target, []).append(bucket)
             else:
                 unlogged.append(bucket)
+
+        if target_filter:
+            destinations = {
+                k: v for k, v in destinations.items() if k[0] in target_filter
+            }
 
         if unlogged:
             names = ", ".join(unlogged[:10])
@@ -114,6 +126,9 @@ class S3AccessCollector(Collector):
             for (target_bucket, target_prefix), source_buckets in destinations.items():
                 self._log(f"Reading access logs from {target_bucket}/{target_prefix}…")
                 region = bucket_region(cf, target_bucket)
+                prefixes = dash_day_prefixes(target_prefix, start, end)
+                if key_prefixes:
+                    prefixes = [f"{p}{kp}" for p in prefixes for kp in key_prefixes]
 
                 def line_to_record(
                     key: str, line: str, _tb: str = target_bucket, _region: str = region
@@ -132,7 +147,7 @@ class S3AccessCollector(Collector):
                     cf,
                     region,
                     target_bucket,
-                    dash_day_prefixes(target_prefix, start, end),
+                    prefixes,
                     line_to_record,
                     gaps,
                     "s3_access",
@@ -157,7 +172,8 @@ class S3AccessCollector(Collector):
             "buckets_logged": len(buckets) - len(unlogged),
             "buckets_unlogged": unlogged,
             "destinations": per_dest,
-            "window": window.to_manifest(),
+            "window": {"since": start.isoformat(), "until": end.isoformat()},
+            "artifact_parameters": params,
         }
         files = [self.write_json(config, "config.json"), *event_files]
         self.write_meta(
@@ -166,7 +182,7 @@ class S3AccessCollector(Collector):
                 "records": record_count,
                 "buckets_total": len(buckets),
                 "buckets_logged": len(buckets) - len(unlogged),
-                "window": window.to_manifest(),
+                "window": {"since": start.isoformat(), "until": end.isoformat()},
             }
         )
 

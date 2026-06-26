@@ -12,6 +12,7 @@ from botocore.exceptions import OperationNotPageableError
 
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.scoping import filter_s3_buckets
 from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
 
@@ -56,6 +57,8 @@ class S3Collector(Collector):
                 gaps=[("s3", GapReason.ACCESS_DENIED, exc.message)],
                 errors=[str(exc)],
             )
+
+        buckets = filter_s3_buckets(buckets, self.artifact_params())
 
         records = []
         public_count = 0

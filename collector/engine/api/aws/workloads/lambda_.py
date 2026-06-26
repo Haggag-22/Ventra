@@ -12,6 +12,7 @@ import re
 
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.scoping import filter_lambda_functions
 from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
 _SECRET_KEY = re.compile(r"(secret|token|password|passwd|key|cred)", re.I)
@@ -26,6 +27,7 @@ class LambdaCollector(Collector):
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
+        params = self.artifact_params()
         functions: list[dict] = []
 
         for region in self.ctx.regions:
@@ -47,6 +49,8 @@ class LambdaCollector(Collector):
             except ServiceNotEnabled:
                 continue
 
+        functions = filter_lambda_functions(functions, params)
+
         if not functions:
             return SourceResult(
                 name=self.name,
@@ -55,7 +59,7 @@ class LambdaCollector(Collector):
                 notes="No Lambda functions found.",
             )
 
-        wf = self.write_json({"functions": functions}, "snapshot.json")
+        wf = self.write_json({"functions": functions, "artifact_parameters": params}, "snapshot.json")
         self.write_meta({"source": self.name, "functions": len(functions)})
         return SourceResult(
             name=self.name,

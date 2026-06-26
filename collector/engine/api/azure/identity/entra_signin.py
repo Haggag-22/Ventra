@@ -12,8 +12,9 @@ from __future__ import annotations
 
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.params import effective_window
+from collector.lib.scoping import graph_entra_signin_filter
 from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
-from ..common import graph_time_filter, window_bounds
 
 # Graph sign-in logs retain ~30 days on Entra P1.
 DEFAULT_WINDOW_DAYS = 30
@@ -29,9 +30,10 @@ class EntraSignInCollector(Collector):
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
-        start, end = window_bounds(self.ctx.time_window, DEFAULT_WINDOW_DAYS)
-        params = {
-            "$filter": graph_time_filter("createdDateTime", start, end),
+        artifact_params = self.artifact_params()
+        start, end = effective_window(self.ctx, self.name, default_days=DEFAULT_WINDOW_DAYS)
+        graph_params = {
+            "$filter": graph_entra_signin_filter(artifact_params, start, end),
             "$top": 1000,
         }
         cap = self.max_records(MAX_RECORDS)
@@ -40,7 +42,7 @@ class EntraSignInCollector(Collector):
         record_count = 0
         with self.open_jsonl("events.jsonl.gz") as writer:
             try:
-                for ev in cf.graph_paginate("auditLogs/signIns", params=params, max_records=cap):
+                for ev in cf.graph_paginate("auditLogs/signIns", params=graph_params, max_records=cap):
                     writer.write_record(ev)
             except AzureAccessDenied as exc:
                 gaps.append(("entra_signin", GapReason.ACCESS_DENIED, exc.message))
@@ -60,7 +62,8 @@ class EntraSignInCollector(Collector):
             {
                 "source": self.name,
                 "records": record_count,
-                "window": self.ctx.time_window.to_manifest(),
+                "window": {"since": start.isoformat(), "until": end.isoformat()},
+                "artifact_parameters": artifact_params,
             }
         )
 

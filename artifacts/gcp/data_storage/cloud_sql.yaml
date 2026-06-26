@@ -1,0 +1,24 @@
+name: GCP.DataStorage.CloudSql
+aliases:
+- cloud_sql
+- gcp.cloud_sql
+cloud: gcp
+category: DataStorage
+description: Cloud SQL query, connection, slow query, and error logs from Cloud Logging.
+version: 1.0.0
+collector: cloud_sql
+type: cloud_sql
+required_actions:
+- logging.logEntries.list
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: cloud_sql
+  format: json
+severity: extended
+estimated_volume: medium

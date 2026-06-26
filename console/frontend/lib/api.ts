@@ -202,6 +202,8 @@ export type AcquisitionBuild = {
   regions?: string[];
   project?: string;
   subscription?: string;
+  azure_tenant_id?: string;
+  azure_client_id?: string;
   aws_profile?: string;
   max_records_per_source?: number | null;
   artifact_parameters?: Record<string, Record<string, unknown>>;

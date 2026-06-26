@@ -8,13 +8,7 @@ resource "google_logging_project_bucket_config" "default" {
   depends_on     = [google_project_service.apis]
 }
 
-resource "google_logging_project_bucket_config" "required" {
-  project        = var.project_id
-  location       = "global"
-  bucket_id      = "_Required"
-  retention_days = 400
-  depends_on     = [google_project_service.apis]
-}
+# _Required is locked/immutable in GCP — retention cannot be changed via Terraform.
 
 resource "google_logging_project_sink" "vpc_flow" {
   name                   = "${local.name}-vpc-flow"

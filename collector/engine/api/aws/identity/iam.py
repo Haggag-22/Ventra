@@ -23,6 +23,8 @@ from botocore.exceptions import ClientError
 
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.params import param_bool
+from collector.lib.scoping import filter_iam_policies, filter_iam_roles, filter_iam_users
 from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
 
@@ -61,12 +63,17 @@ class IamCollector(Collector):
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
         files = []
+        params = self.artifact_params()
 
         try:
             users, roles, groups, policies = self._fetch_authorization_details(cf)
         except AccessDenied as exc:
             gaps.append(("iam", GapReason.ACCESS_DENIED, exc.message))
             users, roles, groups, policies = self._fetch_via_lists(cf, gaps)
+
+        users = filter_iam_users(users, params)
+        roles = filter_iam_roles(roles, params)
+        policies = filter_iam_policies(policies, params)
 
         if not users and not roles and gaps:
             return SourceResult(
@@ -85,10 +92,13 @@ class IamCollector(Collector):
             "groups": groups,
             "policies": policies,
             "password_policy": self._password_policy(cf),
+            "artifact_parameters": params,
         }
         files.append(self.write_json(snapshot, "snapshot.json"))
 
-        cred_csv = self._credential_report(cf, gaps)
+        cred_csv = None
+        if param_bool(params, "include_credential_report", default=True):
+            cred_csv = self._credential_report(cf, gaps)
         if cred_csv is not None:
             path = self.ctx.source_dir(self.name) / "credential_report.csv"
             path.write_bytes(cred_csv)

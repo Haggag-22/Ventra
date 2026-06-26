@@ -72,7 +72,7 @@ class LogPostureCollector(Collector):
                 gaps.append((source_id, gap[0], gap[1]))
 
         files = [self.write_json(posture, "config.json")]
-        self.write_meta({"source": self.name, "checks": len(checks)})
+        self.write_meta({"source": self.name, "checks": len(checks), "artifact_parameters": self.artifact_params()})
         return SourceResult(
             name=self.name,
             status=SourceStatus.COLLECTED,

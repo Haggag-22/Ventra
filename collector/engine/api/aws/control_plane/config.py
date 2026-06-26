@@ -12,6 +12,7 @@ from botocore.exceptions import ClientError
 
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.scoping import filter_config_compliance
 from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
 
@@ -28,6 +29,7 @@ class ConfigCollector(Collector):
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
+        params = self.artifact_params()
         recorders: list[dict] = []
         compliance: list[dict] = []
         enabled_anywhere = False
@@ -71,6 +73,8 @@ class ConfigCollector(Collector):
                 gaps.append(("config_compliance", GapReason.COLLECTOR_ERROR, f"{region}: {exc}"))
                 continue
 
+        compliance = filter_config_compliance(compliance, params)
+
         if not enabled_anywhere and not compliance:
             return SourceResult(
                 name=self.name,
@@ -81,7 +85,7 @@ class ConfigCollector(Collector):
             )
 
         files = [
-            self.write_json({"recorders": recorders}, "config.json"),
+            self.write_json({"recorders": recorders, "artifact_parameters": params}, "config.json"),
         ]
         if compliance:
             files.append(self.write_jsonl(compliance, "events.jsonl.gz"))

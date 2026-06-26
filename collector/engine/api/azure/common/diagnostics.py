@@ -16,6 +16,8 @@ mapping lives in the normalizers, matching the rest of the codebase.
 from __future__ import annotations
 
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.params import scoped_window
+from collector.lib.scoping import filter_azure_resources, filter_storage_access_records
 from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 from .storage_logs import read_log_records
 
@@ -29,14 +31,19 @@ def collect_diagnostic_logs(
     *,
     resource_types: list[str],
     log_categories: list[str],
+    default_window_days: int = 7,
+    name_param: str = "resource_ids",
+    post_filter: bool = False,
 ) -> SourceResult:
     cf = collector.ctx.client_factory
     name = collector.name
+    params = collector.artifact_params()
     wanted = {c.lower() for c in log_categories}
     gaps: list[tuple[str, GapReason, str]] = []
     records: list[dict] = []
     per_resource: list[dict] = []
     resource_count = 0
+    start, end = scoped_window(collector.ctx, name, default_days=default_window_days)
 
     for sub in collector.ctx.subscription_ids:
         try:
@@ -46,6 +53,7 @@ def collect_diagnostic_logs(
             continue
         except AzureServiceNotEnabled:
             continue
+        resources = filter_azure_resources(resources, params, name_param=name_param)
         for res in resources:
             resource_count += 1
             rid = res["id"]
@@ -83,14 +91,19 @@ def collect_diagnostic_logs(
             for storage_id, category in storage_cats:
                 try:
                     cc = cf.container_client(storage_id, _container_for(category))
-                    for rec in read_log_records(cc, prefix=f"resourceId={rid.upper()}"):
+                    for rec in read_log_records(
+                        cc, prefix=f"resourceId={rid.upper()}", start=start, end=end
+                    ):
                         rec["_ventra_resource_id"] = rid
                         records.append(rec)
                 except AzureAccessDenied as exc:
                     gaps.append((name, GapReason.ACCESS_DENIED, f"{res['name']}: {exc.message}"))
                 except AzureServiceNotEnabled:
-                    pass  # container for that category may not exist yet
+                    pass
             per_resource.append({"resource": rid, "records": len(records) - before})
+
+    if post_filter:
+        records = filter_storage_access_records(records, params)
 
     if resource_count == 0 and not any(g[1] == GapReason.ACCESS_DENIED for g in gaps):
         gaps.append((name, GapReason.NOT_PRESENT, "No resources of this type in scope."))
@@ -104,7 +117,12 @@ def collect_diagnostic_logs(
             "records": len(records),
             "resources": resource_count,
             "collected": per_resource,
-            "window": collector.ctx.time_window.to_manifest(),
+            "window": (
+                {"since": start.isoformat(), "until": end.isoformat()}
+                if start and end
+                else collector.ctx.time_window.to_manifest()
+            ),
+            "artifact_parameters": params,
         }
     )
 

@@ -10,6 +10,8 @@ from botocore.exceptions import ClientError
 from collector.lib.base import Collector
 from collector.lib.limits import DEFAULT_MAX_RECORDS
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.params import effective_window
+from collector.lib.scoping import filter_cloudfront_distributions
 from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from ..common.s3_logs import bucket_region, collect_s3_line_records, dash_day_prefixes
 
@@ -33,12 +35,11 @@ class CloudFrontCollector(Collector):
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
-        window = self.ctx.time_window
-        start = window.since or (datetime.now(UTC) - timedelta(days=DEFAULT_WINDOW_DAYS))
-        end = window.until or datetime.now(UTC)
+        params = self.artifact_params()
+        start, end = effective_window(self.ctx, self.name, default_days=DEFAULT_WINDOW_DAYS)
         cap = self.max_records(MAX_RECORDS)
 
-        distributions = self._discover_distributions(cf, gaps)
+        distributions = filter_cloudfront_distributions(self._discover_distributions(cf, gaps), params)
         if not distributions:
             return SourceResult(
                 name=self.name,
@@ -87,7 +88,8 @@ class CloudFrontCollector(Collector):
             "logging_enabled_count": len(logging_on),
             "logging_disabled_count": len(logging_off),
             "collection": per_dist,
-            "window": window.to_manifest(),
+            "window": {"since": start.isoformat(), "until": end.isoformat()},
+            "artifact_parameters": params,
         }
         files = [self.write_json(config, "config.json"), *event_files]
         self.write_meta(
@@ -96,7 +98,7 @@ class CloudFrontCollector(Collector):
                 "records": record_count,
                 "distributions": len(distributions),
                 "logging_enabled": len(logging_on),
-                "window": window.to_manifest(),
+                "window": {"since": start.isoformat(), "until": end.isoformat()},
             }
         )
 

@@ -10,14 +10,13 @@ export const CONTROL_PLANE_SOURCES: Record<Cloud, string[]> = {
     "cloud_audit_system",
     "cloud_audit_data",
     "login_events",
-    "workspace_audit",
   ],
 };
 
 export const FLOW_SOURCES: Record<Cloud, string[]> = {
   aws: ["vpc_flow"],
   azure: ["vnet_flow", "nsg_flow", "azure_firewall"],
-  gcp: ["vpc_flow", "firewall_logs"],
+  gcp: ["vpc_flow", "firewall_logs", "cloud_nat"],
 };
 
 export const FINDING_SOURCES: Record<Cloud, string[]> = {
@@ -29,13 +28,13 @@ export const FINDING_SOURCES: Record<Cloud, string[]> = {
 export const WEB_SOURCES: Record<Cloud, string[]> = {
   aws: ["elb_alb", "cloudfront", "waf", "route53_resolver"],
   azure: ["app_gateway", "front_door", "dns", "log_analytics"],
-  gcp: ["load_balancer", "api_gateway"],
+  gcp: ["load_balancer", "api_gateway", "cloud_dns", "cloud_armor"],
 };
 
 export const DATA_ACCESS_SOURCES: Record<Cloud, string[]> = {
   aws: ["s3_access", "cloudtrail"],
   azure: ["storage_access", "key_vault", "log_analytics"],
-  gcp: ["storage_access", "cloud_audit_data"],
+  gcp: ["storage_access", "bigquery_audit", "cloud_sql", "secret_manager", "cloud_audit_data"],
 };
 
 /** Kubernetes API audit logs — EKS, AKS, and (future) GKE collectors. */

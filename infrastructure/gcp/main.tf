@@ -13,6 +13,8 @@ resource "google_project_service" "apis" {
     "logging.googleapis.com",
     "storage.googleapis.com",
     "cloudfunctions.googleapis.com",
+    "artifactregistry.googleapis.com",
+    "cloudbuild.googleapis.com",
     "run.googleapis.com",
     "apigateway.googleapis.com",
     "servicecontrol.googleapis.com",

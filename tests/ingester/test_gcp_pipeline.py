@@ -103,10 +103,3 @@ def test_gcp_attack_story_present(gcp_demo_case) -> None:
         "AND source_ip='203.0.113.66'"
     ).fetchone()[0]
     assert login >= 1
-
-
-def test_summary_reflects_gcp_collection_gaps(gcp_demo_case) -> None:
-    case_dir, _ = gcp_demo_case
-    summary = json.loads((case_dir / "summary.json").read_text())
-    gap_names = {g["name"] for g in summary["collection"]["gaps"]}
-    assert "workspace_audit" in gap_names

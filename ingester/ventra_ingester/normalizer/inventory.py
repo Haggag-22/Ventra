@@ -60,3 +60,43 @@ def iam_state_events(snapshot: dict, ctx: NormalizeContext) -> Iterator[UnifiedE
             ventra_source="iam",
             raw={"UserName": user.get("UserName"), "AccessKeys": keys},
         )
+
+
+def iam_policy_state_events(snapshot: dict, ctx: NormalizeContext) -> Iterator[UnifiedEvent]:
+    """Emit one state event per GCP service account with user-managed keys for Timeline/Identity."""
+    for project in snapshot.get("projects") or []:
+        project_id = str(project.get("project_id") or ctx.account_id)
+        for sa in project.get("service_accounts") or []:
+            keys = sa.get("keys") or []
+            severity = "info"
+            note = ""
+            for key in keys:
+                if key.get("keyType") == "USER_MANAGED" and not key.get("disabled"):
+                    severity = "medium"
+                    note = "user-managed service account key"
+                    break
+            email = str(sa.get("email") or "")
+            name = str(sa.get("name") or email)
+            yield UnifiedEvent(
+                timestamp="",
+                event_kind="state",
+                event_category=["iam"],
+                event_action="GCPServiceAccountSnapshot",
+                event_severity=severity,
+                event_provider="gcp",
+                cloud_provider="gcp",
+                cloud_account=project_id,
+                cloud_service="iam",
+                user_name=email,
+                user_arn=name,
+                user_type="ServiceAccount",
+                resource_type="gcp-service-account",
+                resource_id=email,
+                resource_arn=name,
+                related_user=[email, name],
+                message=f"GCP service account {email}"
+                + (f" — {note}" if note else ""),
+                case_id=ctx.case_id,
+                ventra_source="iam_policy",
+                raw={"email": email, "keys": keys},
+            )

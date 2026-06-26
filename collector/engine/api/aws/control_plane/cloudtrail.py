@@ -19,6 +19,8 @@ from typing import Any
 from collector.lib.base import Collector
 from collector.lib.limits import DEFAULT_MAX_RECORDS, records_unlimited
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.params import effective_window
+from collector.lib.scoping import cloudtrail_event_matches, filter_cloudtrail_trails
 from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from .cloudtrail_s3 import (
     DATA_CATEGORIES,
@@ -64,15 +66,19 @@ class CloudTrailCollector(Collector):
         gaps: list[tuple[str, GapReason, str]] = []
 
         config = self._trail_config(cf, gaps)
+        params = self.artifact_params()
+        if config.get("trails"):
+            config["trails"] = filter_cloudtrail_trails(config["trails"], params)
+            config["trail_count"] = len(config["trails"])
+        config["artifact_parameters"] = params
         config["event_coverage"] = coverage_summary(config.get("trails", []))
 
-        window = self.ctx.time_window
-        start = window.since or (datetime.now(UTC) - timedelta(days=90))
-        end = window.until or datetime.now(UTC)
+        start, end = effective_window(self.ctx, self.name, default_days=90)
+        event_filter = lambda rec: cloudtrail_event_matches(params, rec)
 
         validation_results = self._validate_trail_logs(config.get("trails", []), start, end)
         config["log_validation"] = {
-            "window": window.to_manifest(),
+            "window": {"since": start.isoformat(), "until": end.isoformat()},
             "trails": [r.to_dict() for r in validation_results],
             "any_invalid": any(r.status == "invalid" for r in validation_results),
             "any_validated": any(r.status == "valid" for r in validation_results),
@@ -86,7 +92,7 @@ class CloudTrailCollector(Collector):
         # window. CloudTrail Event History (LookupEvents) is used only when DescribeTrails
         # finds no trails; otherwise management events come from S3 exclusively.
         mgmt_records, lookup_insight_records, mgmt_collection = self._collect_management_events(
-            cf, config, gaps, start, end, s3_by_bucket
+            cf, config, gaps, start, end, s3_by_bucket, record_filter=event_filter
         )
         config["management_collection"] = mgmt_collection
         mgmt_source = "s3_logs" if mgmt_collection["mode"] == "trails" else "lookup_events"
@@ -99,7 +105,8 @@ class CloudTrailCollector(Collector):
         insight_seen = {event_id(r) for r in lookup_insight_records if event_id(r)}
         with self.open_jsonl("events_insights.jsonl.gz") as insight_w:
             for rec in lookup_insight_records:
-                insight_w.write_record(rec)
+                if event_filter(rec):
+                    insight_w.write_record(rec)
             _, insight_stats = self._collect_s3_category(
                 cf,
                 config,
@@ -114,6 +121,7 @@ class CloudTrailCollector(Collector):
                 writer=insight_w,
                 seen_event_ids=insight_seen,
                 max_records=cap,
+                record_filter=event_filter,
             )
             insight_count = insight_w.count
             if insight_w.count:
@@ -132,6 +140,7 @@ class CloudTrailCollector(Collector):
                 s3_by_bucket=s3_by_bucket,
                 writer=data_w,
                 max_records=cap,
+                record_filter=event_filter,
             )
             data_count = data_w.count
             if data_w.count:
@@ -150,6 +159,7 @@ class CloudTrailCollector(Collector):
                 s3_by_bucket=s3_by_bucket,
                 writer=network_w,
                 max_records=cap,
+                record_filter=event_filter,
             )
             network_count = network_w.count
             if network_w.count:
@@ -215,7 +225,7 @@ class CloudTrailCollector(Collector):
                 "network_activity_events": network_count,
                 "lookup_insight_events": len(lookup_insight_records),
                 "regions": self.ctx.regions,
-                "window": window.to_manifest(),
+                "window": {"since": start.isoformat(), "until": end.isoformat()},
                 "trails": len(config.get("trails", [])),
                 "log_validation_enabled": config.get("any_log_validation_enabled"),
                 "event_coverage": config["event_coverage"],
@@ -247,6 +257,7 @@ class CloudTrailCollector(Collector):
         end: datetime,
         *,
         mgmt_writer=None,
+        record_filter=None,
     ) -> tuple[list[dict], list[dict]]:
         """Pull management + insight events from LookupEvents (Event History).
 
@@ -276,6 +287,8 @@ class CloudTrailCollector(Collector):
                         break
                     ev["_ventra_region"] = region
                     ev["_ventra_collect_source"] = "lookup_events"
+                    if record_filter is not None and not record_filter(ev):
+                        continue
                     if lookup_event_category(ev) == "Insight":
                         insights.append(ev)
                     elif mgmt_writer is not None:
@@ -305,6 +318,8 @@ class CloudTrailCollector(Collector):
         start: datetime,
         end: datetime,
         s3_by_bucket: dict[str, dict[str, Any]],
+        *,
+        record_filter=None,
     ) -> tuple[list[dict], list[dict], dict[str, Any]]:
         """Collect management events from trail S3 logs.
 
@@ -333,7 +348,7 @@ class CloudTrailCollector(Collector):
             self._log("No CloudTrail trails found — collecting from CloudTrail Event History.")
             with self.open_jsonl("events.jsonl.gz") as mgmt_w:
                 mgmt, lookup_insight = self._collect_lookup_events(
-                    cf, gaps, start, end, mgmt_writer=mgmt_w
+                    cf, gaps, start, end, mgmt_writer=mgmt_w, record_filter=record_filter
                 )
                 collection["records"] = mgmt_w.count or len(mgmt)
                 if mgmt_w.count:
@@ -380,6 +395,7 @@ class CloudTrailCollector(Collector):
                     log=lambda msg: self._log(msg),
                     max_records=cap,
                     writer=mgmt_w,
+                    record_filter=record_filter,
                 )
                 gaps.extend(trail_gaps)
                 denied = any(reason == GapReason.ACCESS_DENIED for _, reason, _ in trail_gaps)
@@ -472,6 +488,7 @@ class CloudTrailCollector(Collector):
         writer=None,
         seen_event_ids: set[str] | None = None,
         max_records: int | None = None,
+        record_filter=None,
     ) -> tuple[int, dict]:
         trails = config.get("trails", [])
         if not any(configured_fn(t) for t in trails):
@@ -509,6 +526,7 @@ class CloudTrailCollector(Collector):
                 max_records=cap,
                 writer=writer,
                 seen_event_ids=seen_event_ids,
+                record_filter=record_filter,
             )
             rec_count = int(stats.get("records") or 0)
             self._merge_s3_bucket_stats(s3_by_bucket, trail, gap_name, rec_count, stats)

@@ -10,10 +10,12 @@ from __future__ import annotations
 
 import json
 from collections.abc import Iterator
+from datetime import datetime
 from typing import Any
 
 from collector.clouds.azure.client_factory import _raise_typed_azure
 from collector.lib.limits import UNLIMITED_OBJECTS, UNLIMITED_RECORDS, records_unlimited
+from collector.lib.scoping import blob_path_in_window
 
 # Flow-log container names are fixed by Azure.
 FLOW_CONTAINER = {
@@ -29,6 +31,8 @@ def read_log_records(
     container_client: Any,
     *,
     prefix: str | None = None,
+    start: datetime | None = None,
+    end: datetime | None = None,
     max_blobs: int = MAX_BLOBS,
     max_records: int = MAX_RECORDS,
 ) -> Iterator[dict[str, Any]]:
@@ -46,6 +50,8 @@ def read_log_records(
                 return
             name = getattr(blob, "name", "") or ""
             if not name.endswith(".json"):
+                continue
+            if not blob_path_in_window(name, start, end):
                 continue
             scanned += 1
             data = container_client.download_blob(name).readall()

@@ -69,3 +69,14 @@ export function shortArn(arn: string): string {
 export function titleCase(s: string): string {
   return s.replace(/(^|_)([a-z])/g, (_, p1, c) => (p1 ? " " : "") + c.toUpperCase());
 }
+
+/** Human-readable category label (ManagementPlane → Management Plane). */
+export function displayCategoryLabel(category: string): string {
+  if (category === "DataStorage") return "Data & Storage Logs";
+  if (category === "Workloads") return "Compute & Workloads";
+  return category
+    .replace(/_/g, " ")
+    .replace(/([a-z\d])([A-Z])/g, "$1 $2")
+    .replace(/([A-Z]+)([A-Z][a-z])/g, "$1 $2")
+    .trim();
+}

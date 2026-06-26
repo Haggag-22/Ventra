@@ -12,6 +12,8 @@ from __future__ import annotations
 
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.params import param_bool
+from collector.lib.scoping import filter_ec2_inventory
 from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
 # Per-resource attribute lookups are one API call each; bound them so accounts with
@@ -39,6 +41,7 @@ class Ec2Collector(Collector):
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
+        params = self.artifact_params()
         inventory: dict[str, list] = {
             "instances": [],
             "volumes": [],
@@ -79,6 +82,7 @@ class Ec2Collector(Collector):
             except ServiceNotEnabled:
                 continue
 
+        inventory = filter_ec2_inventory(inventory, params)
         total = sum(len(v) for v in inventory.values())
         if total == 0:
             return SourceResult(
@@ -89,10 +93,13 @@ class Ec2Collector(Collector):
             )
 
         share_stats = self._enrich_snapshot_permissions(cf, inventory["snapshots"], gaps)
-        userdata_count = self._enrich_user_data(cf, inventory["instances"], gaps)
+        userdata_count = 0
+        if param_bool(params, "include_user_data", default=True):
+            userdata_count = self._enrich_user_data(cf, inventory["instances"], gaps)
 
         shared = [s for s in inventory["snapshots"] if s.get("_ventra_shared")]
         public = [s for s in inventory["snapshots"] if s.get("_ventra_public")]
+        inventory["artifact_parameters"] = params
         wf = self.write_json(inventory, "snapshot.json")
         self.write_meta(
             {

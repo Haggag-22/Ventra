@@ -81,7 +81,6 @@ GCP = {
     "storage_access": ("storage access logs", "png-512/Cloud-Storage.png"),
     "vm_logs": ("vm logs", "png-512/Compute-Engine.png"),
     "vpc_flow": ("vpc flow logs", "png-512/Virtual-Private-Cloud.png"),
-    "workspace_audit": ("workspace audit", "png-512/Cloud-Logging.png"),
 }
 
 def _extract(zip_path, member, dest):

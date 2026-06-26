@@ -15,6 +15,7 @@ from datetime import UTC, datetime, timedelta
 
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.scoping import filter_waf_acls
 from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
 # GetSampledRequests API maximum.
@@ -35,6 +36,7 @@ class WafCollector(Collector):
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
+        params = self.artifact_params()
         acls: list[dict] = []
         samples: list[dict] = []
 
@@ -57,6 +59,7 @@ class WafCollector(Collector):
                 continue
             except ServiceNotEnabled:
                 continue
+            listed = filter_waf_acls(listed, params)
             for summary in listed:
                 acl = {"scope": scope, "region": region, "summary": summary}
                 try:
@@ -89,7 +92,7 @@ class WafCollector(Collector):
                  "One or more Web ACLs have no logging configuration.")
             )
 
-        files = [self.write_json({"web_acls": acls}, "config.json")]
+        files = [self.write_json({"web_acls": acls, "artifact_parameters": params}, "config.json")]
         if samples:
             files.append(self.write_jsonl(samples, "events.jsonl.gz"))
         self.write_meta(

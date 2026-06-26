@@ -7,8 +7,9 @@ from typing import Any
 
 from collector.lib.limits import records_unlimited
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.params import effective_window, param_strings
+from collector.lib.scoping import filter_azure_resources, matches_any
 from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
-from ..common import window_bounds
 from .log_analytics_common import (
     CATEGORY_TO_SOURCE,
     DEFAULT_WINDOW_DAYS,
@@ -49,7 +50,9 @@ def collect_log_analytics(collector) -> SourceResult:
     name = collector.name
     gaps: list[tuple[str, GapReason, str]] = []
     cap = collector.max_records(MAX_RECORDS)
-    start, end = window_bounds(collector.ctx.time_window, DEFAULT_WINDOW_DAYS)
+    artifact_params = collector.artifact_params()
+    start, end = effective_window(collector.ctx, name, default_days=DEFAULT_WINDOW_DAYS)
+    workspace_filter = param_strings(artifact_params, "workspace_ids")
 
     # workspace ARM id → categories enabled via diagnostic settings on in-scope resources
     workspaces: dict[str, set[str]] = {}
@@ -66,6 +69,10 @@ def collect_log_analytics(collector) -> SourceResult:
             except AzureServiceNotEnabled:
                 continue
             for res in resources:
+                res_list = filter_azure_resources([res], artifact_params)
+                if not res_list:
+                    continue
+                res = res_list[0]
                 resource_hits += 1
                 try:
                     settings = cf.diagnostic_settings(res["id"])
@@ -106,6 +113,8 @@ def collect_log_analytics(collector) -> SourceResult:
 
     with collector.open_jsonl("events.jsonl.gz") as writer:
         for workspace_id, categories in sorted(workspaces.items()):
+            if workspace_filter and not matches_any(workspace_id, workspace_filter):
+                continue
             if not records_unlimited(cap) and record_count >= cap:
                 truncated = True
                 break
@@ -152,7 +161,8 @@ def collect_log_analytics(collector) -> SourceResult:
             "records": record_count,
             "workspaces_queried": len(per_workspace),
             "la_routed_resources": la_only_hits,
-            "window": collector.ctx.time_window.to_manifest(),
+            "window": {"since": start.isoformat(), "until": end.isoformat()},
+            "artifact_parameters": artifact_params,
             "workspaces": per_workspace,
             "truncated": truncated,
         }

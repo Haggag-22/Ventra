@@ -11,6 +11,8 @@ from botocore.exceptions import ClientError
 
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.params import effective_window
+from collector.lib.scoping import filter_securityhub_findings
 from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
 from collector.lib.limits import records_unlimited
@@ -29,6 +31,8 @@ class SecurityHubCollector(Collector):
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
+        params = self.artifact_params()
+        start, end = effective_window(self.ctx, self.name, default_days=90)
         findings: list[dict] = []
         standards: list[dict] = []
         enabled_anywhere = False
@@ -58,6 +62,15 @@ class SecurityHubCollector(Collector):
                     if not records_unlimited(cap) and len(findings) >= cap:
                         truncated = True
                         break
+                    updated = (f.get("UpdatedAt") or f.get("CreatedAt") or "")
+                    if updated:
+                        try:
+                            from datetime import datetime
+                            ts = datetime.fromisoformat(str(updated).replace("Z", "+00:00"))
+                            if ts < start or ts > end:
+                                continue
+                        except ValueError:
+                            pass
                     f["_ventra_region"] = region
                     findings.append(f)
             except AccessDenied as exc:
@@ -78,6 +91,8 @@ class SecurityHubCollector(Collector):
                 )
                 break
 
+        findings = filter_securityhub_findings(findings, params)
+
         if not enabled_anywhere:
             return SourceResult(
                 name=self.name,
@@ -86,7 +101,7 @@ class SecurityHubCollector(Collector):
                 notes="Security Hub not enabled.",
             )
 
-        files = [self.write_json({"standards": standards}, "config.json")]
+        files = [self.write_json({"standards": standards, "artifact_parameters": params}, "config.json")]
         if findings:
             files.append(self.write_jsonl(findings, "events.jsonl.gz"))
         self.write_meta({"source": self.name, "findings": len(findings)})

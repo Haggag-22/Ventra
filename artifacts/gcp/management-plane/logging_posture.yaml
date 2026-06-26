@@ -1,0 +1,27 @@
+name: GCP.ManagementPlane.LoggingPosture
+aliases:
+- logging_posture
+- gcp.logging_posture
+cloud: gcp
+category: ManagementPlane
+description: 'Logging posture for VPC Flow Logs, firewall rule logging, and Cloud Audit log sinks.'
+version: 1.0.0
+collector: logging_posture
+type: logging_posture
+required_actions:
+- compute.subnetworks.list
+- compute.firewalls.list
+- logging.sinks.list
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: logging_posture
+  format: json
+severity: extended
+implicit: true
+estimated_volume: medium

@@ -1,3 +1,74 @@
+
+data "google_project" "current" {
+  project_id = var.project_id
+}
+
+# Gen2 defaults to the Compute Engine SA for builds unless build_config.service_account is set.
+locals {
+  compute_default_sa = "${data.google_project.current.number}-compute@developer.gserviceaccount.com"
+}
+
+# Cloud Functions Gen2 builds via Cloud Build — grant the default build SA access to source + runtime SA.
+resource "google_storage_bucket_iam_member" "cloudbuild_source" {
+  bucket = google_storage_bucket.logs.name
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${data.google_project.current.number}@cloudbuild.gserviceaccount.com"
+}
+
+resource "google_storage_bucket_iam_member" "compute_build_source" {
+  bucket = google_storage_bucket.logs.name
+  role   = "roles/storage.objectViewer"
+  member = "serviceAccount:${local.compute_default_sa}"
+}
+
+resource "google_project_iam_member" "cloudbuild_builder" {
+  project = var.project_id
+  role    = "roles/cloudbuild.builds.builder"
+  member  = "serviceAccount:${data.google_project.current.number}@cloudbuild.gserviceaccount.com"
+}
+
+resource "google_project_iam_member" "cloudbuild_artifact_writer" {
+  project = var.project_id
+  role    = "roles/artifactregistry.writer"
+  member  = "serviceAccount:${data.google_project.current.number}@cloudbuild.gserviceaccount.com"
+}
+
+resource "google_project_iam_member" "cloudbuild_log_writer" {
+  project = var.project_id
+  role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${data.google_project.current.number}@cloudbuild.gserviceaccount.com"
+}
+
+resource "google_project_iam_member" "compute_build_builder" {
+  project = var.project_id
+  role    = "roles/cloudbuild.builds.builder"
+  member  = "serviceAccount:${local.compute_default_sa}"
+}
+
+resource "google_project_iam_member" "compute_build_artifact_writer" {
+  project = var.project_id
+  role    = "roles/artifactregistry.writer"
+  member  = "serviceAccount:${local.compute_default_sa}"
+}
+
+resource "google_project_iam_member" "compute_build_log_writer" {
+  project = var.project_id
+  role    = "roles/logging.logWriter"
+  member  = "serviceAccount:${local.compute_default_sa}"
+}
+
+resource "google_service_account_iam_member" "compute_act_as_lab" {
+  service_account_id = google_service_account.lab.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${local.compute_default_sa}"
+}
+
+resource "google_service_account_iam_member" "cloudbuild_act_as_lab" {
+  service_account_id = google_service_account.lab.name
+  role               = "roles/iam.serviceAccountUser"
+  member             = "serviceAccount:${data.google_project.current.number}@cloudbuild.gserviceaccount.com"
+}
+
 # Targets: storage_access, cloud_functions, cloud_monitoring
 
 resource "google_storage_bucket" "logs" {
@@ -47,12 +118,22 @@ resource "google_cloudfunctions2_function" "hello" {
   }
 
   service_config {
-    max_instance_count = 1
-    available_memory   = "256M"
-    ingress_settings   = "ALLOW_ALL"
+    max_instance_count    = 1
+    available_memory      = "256M"
+    ingress_settings      = "ALLOW_ALL"
+    service_account_email = google_service_account.lab.email
   }
 
-  depends_on = [google_project_service.apis]
+  depends_on = [
+    google_project_service.apis,
+    google_project_iam_member.cloudbuild_builder,
+    google_project_iam_member.cloudbuild_log_writer,
+    google_project_iam_member.compute_build_builder,
+    google_service_account_iam_member.cloudbuild_act_as_lab,
+    google_service_account_iam_member.compute_act_as_lab,
+    google_storage_bucket_iam_member.cloudbuild_source,
+    google_storage_bucket_iam_member.compute_build_source,
+  ]
 }
 
 resource "google_storage_bucket_object" "function_source" {

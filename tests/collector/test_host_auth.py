@@ -122,3 +122,18 @@ def test_azure_client_factory_uses_constructor_overrides() -> None:
         ident = cf.caller_identity()
     assert ident.tenant_id == "t"
     assert ident.principal == "c"
+
+
+def test_azure_sdk_import_helpers() -> None:
+    from collector.clouds.azure.client_factory import (
+        _resource_management_client,
+        _subscription_client,
+    )
+
+    class _Cred:
+        pass
+
+    sub_client = _subscription_client(_Cred())
+    rm_client = _resource_management_client(_Cred(), "00000000-0000-0000-0000-000000000001")
+    assert sub_client is not None
+    assert rm_client is not None

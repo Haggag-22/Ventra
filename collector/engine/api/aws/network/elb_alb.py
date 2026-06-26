@@ -20,6 +20,8 @@ from botocore.exceptions import ClientError
 from collector.lib.base import Collector
 from collector.lib.limits import DEFAULT_MAX_RECORDS
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.params import effective_window
+from collector.lib.scoping import filter_elb_load_balancers
 from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from ..common.s3_logs import bucket_region, collect_s3_line_records, slash_day_prefixes
 
@@ -56,11 +58,10 @@ class ElbAlbCollector(Collector):
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
-        window = self.ctx.time_window
-        start = window.since or (datetime.now(UTC) - timedelta(days=DEFAULT_WINDOW_DAYS))
-        end = window.until or datetime.now(UTC)
+        params = self.artifact_params()
+        start, end = effective_window(self.ctx, self.name, default_days=DEFAULT_WINDOW_DAYS)
 
-        lbs = self._discover_load_balancers(cf, gaps)
+        lbs = filter_elb_load_balancers(self._discover_load_balancers(cf, gaps), params)
         if not lbs:
             return SourceResult(
                 name=self.name,
@@ -104,7 +105,8 @@ class ElbAlbCollector(Collector):
             "logging_enabled_count": len(logging_on),
             "logging_disabled_count": len(logging_off),
             "collection": per_lb,
-            "window": window.to_manifest(),
+            "window": {"since": start.isoformat(), "until": end.isoformat()},
+            "artifact_parameters": params,
         }
         files = [self.write_json(config, "config.json"), *event_files]
         self.write_meta(
@@ -113,7 +115,7 @@ class ElbAlbCollector(Collector):
                 "records": record_count,
                 "load_balancers": len(lbs),
                 "logging_enabled": len(logging_on),
-                "window": window.to_manifest(),
+                "window": {"since": start.isoformat(), "until": end.isoformat()},
             }
         )
 

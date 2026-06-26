@@ -11,6 +11,8 @@ from botocore.exceptions import ClientError
 
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.params import effective_window
+from collector.lib.scoping import filter_macie_findings
 from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
 
@@ -27,6 +29,8 @@ class MacieCollector(Collector):
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
+        params = self.artifact_params()
+        start, end = effective_window(self.ctx, self.name, default_days=90)
         findings: list[dict] = []
         sessions: list[dict] = []
         enabled_anywhere = False
@@ -55,7 +59,9 @@ class MacieCollector(Collector):
 
             enabled_anywhere = True
             sessions.append({"region": region, "session": session})
-            findings.extend(self._findings(cf, region, gaps))
+            findings.extend(self._findings(cf, region, gaps, start, end))
+
+        findings = filter_macie_findings(findings, params)
 
         if not enabled_anywhere:
             return SourceResult(
@@ -65,7 +71,7 @@ class MacieCollector(Collector):
                 notes="Macie not enabled — recorded as a gap.",
             )
 
-        files = [self.write_json({"sessions": sessions}, "config.json")]
+        files = [self.write_json({"sessions": sessions, "artifact_parameters": params}, "config.json")]
         if findings:
             files.append(self.write_jsonl(findings, "events.jsonl.gz"))
         self.write_meta({"source": self.name, "findings": len(findings), "regions": len(sessions)})
@@ -78,7 +84,7 @@ class MacieCollector(Collector):
             notes=f"{len(findings)} Macie finding(s) across {len(sessions)} region(s).",
         )
 
-    def _findings(self, cf, region: str, gaps: list) -> list[dict]:
+    def _findings(self, cf, region: str, gaps: list, start, end) -> list[dict]:
         out: list[dict] = []
         try:
             ids = list(cf.paginate("macie2", region, "list_findings", "findingIds"))
@@ -96,8 +102,17 @@ class MacieCollector(Collector):
             try:
                 got = cf.call("macie2", region, "get_findings", findingIds=chunk).get("findings", [])
                 for f in got:
+                    updated = f.get("updatedAt") or f.get("createdAt")
+                    if updated:
+                        try:
+                            from datetime import datetime
+                            ts = datetime.fromisoformat(str(updated).replace("Z", "+00:00"))
+                            if ts < start or ts > end:
+                                continue
+                        except ValueError:
+                            pass
                     f["_ventra_region"] = region
-                out.extend(got)
+                    out.append(f)
             except (AccessDenied, ServiceNotEnabled):
                 continue
         return out

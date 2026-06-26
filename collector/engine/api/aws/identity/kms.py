@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.scoping import filter_kms_keys
 from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
 
@@ -26,6 +27,7 @@ class KmsCollector(Collector):
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
+        params = self.artifact_params()
         keys: list[dict] = []
 
         for region in self.ctx.regions:
@@ -54,6 +56,8 @@ class KmsCollector(Collector):
                     pass
                 keys.append(entry)
 
+        keys = filter_kms_keys(keys, params)
+
         if not keys:
             return SourceResult(
                 name=self.name,
@@ -62,7 +66,7 @@ class KmsCollector(Collector):
                 notes="No KMS keys found.",
             )
 
-        wf = self.write_json({"keys": keys}, "snapshot.json")
+        wf = self.write_json({"keys": keys, "artifact_parameters": params}, "snapshot.json")
         self.write_meta({"source": self.name, "keys": len(keys)})
         return SourceResult(
             name=self.name,

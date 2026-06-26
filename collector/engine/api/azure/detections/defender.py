@@ -12,6 +12,8 @@ from typing import Any
 from collector.lib.base import Collector
 from collector.lib.limits import records_unlimited
 from collector.lib.models import GapReason, SourceResult, SourceStatus
+from collector.lib.params import effective_window
+from collector.lib.scoping import filter_defender_alerts
 from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 
 from collector.lib.limits import DEFAULT_MAX_RECORDS as MAX_RECORDS
@@ -29,6 +31,8 @@ class DefenderCollector(Collector):
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
+        artifact_params = self.artifact_params()
+        start, end = effective_window(self.ctx, self.name, default_days=90)
         alerts: list[dict[str, Any]] = []
         per_sub: list[dict[str, Any]] = []
 
@@ -57,7 +61,9 @@ class DefenderCollector(Collector):
                 gaps.append(("defender", GapReason.SERVICE_NOT_ENABLED, f"{sub}: {exc.message}"))
             per_sub.append({"subscription_id": sub, "alerts": len(alerts) - before})
 
-        files = [self.write_json({"subscriptions": per_sub}, "config.json")]
+        alerts = filter_defender_alerts(alerts, artifact_params)
+
+        files = [self.write_json({"subscriptions": per_sub, "artifact_parameters": artifact_params}, "config.json")]
         if alerts:
             files.append(self.write_jsonl(alerts, "events.jsonl.gz"))
         self.write_meta(
@@ -65,6 +71,7 @@ class DefenderCollector(Collector):
                 "source": self.name,
                 "alerts": len(alerts),
                 "subscriptions": per_sub,
+                "window": {"since": start.isoformat(), "until": end.isoformat()},
             }
         )
 

@@ -4,7 +4,7 @@ aliases:
 - gcp.scc_findings
 cloud: gcp
 category: Detections
-description: Security Command Center findings and threat detections.
+description: Security Command Center findings and threat detections (not logs).
 version: 1.0.0
 collector: scc_findings
 type: scc_findings

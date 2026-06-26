@@ -32,6 +32,7 @@ class AccountCollector(Collector):
             "operator_user_id": identity.user_id,
             "partition": identity.partition,
             "regions_in_scope": self.ctx.regions,
+            "artifact_parameters": self.artifact_params(),
         }
 
         # Account alias (best-effort).
