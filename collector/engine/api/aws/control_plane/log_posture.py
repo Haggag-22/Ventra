@@ -6,8 +6,7 @@ disabled log source is a forensic finding; an enabled one tells the responder ex
 to collect manually. Each source is reported as a manifest gap named by its catalog id so
 the console's Logs Coverage panel can show real per-source status instead of "unknown".
 
-Checked: API Gateway access logs, Lambda CloudWatch log groups, OpenSearch log publishing,
-RDS log exports, DynamoDB Streams, Network Firewall logging.
+Checked: OpenSearch log publishing, DynamoDB Streams, Network Firewall logging.
 """
 
 from __future__ import annotations
@@ -31,14 +30,12 @@ class LogPostureCollector(Collector):
     priority = 2
     description = (
         "Logging posture for sources without a Ventra log collector yet: "
-        "API Gateway, Lambda, OpenSearch, RDS, DynamoDB Streams, Network Firewall."
+        "OpenSearch, DynamoDB Streams, Network Firewall."
     )
     required_actions = (
-        "apigateway:GET",
         "logs:DescribeLogGroups",
         "es:ListDomainNames",
         "es:DescribeDomain",
-        "rds:DescribeDBInstances",
         "dynamodb:ListTables",
         "dynamodb:DescribeTable",
         "network-firewall:ListFirewalls",
@@ -51,10 +48,7 @@ class LogPostureCollector(Collector):
         posture: dict[str, Any] = {}
 
         checks = (
-            ("apigateway", self._check_apigateway),
-            ("lambda_logs", self._check_lambda_logs),
             ("opensearch", self._check_opensearch),
-            ("rds", self._check_rds),
             ("dynamodb_streams", self._check_dynamodb_streams),
             ("network_firewall", self._check_network_firewall),
         )
@@ -84,94 +78,6 @@ class LogPostureCollector(Collector):
 
     # -- per-source checks ----------------------------------------------------------------
     # Each returns a posture dict; "_gap" carries (reason, detail) for the manifest.
-
-    def _check_apigateway(self, cf) -> dict[str, Any]:
-        stages_total = 0
-        stages_logged = 0
-        destinations: list[str] = []
-        for region in self.ctx.regions:
-            try:
-                apis = list(cf.paginate("apigateway", region, "get_rest_apis", "items"))
-            except (AccessDenied, ServiceNotEnabled, ClientError):
-                apis = []
-            for api in apis[:MAX_ITEMS_PER_SERVICE]:
-                try:
-                    stages = cf.call(
-                        "apigateway", region, "get_stages", restApiId=api.get("id", "")
-                    ).get("item", [])
-                except (AccessDenied, ServiceNotEnabled, ClientError):
-                    continue
-                for stage in stages:
-                    stages_total += 1
-                    dest = (stage.get("accessLogSettings") or {}).get("destinationArn", "")
-                    if dest:
-                        stages_logged += 1
-                        if dest not in destinations:
-                            destinations.append(dest)
-            try:
-                for api in cf.paginate("apigatewayv2", region, "get_apis", "Items"):
-                    try:
-                        stages = cf.call(
-                            "apigatewayv2", region, "get_stages", ApiId=api.get("ApiId", "")
-                        ).get("Items", [])
-                    except (AccessDenied, ServiceNotEnabled, ClientError):
-                        continue
-                    for stage in stages:
-                        stages_total += 1
-                        dest = (stage.get("AccessLogSettings") or {}).get("DestinationArn", "")
-                        if dest:
-                            stages_logged += 1
-                            if dest not in destinations:
-                                destinations.append(dest)
-            except (AccessDenied, ServiceNotEnabled, ClientError):
-                pass
-
-        out = {
-            "stages_total": stages_total,
-            "stages_with_access_logs": stages_logged,
-            "destinations": destinations[:20],
-        }
-        if stages_total == 0:
-            out["_gap"] = (GapReason.NOT_PRESENT, "No API Gateway stages in scope.")
-        elif stages_logged == 0:
-            out["_gap"] = (
-                GapReason.LOGGING_NOT_CONFIGURED,
-                f"Access logging disabled on all {stages_total} API Gateway stage(s).",
-            )
-        else:
-            out["_gap"] = (
-                GapReason.OUT_OF_SCOPE,
-                f"Access logging enabled on {stages_logged}/{stages_total} stage(s) → "
-                f"{', '.join(destinations[:3])}. {_PLANNED_COLLECTOR}",
-            )
-        return out
-
-    def _check_lambda_logs(self, cf) -> dict[str, Any]:
-        groups = 0
-        sample: list[str] = []
-        for region in self.ctx.regions:
-            try:
-                for lg in cf.paginate(
-                    "logs",
-                    region,
-                    "describe_log_groups",
-                    "logGroups",
-                    logGroupNamePrefix="/aws/lambda/",
-                ):
-                    groups += 1
-                    if len(sample) < 20:
-                        sample.append(f"{region}:{lg.get('logGroupName', '')}")
-            except (AccessDenied, ServiceNotEnabled, ClientError):
-                continue
-        out = {"log_groups": groups, "sample": sample}
-        if groups == 0:
-            out["_gap"] = (GapReason.NOT_PRESENT, "No Lambda log groups in scope.")
-        else:
-            out["_gap"] = (
-                GapReason.OUT_OF_SCOPE,
-                f"{groups} Lambda log group(s) in CloudWatch Logs. {_PLANNED_COLLECTOR}",
-            )
-        return out
 
     def _check_opensearch(self, cf) -> dict[str, Any]:
         domains_total = 0
@@ -221,42 +127,6 @@ class LogPostureCollector(Collector):
                 GapReason.OUT_OF_SCOPE,
                 f"Log publishing enabled on {domains_logged}/{domains_total} domain(s). "
                 f"{_PLANNED_COLLECTOR}",
-            )
-        return out
-
-    def _check_rds(self, cf) -> dict[str, Any]:
-        instances_total = 0
-        instances_exporting = 0
-        exports: list[str] = []
-        for region in self.ctx.regions:
-            try:
-                for db in cf.paginate("rds", region, "describe_db_instances", "DBInstances"):
-                    instances_total += 1
-                    enabled = db.get("EnabledCloudwatchLogsExports") or []
-                    if enabled:
-                        instances_exporting += 1
-                        exports.append(
-                            f"{db.get('DBInstanceIdentifier', '')}: {', '.join(enabled)}"
-                        )
-            except (AccessDenied, ServiceNotEnabled, ClientError):
-                continue
-        out = {
-            "instances_total": instances_total,
-            "instances_exporting_logs": instances_exporting,
-            "exports": exports[:20],
-        }
-        if instances_total == 0:
-            out["_gap"] = (GapReason.NOT_PRESENT, "No RDS instances in scope.")
-        elif instances_exporting == 0:
-            out["_gap"] = (
-                GapReason.LOGGING_NOT_CONFIGURED,
-                f"Log export disabled on all {instances_total} RDS instance(s).",
-            )
-        else:
-            out["_gap"] = (
-                GapReason.OUT_OF_SCOPE,
-                f"Log export enabled on {instances_exporting}/{instances_total} "
-                f"instance(s) → CloudWatch Logs. {_PLANNED_COLLECTOR}",
             )
         return out
 

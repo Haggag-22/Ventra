@@ -21,8 +21,6 @@ const AWS_CLOUDTRAIL_EVENTS =
 const GCP_VPC_FLOW = "https://cloud.google.com/vpc/docs/using-flow-logs";
 const AWS_GUARDDUTY =
   "https://docs.aws.amazon.com/guardduty/latest/ug/guardduty_findings.html";
-const GCP_LOGGING_QUERY =
-  "https://cloud.google.com/logging/docs/view/logging-query-language";
 const ENTRA_SIGNIN =
   "https://learn.microsoft.com/en-us/entra/identity/monitoring-health/concept-sign-ins-log-events";
 
@@ -106,14 +104,6 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
       type: "list",
       description: "Backend service names attached to Cloud Armor policies to narrow request logs.",
     },
-    {
-      key: "filter_extension",
-      label: "Filter extension",
-      type: "string",
-      description:
-        "Additional Cloud Logging query clause merged with the collector's base filter. Use standard Logging query syntax.",
-      docUrl: GCP_LOGGING_QUERY,
-    },
   ],
   cloud_dns: [
     {
@@ -121,14 +111,6 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
       label: "DNS zone names",
       type: "list",
       description: "Cloud DNS managed zone names to filter DNS query logs.",
-    },
-    {
-      key: "filter_extension",
-      label: "Filter extension",
-      type: "string",
-      description:
-        "Additional Cloud Logging query clause merged with the collector's base filter. Use standard Logging query syntax.",
-      docUrl: GCP_LOGGING_QUERY,
     },
   ],
   cloud_nat: [
@@ -156,14 +138,6 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
       type: "list",
       description: "External destination IP addresses to filter Cloud NAT logs (jsonPayload.connection.dest_ip).",
     },
-    {
-      key: "filter_extension",
-      label: "Filter extension",
-      type: "string",
-      description:
-        "Additional Cloud Logging query clause merged with the collector's base filter. Use standard Logging query syntax.",
-      docUrl: GCP_LOGGING_QUERY,
-    },
   ],
   api_gateway: [
     {
@@ -171,14 +145,6 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
       label: "Gateway IDs",
       type: "list",
       description: "GCP API Gateway gateway IDs to collect access and audit logs from.",
-    },
-    {
-      key: "filter_extension",
-      label: "Filter extension",
-      type: "string",
-      description:
-        "Additional Cloud Logging query clause merged with the collector's base filter. Use standard Logging query syntax.",
-      docUrl: GCP_LOGGING_QUERY,
     },
   ],
   app_gateway: [
@@ -234,14 +200,6 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
       type: "list",
       description: "Filter by affected GCP resource name as recorded in the audit log protoPayload.",
     },
-    {
-      key: "filter_extension",
-      label: "Filter extension",
-      type: "string",
-      description:
-        "Additional Cloud Logging query clause merged with the collector's base filter. Use standard Logging query syntax.",
-      docUrl: GCP_LOGGING_QUERY,
-    },
   ],
   cloud_audit_data: [
     {
@@ -262,14 +220,6 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
       type: "list",
       description: "Filter by the email of the principal that read or modified data.",
     },
-    {
-      key: "filter_extension",
-      label: "Filter extension",
-      type: "string",
-      description:
-        "Additional Cloud Logging query clause merged with the collector's base filter. Use standard Logging query syntax.",
-      docUrl: GCP_LOGGING_QUERY,
-    },
   ],
   cloud_audit_system: [
     {
@@ -283,14 +233,6 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
       label: "Instance IDs",
       type: "list",
       description: "Compute Engine instance IDs to scope System Event audit logs.",
-    },
-    {
-      key: "filter_extension",
-      label: "Filter extension",
-      type: "string",
-      description:
-        "Additional Cloud Logging query clause merged with the collector's base filter. Use standard Logging query syntax.",
-      docUrl: GCP_LOGGING_QUERY,
     },
   ],
   cloud_functions: [
@@ -319,6 +261,32 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
       label: "Incident IDs",
       type: "list",
       description: "Specific Monitoring incident IDs to collect when investigating a known alert firing.",
+    },
+  ],
+  apigateway: [
+    {
+      key: "api_ids",
+      label: "API IDs",
+      type: "list",
+      description: "API Gateway REST or HTTP API IDs whose stage access logs should be collected.",
+    },
+    {
+      key: "api_names",
+      label: "API names",
+      type: "list",
+      description: "API Gateway API display names to scope access log collection.",
+    },
+    {
+      key: "stage_names",
+      label: "Stage names",
+      type: "list",
+      description: "Deployment stage names (e.g. prod, dev) to filter access log collection.",
+    },
+    {
+      key: "log_group_names",
+      label: "Log group names",
+      type: "list",
+      description: "CloudWatch Logs log group names where API Gateway access logs are delivered.",
     },
   ],
   cloudfront: [
@@ -531,14 +499,6 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
       type: "list",
       description: "GCP regions or zones where GKE clusters run (e.g. us-central1, europe-west1-b).",
     },
-    {
-      key: "filter_extension",
-      label: "Filter extension",
-      type: "string",
-      description:
-        "Additional Cloud Logging query clause merged with the collector's base filter. Use standard Logging query syntax.",
-      docUrl: GCP_LOGGING_QUERY,
-    },
   ],
   eks_audit: [
     {
@@ -653,14 +613,6 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
       label: "Source IP",
       type: "list",
       description: "Source IP addresses to filter VPC firewall logs.",
-    },
-    {
-      key: "filter_extension",
-      label: "Filter extension",
-      type: "string",
-      description:
-        "Additional Cloud Logging query clause merged with the collector's base filter. Use standard Logging query syntax.",
-      docUrl: GCP_LOGGING_QUERY,
     },
   ],
   front_door: [
@@ -822,6 +774,26 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
       description: "Full Lambda function ARNs to scope collection.",
     },
   ],
+  lambda_logs: [
+    {
+      key: "function_names",
+      label: "Function names",
+      type: "list",
+      description: "Lambda function names whose CloudWatch execution logs should be collected.",
+    },
+    {
+      key: "function_arns",
+      label: "Function ARNs",
+      type: "list",
+      description: "Full Lambda function ARNs to scope log collection.",
+    },
+    {
+      key: "log_group_names",
+      label: "Log group names",
+      type: "list",
+      description: "CloudWatch Logs group names (typically /aws/lambda/<name>) to collect from directly.",
+    },
+  ],
   load_balancer: [
     {
       key: "url_map_names",
@@ -834,14 +806,6 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
       label: "Backend service names",
       type: "list",
       description: "Backend service names to filter load balancer logging and configuration.",
-    },
-    {
-      key: "filter_extension",
-      label: "Filter extension",
-      type: "string",
-      description:
-        "Additional Cloud Logging query clause merged with the collector's base filter. Use standard Logging query syntax.",
-      docUrl: GCP_LOGGING_QUERY,
     },
   ],
   log_analytics: [
@@ -987,6 +951,32 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
       docUrl: AZURE_RESOURCE_GRAPH,
     },
   ],
+  rds: [
+    {
+      key: "db_instance_ids",
+      label: "DB instance IDs",
+      type: "list",
+      description: "RDS DB instance identifiers whose CloudWatch-exported engine logs should be collected.",
+    },
+    {
+      key: "db_instance_arns",
+      label: "DB instance ARNs",
+      type: "list",
+      description: "Full RDS DB instance ARNs to scope log export collection.",
+    },
+    {
+      key: "log_types",
+      label: "Log types",
+      type: "list",
+      description: "Exported log types to collect (e.g. error, general, slowquery, audit, postgresql).",
+    },
+    {
+      key: "log_group_names",
+      label: "Log group names",
+      type: "list",
+      description: "CloudWatch Logs group names (/aws/rds/instance/<id>/<type>) to collect from directly.",
+    },
+  ],
   route53_resolver: [
     {
       key: "query_log_config_ids",
@@ -1115,14 +1105,6 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
       description: "HTTP status code to filter storage access log entries (e.g. 403 for authorization failures).",
       placeholder: "403",
     },
-    {
-      key: "filter_extension",
-      label: "Filter extension",
-      type: "string",
-      description:
-        "Additional Cloud Logging query clause merged with the collector's base filter. Use standard Logging query syntax.",
-      docUrl: GCP_LOGGING_QUERY,
-    },
   ],
   bigquery_audit: [
     {
@@ -1142,14 +1124,6 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
       label: "Principal email",
       type: "list",
       description: "Email or service account that performed BigQuery data access operations.",
-    },
-    {
-      key: "filter_extension",
-      label: "Filter extension",
-      type: "string",
-      description:
-        "Additional Cloud Logging query clause merged with the collector's base filter. Use standard Logging query syntax.",
-      docUrl: GCP_LOGGING_QUERY,
     },
   ],
   cloud_sql: [
@@ -1171,14 +1145,6 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
       type: "string",
       description: "Free-text search across Cloud SQL log message payloads (IOC strings, SQL fragments).",
     },
-    {
-      key: "filter_extension",
-      label: "Filter extension",
-      type: "string",
-      description:
-        "Additional Cloud Logging query clause merged with the collector's base filter. Use standard Logging query syntax.",
-      docUrl: GCP_LOGGING_QUERY,
-    },
   ],
   secret_manager: [
     {
@@ -1192,14 +1158,6 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
       label: "Principal email",
       type: "list",
       description: "Email or service account that accessed Secret Manager secrets.",
-    },
-    {
-      key: "filter_extension",
-      label: "Filter extension",
-      type: "string",
-      description:
-        "Additional Cloud Logging query clause merged with the collector's base filter. Use standard Logging query syntax.",
-      docUrl: GCP_LOGGING_QUERY,
     },
   ],
   unified_audit: [
@@ -1325,14 +1283,6 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
       type: "list",
       description: "Filter flow records by disposition: ALLOW or DENY.",
       docUrl: GCP_VPC_FLOW,
-    },
-    {
-      key: "filter_extension",
-      label: "Filter extension",
-      type: "string",
-      description:
-        "Additional Cloud Logging query clause merged with the collector's base filter. Use standard Logging query syntax.",
-      docUrl: GCP_LOGGING_QUERY,
     },
   ],
   waf: [

@@ -1,0 +1,25 @@
+name: AWS.Workloads.RdsLogs
+aliases:
+- rds
+- aws.rds
+cloud: aws
+category: Workloads
+description: RDS engine logs exported to CloudWatch Logs (not in-DB logs).
+version: 1.0.0
+collector: rds
+type: rds
+required_actions:
+- rds:DescribeDBInstances
+- logs:FilterLogEvents
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: rds
+  format: json
+severity: extended
+estimated_volume: medium

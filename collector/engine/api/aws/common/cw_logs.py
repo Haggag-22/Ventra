@@ -18,6 +18,19 @@ from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 MAX_CW_RECORDS = DEFAULT_MAX_RECORDS
 
 
+def parse_log_group_arn(arn: str) -> tuple[str, str] | None:
+    """Return ``(region, log_group_name)`` from a CloudWatch Logs destination ARN."""
+    if not arn or ":log-group:" not in arn:
+        return None
+    head, tail = arn.split(":log-group:", 1)
+    parts = head.split(":")
+    region = parts[3] if len(parts) >= 4 else ""
+    group = tail.removesuffix(":*")
+    if ":log-stream:" in group:
+        group = group.split(":log-stream:", 1)[0]
+    return region, group
+
+
 def collect_cw_log_events(
     cf,
     region: str,

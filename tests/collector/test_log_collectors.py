@@ -10,8 +10,11 @@ from pathlib import Path
 from typing import Any
 
 from collector.engine.api.aws.control_plane.log_posture import LogPostureCollector
+from collector.engine.api.aws.network.apigateway import ApigatewayCollector
 from collector.engine.api.aws.network.elb_alb import ElbAlbCollector
 from collector.engine.api.aws.workloads.eks_audit import EksAuditCollector
+from collector.engine.api.aws.workloads.lambda_logs import LambdaLogsCollector
+from collector.engine.api.aws.workloads.rds_logs import RdsLogsCollector
 from collector.lib.models import CollectionContext, GapReason, SourceStatus, TimeWindow
 
 START = datetime(2026, 6, 11, 0, 0, 0, tzinfo=UTC)
@@ -188,25 +191,12 @@ def test_eks_audit_pulls_cloudwatch_audit_events(tmp_path: Path) -> None:
 def test_log_posture_emits_per_source_gaps(tmp_path: Path) -> None:
     cf = _Cf(
         pages={
-            ("apigateway", "get_rest_apis"): [{"id": "api1"}],
-            ("rds", "describe_db_instances"): [
-                {"DBInstanceIdentifier": "db1", "EnabledCloudwatchLogsExports": []}
-            ],
+            ("rds", "describe_db_instances"): [],
             ("logs", "describe_log_groups"): [],
             ("dynamodb", "list_tables"): [],
             ("network-firewall", "list_firewalls"): [],
         },
         calls={
-            ("apigateway", "get_stages"): {
-                "item": [
-                    {
-                        "stageName": "prod",
-                        "accessLogSettings": {
-                            "destinationArn": "arn:aws:logs:us-east-1:1:log-group:apigw"
-                        },
-                    }
-                ]
-            },
             ("opensearch", "list_domain_names"): {"DomainNames": []},
         },
     )
@@ -214,13 +204,95 @@ def test_log_posture_emits_per_source_gaps(tmp_path: Path) -> None:
     assert result.status == SourceStatus.COLLECTED
 
     by_name = {g[0]: g for g in result.gaps}
-    # API GW: logging enabled but Ventra can't pull it yet -> out_of_scope with destination.
-    assert by_name["apigateway"][1] == GapReason.OUT_OF_SCOPE
-    assert "log-group:apigw" in by_name["apigateway"][2]
-    # RDS: instances exist, no exports -> logging_not_configured (a finding).
-    assert by_name["rds"][1] == GapReason.LOGGING_NOT_CONFIGURED
-    # Empty services -> not_present.
-    assert by_name["lambda_logs"][1] == GapReason.NOT_PRESENT
     assert by_name["dynamodb_streams"][1] == GapReason.NOT_PRESENT
     assert by_name["network_firewall"][1] == GapReason.NOT_PRESENT
     assert by_name["opensearch"][1] == GapReason.NOT_PRESENT
+
+
+def test_apigateway_collects_cloudwatch_access_logs(tmp_path: Path) -> None:
+    cf = _Cf(
+        pages={
+            ("apigateway", "get_rest_apis"): [{"id": "api1", "name": "orders-api"}],
+            ("apigatewayv2", "get_apis"): [],
+            ("logs", "filter_log_events"): [{"message": '{"requestId":"abc"}'}],
+        },
+        calls={
+            ("apigateway", "get_stages"): {
+                "item": [
+                    {
+                        "stageName": "prod",
+                        "accessLogSettings": {
+                            "destinationArn": (
+                                "arn:aws:logs:us-east-1:123456789012:log-group:/aws/apigateway/orders:*"
+                            ),
+                        },
+                    }
+                ]
+            },
+        },
+    )
+    result = ApigatewayCollector(_ctx(tmp_path, cf)).collect()
+    assert result.status == SourceStatus.COLLECTED
+    assert result.record_count == 1
+
+
+def test_apigateway_flags_unlogged_stages(tmp_path: Path) -> None:
+    cf = _Cf(
+        pages={
+            ("apigateway", "get_rest_apis"): [{"id": "api1", "name": "dark-api"}],
+            ("apigatewayv2", "get_apis"): [],
+        },
+        calls={
+            ("apigateway", "get_stages"): {"item": [{"stageName": "prod"}]},
+        },
+    )
+    result = ApigatewayCollector(_ctx(tmp_path, cf)).collect()
+    assert result.record_count == 0
+    assert any(g[1] == GapReason.LOGGING_NOT_CONFIGURED for g in result.gaps)
+
+
+def test_lambda_logs_collects_execution_logs(tmp_path: Path) -> None:
+    cf = _Cf(
+        pages={
+            ("lambda", "list_functions"): [
+                {"FunctionName": "worker", "FunctionArn": "arn:aws:lambda:us-east-1:1:function:worker"}
+            ],
+            ("logs", "describe_log_groups"): [{"logGroupName": "/aws/lambda/worker"}],
+            ("logs", "filter_log_events"): [{"message": "START RequestId: x"}],
+        },
+    )
+    result = LambdaLogsCollector(_ctx(tmp_path, cf)).collect()
+    assert result.status == SourceStatus.COLLECTED
+    assert result.record_count == 1
+
+
+def test_rds_collects_cloudwatch_exports(tmp_path: Path) -> None:
+    cf = _Cf(
+        pages={
+            ("rds", "describe_db_instances"): [
+                {
+                    "DBInstanceIdentifier": "prod-db",
+                    "DBInstanceArn": "arn:aws:rds:us-east-1:1:db:prod-db",
+                    "Engine": "postgres",
+                    "EnabledCloudwatchLogsExports": ["postgresql"],
+                }
+            ],
+            ("logs", "filter_log_events"): [{"message": "2026-06-11 12:00:00 UTC: connection received"}],
+        },
+    )
+    result = RdsLogsCollector(_ctx(tmp_path, cf)).collect()
+    assert result.status == SourceStatus.COLLECTED
+    assert result.record_count == 1
+
+
+def test_rds_flags_instances_without_exports(tmp_path: Path) -> None:
+    cf = _Cf(
+        pages={
+            ("rds", "describe_db_instances"): [
+                {"DBInstanceIdentifier": "silent-db", "EnabledCloudwatchLogsExports": []}
+            ],
+        },
+    )
+    result = RdsLogsCollector(_ctx(tmp_path, cf)).collect()
+    assert result.record_count == 0
+    assert any(g[1] == GapReason.LOGGING_NOT_CONFIGURED for g in result.gaps)

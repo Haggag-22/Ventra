@@ -1,0 +1,25 @@
+name: AWS.Network.Apigateway
+aliases:
+- apigateway
+- aws.apigateway
+cloud: aws
+category: Network
+description: API Gateway REST/HTTP API stage access logs from CloudWatch.
+version: 1.0.0
+collector: apigateway
+type: apigateway
+required_actions:
+- apigateway:GET
+- logs:FilterLogEvents
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: apigateway
+  format: json
+severity: extended
+estimated_volume: medium

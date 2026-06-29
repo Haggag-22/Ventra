@@ -3,6 +3,7 @@ import type { Cloud } from "@/lib/catalog";
 /** Display filename stems under ``public/icons/<cloud>/`` (must match extract-artifact-icons). */
 export const ARTIFACT_ICON_LABELS: Record<string, string> = {
   account: "account",
+  apigateway: "api gateway access logs",
   cloudfront: "cloudfront access logs",
   cloudtrail: "cloudtrail",
   config: "config",
@@ -15,9 +16,11 @@ export const ARTIFACT_ICON_LABELS: Record<string, string> = {
   inspector2: "inspector2",
   kms: "kms",
   lambda: "lambda",
+  lambda_logs: "lambda logs",
   log_posture: "log posture",
   macie: "macie",
   route53_resolver: "route53 resolver",
+  rds: "rds logs",
   s3: "s3",
   s3_access: "s3 access logs",
   secrets: "secrets",
@@ -87,6 +90,7 @@ const CLOUD_ARTIFACT_ICON_LABELS: Partial<Record<Cloud, Record<string, string>>>
 /** UI display names (proper product / acronym casing). Icon filenames stay lowercase in ``ARTIFACT_ICON_LABELS``. */
 const ARTIFACT_DISPLAY_LABELS: Record<string, string> = {
   account: "Account",
+  apigateway: "API Gateway Access Logs",
   cloudfront: "CloudFront Access Logs",
   cloudtrail: "CloudTrail",
   config: "Config",
@@ -96,12 +100,14 @@ const ARTIFACT_DISPLAY_LABELS: Record<string, string> = {
   elb_alb: "ELB/ALB Access Logs",
   guardduty: "GuardDuty",
   iam: "IAM",
-  inspector2: "Inspector2",
+  inspector2: "Inspector",
   kms: "KMS",
   lambda: "Lambda",
+  lambda_logs: "Lambda Logs",
   log_posture: "Log Posture",
   macie: "Macie",
   route53_resolver: "Route53 Resolver",
+  rds: "RDS Export Logs",
   s3: "S3",
   s3_access: "S3 Access Logs",
   secrets: "Secrets Manager",

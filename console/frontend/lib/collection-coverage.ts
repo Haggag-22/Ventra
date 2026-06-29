@@ -73,6 +73,7 @@ export function catalogItems(cloud: Cloud): CatalogItem[] {
 
 /** Log sources with a Ventra collector today (maps to manifest `sources[].name`). */
 export const IMPLEMENTED_LOG_COLLECTORS = new Set([
+  "apigateway",
   "cloudtrail",
   "config",
   "vpc_flow",
@@ -80,12 +81,14 @@ export const IMPLEMENTED_LOG_COLLECTORS = new Set([
   "securityhub",
   "detective",
   "inspector2",
+  "lambda_logs",
   "macie",
   "waf",
   "elb_alb",
   "cloudfront",
   "s3_access",
   "route53_resolver",
+  "rds",
   "eks_audit",
   "aks_audit",
   "activity_log",
