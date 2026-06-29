@@ -82,7 +82,7 @@ const AWS_LOGS: CatalogGroup[] = [
       { id: "eks_audit", label: "EKS Audit Logs", description: "" },
       { id: "elb_alb", label: "ELB/ALB Access Logs", description: "" },
       { id: "guardduty", label: "GuardDuty", description: "" },
-      { id: "inspector2", label: "Inspector2", description: "" },
+      { id: "inspector2", label: "Inspector", description: "" },
       { id: "lambda_logs", label: "Lambda Logs", description: "" },
       { id: "macie", label: "Macie2", description: "" },
       { id: "network_firewall", label: "Network Firewall Logs", description: "" },

@@ -1,0 +1,26 @@
+name: AWS.Workloads.LambdaLogs
+aliases:
+- lambda_logs
+- aws.lambda_logs
+cloud: aws
+category: Workloads
+description: Lambda function execution logs from CloudWatch Logs.
+version: 1.0.0
+collector: lambda_logs
+type: lambda_logs
+required_actions:
+- lambda:ListFunctions
+- logs:DescribeLogGroups
+- logs:FilterLogEvents
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: lambda_logs
+  format: json
+severity: extended
+estimated_volume: medium
