@@ -37,7 +37,7 @@ export function ParamFieldInfo({
       }
     >
       {description ? (
-        <p className="leading-snug text-fg">{description}</p>
+        <p className="break-words leading-snug text-fg">{description}</p>
       ) : null}
       {docUrl ? (
         <a

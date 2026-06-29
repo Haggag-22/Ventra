@@ -1,0 +1,92 @@
+Ventra GCP collectors — read-only permissions (you assign project/resource scope)
+
+[Project Snapshot]
+resourcemanager.projects.get
+
+[IAM Snapshot]
+resourcemanager.projects.getIamPolicy
+iam.serviceAccounts.list
+iam.serviceAccounts.getIamPolicy
+iam.serviceAccountKeys.list
+iam.roles.list
+
+[Cloud Audit Admin]
+logging.logEntries.list
+
+[Cloud Audit System]
+logging.logEntries.list
+
+[Cloud Audit Data]
+logging.logEntries.list
+
+[Login Events]
+logging.logEntries.list
+
+[Logging Posture]
+compute.subnetworks.list
+compute.firewalls.list
+logging.sinks.list
+
+[VPC Flow Logs]
+logging.logEntries.list
+compute.subnetworks.list
+
+[Firewall Logs]
+logging.logEntries.list
+
+[Cloud NAT]
+logging.logEntries.list
+
+[Network Posture]
+compute.firewalls.list
+compute.networks.list
+compute.subnetworks.list
+compute.routes.list
+compute.packetMirrorings.list
+
+[Load Balancer Access Logs]
+logging.logEntries.list
+
+[API Gateway]
+logging.logEntries.list
+
+[Cloud DNS]
+logging.logEntries.list
+
+[Cloud Armor]
+compute.securityPolicies.list
+logging.logEntries.list
+
+[VM Logs]
+logging.logEntries.list
+
+[GCE / Persistent Disks]
+compute.instances.list
+compute.disks.list
+compute.snapshots.list
+
+[Cloud Functions]
+logging.logEntries.list
+
+[GKE Audit]
+container.clusters.list
+logging.logEntries.list
+
+[GCS Access Logs]
+logging.logEntries.list
+
+[BigQuery Audit Logs]
+logging.logEntries.list
+
+[Cloud SQL Logs]
+logging.logEntries.list
+
+[Secret Manager Access]
+logging.logEntries.list
+
+[Security Command Center Findings]
+securitycenter.findings.list
+
+[Cloud Monitoring]
+logging.logEntries.list
+monitoring.alertPolicies.list

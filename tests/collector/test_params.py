@@ -11,10 +11,13 @@ from collector.lib.params import (
 )
 from collector.lib.scoping import (
     cloudtrail_event_matches,
+    filter_apigateway_stages,
     filter_cloudtrail_trails,
     filter_eks_clusters,
     filter_guardduty_findings,
     filter_iam_bindings,
+    filter_lambda_log_targets,
+    filter_rds_log_targets,
     filter_scc_findings,
     filter_vpc_flow_logs,
     gcp_logging_filter_extension,
@@ -70,6 +73,40 @@ def test_filter_eks_clusters_by_log_group() -> None:
     filtered = filter_eks_clusters(clusters, {"log_group_names": ["/aws/eks/prod/cluster"]})
     assert len(filtered) == 1
     assert filtered[0]["name"] == "prod"
+
+
+def test_filter_apigateway_stages() -> None:
+    stages = [
+        {"api_id": "a1", "api_name": "orders", "stage_name": "prod", "log_group": "/aws/apigw/orders"},
+        {"api_id": "a2", "api_name": "legacy", "stage_name": "dev", "log_group": ""},
+    ]
+    filtered = filter_apigateway_stages(stages, {"api_names": ["orders"]})
+    assert len(filtered) == 1
+    assert filtered[0]["api_name"] == "orders"
+
+
+def test_filter_lambda_log_targets() -> None:
+    targets = [
+        {"function_name": "worker", "function_arn": "arn:fn/worker", "log_group": "/aws/lambda/worker"},
+        {"function_name": "cron", "function_arn": "arn:fn/cron", "log_group": "/aws/lambda/cron"},
+    ]
+    filtered = filter_lambda_log_targets(targets, {"function_names": ["worker"]})
+    assert len(filtered) == 1
+    assert filtered[0]["function_name"] == "worker"
+
+
+def test_filter_rds_log_targets() -> None:
+    instances = [
+        {
+            "instance_id": "prod-db",
+            "instance_arn": "arn:db/prod-db",
+            "log_exports": ["error", "general"],
+        },
+        {"instance_id": "dev-db", "instance_arn": "arn:db/dev-db", "log_exports": []},
+    ]
+    filtered = filter_rds_log_targets(instances, {"log_types": ["error"]})
+    assert len(filtered) == 1
+    assert filtered[0]["log_exports"] == ["error"]
 
 
 def test_cloudtrail_event_matches() -> None:

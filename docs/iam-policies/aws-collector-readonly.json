@@ -166,6 +166,18 @@
       "Resource": "*"
     },
     {
+      "Sid": "VentraApigatewayLambdaRdsLogs",
+      "Effect": "Allow",
+      "Action": [
+        "apigateway:GET",
+        "logs:DescribeLogGroups",
+        "logs:FilterLogEvents",
+        "lambda:ListFunctions",
+        "rds:DescribeDBInstances"
+      ],
+      "Resource": "*"
+    },
+    {
       "Sid": "VentraReadLogObjects",
       "Effect": "Allow",
       "Action": [

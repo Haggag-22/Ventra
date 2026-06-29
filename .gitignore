@@ -52,6 +52,14 @@ credentials.json
 *.credentials
 .aws/
 
+# Terraform state & local vars (any provider)
+**/.terraform/
+**/*.tfstate
+**/*.tfstate.*
+**/terraform.tfvars
+!**/terraform.tfvars.example
+**/assets/function.zip
+
 # Environment (local only — never commit)
 .env
 .env.*

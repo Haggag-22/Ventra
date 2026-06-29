@@ -321,7 +321,7 @@ export function Popover({
                   : { position: "fixed", top: 0, left: 0, visibility: "hidden" }
               }
               className={cn(
-                "z-[200] w-max max-w-[min(240px,calc(100vw-1rem))] rounded-md border border-border bg-surface p-2.5 text-xs leading-snug shadow-pop animate-fade-in",
+                "z-[200] max-w-[min(240px,calc(100vw-1rem))] break-words rounded-md border border-border bg-surface p-2.5 text-xs leading-snug shadow-pop animate-fade-in",
                 contentClassName,
               )}
               data-side={resolvedSide}

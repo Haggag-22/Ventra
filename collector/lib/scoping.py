@@ -226,6 +226,91 @@ def filter_lambda_functions(functions: list[dict[str, Any]], params: dict[str, A
     )
 
 
+def filter_apigateway_stages(stages: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
+    api_ids = param_strings(params, "api_ids")
+    api_names = param_strings(params, "api_names")
+    stage_names = param_strings(params, "stage_names")
+    log_groups = param_strings(params, "log_group_names")
+    if not (api_ids or api_names or stage_names or log_groups):
+        return stages
+    kept: list[dict[str, Any]] = []
+    for stage in stages:
+        api_id = str(stage.get("api_id") or "")
+        api_name = str(stage.get("api_name") or "")
+        stage_name = str(stage.get("stage_name") or "")
+        group = str(stage.get("log_group") or "")
+        if api_ids and not matches_any(api_id, api_ids):
+            continue
+        if api_names and not matches_any(api_name, api_names):
+            continue
+        if stage_names and not matches_any(stage_name, stage_names):
+            continue
+        if log_groups and group and not matches_any(group, log_groups):
+            continue
+        if log_groups and not group:
+            continue
+        kept.append(stage)
+    return kept
+
+
+def filter_lambda_log_targets(targets: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
+    names = param_strings(params, "function_names")
+    arns = param_strings(params, "function_arns")
+    log_groups = param_strings(params, "log_group_names")
+    if not (names or arns or log_groups):
+        return targets
+    kept: list[dict[str, Any]] = []
+    for target in targets:
+        name = str(target.get("function_name") or "")
+        arn = str(target.get("function_arn") or "")
+        group = str(target.get("log_group") or "")
+        if names and not matches_any(name, names):
+            continue
+        if arns and not matches_any(arn, arns):
+            continue
+        if log_groups and not matches_any(group, log_groups):
+            continue
+        kept.append(target)
+    return kept
+
+
+def filter_rds_log_targets(instances: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
+    instance_ids = param_strings(params, "db_instance_ids")
+    instance_arns = param_strings(params, "db_instance_arns")
+    log_groups = param_strings(params, "log_group_names")
+    log_types = param_strings(params, "log_types")
+    if not (instance_ids or instance_arns or log_groups or log_types):
+        return instances
+    kept: list[dict[str, Any]] = []
+    for inst in instances:
+        iid = str(inst.get("instance_id") or "")
+        arn = str(inst.get("instance_arn") or "")
+        exports = [str(x) for x in (inst.get("log_exports") or [])]
+        if instance_ids and not matches_any(iid, instance_ids):
+            continue
+        if instance_arns and not matches_any(arn, instance_arns):
+            continue
+        if log_types:
+            if not exports:
+                continue
+            if not any(matches_any(e, log_types) for e in exports):
+                continue
+            inst = {**inst, "log_exports": [e for e in exports if matches_any(e, log_types)]}
+        if log_groups:
+            groups = [
+                _log_group_for_rds_instance(iid, lt)
+                for lt in (inst.get("log_exports") or exports)
+            ]
+            if groups and not any(matches_any(g, log_groups) for g in groups):
+                continue
+        kept.append(inst)
+    return kept
+
+
+def _log_group_for_rds_instance(instance_id: str, log_type: str) -> str:
+    return f"/aws/rds/instance/{instance_id}/{log_type}"
+
+
 def filter_secrets(secrets: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
     return filter_by_name_or_id(
         secrets,
@@ -900,10 +985,6 @@ def gcp_logging_filter_extension(params: dict[str, Any]) -> str:
     if action:
         inner = " OR ".join(f'jsonPayload.connection.disposition="{a.upper()}"' for a in action)
         clauses.append(f"({inner})")
-
-    ext = param_raw(params, "filter_extension")
-    if isinstance(ext, str) and ext.strip():
-        clauses.append(f"({ext.strip()})")
 
     if not clauses:
         return ""

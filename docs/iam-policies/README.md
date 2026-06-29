@@ -6,29 +6,20 @@ other mutating verbs. The CI `readonly-guard` check enforces this against the co
 
 ## How to use
 
-Give the policy to the client's security team to review **before** they run anything. Attach
-it to the role the responder will assume in the client account, or to a dedicated
-`VentraCollector` role.
+Give the policy to the client's security team to review **before** they run anything.
 
 | File | Scope |
 |------|-------|
-| [`aws-collector-readonly.json`](aws-collector-readonly.json) | All Tier 1 + Tier 2 AWS collectors. |
-| [`gcp-collector-readonly.json`](gcp-collector-readonly.json) | All GCP collectors. See [`../gcp-authentication.md`](../gcp-authentication.md) for kit auth. |
-
-For a Tier-1-only engagement you can trim the `VentraTier2ReadOnly` and
-`VentraReadLogObjects` statements.
-
-## Why some `s3:GetObject` is required
-
-CloudTrail, VPC Flow Logs, ELB/CloudFront access logs, and WAF logs are frequently delivered
-to S3 rather than CloudWatch. To collect them, the policy grants `s3:GetObject` /
-`s3:ListBucket` **scoped to common log-bucket name patterns** (`*-logs`, `*cloudtrail*`,
-`*flow-log*`). If the client's log buckets use a different naming convention, edit the
-`VentraReadLogObjects` resource list accordingly — and document the change in the case notes.
+| [`aws-collector-permissions.txt`](aws-collector-permissions.txt) | AWS — collector + read-only actions (send to IAM admin; they assign Resource ARNs). |
+| [`gcp-collector-permissions.txt`](gcp-collector-permissions.txt) | GCP — collector + read-only permissions (they assign project/resource scope). |
+| [`aws-collector-readonly.json`](aws-collector-readonly.json) | AWS reference IAM policy. Labs / quick validation. |
+| [`gcp-collector-readonly.json`](gcp-collector-readonly.json) | GCP reference permission list. |
+| [`azure-collector-readonly.json`](azure-collector-readonly.json) | Azure ARM read-only. |
+| [`azure-collector-graph.json`](azure-collector-graph.json) | Microsoft Graph (Entra). |
+| [`azure-collector-m365.json`](azure-collector-m365.json) | M365 Unified Audit Log search. |
 
 ## Verifying read-only
 
 ```bash
-# Lists every action in the policy and flags any that are not get/list/describe/lookup.
 python -m collector.tools.verify_readonly docs/iam-policies/aws-collector-readonly.json
 ```

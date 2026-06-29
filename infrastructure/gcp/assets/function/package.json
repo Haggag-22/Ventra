@@ -1,0 +1,7 @@
+{
+  "name": "ventralabfunction",
+  "version": "1.0.0",
+  "description": "Ventra lab HTTP function",
+  "main": "index.js",
+  "dependencies": {}
+}

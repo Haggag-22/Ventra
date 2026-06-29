@@ -1,7 +1,25 @@
-project_id = "YOUR-GCP-PROJECT-ID"
+# Copy to terraform.tfvars and fill in your project.
+project_id = "your-gcp-project-id"
+project_number = "123456789012"
 region     = "us-central1"
 zone       = "us-central1-a"
 
-# Optional — SCC org-level (needs Organization Admin):
-# org_id     = "123456789012"
-# enable_scc = true
+# Resource name prefix (letters only, no dashes or numbers).
+# name_prefix = "ventra"
+
+# Email for the Cloud Monitoring notification channel.
+# alert_email = "alerts@example.com"
+
+# -- Cost toggles (all default true except SCC). Turn off what you don't need. --
+# enable_functions        = true   # Cloud Functions Gen2 + (with API Gateway)
+# enable_api_gateway      = true   # needs enable_functions
+# enable_gke              = true   # small zonal GKE cluster (largest cost)
+# enable_cloud_sql        = true   # db-f1-micro Postgres
+# enable_bigquery         = true
+# enable_secret_manager   = true
+# enable_packet_mirroring = true
+
+# -- Organization-scoped (scc_findings). enable_scc defaults true, but the SCC topic and the
+#    scc_findings collector only work once you set your org id (needs Organization Admin). --
+# org_id = "123456789012"
+# enable_scc = true   # already on by default; set org_id above to activate

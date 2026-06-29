@@ -1,0 +1,178 @@
+Ventra AWS collectors — read-only permissions (you assign Resource ARNs)
+
+[Account Context]
+sts:GetCallerIdentity
+iam:ListAccountAliases
+organizations:DescribeOrganization
+ec2:DescribeRegions
+
+[IAM Snapshot]
+iam:GetAccountAuthorizationDetails
+iam:ListUsers
+iam:ListRoles
+iam:ListGroups
+iam:ListPolicies
+iam:ListAttachedUserPolicies
+iam:ListUserPolicies
+iam:GetUserPolicy
+iam:ListAttachedRolePolicies
+iam:ListRolePolicies
+iam:GetRolePolicy
+iam:ListAttachedGroupPolicies
+iam:ListGroupPolicies
+iam:GetGroupPolicy
+iam:ListGroupsForUser
+iam:GetPolicy
+iam:GetPolicyVersion
+iam:GetRole
+iam:ListAccessKeys
+iam:GetAccessKeyLastUsed
+iam:ListMFADevices
+iam:GetAccountPasswordPolicy
+iam:GenerateCredentialReport
+iam:GetCredentialReport
+
+[KMS]
+kms:ListKeys
+kms:DescribeKey
+kms:GetKeyPolicy
+kms:ListGrants
+
+[Secrets Manager]
+secretsmanager:ListSecrets
+secretsmanager:DescribeSecret
+
+[CloudTrail]
+cloudtrail:DescribeTrails
+cloudtrail:GetTrailStatus
+cloudtrail:GetEventSelectors
+cloudtrail:GetInsightSelectors
+cloudtrail:LookupEvents
+s3:ListBucket
+s3:GetObject
+
+[AWS Config]
+config:DescribeConfigurationRecorders
+config:DescribeDeliveryChannels
+config:DescribeComplianceByConfigRule
+
+[Log Posture]
+logs:DescribeLogGroups
+es:ListDomainNames
+es:DescribeDomain
+dynamodb:ListTables
+dynamodb:DescribeTable
+network-firewall:ListFirewalls
+network-firewall:DescribeLoggingConfiguration
+
+[VPC Flow Logs]
+ec2:DescribeFlowLogs
+ec2:DescribeVpcs
+logs:FilterLogEvents
+s3:ListBucket
+s3:GetObject
+
+[ELB/ALB Access Logs]
+elasticloadbalancing:DescribeLoadBalancers
+elasticloadbalancing:DescribeLoadBalancerAttributes
+s3:GetBucketLocation
+s3:ListBucket
+s3:GetObject
+
+[CloudFront Access Logs]
+cloudfront:ListDistributions
+cloudfront:GetDistributionConfig
+s3:GetBucketLocation
+s3:ListBucket
+s3:GetObject
+
+[Route53 Resolver Query Logs]
+route53resolver:ListResolverQueryLogConfigs
+route53resolver:ListResolverQueryLogConfigAssociations
+logs:FilterLogEvents
+s3:GetBucketLocation
+s3:ListBucket
+s3:GetObject
+
+[WAF]
+wafv2:ListWebACLs
+wafv2:GetWebACL
+wafv2:GetLoggingConfiguration
+wafv2:GetSampledRequests
+
+[API Gateway Access Logs]
+apigateway:GET
+logs:FilterLogEvents
+
+[EC2 / EBS]
+ec2:DescribeInstances
+ec2:DescribeInstanceAttribute
+ec2:DescribeVolumes
+ec2:DescribeSnapshots
+ec2:DescribeSnapshotAttribute
+ec2:DescribeNetworkInterfaces
+ec2:DescribeSecurityGroups
+ec2:DescribeImages
+ec2:DescribeLaunchTemplates
+
+[S3]
+s3:ListAllMyBuckets
+s3:GetBucketLocation
+s3:GetBucketPolicy
+s3:GetBucketPolicyStatus
+s3:GetBucketAcl
+s3:GetBucketLogging
+s3:GetBucketPublicAccessBlock
+s3:GetBucketObjectLockConfiguration
+
+[S3 Access Logs]
+s3:ListAllMyBuckets
+s3:GetBucketLogging
+s3:GetBucketLocation
+s3:ListBucket
+s3:GetObject
+
+[Lambda]
+lambda:ListFunctions
+lambda:GetFunction
+lambda:GetPolicy
+
+[Lambda Logs]
+lambda:ListFunctions
+logs:DescribeLogGroups
+logs:FilterLogEvents
+
+[EKS Audit]
+eks:ListClusters
+eks:DescribeCluster
+logs:FilterLogEvents
+
+[RDS Export Logs]
+rds:DescribeDBInstances
+logs:FilterLogEvents
+
+[GuardDuty]
+guardduty:ListDetectors
+guardduty:GetDetector
+guardduty:ListFindings
+guardduty:GetFindings
+guardduty:ListFilters
+guardduty:GetFilter
+
+[Security Hub]
+securityhub:DescribeHub
+securityhub:GetEnabledStandards
+securityhub:GetFindings
+
+[Macie]
+macie2:GetMacieSession
+macie2:ListFindings
+macie2:GetFindings
+
+[Detective]
+detective:ListGraphs
+detective:ListInvestigations
+
+[Inspector]
+inspector2:ListFindings
+inspector2:BatchGetAccountStatus
