@@ -144,7 +144,12 @@ def run_gcp_collection(
         (staging / "collection.log").write_text(json.dumps(collection_log, indent=2), encoding="utf-8")
 
         sign_manifest(staging / "manifest.json", key_path=cfg.key_path)
-        return seal_package(staging, cfg.out_dir, cfg.case_id)
+        return seal_package(
+            staging,
+            cfg.out_dir,
+            cfg.case_id,
+            identity.organization_id or identity.project_id or "",
+        )
 
 
 def _run_one(cls: type, ctx: CollectionContext, log: list[dict]) -> SourceResult:

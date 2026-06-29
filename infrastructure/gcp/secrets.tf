@@ -11,7 +11,7 @@ resource "google_secret_manager_secret" "lab" {
     auto {}
   }
 
-  depends_on = [google_project_service.apis]
+  depends_on = [null_resource.apis_ready]
 }
 
 resource "google_secret_manager_secret_version" "lab" {

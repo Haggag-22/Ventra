@@ -1,0 +1,48 @@
+#!/bin/bash
+# Web VM bootstrap: Ops Agent, nginx, traffic generator timer.
+set -uo pipefail
+
+export DEBIAN_FRONTEND=noninteractive
+export PGPASSWORD="${sql_pass}"
+
+curl -sSO https://dl.google.com/cloudagents/add-google-cloud-ops-agent-repo.sh || true
+bash add-google-cloud-ops-agent-repo.sh --also-install || true
+
+apt-get update -y || true
+apt-get install -y nginx curl dnsutils iputils-ping postgresql-client || true
+
+echo "ventra lab web" >/var/www/html/index.html || true
+systemctl enable nginx || true
+systemctl restart nginx || true
+
+echo '${traffic_script_b64}' | base64 -d >/opt/ventratraffic.sh
+chmod +x /opt/ventratraffic.sh
+
+cat >/etc/systemd/system/ventratraffic.service <<'EOS'
+[Unit]
+Description=Ventra lab traffic generator
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=PGPASSWORD=${sql_pass}
+ExecStart=/opt/ventratraffic.sh
+EOS
+
+cat >/etc/systemd/system/ventratraffic.timer <<'EOS'
+[Unit]
+Description=Run Ventra lab traffic generator every 5 minutes
+
+[Timer]
+OnBootSec=90
+OnUnitActiveSec=300
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+EOS
+
+systemctl daemon-reload || true
+systemctl enable --now ventratraffic.timer || true
+/opt/ventratraffic.sh || true

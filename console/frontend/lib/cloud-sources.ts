@@ -28,7 +28,7 @@ export const FINDING_SOURCES: Record<Cloud, string[]> = {
 export const WEB_SOURCES: Record<Cloud, string[]> = {
   aws: ["elb_alb", "cloudfront", "waf", "route53_resolver"],
   azure: ["app_gateway", "front_door", "dns", "log_analytics"],
-  gcp: ["load_balancer", "api_gateway", "cloud_dns", "cloud_armor"],
+  gcp: ["load_balancer", "cloud_cdn", "api_gateway", "cloud_dns", "cloud_armor"],
 };
 
 export const DATA_ACCESS_SOURCES: Record<Cloud, string[]> = {

@@ -1,4 +1,4 @@
-Ventra GCP collectors — read-only permissions (you assign project/resource scope)
+Ventra GCP collectors read-only permissions
 
 [Project Snapshot]
 resourcemanager.projects.get
@@ -45,6 +45,9 @@ compute.routes.list
 compute.packetMirrorings.list
 
 [Load Balancer Access Logs]
+logging.logEntries.list
+
+[Cloud CDN Access Logs]
 logging.logEntries.list
 
 [API Gateway]

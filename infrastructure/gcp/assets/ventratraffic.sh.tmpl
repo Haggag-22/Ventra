@@ -1,0 +1,127 @@
+#!/bin/bash
+# Ventra lab traffic generator (web VM). Drives collectors via API calls and internal traffic.
+set -uo pipefail
+
+LOG=/var/log/ventratraffic.log
+PROJECT="${project_id}"
+LB_IP="${lb_ip}"
+FN_URI="${fn_uri}"
+APIGW_HOST="${apigw_host}"
+SECRET_ID="${secret_id}"
+BUCKET="${bucket}"
+BQ_DATASET="${bq_dataset}"
+BQ_TABLE="${bq_table}"
+SQL_HOST="${sql_host}"
+SQL_USER="${sql_user}"
+SQL_PASS="${sql_pass}"
+SQL_DB="${sql_db}"
+PRIVATE_IP="${private_ip}"
+WEB_IP="${web_ip}"
+DNS_HOST="${dns_host}"
+GKE_CLUSTER="${gke_cluster}"
+GKE_LOCATION="${gke_location}"
+GCS_OBJECT="${gcs_object}"
+
+log() {
+  echo "$(date -Is) $*" >>"$LOG"
+}
+
+run() {
+  local label=$1
+  shift
+  log "START $label"
+  if "$@" >>"$LOG" 2>&1; then
+    log "OK $label"
+  else
+    log "FAIL $label (exit $?)"
+  fi
+}
+
+get_token() {
+  curl -sf -H "Metadata-Flavor: Google" \
+    "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/token" \
+    | sed -n 's/.*"access_token":"\([^"]*\)".*/\1/p'
+}
+
+TOKEN=$(get_token || true)
+
+# --- cloud_dns ---
+run dns_public host www.google.com
+run dns_private host "$DNS_HOST"
+run dns_private_dig dig +short "$DNS_HOST" @169.254.169.254 || dig +short "$DNS_HOST" || true
+
+# --- load_balancer / firewall_logs / vpc_flow ---
+if [ -n "$LB_IP" ]; then
+  run lb_http curl -sf -m 10 "http://$LB_IP/"
+fi
+
+# --- cloud_functions ---
+if [ -n "$FN_URI" ] && [ -n "$TOKEN" ]; then
+  run cloud_function curl -sf -m 10 -H "Authorization: Bearer $TOKEN" "$FN_URI"
+fi
+
+# --- api_gateway ---
+if [ -n "$APIGW_HOST" ]; then
+  if [ -n "$TOKEN" ]; then
+    run api_gateway curl -sf -m 10 -H "Authorization: Bearer $TOKEN" "https://$APIGW_HOST/hello"
+  else
+    run api_gateway curl -sf -m 10 "https://$APIGW_HOST/hello"
+  fi
+fi
+
+# --- secret_manager ---
+if [ -n "$SECRET_ID" ] && [ -n "$TOKEN" ]; then
+  run secret_manager curl -sf -m 10 \
+    -H "Authorization: Bearer $TOKEN" \
+    "https://secretmanager.googleapis.com/v1/projects/$PROJECT/secrets/$SECRET_ID/versions/latest:access"
+fi
+
+# --- storage_access (list + object read) ---
+if [ -n "$BUCKET" ] && [ -n "$TOKEN" ]; then
+  run storage_list curl -sf -m 10 \
+    -H "Authorization: Bearer $TOKEN" \
+    "https://storage.googleapis.com/storage/v1/b/$BUCKET/o"
+  if [ -n "$GCS_OBJECT" ]; then
+    OBJ_ENC=$(printf '%s' "$GCS_OBJECT" | sed 's|/|%2F|g')
+    run storage_read curl -sf -m 10 \
+      -H "Authorization: Bearer $TOKEN" \
+      "https://storage.googleapis.com/storage/v1/b/$BUCKET/o/$OBJ_ENC?alt=media"
+  fi
+fi
+
+# --- bigquery_audit (query lab table) ---
+if [ -n "$TOKEN" ] && [ -n "$BQ_DATASET" ] && [ -n "$BQ_TABLE" ]; then
+  BQ_QUERY="SELECT id, value FROM \`$PROJECT.$BQ_DATASET.$BQ_TABLE\` LIMIT 5"
+  run bigquery_query curl -sf -m 30 \
+    -H "Authorization: Bearer $TOKEN" \
+    -H "Content-Type: application/json" \
+    -X POST "https://bigquery.googleapis.com/bigquery/v2/projects/$PROJECT/jobs" \
+    -d "{\"configuration\":{\"query\":{\"query\":\"$BQ_QUERY\",\"useLegacySql\":false}}}"
+fi
+
+# --- cloud_sql ---
+if [ -n "$SQL_HOST" ] && [ -n "$SQL_USER" ] && [ -n "$SQL_PASS" ] && [ -n "$SQL_DB" ]; then
+  run cloud_sql psql -h "$SQL_HOST" -U "$SQL_USER" -d "$SQL_DB" -c "SELECT 1 AS ventra_ping;"
+  run cloud_sql_query psql -h "$SQL_HOST" -U "$SQL_USER" -d "$SQL_DB" -c "SELECT now();"
+fi
+
+# --- gke_audit (control-plane API calls) ---
+if [ -n "$TOKEN" ] && [ -n "$GKE_CLUSTER" ] && [ -n "$GKE_LOCATION" ]; then
+  run gke_list curl -sf -m 15 \
+    -H "Authorization: Bearer $TOKEN" \
+    "https://container.googleapis.com/v1/projects/$PROJECT/locations/$GKE_LOCATION/clusters"
+  run gke_get curl -sf -m 15 \
+    -H "Authorization: Bearer $TOKEN" \
+    "https://container.googleapis.com/v1/projects/$PROJECT/locations/$GKE_LOCATION/clusters/$GKE_CLUSTER"
+fi
+
+# --- vm-to-vm internal traffic (vpc_flow / firewall_logs) ---
+if [ -n "$PRIVATE_IP" ]; then
+  run internal_ping ping -c 2 -W 3 "$PRIVATE_IP"
+  run internal_curl curl -sf -m 5 "http://$PRIVATE_IP/" || curl -sf -m 5 "http://$PRIVATE_IP:80/" || true
+fi
+
+# --- cloud_monitoring (CPU alert policy) ---
+run cpu_stress timeout 75s bash -c 'while true; do :; done' || true
+
+log "DONE ventratraffic cycle"

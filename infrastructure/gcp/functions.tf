@@ -85,7 +85,7 @@ resource "google_cloudfunctions2_function" "hello" {
   }
 
   depends_on = [
-    google_project_service.apis,
+    null_resource.apis_ready,
     google_project_iam_member.build_builder,
     google_project_iam_member.build_log_writer,
     google_storage_bucket_iam_member.build_source_reader,

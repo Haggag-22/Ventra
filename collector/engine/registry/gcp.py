@@ -17,6 +17,7 @@ from collector.engine.api.gcp.network.cloud_armor import CloudArmorCollector
 from collector.engine.api.gcp.network.cloud_dns import CloudDnsCollector
 from collector.engine.api.gcp.network.cloud_nat import CloudNatCollector
 from collector.engine.api.gcp.network.firewall_logs import FirewallLogsCollector
+from collector.engine.api.gcp.network.cloud_cdn import CloudCdnCollector
 from collector.engine.api.gcp.network.load_balancer import LoadBalancerCollector
 from collector.engine.api.gcp.network.network_posture import NetworkPostureCollector
 from collector.engine.api.gcp.network.vpc_flow import VpcFlowCollector as GcpVpcFlowCollector
@@ -42,6 +43,7 @@ _COLLECTOR_CLASSES = (
     CloudNatCollector,
     NetworkPostureCollector,
     LoadBalancerCollector,
+    CloudCdnCollector,
     ApiGatewayCollector,
     CloudDnsCollector,
     CloudArmorCollector,

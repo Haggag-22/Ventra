@@ -10,7 +10,7 @@ resource "google_monitoring_notification_channel" "email" {
     email_address = var.alert_email
   }
 
-  depends_on = [google_project_service.apis]
+  depends_on = [null_resource.apis_ready]
 }
 
 resource "google_monitoring_alert_policy" "cpu" {
@@ -33,5 +33,5 @@ resource "google_monitoring_alert_policy" "cpu" {
   }
 
   notification_channels = [google_monitoring_notification_channel.email.id]
-  depends_on            = [google_project_service.apis]
+  depends_on            = [null_resource.apis_ready]
 }

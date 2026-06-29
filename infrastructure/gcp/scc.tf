@@ -9,5 +9,5 @@ resource "google_pubsub_topic" "scc" {
   name    = "${local.name}scc"
   project = var.project_id
 
-  depends_on = [google_project_service.apis]
+  depends_on = [null_resource.apis_ready]
 }

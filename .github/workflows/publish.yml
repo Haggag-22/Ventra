@@ -23,11 +23,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0  # full history + tags so setuptools-scm can resolve the version
+      - uses: astral-sh/setup-uv@v5
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - name: Install
-        run: pip install .[dev] ./ingester[dev] ./console/backend
+        run: uv pip install --system -e ".[dev]" -e "./ingester[dev]" -e ./console/backend
       - name: Read-only guard
         run: |
           python -m collector.tools.verify_readonly --collectors
@@ -47,13 +48,12 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
+      - uses: astral-sh/setup-uv@v5
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
       - name: Build ventra
-        run: |
-          pip install build
-          python -m build
+        run: uv build
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:

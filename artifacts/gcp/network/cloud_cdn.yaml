@@ -1,0 +1,24 @@
+name: GCP.Network.CloudCDN
+aliases:
+- cloud_cdn
+- gcp.cloud_cdn
+cloud: gcp
+category: Network
+description: Cloud CDN cache hit/miss, cache fill, and byte-range request logs from HTTP(S) load balancer access logging.
+version: 1.0.0
+collector: cloud_cdn
+type: cloud_cdn
+required_actions:
+- logging.logEntries.list
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+sources:
+- type: cloud_cdn
+  format: json
+severity: critical
+estimated_volume: medium

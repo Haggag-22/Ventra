@@ -8,7 +8,7 @@ resource "google_storage_bucket" "logs" {
   location                    = var.region
   uniform_bucket_level_access = true
   force_destroy               = true
-  depends_on                  = [google_project_service.apis]
+  depends_on                  = [null_resource.apis_ready]
 }
 
 resource "google_storage_bucket" "app" {
@@ -22,7 +22,7 @@ resource "google_storage_bucket" "app" {
     log_object_prefix = "appaccess"
   }
 
-  depends_on = [google_project_service.apis]
+  depends_on = [null_resource.apis_ready]
 }
 
 resource "google_storage_bucket_object" "sample" {

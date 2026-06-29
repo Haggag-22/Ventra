@@ -2,29 +2,33 @@
 
 This release is published to PyPI as **`ventra==@VERSION@`**.
 
-### AWS CloudShell (recommended)
+### macOS / Linux (recommended)
 
-Review the read-only IAM policy in the repo first:
+```bash
+curl -fsSL https://raw.githubusercontent.com/Haggag-22/Ventra/main/bin/install.sh | bash
+ventra --version
+```
+
+Pin this release:
+
+```bash
+VENTRA_INSTALL_SPEC='ventra==@VERSION@' \
+  bash -c "$(curl -fsSL https://raw.githubusercontent.com/Haggag-22/Ventra/main/bin/install.sh)"
+```
+
+Install from a local wheel:
+
+```bash
+uv tool install --force ./ventra-@VERSION@-py3-none-any.whl
+```
+
+### AWS CloudShell
+
+Review the read-only IAM policy first:
 [`docs/iam-policies/aws-collector-readonly.json`](https://github.com/Haggag-22/Ventra/blob/main/docs/iam-policies/aws-collector-readonly.json)
 
 ```bash
-# Installer — creates ~/.ventra-venv, pip-installs from PyPI, adds ventra to PATH
 curl -fsSL https://raw.githubusercontent.com/Haggag-22/Ventra/main/bin/install-cloudshell.sh | bash
-
-# Pin this release:
-VENTRA_INSTALL_SPEC='ventra==@VERSION@' \
-  bash -c "$(curl -fsSL https://raw.githubusercontent.com/Haggag-22/Ventra/main/bin/install-cloudshell.sh)"
-```
-
-### pip (any environment with Python 3.11+)
-
-```bash
-python3 -m venv ~/.ventra-venv
-source ~/.ventra-venv/bin/activate
-pip install --upgrade pip
-pip install ventra==@VERSION@
-
-ventra --version
 ```
 
 ### Collect evidence
@@ -46,7 +50,7 @@ clone on your IR workstation:
 ```bash
 git clone https://github.com/Haggag-22/Ventra.git
 cd Ventra
-ventra gui
+make install && ventra gui
 ```
 
 Import the sealed package from the Cases screen, or run `ventra-ingest` after installing
@@ -56,7 +60,7 @@ Import the sealed package from the Cases screen, or run `ventra-ingest` after in
 
 ## What's included
 
-- Read-only AWS collector (`ventra collect aws`)
+- Read-only AWS, Azure, and GCP collectors (`ventra collect aws|azure|gcp`)
 - Sealed evidence packages (EPF manifest + SHA-256 per source)
 - Does **not** include the Next.js console frontend (clone the repo for `ventra gui`)
 
