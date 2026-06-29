@@ -19,6 +19,9 @@ import webbrowser
 from argparse import Namespace
 from pathlib import Path
 
+from collector.lib.uv_util import ensure_uv, uv_pip_install, uv_venv
+from collector.lib.uv_util import venv_python as _venv_python_path
+
 _SETUP_MARKER = ".ventra-dev-ready"
 _NPM_MARKER = ".ventra-npm-ready"
 
@@ -68,12 +71,12 @@ def _is_stale(marker: Path, *sources: Path) -> bool:
     return any(src.is_file() and src.stat().st_mtime > baseline for src in sources)
 
 
-def _pip_works(python: Path) -> bool:
+def _venv_ready(python: Path) -> bool:
     if not python.is_file():
         return False
     return (
         subprocess.run(
-            [str(python), "-m", "pip", "--version"],
+            [str(python), "-c", "import uvicorn, ventra_ingester, fastapi"],
             capture_output=True,
         ).returncode
         == 0
@@ -81,25 +84,20 @@ def _pip_works(python: Path) -> bool:
 
 
 def _create_venv(venv_dir: Path) -> Path:
-    """Create a fresh ``.venv`` with a working ``pip``."""
+    """Create a fresh ``.venv`` with uv."""
     py = _find_python311()
+    uv = ensure_uv()
     if venv_dir.is_dir():
         shutil.rmtree(venv_dir)
     print(f"Creating Ventra dev virtualenv (.venv) with {py}…")
-    subprocess.run([py, "-m", "venv", str(venv_dir)], check=True)
-    venv_python = venv_dir / "bin" / "python"
-    if not _pip_works(venv_python):
-        subprocess.run([str(venv_python), "-m", "ensurepip", "--upgrade"], check=True)
-    if not _pip_works(venv_python):
-        print("error: could not bootstrap pip in .venv.", file=sys.stderr)
-        raise SystemExit(1)
-    return venv_python
+    return uv_venv(uv, venv_dir, python=py)
 
 
 def ensure_dev_environment(root: Path, *, force: bool = False) -> Path:
     """Create ``.venv``, install Python + npm deps. Returns the venv Python executable."""
+    uv = ensure_uv()
     venv_dir = root / ".venv"
-    venv_python = venv_dir / "bin" / "python"
+    py_exec = _venv_python_path(venv_dir)
     setup_marker = venv_dir / _SETUP_MARKER
 
     pyproject_files = (
@@ -108,28 +106,23 @@ def ensure_dev_environment(root: Path, *, force: bool = False) -> Path:
         root / "console/backend/pyproject.toml",
     )
 
-    if force or not _pip_works(venv_python):
+    if force or not _venv_ready(py_exec):
         if venv_dir.is_dir() and not force:
             print("Repairing broken Ventra dev virtualenv (.venv)…")
-        venv_python = _create_venv(venv_dir)
+        py_exec = _create_venv(venv_dir)
 
     if force or _is_stale(setup_marker, *pyproject_files):
         print("Installing Python dependencies (collector, ingester, console backend)…")
-        subprocess.run([str(venv_python), "-m", "pip", "install", "--upgrade", "pip"], check=True)
-        subprocess.run(
-            [
-                str(venv_python),
-                "-m",
-                "pip",
-                "install",
-                "-e",
-                f"{root}[dev]",
-                "-e",
-                f"{root / 'ingester'}[dev]",
-                "-e",
-                f"{root / 'console/backend'}",
-            ],
-            check=True,
+        uv_pip_install(
+            uv,
+            py_exec,
+            "-e",
+            f"{root}[dev]",
+            "-e",
+            f"{root / 'ingester'}[dev]",
+            "-e",
+            str(root / "console/backend"),
+            quiet=False,
         )
         setup_marker.touch()
 
@@ -159,7 +152,7 @@ def ensure_dev_environment(root: Path, *, force: bool = False) -> Path:
     (root / "cases").mkdir(parents=True, exist_ok=True)
     (root / ".ventra-uploads").mkdir(parents=True, exist_ok=True)
 
-    return venv_python
+    return py_exec
 
 
 def _port_available(port: int, *, bind_host: str = "127.0.0.1") -> bool:

@@ -37,7 +37,7 @@ resource "google_container_cluster" "lab" {
     enable_components = ["SYSTEM_COMPONENTS"]
   }
 
-  depends_on = [google_project_service.apis]
+  depends_on = [null_resource.apis_ready]
 }
 
 resource "google_container_node_pool" "lab" {

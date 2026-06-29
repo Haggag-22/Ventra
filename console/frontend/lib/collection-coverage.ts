@@ -102,6 +102,7 @@ export const IMPLEMENTED_LOG_COLLECTORS = new Set([
   "login_events",
   "firewall_logs",
   "load_balancer",
+  "cloud_cdn",
   "api_gateway",
   "vm_logs",
   "cloud_functions",

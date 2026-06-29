@@ -9,7 +9,7 @@ resource "google_logging_project_bucket_config" "default" {
   location       = "global"
   bucket_id      = "_Default"
   retention_days = 30
-  depends_on     = [google_project_service.apis]
+  depends_on     = [null_resource.apis_ready]
 }
 
 resource "google_logging_project_sink" "audit" {
@@ -17,7 +17,7 @@ resource "google_logging_project_sink" "audit" {
   destination            = "storage.googleapis.com/${google_storage_bucket.logs.name}"
   filter                 = "logName:\"cloudaudit.googleapis.com\""
   unique_writer_identity = true
-  depends_on             = [google_project_service.apis]
+  depends_on             = [null_resource.apis_ready]
 }
 
 resource "google_logging_project_sink" "vpcflow" {
@@ -25,7 +25,7 @@ resource "google_logging_project_sink" "vpcflow" {
   destination            = "storage.googleapis.com/${google_storage_bucket.logs.name}"
   filter                 = "logName:\"compute.googleapis.com%2Fvpc_flows\""
   unique_writer_identity = true
-  depends_on             = [google_project_service.apis]
+  depends_on             = [null_resource.apis_ready]
 }
 
 resource "google_logging_project_sink" "firewall" {
@@ -33,7 +33,7 @@ resource "google_logging_project_sink" "firewall" {
   destination            = "storage.googleapis.com/${google_storage_bucket.logs.name}"
   filter                 = "logName:\"compute.googleapis.com%2Ffirewall\""
   unique_writer_identity = true
-  depends_on             = [google_project_service.apis]
+  depends_on             = [null_resource.apis_ready]
 }
 
 resource "google_logging_project_sink" "loadbalancer" {
@@ -41,7 +41,7 @@ resource "google_logging_project_sink" "loadbalancer" {
   destination            = "storage.googleapis.com/${google_storage_bucket.logs.name}"
   filter                 = "resource.type=\"http_load_balancer\""
   unique_writer_identity = true
-  depends_on             = [google_project_service.apis]
+  depends_on             = [null_resource.apis_ready]
 }
 
 resource "google_logging_project_sink" "vm" {
@@ -49,7 +49,7 @@ resource "google_logging_project_sink" "vm" {
   destination            = "storage.googleapis.com/${google_storage_bucket.logs.name}"
   filter                 = "resource.type=\"gce_instance\" AND NOT logName:\"compute.googleapis.com%2Fvpc_flows\""
   unique_writer_identity = true
-  depends_on             = [google_project_service.apis]
+  depends_on             = [null_resource.apis_ready]
 }
 
 resource "google_logging_project_sink" "functions" {
@@ -57,7 +57,7 @@ resource "google_logging_project_sink" "functions" {
   destination            = "storage.googleapis.com/${google_storage_bucket.logs.name}"
   filter                 = "resource.type=\"cloud_function\" OR resource.type=\"cloud_run_revision\""
   unique_writer_identity = true
-  depends_on             = [google_project_service.apis]
+  depends_on             = [null_resource.apis_ready]
 }
 
 resource "google_logging_project_sink" "dns" {
@@ -65,7 +65,7 @@ resource "google_logging_project_sink" "dns" {
   destination            = "storage.googleapis.com/${google_storage_bucket.logs.name}"
   filter                 = "resource.type=\"dns_query\""
   unique_writer_identity = true
-  depends_on             = [google_project_service.apis]
+  depends_on             = [null_resource.apis_ready]
 }
 
 resource "google_logging_project_sink" "nat" {
@@ -73,7 +73,7 @@ resource "google_logging_project_sink" "nat" {
   destination            = "storage.googleapis.com/${google_storage_bucket.logs.name}"
   filter                 = "logName:\"compute.googleapis.com%2Fnat_flows\""
   unique_writer_identity = true
-  depends_on             = [google_project_service.apis]
+  depends_on             = [null_resource.apis_ready]
 }
 
 # Each sink's writer identity needs object-create on the logs bucket.

@@ -808,6 +808,20 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
       description: "Backend service names to filter load balancer logging and configuration.",
     },
   ],
+  cloud_cdn: [
+    {
+      key: "url_map_names",
+      label: "URL map names",
+      type: "list",
+      description: "GCP URL map names associated with CDN-enabled HTTP(S) load balancers.",
+    },
+    {
+      key: "backend_service_names",
+      label: "Backend service names",
+      type: "list",
+      description: "Backend service names with Cloud CDN enabled to filter cache request logs.",
+    },
+  ],
   log_analytics: [
     {
       key: "workspace_ids",

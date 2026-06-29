@@ -14,33 +14,9 @@ locals {
 }
 
 
-resource "google_project_service" "apis" {
-  for_each = toset([
-    "compute.googleapis.com",
-    "logging.googleapis.com",
-    "storage.googleapis.com",
-    "cloudfunctions.googleapis.com",
-    "artifactregistry.googleapis.com",
-    "cloudbuild.googleapis.com",
-    "run.googleapis.com",
-    "apigateway.googleapis.com",
-    "servicecontrol.googleapis.com",
-    "servicemanagement.googleapis.com",
-    "iam.googleapis.com",
-    "iamcredentials.googleapis.com",
-    "cloudresourcemanager.googleapis.com",
-    "monitoring.googleapis.com",
-    "securitycenter.googleapis.com",
-    "cloudkms.googleapis.com",
-    "secretmanager.googleapis.com",
-    "sqladmin.googleapis.com",
-    "bigquery.googleapis.com",
-    "container.googleapis.com",
-    "dns.googleapis.com",
-  ])
-  project            = var.project_id
-  service            = each.value
-  disable_on_destroy = false
+# Run ./bootstrap-apis.sh before apply.
+resource "null_resource" "apis_ready" {
+  triggers = { project_id = var.project_id }
 }
 
 # -- Lab service account: enumerated by iam_policy, used by the VMs and the function. --
@@ -48,7 +24,7 @@ resource "google_project_service" "apis" {
 resource "google_service_account" "lab" {
   account_id   = "${local.name}sa"
   display_name = "Ventra lab service account"
-  depends_on   = [google_project_service.apis]
+  depends_on   = [null_resource.apis_ready]
 }
 
 # A user-managed key so iam_policy has key metadata to enumerate. The private key lands
@@ -84,7 +60,6 @@ resource "google_project_iam_custom_role" "collector" {
     "monitoring.alertPolicies.list",
     "resourcemanager.projects.get",
     "resourcemanager.projects.getIamPolicy",
-    "resourcemanager.projects.list",
     "securitycenter.findings.list",
     "securitycenter.sources.list",
   ]
@@ -157,5 +132,5 @@ resource "google_project_iam_audit_config" "lab" {
     log_type = "DATA_WRITE"
   }
 
-  depends_on = [google_project_service.apis]
+  depends_on = [null_resource.apis_ready]
 }

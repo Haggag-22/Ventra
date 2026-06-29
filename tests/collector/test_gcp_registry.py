@@ -17,6 +17,7 @@ EXPECTED = [
     "cloud_nat",
     "network_posture",
     "load_balancer",
+    "cloud_cdn",
     "api_gateway",
     "cloud_dns",
     "cloud_armor",

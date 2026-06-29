@@ -237,6 +237,7 @@ const PANEL_COLLECTORS_GCP: Record<PanelId, PanelCollectorDef> = {
     blurb: "Edge requests, WAF verdicts, and DNS (L7) — what was requested, by whom, with what result.",
     collectors: [
       { id: "load_balancer", note: "Cloud Load Balancing" },
+      { id: "cloud_cdn", note: "Cloud CDN cache request logs" },
       { id: "api_gateway", note: "API Gateway request logs" },
       { id: "cloud_dns", note: "Cloud DNS" },
       { id: "cloud_armor", note: "Cloud Armor WAF" },

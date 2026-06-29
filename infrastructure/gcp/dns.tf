@@ -15,7 +15,7 @@ resource "google_dns_managed_zone" "lab" {
     }
   }
 
-  depends_on = [google_project_service.apis]
+  depends_on = [null_resource.apis_ready]
 }
 
 resource "google_dns_record_set" "host" {
@@ -23,7 +23,7 @@ resource "google_dns_record_set" "host" {
   managed_zone = google_dns_managed_zone.lab.name
   type         = "A"
   ttl          = 300
-  rrdatas      = ["10.60.0.10"]
+  rrdatas      = ["10.60.0.2"]
 }
 
 # Query logging for everything resolving through this VPC.
@@ -35,5 +35,5 @@ resource "google_dns_policy" "lab" {
     network_url = google_compute_network.lab.id
   }
 
-  depends_on = [google_project_service.apis]
+  depends_on = [null_resource.apis_ready]
 }

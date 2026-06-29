@@ -431,6 +431,7 @@ _SEVERITY: dict[str, str] = {
     "login_events": "High",
     "firewall_logs": "Medium",
     "load_balancer": "Medium",
+    "cloud_cdn": "Medium",
     "api_gateway": "Medium",
     "vm_logs": "Medium",
     "cloud_functions": "Medium",
@@ -937,8 +938,19 @@ def _resolve_collectors(requested: str, all_names: list[str], registry) -> list[
     return sorted(wanted, key=lambda n: order.get(n, len(all_names)))
 
 
+def _default_artifacts_root() -> Path:
+    """Bundled wheel catalog, repo checkout, or cwd fallback."""
+    bundled = Path(__file__).resolve().parent / "_artifacts"
+    if bundled.is_dir():
+        return bundled
+    repo = Path(__file__).resolve().parents[1] / "artifacts"
+    if repo.is_dir():
+        return repo
+    return Path("artifacts")
+
+
 def _artifacts_root_from_args(args) -> Path:
-    """Resolve artifact YAML catalog — kit dir, env, or repo default."""
+    """Resolve artifact YAML catalog — kit dir, env, or bundled default."""
     env = os.environ.get("VENTRA_ARTIFACTS_ROOT", "").strip()
     if env:
         return Path(env)
@@ -947,7 +959,7 @@ def _artifacts_root_from_args(args) -> Path:
         kit = Path(acq).resolve().parent / "artifacts"
         if kit.is_dir():
             return kit
-    return Path("artifacts")
+    return _default_artifacts_root()
 
 
 def _collection_plan_label(args, collectors: list[str]) -> str:

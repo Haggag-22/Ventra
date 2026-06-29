@@ -54,8 +54,8 @@ python3 ventra.py --project my-gcp-project --credentials /secure/ventra-sa.json 
 Set `VENTRA_CLOUD` to `aws`, `azure`, or `gcp` before running if you need to override the
 cloud named in `acquisition.yaml`.
 
-The client machine needs network access for `pip install` and cloud API credentials with the
-permissions in `iam/` for the selected artifacts only.
+The client machine needs network access for **uv** (installed automatically on first run) and
+cloud API credentials with the permissions in `iam/` for the selected artifacts only.
 
 ### GCP — before you run
 
@@ -104,6 +104,8 @@ rm -rf .venv
 python3 ventra.py --out ./evidence
 ```
 
+`ventra.py` bootstraps **uv** (if missing), creates `.venv`, and installs the bundled wheel.
+
 ### Bundled ventra wheel (`dist/`)
 
 Every kit from Acquire includes `dist/ventra-*.whl` — the Ventra Python package pinned to
@@ -117,9 +119,15 @@ Install the wheel in the kit venv so collection works **without downloading from
 internet (PyPI)** at run time:
 
 ```bash
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-pip install dist/ventra-*.whl   # offline — no PyPI needed for ventra itself
+python3 ventra.py --out ./ventra-evidence
+```
+
+Or bootstrap manually with uv:
+
+```bash
+uv venv .venv && source .venv/bin/activate
+uv pip install -r requirements.txt
+uv pip install --reinstall --no-deps dist/ventra-*.whl
 python3 ventra.py --out ./ventra-evidence
 ```
 

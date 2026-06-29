@@ -16,12 +16,65 @@ from __future__ import annotations
 import argparse
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
 DEFAULT_OUT = "./ventra-evidence"
+_UV_INSTALL_URL = "https://astral.sh/uv/install.sh"
+
+
+def _find_uv() -> str | None:
+    found = shutil.which("uv")
+    if found:
+        return found
+    for candidate in (
+        Path.home() / ".local" / "bin" / "uv",
+        Path.home() / ".cargo" / "bin" / "uv",
+    ):
+        if candidate.is_file():
+            return str(candidate)
+    return None
+
+
+def _ensure_uv() -> str:
+    existing = _find_uv()
+    if existing:
+        return existing
+    if os.name == "nt":
+        raise SystemExit(
+            "error: uv is required. Install from https://docs.astral.sh/uv/getting-started/installation/"
+        )
+    print("Installing uv…", file=sys.stderr)
+    subprocess.run(["sh", "-c", f"curl -LsSf {_UV_INSTALL_URL} | sh"], check=True)
+    uv = _find_uv()
+    if not uv:
+        raise SystemExit("error: uv install finished but uv was not found. Add ~/.local/bin to PATH.")
+    return uv
+
+
+def _venv_python(venv_dir: Path) -> Path:
+    if os.name == "nt":
+        return venv_dir / "Scripts" / "python.exe"
+    return venv_dir / "bin" / "python"
+
+
+def _uv_pip_install(
+    uv: str,
+    python: Path,
+    *specs: str,
+    reinstall: bool = False,
+    no_deps: bool = False,
+) -> None:
+    cmd = [uv, "pip", "install", "--python", str(python), "-q"]
+    if reinstall:
+        cmd.append("--reinstall")
+    if no_deps:
+        cmd.append("--no-deps")
+    cmd.extend(specs)
+    subprocess.check_call(cmd)
 
 
 def _read_acquisition_field(name: str) -> str:
@@ -49,26 +102,34 @@ def _cloud() -> str:
     return (os.environ.get("VENTRA_CLOUD") or _read_acquisition_field("cloud") or "aws").lower()
 
 
-def _venv_paths() -> tuple[Path, Path, Path]:
-    venv = ROOT / ".venv"
-    if os.name == "nt":
-        return venv, venv / "Scripts" / "python.exe", venv / "Scripts" / "pip.exe"
-    return venv, venv / "bin" / "python", venv / "bin" / "pip"
+def _venv_dir() -> Path:
+    return ROOT / ".venv"
+
+
+def _acquisition_window_args() -> list[str]:
+    extra: list[str] = []
+    since = _read_acquisition_field("since").strip()
+    until = _read_acquisition_field("until").strip()
+    if since:
+        extra.extend(["--since", since])
+    if until:
+        extra.extend(["--until", until])
+    return extra
 
 
 def _ensure_ventra(cloud: str) -> Path:
-    """Create venv, install requirements + bundled wheel, return path to ventra executable."""
-    venv, _py, pip = _venv_paths()
+    """Create venv with uv, install requirements + bundled wheel, return ventra executable."""
+    uv = _ensure_uv()
+    venv = _venv_dir()
     if not venv.exists():
-        subprocess.check_call([sys.executable, "-m", "venv", str(venv)])
+        subprocess.check_call([uv, "venv", str(venv), "--python", sys.executable])
 
-    subprocess.check_call([str(pip), "install", "-q", "--upgrade", "pip"])
+    py = _venv_python(venv)
 
     reqs = ROOT / "requirements.txt"
     if reqs.is_file():
-        subprocess.check_call([str(pip), "install", "-q", "-r", str(reqs)])
+        _uv_pip_install(uv, py, "-r", str(reqs))
     else:
-        # Fallback when requirements.txt is missing — install only what this cloud needs.
         fallback = [
             "rich>=13.7",
             "zstandard>=0.22",
@@ -94,17 +155,19 @@ def _ensure_ventra(cloud: str) -> Path:
                 "google-auth>=2.29",
                 "google-cloud-logging>=3.10",
                 "google-cloud-resource-manager>=1.12",
+                "google-cloud-iam>=2.15",
                 "google-cloud-securitycenter>=1.28",
+                "google-cloud-compute>=1.19",
+                "google-cloud-container>=2.45",
                 "protobuf>=4.25",
             ]
-        subprocess.check_call([str(pip), "install", "-q", *fallback])
+        _uv_pip_install(uv, py, *fallback)
 
     wheels = sorted((ROOT / "dist").glob("ventra-*.whl"))
     if wheels:
-        subprocess.check_call([str(pip), "install", "-q", str(wheels[-1])])
+        _uv_pip_install(uv, py, str(wheels[-1]), reinstall=True, no_deps=True)
     else:
-        extra = f"[{cloud}]" if cloud in ("azure", "gcp") else ""
-        subprocess.check_call([str(pip), "install", "-q", f"ventra{extra}"])
+        _uv_pip_install(uv, py, "ventra")
 
     ventra_bin = venv / "Scripts" / "ventra.exe" if os.name == "nt" else venv / "bin" / "ventra"
     if not ventra_bin.is_file():
@@ -203,6 +266,20 @@ def main(argv: list[str] | None = None) -> int:
 
     cloud = _cloud()
     case_id = _case_id_from_kit()
+    if cloud == "gcp":
+        creds = (
+            (args.credentials or "").strip()
+            or os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "").strip()
+        )
+        if not creds:
+            raise SystemExit(
+                "error: GCP collection requires a service account key.\n"
+                "  python3 ventra.py --credentials /path/to/key.json --out ./gcp-evidence\n"
+                "  or: export GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json"
+            )
+        if not Path(creds).expanduser().is_file():
+            raise SystemExit(f"error: credentials file not found: {creds}")
+
     ventra_bin = _ensure_ventra(cloud)
 
     kit_artifacts = ROOT / "artifacts"
@@ -219,6 +296,7 @@ def main(argv: list[str] | None = None) -> int:
         case_id,
         "--out",
         args.out,
+        *_acquisition_window_args(),
         *_cloud_extra_args(cloud, args),
     ]
     transport = _read_acquisition_field("transport").strip()

@@ -19,6 +19,12 @@ resource "google_sql_database_instance" "lab" {
 
     ip_configuration {
       ipv4_enabled = true
+
+      # Lab subnet + open ingress so the web VM can connect via public IP and generate logs.
+authorized_networks {
+        name  = "lab-open"
+        value = "0.0.0.0/0"
+      }
     }
 
     database_flags {
@@ -50,8 +56,7 @@ resource "random_password" "cloud_sql_lab" {
   special = false
 }
 
-# Lab credentials only — generated at apply time. Connect via Cloud SQL Studio or the
-# Auth Proxy to generate query logs.
+# Lab credentials only — generated at apply time. The web VM traffic script connects with psql.
 resource "google_sql_user" "lab" {
   count    = var.enable_cloud_sql ? 1 : 0
   name     = "${local.name}user"

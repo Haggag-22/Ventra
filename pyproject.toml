@@ -18,10 +18,7 @@ dependencies = [
     "rich>=13.7",
     "zstandard>=0.22",
     "PyYAML>=6.0",
-]
-
-[project.optional-dependencies]
-gcp = [
+    # GCP collectors
     "google-cloud-logging>=3.10",
     "google-cloud-resource-manager>=1.12",
     "google-cloud-iam>=2.15",
@@ -31,9 +28,7 @@ gcp = [
     "google-auth>=2.29",
     "google-api-core>=2.19",
     "protobuf>=4.25",
-]
-azure = [
-    "requests>=2.31",
+    # Azure collectors
     "azure-identity>=1.16",
     "azure-mgmt-resource>=23.0",
     "azure-mgmt-resource-subscriptions>=1.0.0b2",
@@ -43,6 +38,11 @@ azure = [
     "azure-mgmt-authorization>=4.0",
     "azure-storage-blob>=12.19",
 ]
+
+[project.optional-dependencies]
+# Backward compatible — cloud SDKs are now in the base install.
+gcp = []
+azure = []
 console = [
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
@@ -57,28 +57,10 @@ dev = [
     "moto>=5.0",
     "ruff>=0.4",
     "mypy>=1.10",
-    "google-cloud-logging>=3.10",
-    "google-cloud-resource-manager>=1.12",
-    "google-cloud-iam>=2.15",
-    "google-cloud-securitycenter>=1.28",
-    "google-cloud-compute>=1.19",
-    "google-cloud-container>=2.45",
-    "google-auth>=2.29",
-    "google-api-core>=2.19",
-    "protobuf>=4.25",
-    "azure-identity>=1.16",
-    "azure-mgmt-resource>=23.0",
-    "azure-mgmt-resource-subscriptions>=1.0.0b2",
-    "azure-mgmt-monitor>=6.0",
-    "azure-mgmt-network>=25.0",
-    "azure-mgmt-security>=7.0",
-    "azure-mgmt-authorization>=4.0",
-    "azure-storage-blob>=12.19",
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
     "duckdb>=0.10",
     "pyarrow>=15.0",
-    "PyYAML>=6.0",
     "pydantic>=2.6",
     "python-multipart>=0.0.9",
 ]
@@ -92,6 +74,12 @@ where = ["."]
 include = ["collector*"]
 namespaces = true
 
+[tool.setuptools.cmdclass]
+build_py = "collector._packaging_hooks.BuildPyWithArtifacts"
+
+[tool.setuptools.package-data]
+collector = ["_artifacts/**/*.yaml", "_artifacts/**/*.yml"]
+
 # Version is derived from git tags — no version string to hand-edit. A tag `vX.Y.Z` builds
 # exactly X.Y.Z (these are what get published to PyPI). A working tree or a git install between
 # tags builds a dev version like `X.Y.(Z+1).devN+g<hash>` — the +g<hash> tells you the exact
@@ -99,6 +87,9 @@ namespaces = true
 # `fallback_version` is only used when building from a source tree with no git metadata.
 [tool.setuptools_scm]
 fallback_version = "0.0.0"
+
+[tool.uv]
+required-version = ">=0.4"
 
 [tool.ruff]
 line-length = 110

@@ -8,12 +8,14 @@ Recommended when a responder runs the kit on a **jump host or local machine** wi
 
 ```bash
 unzip ventra-kit-*.zip -d ventra-kit && cd ventra-kit
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt
-# If dist/ventra-*.whl is present:
-pip install dist/ventra-*.whl
-# AWS example:
 python3 ventra.py --profile ir-readonly --out ./ventra-evidence
+```
+
+Or install Ventra globally with uv first:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Haggag-22/Ventra/main/bin/install.sh | bash
+ventra collect aws --acquisition ./acquisition.yaml --out ./ventra-evidence
 ```
 
 4. Transfer the sealed `.tar.zst` to the analyst console via your secure evidence channel.
@@ -44,7 +46,7 @@ python3 ventra.py --profile ir-readonly --out ./ventra-evidence
 
 **Other**
 
-- Requires Python 3.11+ and either network access for `pip` or the bundled wheel in `dist/`.
+- Requires Python 3.11+ and either network access for **uv** or the bundled wheel in `dist/`.
 - Operator must configure the correct AWS profile, `az login`, or GCP Application Default Credentials.
 
 **When to switch profile:** Use **EC2 / VM** for multi-hour or multi-TB pulls; use **Cloud Shell** when the client cannot install anything locally but can upload a zip to the console.
