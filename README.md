@@ -180,28 +180,41 @@ workflows (Elastic NDJSON export and Logstash pipelines under `ingester/pipeline
 ### Requirements
 
 - **Python 3.11+**
+- **[uv](https://docs.astral.sh/uv/)** — package manager for install, dev, and releases
 - **AWS:** credentials with the read only collector policy attached (CloudShell works out of the box)
 - **Azure:** `az login`
 - **GCP:** Application default credentials or a service account JSON key
-- **Console:** Node.js 18+ (installed automatically by `ventra gui`); add `ventra[console]` for backend deps if not using `ventra[dev]`
+- **Console:** Node.js 18+ (installed automatically by `ventra gui`); for a global install without a clone, `uv tool install 'ventra[console]'`
 
 ### Install
 
-Ventra uses **[uv](https://docs.astral.sh/uv/)** for installs (not pip). AWS, Azure, and GCP
-collectors are included in the base package.
+Ventra uses **uv** (not pip). AWS, Azure, and GCP collectors are included in the base package.
 
 **Client / IR workstation (macOS or Linux):**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/Haggag-22/Ventra/main/bin/install.sh | bash
+curl -fsSL https://astral.sh/uv/install.sh | sh
+uv tool install ventra
 ventra --version
+```
+
+Or use the installer script (installs uv if needed, then `uv tool install ventra`):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Haggag-22/Ventra/main/bin/install.sh | bash
+```
+
+**Upgrade to the latest PyPI release:**
+
+```bash
+uv tool upgrade ventra
 ```
 
 **Pin a release or install from a wheel:**
 
 ```bash
-VENTRA_INSTALL_SPEC='ventra==0.5.0' bash -c "$(curl -fsSL .../bin/install.sh)"
-uv tool install --force ./ventra-0.5.0-py3-none-any.whl
+uv tool install ventra==1.0.0
+uv tool install --force ./ventra-1.0.0-py3-none-any.whl
 ```
 
 **AWS CloudShell:**
@@ -215,8 +228,37 @@ curl -fsSL https://raw.githubusercontent.com/Haggag-22/Ventra/main/bin/install-c
 ```bash
 git clone https://github.com/Haggag-22/Ventra.git
 cd Ventra
-make install    # uv pip install -e ".[dev]" ...
-ventra gui
+uv sync
+uv run ventra gui
+```
+
+### Development (local clone)
+
+After cloning, run **`uv sync` once** (or again when dependencies change). It creates `.venv/`,
+installs locked deps from `uv.lock`, and links the collector, ingester, and console backend
+editable.
+
+| You changed… | What to run |
+|--------------|-------------|
+| Python source under `collector/`, `ingester/`, `console/backend/` | **Nothing** — edits are live via editable install; use `uv run ventra …` |
+| `pyproject.toml` or `uv.lock` (new/updated packages) | **`uv sync`** |
+| Fresh clone or deleted `.venv/` | **`uv sync`** |
+
+Day-to-day commands:
+
+```bash
+uv sync                              # first time, or after dependency changes
+uv run ventra collect aws --case TEST-001 --out ~/ventra-evidence --no-ingest
+uv run ventra gui
+uv build                             # optional: build a wheel locally
+```
+
+**Releasing to PyPI** (clients then run `uv tool upgrade ventra`): tag the commit — version comes
+from git, not from `pyproject.toml`. See [`RELEASING.md`](RELEASING.md).
+
+```bash
+git tag v1.0.0
+git push origin v1.0.0
 ```
 
 ### AWS CloudShell (recommended for client side collection)

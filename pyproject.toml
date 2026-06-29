@@ -11,6 +11,17 @@ requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
 authors = [{ name = "Ventra contributors" }]
 keywords = ["dfir", "incident-response", "aws", "forensics", "cloud"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Environment :: Console",
+    "Intended Audience :: Information Technology",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Security",
+]
 dependencies = [
     "boto3>=1.34",
     "botocore>=1.34",
@@ -40,23 +51,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Backward compatible — cloud SDKs are now in the base install.
+# Backward compatible — cloud SDKs ship in the base install.
 gcp = []
 azure = []
 console = [
-    "fastapi>=0.110",
-    "uvicorn[standard]>=0.29",
-    "duckdb>=0.10",
-    "pyarrow>=15.0",
-    "PyYAML>=6.0",
-    "pydantic>=2.6",
-    "python-multipart>=0.0.9",
-]
-dev = [
-    "pytest>=8.0",
-    "moto>=5.0",
-    "ruff>=0.4",
-    "mypy>=1.10",
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
     "duckdb>=0.10",
@@ -68,6 +66,40 @@ dev = [
 [project.scripts]
 ventra = "collector.cli:main"
 ventra-collect = "collector.cli:main_legacy"
+
+[project.urls]
+Homepage = "https://github.com/Haggag-22/Ventra"
+Documentation = "https://github.com/Haggag-22/Ventra#readme"
+Repository = "https://github.com/Haggag-22/Ventra"
+Issues = "https://github.com/Haggag-22/Ventra/issues"
+
+[dependency-groups]
+dev = [
+    "pytest>=8.0",
+    "moto>=5.0",
+    "ruff>=0.4",
+    "mypy>=1.10",
+    "httpx>=0.27",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "duckdb>=0.10",
+    "pyarrow>=15.0",
+    "pydantic>=2.6",
+    "python-multipart>=0.0.9",
+    "ventra-ingester",
+    "ventra-console-backend",
+]
+
+[tool.uv]
+required-version = ">=0.4"
+default-groups = ["dev"]
+
+[tool.uv.workspace]
+members = ["ingester", "console/backend"]
+
+[tool.uv.sources]
+ventra-ingester = { workspace = true }
+ventra-console-backend = { workspace = true }
 
 [tool.setuptools.packages.find]
 where = ["."]
@@ -87,9 +119,6 @@ collector = ["_artifacts/**/*.yaml", "_artifacts/**/*.yml"]
 # `fallback_version` is only used when building from a source tree with no git metadata.
 [tool.setuptools_scm]
 fallback_version = "0.0.0"
-
-[tool.uv]
-required-version = ">=0.4"
 
 [tool.ruff]
 line-length = 110
