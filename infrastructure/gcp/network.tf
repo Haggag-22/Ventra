@@ -6,7 +6,7 @@
 resource "google_compute_network" "lab" {
   name                    = "${local.name}vpc"
   auto_create_subnetworks = false
-  depends_on              = [google_project_service.apis]
+  depends_on              = [null_resource.apis_ready]
 }
 
 resource "google_compute_subnetwork" "lab" {
@@ -167,7 +167,8 @@ resource "google_compute_region_backend_service" "mirror" {
   health_checks         = [google_compute_region_health_check.mirror[0].id]
 
   backend {
-    group = google_compute_instance_group.web.self_link
+    group          = google_compute_instance_group.mirror_collector[0].self_link
+    balancing_mode = "CONNECTION"
   }
 }
 
@@ -197,7 +198,7 @@ resource "google_compute_packet_mirroring" "lab" {
   }
 
   # Mirror by tag (the private VM) rather than the whole subnet, so the collector instances
-  # (the web instance group) are never also a mirrored source — GCP rejects that overlap.
+  # (the mirror collector instance group) are never also a mirrored source — GCP rejects that overlap.
   mirrored_resources {
     tags = ["mirrored"]
   }

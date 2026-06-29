@@ -49,8 +49,10 @@ _KIT_CLOUD_REQUIREMENTS: dict[str, list[str]] = {
     "gcp": [
         "google-cloud-logging>=3.10",
         "google-cloud-resource-manager>=1.12",
+        "google-cloud-iam>=2.15",
         "google-cloud-securitycenter>=1.28",
         "google-cloud-compute>=1.19",
+        "google-cloud-container>=2.45",
         "google-auth>=2.29",
         "google-api-core>=2.19",
         "protobuf>=4.25",
@@ -308,9 +310,9 @@ def _bundle_wheel(staging: Path, *, required: bool = False) -> None:
         "# Ventra install\n\n"
         "No bundled wheel was produced. From a machine with network access:\n\n"
         "```bash\n"
-        "python3 -m venv .venv && source .venv/bin/activate\n"
-        f"pip install ventra=={version}\n"
-        "# or from source: pip install -e /path/to/Ventra\n"
+        "curl -LsSf https://astral.sh/uv/install.sh | sh\n"
+        "uv tool install ventra\n"
+        "# or from source: uv pip install -e /path/to/Ventra\n"
         "```\n",
         encoding="utf-8",
     )

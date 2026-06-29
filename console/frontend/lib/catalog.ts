@@ -167,6 +167,7 @@ const GCP: CatalogGroup[] = [
       { id: "cloud_nat", label: "Cloud NAT Logs", description: "" },
       { id: "firewall_logs", label: "Firewall Rules Logging", description: "" },
       { id: "load_balancer", label: "Load Balancer Access Logs", description: "" },
+      { id: "cloud_cdn", label: "Cloud CDN Access Logs", description: "" },
       { id: "network_posture", label: "Network Posture", description: "" },
       { id: "vpc_flow", label: "VPC Flow Logs", description: "" },
     ],

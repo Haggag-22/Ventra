@@ -12,7 +12,7 @@ resource "google_api_gateway_api" "lab" {
   count    = local.apigw_enabled ? 1 : 0
   api_id   = "${local.name}api"
 
-  depends_on = [google_project_service.apis]
+  depends_on = [null_resource.apis_ready]
 }
 
 resource "google_api_gateway_api_config" "lab" {
@@ -66,5 +66,5 @@ resource "google_api_gateway_gateway" "lab" {
   gateway_id = "${local.name}gateway"
   region     = var.region
 
-  depends_on = [google_project_service.apis]
+  depends_on = [null_resource.apis_ready]
 }

@@ -1,5 +1,5 @@
 {
-  "title": "Ventra GCP Collector — Read-Only IAM Policy",
+  "title": "Ventra GCP Collector \u2014 Read-Only IAM Policy",
   "description": "Minimum permissions for Ventra GCP collectors. Attach to a custom role or use as a reference for client security review.",
   "permissions": [
     "compute.disks.list",
@@ -21,7 +21,6 @@
     "logging.sinks.list",
     "resourcemanager.projects.get",
     "resourcemanager.projects.getIamPolicy",
-    "resourcemanager.projects.list",
     "securitycenter.findings.list",
     "securitycenter.sources.list"
   ]

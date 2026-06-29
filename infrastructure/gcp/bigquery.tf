@@ -9,7 +9,7 @@ resource "google_bigquery_dataset" "lab" {
   friendly_name              = "Ventra lab dataset"
   location                   = var.region
   delete_contents_on_destroy = true
-  depends_on                 = [google_project_service.apis]
+  depends_on                 = [null_resource.apis_ready]
 }
 
 resource "google_bigquery_table" "lab" {

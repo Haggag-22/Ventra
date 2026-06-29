@@ -181,33 +181,42 @@ workflows (Elastic NDJSON export and Logstash pipelines under `ingester/pipeline
 
 - **Python 3.11+**
 - **AWS:** credentials with the read only collector policy attached (CloudShell works out of the box)
-- **Azure:** `az login` and `pip install 'ventra[azure]'` (or `ventra[dev]` from a clone)
-- **GCP:** Application default credentials or a service account; `pip install 'ventra[gcp]'` or `ventra[dev]`
-- **Console:** Node.js 18+ (installed automatically by `ventra gui`)
+- **Azure:** `az login`
+- **GCP:** Application default credentials or a service account JSON key
+- **Console:** Node.js 18+ (installed automatically by `ventra gui`); add `ventra[console]` for backend deps if not using `ventra[dev]`
 
 ### Install
 
-From PyPI:
+Ventra uses **[uv](https://docs.astral.sh/uv/)** for installs (not pip). AWS, Azure, and GCP
+collectors are included in the base package.
+
+**Client / IR workstation (macOS or Linux):**
 
 ```bash
-pip install ventra
-
-# Azure collectors
-pip install 'ventra[azure]'
-
-# GCP collectors
-pip install 'ventra[gcp]'
-
-# Full development / console stack
-pip install 'ventra[dev]'
+curl -fsSL https://raw.githubusercontent.com/Haggag-22/Ventra/main/bin/install.sh | bash
+ventra --version
 ```
 
-From a repository clone:
+**Pin a release or install from a wheel:**
+
+```bash
+VENTRA_INSTALL_SPEC='ventra==0.5.0' bash -c "$(curl -fsSL .../bin/install.sh)"
+uv tool install --force ./ventra-0.5.0-py3-none-any.whl
+```
+
+**AWS CloudShell:**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/Haggag-22/Ventra/main/bin/install-cloudshell.sh | bash
+```
+
+**From a repository clone (development):**
 
 ```bash
 git clone https://github.com/Haggag-22/Ventra.git
 cd Ventra
-pip install -e '.[dev]'
+make install    # uv pip install -e ".[dev]" ...
+ventra gui
 ```
 
 ### AWS CloudShell (recommended for client side collection)

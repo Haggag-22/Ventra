@@ -1,0 +1,58 @@
+#!/bin/bash
+# Ventra lab egress generator (private VM). Drives NAT, DNS, internal, and mirrored traffic.
+set -uo pipefail
+
+LOG=/var/log/ventraegress.log
+LB_IP="${lb_ip}"
+WEB_IP="${web_ip}"
+DNS_HOST="${dns_host}"
+PRIVATE_IP="${private_ip}"
+
+log() {
+  echo "$(date -Is) $*" >>"$LOG"
+}
+
+run() {
+  local label=$1
+  shift
+  log "START $label"
+  if "$@" >>"$LOG" 2>&1; then
+    log "OK $label"
+  else
+    log "FAIL $label (exit $?)"
+  fi
+}
+
+# --- cloud_dns (public + private zone) ---
+run dns_public host www.google.com
+run dns_public_dig dig +short www.google.com
+run dns_private host "$DNS_HOST"
+run dns_private_dig dig +short "$DNS_HOST"
+
+# --- cloud_nat / egress ---
+run nat_https curl -sf -m 10 https://www.google.com
+run nat_http curl -sf -m 10 http://example.com
+run nat_dns_egress curl -sf -m 10 https://cloud.google.com
+
+# --- load_balancer (via NAT egress) ---
+if [ -n "$LB_IP" ]; then
+  run lb_http curl -sf -m 10 "http://$LB_IP/"
+fi
+
+# --- vm-to-vm internal (vpc_flow / firewall_logs / packet mirroring) ---
+if [ -n "$WEB_IP" ]; then
+  run internal_ping ping -c 3 -W 3 "$WEB_IP"
+  run internal_http curl -sf -m 10 "http://$WEB_IP/"
+  run internal_https curl -sf -m 10 -k "https://$WEB_IP/" || true
+fi
+
+# Extra TCP probes for flow/mirror visibility
+if [ -n "$WEB_IP" ]; then
+  run internal_nc bash -c "echo GET / HTTP/1.0 | timeout 5 nc -w 3 $WEB_IP 80" || true
+fi
+
+# Self-reference sanity (private VM metadata path)
+run metadata curl -sf -H "Metadata-Flavor: Google" \
+  "http://metadata.google.internal/computeMetadata/v1/instance/network-interfaces/0/ip"
+
+log "DONE ventraegress cycle (private=$PRIVATE_IP web=$WEB_IP)"

@@ -34,35 +34,78 @@ class GcpIdentity:
     organization_name: str = ""
 
 
+def _enum_name(value: Any) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value
+    name = getattr(value, "name", None)
+    if isinstance(name, str):
+        return name
+    return str(value)
+
+
+def _mapping_to_dict(value: Any) -> dict[str, Any]:
+    if value is None:
+        return {}
+    if isinstance(value, dict):
+        return dict(value)
+    if hasattr(value, "items"):
+        try:
+            return dict(value)
+        except TypeError:
+            pass
+    try:
+        from google.protobuf.json_format import MessageToDict
+
+        if hasattr(value, "_pb"):
+            return MessageToDict(value._pb, preserving_proto_field_name=False)
+        return MessageToDict(value, preserving_proto_field_name=False)
+    except Exception:
+        pass
+    try:
+        return dict(value)
+    except (TypeError, ValueError):
+        return {}
+
+
 def _entry_to_dict(entry: logging_v2.LogEntry) -> dict[str, Any]:
+    if hasattr(entry, "to_api_repr"):
+        try:
+            api = entry.to_api_repr()
+            if isinstance(api, dict):
+                return api
+        except Exception:
+            pass
     payload = entry.payload
     if hasattr(payload, "items"):
-        payload = dict(payload)
+        try:
+            payload = dict(payload)
+        except TypeError:
+            payload = _mapping_to_dict(payload)
     elif payload is not None and not isinstance(payload, (dict, list, str, int, float, bool)):
-        payload = str(payload)
+        payload = _mapping_to_dict(payload) if hasattr(payload, "DESCRIPTOR") else str(payload)
+    resource = entry.resource
     out: dict[str, Any] = {
         "logName": entry.log_name,
         "timestamp": entry.timestamp.isoformat() if entry.timestamp else "",
-        "severity": entry.severity.name if entry.severity else "",
+        "severity": _enum_name(entry.severity),
         "insertId": entry.insert_id,
         "resource": {
-            "type": entry.resource.type if entry.resource else "",
-            "labels": dict(entry.resource.labels) if entry.resource else {},
+            "type": resource.type if resource else "",
+            "labels": _mapping_to_dict(resource.labels if resource else None),
         },
-        "labels": dict(entry.labels),
+        "labels": _mapping_to_dict(entry.labels),
         "payload": payload,
     }
     if entry.proto_payload:
-        try:
-            from google.protobuf.json_format import MessageToDict
-
-            out["protoPayload"] = MessageToDict(entry.proto_payload)
-        except Exception:
-            out["protoPayload"] = str(entry.proto_payload)
+        out["protoPayload"] = _mapping_to_dict(entry.proto_payload) or {
+            "_raw": str(entry.proto_payload)
+        }
     if entry.text_payload:
         out["textPayload"] = entry.text_payload
     if entry.json_payload:
-        out["jsonPayload"] = dict(entry.json_payload)
+        out["jsonPayload"] = _mapping_to_dict(entry.json_payload)
     return out
 
 
@@ -219,7 +262,11 @@ class GcpClientFactory:
 
                     yield MessageToDict(f._pb)  # type: ignore[attr-defined]
                 except Exception:
-                    yield {"name": f.name, "category": f.category, "severity": f.severity.name}
+                    yield {
+                        "name": f.name,
+                        "category": f.category,
+                        "severity": _enum_name(f.severity),
+                    }
                 count += 1
                 if count >= max_records:
                     break

@@ -42,7 +42,8 @@ resource "google_compute_backend_service" "web" {
   security_policy       = google_compute_security_policy.armor.id
 
   backend {
-    group = google_compute_instance_group.web.self_link
+    group          = google_compute_instance_group.web.self_link
+    balancing_mode = "UTILIZATION"
   }
 
   log_config {

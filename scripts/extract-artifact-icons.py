@@ -75,6 +75,7 @@ GCP = {
     "firewall_logs": ("firewall logs", "png-512/Cloud-Firewall-Rules.png"),
     "iam_policy": ("iam policy", "png-512/Identity-and-Access-Management.png"),
     "load_balancer": ("load balancer access logs", "png-512/Cloud-Load-Balancing.png"),
+    "cloud_cdn": ("cloud cdn access logs", "png-512/Cloud-CDN.png"),
     "login_events": ("login events", "png-512/Cloud-Logging.png"),
     "project": ("project", "png-512/Cloud-Resource-Manager.png"),
     "scc_findings": ("scc findings", "png-512/Security-Command-Center.png"),
