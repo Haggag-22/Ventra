@@ -25,7 +25,7 @@ help:
 	@echo "  make clean-pycache    Remove all __pycache__ folders locally"
 
 install:
-	$(UV) pip install -e ".[dev]" -e "./ingester[dev]" -e ./console/backend
+	$(UV) sync
 
 dev-setup: install clean-pycache ensure-no-pycache install-hooks
 	mkdir -p cases .ventra-uploads

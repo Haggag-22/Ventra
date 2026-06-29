@@ -9,6 +9,7 @@ description = "Ventra analyst console backend — a thin query layer over the ca
 readme = "README.md"
 requires-python = ">=3.11"
 license = { text = "Apache-2.0" }
+authors = [{ name = "Ventra contributors" }]
 dependencies = [
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",
@@ -19,11 +20,12 @@ dependencies = [
     "ventra",
 ]
 
-[project.optional-dependencies]
-dev = ["pytest>=8.0", "httpx>=0.27", "ruff>=0.4"]
-
 [project.scripts]
 ventra-console = "app.main:run"
+
+[tool.uv.sources]
+ventra = { workspace = true }
+ventra-ingester = { workspace = true }
 
 [tool.setuptools.packages.find]
 where = ["."]
