@@ -35,7 +35,7 @@ resource "google_sql_database_instance" "lab" {
     }
   }
 
-  depends_on = [google_project_service.apis]
+  depends_on = [null_resource.apis_ready]
 }
 
 resource "google_sql_database" "lab" {
@@ -44,11 +44,17 @@ resource "google_sql_database" "lab" {
   instance = google_sql_database_instance.lab[0].name
 }
 
-# Lab credentials only — change or destroy with the lab. Connect via Cloud SQL Studio or the
+resource "random_password" "cloud_sql_lab" {
+  count   = var.enable_cloud_sql ? 1 : 0
+  length  = 24
+  special = false
+}
+
+# Lab credentials only — generated at apply time. Connect via Cloud SQL Studio or the
 # Auth Proxy to generate query logs.
 resource "google_sql_user" "lab" {
   count    = var.enable_cloud_sql ? 1 : 0
   name     = "${local.name}user"
   instance = google_sql_database_instance.lab[0].name
-  password = "ventralabpassword"
+  password = random_password.cloud_sql_lab[0].result
 }

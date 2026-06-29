@@ -43,7 +43,7 @@ def test_azure_auth_from_args_falls_back_to_env(monkeypatch) -> None:
 def test_azure_subscription_from_args(monkeypatch) -> None:
     monkeypatch.delenv("AZURE_SUBSCRIPTION_ID", raising=False)
     args = argparse.Namespace(subscription="aaa,bbb")
-    assert _azure_subscription_from_args(args) == "aaa,bbb"
+    assert _azure_subscription_from_args(args, None) == "aaa,bbb"
     monkeypatch.setenv("AZURE_SUBSCRIPTION_ID", "from-env")
     args = argparse.Namespace(subscription="")
-    assert _azure_subscription_from_args(args) == "from-env"
+    assert _azure_subscription_from_args(args, None) == "from-env"
