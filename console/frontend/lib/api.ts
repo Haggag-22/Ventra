@@ -191,6 +191,8 @@ export async function exportCaseElastic(caseId: string): Promise<void> {
   URL.revokeObjectURL(url);
 }
 
+import type { GcpLogBackendConfig } from "./gcp-log-backend";
+
 export type AcquisitionBuild = {
   cloud: string;
   case_id: string;
@@ -209,6 +211,7 @@ export type AcquisitionBuild = {
   artifact_parameters?: Record<string, Record<string, unknown>>;
   deployment_profile?: string;
   transport?: string;
+  gcp_log_backend?: GcpLogBackendConfig;
   bundle_wheel?: boolean;
   require_wheel?: boolean;
 };

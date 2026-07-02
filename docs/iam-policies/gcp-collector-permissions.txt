@@ -93,3 +93,15 @@ securitycenter.findings.list
 [Cloud Monitoring]
 logging.logEntries.list
 monitoring.alertPolicies.list
+
+[Log collection — BigQuery Export backend]
+bigquery.jobs.create
+bigquery.datasets.get
+bigquery.tables.get
+bigquery.tables.getData
+bigquery.tables.list
+
+[Log collection — Cloud Storage Archive backend]
+storage.buckets.get
+storage.objects.get
+storage.objects.list

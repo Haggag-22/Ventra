@@ -43,11 +43,15 @@ TRAIL_CATEGORY_SQL = (
 # HTTP status embedded in access-log messages (`GET /path → 404 (resource)`).
 HTTP_STATUS_SQL = "regexp_extract(message, '→ ([0-9]{3})', 1)"
 
-# S3 server access logs + CloudTrail S3 object-level data events.
+# S3 server access logs + CloudTrail S3 object-level data events + GCP data-access subset
+# streams (storage/bigquery/sql/secrets — reclassified at ingest from the shared
+# cloud_audit_data table when dedup folded them into it; see gcp_audit.py's
+# _SERVICE_TO_SUBSET).
 DATA_ACCESS_SCOPE = (
     "(ventra_source='s3_access' OR (ventra_source='cloudtrail' "
     "AND json_extract_string(raw, '$.eventCategory')='Data' "
-    "AND json_extract_string(raw, '$.eventSource')='s3.amazonaws.com'))"
+    "AND json_extract_string(raw, '$.eventSource')='s3.amazonaws.com') "
+    "OR ventra_source IN ('storage_access', 'bigquery_audit', 'cloud_sql', 'secret_manager'))"
 )
 
 DATA_ACCESS_PRINCIPAL_SQL = "COALESCE(NULLIF(user_arn,''), NULLIF(user_name,''), '')"
@@ -82,7 +86,11 @@ FINDING_CLASS_SQL = (
     "ELSE 'Other' END"
 )
 
-NETWORK_SOURCES = "ventra_source IN ('vpc_flow', 'nsg_flow', 'vnet_flow', 'azure_firewall')"
+# vpc_flow is shared verbatim between AWS and GCP normalizers (same collector id).
+NETWORK_SOURCES = (
+    "ventra_source IN ('vpc_flow', 'nsg_flow', 'vnet_flow', 'azure_firewall', "
+    "'firewall_logs', 'cloud_nat')"
+)
 
 # VPC / VNet scope on network events — collector tags, raw fields, or related_resource.
 NETWORK_VPC_ID_SQL = (
@@ -874,10 +882,13 @@ class CaseStore:
         }
 
     def web_dns_overview(self, case_id: str) -> dict[str, Any]:
-        """L7 edge (ELB/ALB + CloudFront), WAF, and DNS aggregations for the Web & DNS panel."""
+        """L7 edge (ELB/ALB + CloudFront + GCP LB/CDN/API Gateway), WAF, and DNS for Web & DNS."""
         path = self._events_path(case_id)
         con = self._connect()
-        edge = "ventra_source IN ('elb_alb', 'cloudfront')"
+        # api_gateway rows carry no HTTP status in `message` (still normalized via the audit
+        # path), so they count toward totals/by-source/methods but won't populate
+        # edge_status/edge_paths below — acceptable partial coverage.
+        edge = "ventra_source IN ('elb_alb', 'cloudfront', 'load_balancer', 'cloud_cdn', 'api_gateway')"
         fail = "sum(CASE WHEN event_outcome='failure' THEN 1 ELSE 0 END)"
         try:
             events = self._events_table(con, path)
@@ -932,37 +943,42 @@ class CaseStore:
                 [path],
             ).fetchall()
 
+            waf = "ventra_source IN ('waf', 'cloud_armor')"
             waf_totals = con.execute(
                 f"SELECT count(*), {fail}, count(DISTINCT NULLIF(source_ip,'')) "
-                f"FROM {events} WHERE ventra_source='waf'",
+                f"FROM {events} WHERE {waf}",
                 [path],
             ).fetchone()
             waf_actions = con.execute(
                 f"SELECT event_action, count(*) c FROM {events} "
-                "WHERE ventra_source='waf' GROUP BY 1 ORDER BY c DESC",
+                f"WHERE {waf} GROUP BY 1 ORDER BY c DESC",
                 [path],
             ).fetchall()
             waf_ips = con.execute(
                 f"SELECT source_ip, source_country, count(*) c, {fail} blocked "
-                f"FROM {events} WHERE ventra_source='waf' AND source_ip<>'' "
+                f"FROM {events} WHERE {waf} AND source_ip<>'' "
                 "GROUP BY 1,2 ORDER BY blocked DESC, c DESC LIMIT 15",
                 [path],
             ).fetchall()
 
+            # cloud_dns has no ingester normalizer registered yet (separate pre-existing gap,
+            # tracked outside this change) — included here so the panel picks it up for free
+            # once that normalizer lands; currently a no-op since no rows carry that source.
+            dns = "ventra_source IN ('route53_resolver', 'cloud_dns')"
             dns_totals = con.execute(
                 f"SELECT count(*), count(DISTINCT NULLIF(resource_id,'')), {fail} "
-                f"FROM {events} WHERE ventra_source='route53_resolver'",
+                f"FROM {events} WHERE {dns}",
                 [path],
             ).fetchone()
             dns_domains = con.execute(
                 f"SELECT resource_id, count(*) c, {fail} fails, max(dest_ip) answer "
-                f"FROM {events} WHERE ventra_source='route53_resolver' AND resource_id<>'' "
+                f"FROM {events} WHERE {dns} AND resource_id<>'' "
                 "GROUP BY 1 ORDER BY c DESC LIMIT 50",
                 [path],
             ).fetchall()
             dns_qtypes = con.execute(
                 "SELECT replace(event_action,'dns-query:','') qt, count(*) c "
-                f"FROM {events} WHERE ventra_source='route53_resolver' AND event_action<>'' "
+                f"FROM {events} WHERE {dns} AND event_action<>'' "
                 "GROUP BY 1 ORDER BY c DESC LIMIT 8",
                 [path],
             ).fetchall()

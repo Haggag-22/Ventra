@@ -78,12 +78,31 @@ def test_gcp_attack_story_present(gcp_demo_case) -> None:
     ).fetchone()[0]
     assert setiam >= 1
 
-    # gcp_audit normalizer: data-access object reads.
+    # gcp_audit normalizer: data-access object reads, reclassified from the shared
+    # cloud_audit_data table to their specific storage.googleapis.com subset.
     reads = con.execute(
-        f"SELECT count(*) FROM '{path}' WHERE ventra_source='cloud_audit_data' "
+        f"SELECT count(*) FROM '{path}' WHERE ventra_source='storage_access' "
         "AND event_action='storage.objects.get'"
     ).fetchone()[0]
     assert reads >= 10
+
+    # No generic data_access rows remain for this fixture — every row's serviceName maps to
+    # a known subset (storage/secretmanager/bigquery), so cloud_audit_data itself is empty.
+    generic = con.execute(
+        f"SELECT count(*) FROM '{path}' WHERE ventra_source='cloud_audit_data'"
+    ).fetchone()[0]
+    assert generic == 0
+
+    # secretmanager.googleapis.com and bigquery.googleapis.com rows are reclassified too.
+    secrets = con.execute(
+        f"SELECT count(*) FROM '{path}' WHERE ventra_source='secret_manager' "
+        "AND event_action LIKE '%AccessSecretVersion%'"
+    ).fetchone()[0]
+    assert secrets >= 3
+    bq = con.execute(
+        f"SELECT count(*) FROM '{path}' WHERE ventra_source='bigquery_audit'"
+    ).fetchone()[0]
+    assert bq >= 2
 
     # gcp_findings normalizer: SCC findings carry the finding kind.
     findings = con.execute(

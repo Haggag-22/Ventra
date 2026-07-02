@@ -8,6 +8,7 @@ description: Login audit events (Google Cloud console authentication).
 version: 1.0.0
 collector: login_events
 type: login_events
+subset_of: cloud_audit_data
 required_actions:
 - logging.logEntries.list
 parameters:

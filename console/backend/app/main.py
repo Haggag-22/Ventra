@@ -41,6 +41,7 @@ class AcquisitionBuildRequest(BaseModel):
     artifact_parameters: dict[str, dict[str, Any]] = {}
     deployment_profile: str = "cloudshell"
     transport: str = ""
+    gcp_log_backend: dict[str, Any] | None = None
 
 
 class AcquisitionPreviewRequest(AcquisitionBuildRequest):
@@ -51,7 +52,7 @@ class S3ImportRequest(BaseModel):
     s3_prefix: str = ""
 
 
-_ALLOWED_PROFILES = frozenset({"cloudshell", "workstation", "ec2", "enterprise"})
+_ALLOWED_PROFILES = frozenset({"cloudshell", "workstation", "enterprise"})
 
 
 app = FastAPI(
@@ -390,6 +391,7 @@ def _artifact_view(art: dict[str, Any], *, full: bool = False) -> dict[str, Any]
         "parameters": art.get("parameters", {}),
         "implicit": bool(art.get("implicit")),
         "selectable": art.get("selectable", True) is not False and not art.get("implicit"),
+        "subset_of": art.get("subset_of", ""),
     }
     if full:
         view["aliases"] = art.get("aliases", [])
@@ -438,13 +440,24 @@ def list_acquisition_packs(cloud: str | None = Query(None), _: Role = Depends(cu
     return {"packs": list_packs(cloud, settings.artifacts_root)}
 
 
-def _resolve_acquisition_request(body: AcquisitionBuildRequest) -> tuple[str, list[str], list[Path] | None]:
+def _resolve_acquisition_request(
+    body: AcquisitionBuildRequest,
+    *,
+    require_gcp_log_backend: bool = True,
+) -> tuple[str, list[str], list[Path] | None]:
     """Validate cloud + artifact selection; return (cloud, collector names, optional IAM paths)."""
+    from collector.engine.acquire_platform import (
+        ACQUIRE_PLATFORMS,
+        collector_cloud_for_platform,
+        iam_policy_paths_for_platform,
+    )
     from collector.engine.acquisition import AcquisitionError, augment_collectors, load_pack
+    from collector.engine.gcp_log_backend import cart_needs_gcp_log_backend, validate_gcp_log_backend_dict
 
-    cloud = body.cloud.strip().lower()
-    if cloud not in ("aws", "azure", "gcp"):
+    platform = body.cloud.strip().lower()
+    if platform not in ACQUIRE_PLATFORMS:
         raise HTTPException(status_code=400, detail=f"Unsupported cloud: {body.cloud!r}")
+    collector_cloud = collector_cloud_for_platform(platform)
 
     names = list(body.artifacts or [])
     if body.pack:
@@ -453,15 +466,24 @@ def _resolve_acquisition_request(body: AcquisitionBuildRequest) -> tuple[str, li
         except AcquisitionError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not names:
-        raise HTTPException(status_code=400, detail="Select at least one artifact or a pack.")
+        raise HTTPException(status_code=400, detail="Select at least one artifact.")
 
-    names = augment_collectors(cloud, names)
+    names = augment_collectors(collector_cloud, names)
+    if require_gcp_log_backend and platform == "gcp" and cart_needs_gcp_log_backend(names):
+        if not body.gcp_log_backend:
+            raise HTTPException(
+                status_code=400,
+                detail="GCP log collection strategy is required when the kit includes log-based collectors.",
+            )
+        try:
+            validate_gcp_log_backend_dict(body.gcp_log_backend)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
     iam_paths: list[Path] | None = None
     if body.include_iam:
-        iam = settings.artifacts_root.parent / "docs" / "iam-policies" / f"{cloud}-collector-readonly.json"
-        if iam.is_file():
-            iam_paths = [iam]
-    return cloud, names, iam_paths
+        iam_dir = settings.artifacts_root.parent / "docs" / "iam-policies"
+        iam_paths = iam_policy_paths_for_platform(platform, iam_dir, collector_names=names)
+    return platform, names, iam_paths
 
 
 @app.post("/api/acquisitions/preview")
@@ -470,10 +492,11 @@ def preview_acquisition(
 ) -> dict[str, Any]:
     from collector.kit.preview import preview_kit
 
-    cloud, names, iam_paths = _resolve_acquisition_request(body)
+    cloud, names, iam_paths = _resolve_acquisition_request(body, require_gcp_log_backend=False)
     profile = body.deployment_profile.strip().lower() or "cloudshell"
     if profile not in _ALLOWED_PROFILES:
         raise HTTPException(status_code=400, detail=f"Unknown deployment profile: {body.deployment_profile!r}")
+    gcp_backend = body.gcp_log_backend if cloud == "gcp" else None
     try:
         preview = preview_kit(
             cloud=cloud,
@@ -481,6 +504,7 @@ def preview_acquisition(
             artifacts_root=settings.artifacts_root,
             iam_policy_paths=iam_paths,
             include_iam=body.include_iam,
+            gcp_log_backend=gcp_backend,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -499,12 +523,16 @@ def build_acquisition(
     import tempfile
 
     from collector.kit.build import build_kit
+    from collector.engine.gcp_log_backend import validate_gcp_log_backend_dict
 
     cloud, names, iam_paths = _resolve_acquisition_request(body)
     case_id = _normalize_case_id(body.case_id) or "CASE-PENDING"
     profile = body.deployment_profile.strip().lower() or "cloudshell"
     if profile not in _ALLOWED_PROFILES:
         raise HTTPException(status_code=400, detail=f"Unknown deployment profile: {body.deployment_profile!r}")
+    gcp_backend = None
+    if cloud == "gcp" and body.gcp_log_backend:
+        gcp_backend = validate_gcp_log_backend_dict(body.gcp_log_backend)
 
     with tempfile.TemporaryDirectory(prefix="ventra-kit-") as tmp:
         out = Path(tmp) / "kit.zip"
@@ -527,6 +555,7 @@ def build_acquisition(
                 max_records_per_source=body.max_records_per_source,
                 artifact_parameters=body.artifact_parameters or None,
                 transport=body.transport.strip(),
+                gcp_log_backend=gcp_backend,
                 bundle_wheel=True,
                 require_wheel=True,
                 deployment_profile=profile,

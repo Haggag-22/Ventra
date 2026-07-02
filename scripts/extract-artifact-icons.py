@@ -17,6 +17,7 @@ GCP_ZIP = ICON_SRC / "png-512.zip"
 
 AWS = {
     "account": ("account", "Architecture-Group-Icons_04302026/Virtual-private-cloud-VPC_32.png"),
+    "apigateway": ("api gateway access logs", "Architecture-Service-Icons_04302026/Arch_Networking-Content-Delivery/64/Arch_Amazon-API-Gateway_64.png"),
     "cloudfront": ("cloudfront access logs", "Architecture-Service-Icons_04302026/Arch_Networking-Content-Delivery/64/Arch_Amazon-CloudFront_64.png"),
     "cloudtrail": ("cloudtrail", "Architecture-Service-Icons_04302026/Arch_Management-Tools/64/Arch_AWS-CloudTrail_64.png"),
     "config": ("config", "Architecture-Service-Icons_04302026/Arch_Management-Tools/64/Arch_AWS-Config_64.png"),
@@ -29,8 +30,10 @@ AWS = {
     "inspector2": ("inspector2", "Architecture-Service-Icons_04302026/Arch_Security-Identity/64/Arch_Amazon-Inspector_64.png"),
     "kms": ("kms", "Architecture-Service-Icons_04302026/Arch_Security-Identity/64/Arch_AWS-Key-Management-Service_64.png"),
     "lambda": ("lambda", "Architecture-Service-Icons_04302026/Arch_Compute/64/Arch_AWS-Lambda_64.png"),
+    "lambda_logs": ("lambda logs", "Architecture-Service-Icons_04302026/Arch_Compute/64/Arch_AWS-Lambda_64.png"),
     "log_posture": ("log posture", "Architecture-Service-Icons_04302026/Arch_Management-Tools/64/Arch_AWS-CloudTrail_64.png"),
     "macie": ("macie", "Architecture-Service-Icons_04302026/Arch_Security-Identity/64/Arch_Amazon-Macie_64.png"),
+    "rds": ("rds logs", "Architecture-Service-Icons_04302026/Arch_Databases/64/Arch_Amazon-RDS_64.png"),
     "route53_resolver": ("route53 resolver", "Architecture-Service-Icons_04302026/Arch_Networking-Content-Delivery/64/Arch_Amazon-Route-53_64.png"),
     "s3": ("s3", "Architecture-Service-Icons_04302026/Arch_Storage/64/Arch_Amazon-Simple-Storage-Service_64.png"),
     "s3_access": ("s3 access logs", "Architecture-Service-Icons_04302026/Arch_Storage/64/Arch_Amazon-Simple-Storage-Service_64.png"),

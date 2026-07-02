@@ -12,12 +12,16 @@ from typing import Any
 from collector.lib.base import Collector
 from collector.lib.limits import DEFAULT_MAX_RECORDS as MAX_RECORDS
 from collector.lib.models import GapReason, SourceResult, SourceStatus
-from collector.lib.params import effective_window
+from collector.lib.params import logging_window
 from collector.lib.scoping import filter_gke_clusters, gcp_logging_filter_extension
 from collector.clouds.gcp.client_factory import GcpAccessDenied, GcpServiceNotEnabled
 
 DEFAULT_WINDOW_DAYS = 7
-GKE_AUDIT_LOG_FILTER = 'resource.type="k8s_cluster"'
+# Kubernetes API-server audit stream — its own logName/table, not a view over the
+# cloudaudit activity stream (GKE control-plane admin actions live there instead).
+GKE_AUDIT_LOG_FILTER = (
+    'logName:"container.googleapis.com%2Fapiserver" AND resource.type="k8s_cluster"'
+)
 
 
 def _audit_logging_enabled(cluster: dict[str, Any]) -> bool:
@@ -43,7 +47,7 @@ class GkeAuditCollector(Collector):
         cf = self.ctx.client_factory
         gaps: list[tuple[str, GapReason, str]] = []
         params = self.artifact_params()
-        start, end = effective_window(self.ctx, self.name, default_days=DEFAULT_WINDOW_DAYS)
+        start, end = logging_window(self.ctx, self.name, default_days=DEFAULT_WINDOW_DAYS)
         cap = self.max_records(MAX_RECORDS)
 
         clusters = filter_gke_clusters(self._discover_clusters(cf, gaps), params)
@@ -72,17 +76,23 @@ class GkeAuditCollector(Collector):
         scoped = gcp_logging_filter_extension(params)
         records: list[dict] = []
         per_cluster: list[dict] = []
+        log_backend = getattr(self.ctx, "gcp_log_backend", {}) or {}
+
         for cluster in audited:
             cluster_filter = self._cluster_filter(cluster, scoped)
             self._log(f"Reading audit logs for cluster {cluster['name']}…")
             before = len(records)
             try:
-                for entry in cf.list_log_entries(
+                remaining = cap - len(records) if len(records) < cap else 0
+                for entry in cf.list_log_entries_for_backend(
                     cluster["project_id"],
+                    collector=self.name,
                     log_filter=cluster_filter,
                     start=start,
                     end=end,
-                    max_records=cap - len(records) if len(records) < cap else 0,
+                    max_records=remaining,
+                    gcp_log_backend=log_backend,
+                    artifact_params=params,
                 ):
                     tagged = dict(entry)
                     tagged["_ventra_cluster"] = cluster["name"]
@@ -115,7 +125,10 @@ class GkeAuditCollector(Collector):
             "audit_disabled_count": len(unaudited),
             "collection": per_cluster,
             "log_filter": GKE_AUDIT_LOG_FILTER,
-            "window": {"since": start.isoformat(), "until": end.isoformat()},
+            "window": {
+                "since": start.isoformat() if start is not None else None,
+                "until": end.isoformat() if end is not None else None,
+            },
             "artifact_parameters": params,
         }
         files = [self.write_json(config, "config.json")]
@@ -127,7 +140,10 @@ class GkeAuditCollector(Collector):
                 "records": len(records),
                 "clusters": len(clusters),
                 "audit_enabled": len(audited),
-                "window": {"since": start.isoformat(), "until": end.isoformat()},
+                "window": {
+                    "since": start.isoformat() if start is not None else None,
+                    "until": end.isoformat() if end is not None else None,
+                },
             }
         )
 

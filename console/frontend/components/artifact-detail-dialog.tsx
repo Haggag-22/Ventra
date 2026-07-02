@@ -6,6 +6,7 @@ import { Button } from "@/components/ui";
 import { api } from "@/lib/api";
 import { resolvedParamFields } from "@/lib/artifact-params";
 import { displayArtifactLabel } from "@/lib/artifact-icons";
+import { gcpCollectorApiInfo } from "@/lib/gcp-collector-apis";
 import type { Artifact } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -24,9 +25,30 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 
 function ArtifactBody({ art }: { art: Artifact }) {
   const paramFields = resolvedParamFields(art);
+  const gcpApis = art.cloud.toLowerCase() === "gcp" ? gcpCollectorApiInfo(art.collector) : null;
   return (
     <div className="space-y-1">
       <Field label="Description">{art.description}</Field>
+      {gcpApis?.calls.length ? (
+        <Field label="API">
+          <ul className="space-y-0.5 text-xs text-fg-subtle">
+            {gcpApis.calls.map((api) => (
+              <li key={api}>{api}</li>
+            ))}
+          </ul>
+        </Field>
+      ) : null}
+      {gcpApis?.logSource?.length ? (
+        <Field label="Log Source">
+          <ul className="space-y-0.5 text-xs text-fg-subtle">
+            {gcpApis.logSource.map((src) => (
+              <li key={src} className="mono">
+                {src}
+              </li>
+            ))}
+          </ul>
+        </Field>
+      ) : null}
       {art.required_actions?.length ? (
         <Field label="IAM actions">
           <ul className="max-h-40 space-y-0.5 overflow-auto text-2xs">

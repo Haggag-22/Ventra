@@ -33,7 +33,7 @@ _ALLOWED_KEYS = frozenset(
     {
         "name", "aliases", "cloud", "category", "description", "version", "collector",
         "type", "required_actions", "parameters", "sources", "severity", "estimated_volume",
-        "implicit",
+        "implicit", "subset_of",
     }
 )
 _SEVERITY = frozenset({"critical", "extended", "optional"})

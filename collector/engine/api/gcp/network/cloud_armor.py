@@ -12,13 +12,14 @@ from typing import Any
 from collector.lib.base import Collector
 from collector.lib.limits import DEFAULT_MAX_RECORDS as MAX_RECORDS
 from collector.lib.models import GapReason, SourceResult, SourceStatus
-from collector.lib.params import effective_window
+from collector.lib.params import logging_window
 from collector.lib.scoping import filter_by_name_or_id, gcp_logging_filter_extension
 from collector.clouds.gcp.client_factory import GcpAccessDenied, GcpServiceNotEnabled
 
 DEFAULT_WINDOW_DAYS = 14
+# Armor-enforced requests are the LB `requests` rows that carry an enforcedSecurityPolicy.
 ARMOR_LOG_FILTER = (
-    '(logName:("compute.googleapis.com%2Frequests" OR "loadbalancing.googleapis.com%2Frequests")) '
+    'resource.type="http_load_balancer" AND logName:"requests" '
     "AND jsonPayload.enforcedSecurityPolicy.name:*"
 )
 
@@ -75,7 +76,7 @@ class CloudArmorCollector(Collector):
                 notes="No Cloud Armor policies found.",
             )
 
-        start, end = effective_window(self.ctx, self.name, default_days=DEFAULT_WINDOW_DAYS)
+        start, end = logging_window(self.ctx, self.name, default_days=DEFAULT_WINDOW_DAYS)
         scoped = gcp_logging_filter_extension(params)
         log_filter = f"({ARMOR_LOG_FILTER})"
         if scoped:
@@ -84,28 +85,33 @@ class CloudArmorCollector(Collector):
         cap = self.max_records(MAX_RECORDS)
         record_count = 0
         per_project: list[dict[str, Any]] = []
+        log_backend = getattr(self.ctx, "gcp_log_backend", {}) or {}
+
+        counts: dict[str, int] = {}
         with self.open_jsonl("events.jsonl.gz") as writer:
-            for project_id in projects:
-                before = record_count
-                try:
-                    for entry in cf.list_log_entries(
-                        project_id,
-                        log_filter=log_filter,
-                        start=start,
-                        end=end,
-                        max_records=cap - record_count if record_count < cap else 0,
-                    ):
-                        writer.write_record({**entry, "_ventra_project_id": project_id})
-                        record_count += 1
-                        if record_count >= cap:
-                            break
-                except GcpAccessDenied as exc:
-                    gaps.append(("cloud_armor", GapReason.ACCESS_DENIED, f"{project_id}: {exc.message}"))
-                except GcpServiceNotEnabled as exc:
-                    gaps.append(
-                        ("cloud_armor", GapReason.SERVICE_NOT_ENABLED, f"{project_id}: {exc.message}")
-                    )
-                per_project.append({"project_id": project_id, "records": record_count - before})
+            try:
+                for owner, entry in cf.iter_log_entries_all_projects(
+                    projects,
+                    collector=self.name,
+                    log_filter=log_filter,
+                    start=start,
+                    end=end,
+                    max_records=cap,
+                    gcp_log_backend=log_backend,
+                    artifact_params=params,
+                ):
+                    writer.write_record({**entry, "_ventra_project_id": owner})
+                    counts[owner] = counts.get(owner, 0) + 1
+                    record_count += 1
+                    if record_count >= cap:
+                        break
+            except GcpAccessDenied as exc:
+                gaps.append(("cloud_armor", GapReason.ACCESS_DENIED, exc.message))
+            except GcpServiceNotEnabled as exc:
+                gaps.append(("cloud_armor", GapReason.SERVICE_NOT_ENABLED, exc.message))
+        per_project = [
+            {"project_id": p, "records": counts.get(p, 0)} for p in projects
+        ]
 
         if record_count >= cap:
             self.append_truncation_gap(
@@ -129,7 +135,10 @@ class CloudArmorCollector(Collector):
             "security_policies": policies,
             "projects": per_project,
             "log_filter": log_filter,
-            "window": {"since": start.isoformat(), "until": end.isoformat()},
+            "window": {
+                "since": start.isoformat() if start is not None else None,
+                "until": end.isoformat() if end is not None else None,
+            },
             "artifact_parameters": params,
         }
         files = [self.write_json(config, "config.json")]

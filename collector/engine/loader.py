@@ -7,6 +7,8 @@ from typing import Any
 
 import yaml
 
+from .acquire_platform import artifact_matches_acquire_platform
+
 _REQUIRED = frozenset({"name", "cloud", "description", "version", "collector", "sources"})
 
 
@@ -43,7 +45,7 @@ def load_artifacts_dir(root: Path, *, cloud: str | None = None) -> list[dict[str
         if path.parent.name == "packs":
             continue
         art = load_artifact(path)
-        if cloud and art.get("cloud", "").lower() != cloud.lower():
+        if cloud and not artifact_matches_acquire_platform(art, cloud):
             continue
         art["_path"] = str(path)
         out.append(art)

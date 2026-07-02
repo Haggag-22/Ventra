@@ -350,6 +350,8 @@ export interface Artifact {
   sources?: { type: string; format?: string }[];
   implicit?: boolean;
   selectable?: boolean;
+  /** Collector id this one is a filter/subset view over (e.g. cloud_cdn -> load_balancer). */
+  subset_of?: string;
 }
 
 export interface ArtifactPack {

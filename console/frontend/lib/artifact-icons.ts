@@ -169,13 +169,14 @@ export function displayArtifactLabel(collector: string): string {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-function iconExtension(cloud: Cloud): string {
-  return cloud === "azure" ? ".svg" : ".png";
+function iconExtension(cloud: string): string {
+  const key = cloud.toLowerCase();
+  return key === "azure" || key === "m365" ? ".svg" : ".png";
 }
 
 export function resolveArtifactIconLabel(cloud: string, collector: string): string | null {
-  const c = cloud.toLowerCase() as Cloud;
-  const cloudLabel = CLOUD_ARTIFACT_ICON_LABELS[c]?.[collector];
+  const c = cloud.toLowerCase();
+  const cloudLabel = CLOUD_ARTIFACT_ICON_LABELS[c as Cloud]?.[collector];
   if (cloudLabel) return cloudLabel;
   return ARTIFACT_ICON_LABELS[collector] ?? null;
 }
@@ -183,6 +184,6 @@ export function resolveArtifactIconLabel(cloud: string, collector: string): stri
 export function artifactIconSrc(cloud: string, collector: string): string | null {
   const label = resolveArtifactIconLabel(cloud, collector);
   if (!label) return null;
-  const c = cloud.toLowerCase() as Cloud;
+  const c = cloud.toLowerCase();
   return `/icons/${c}/${encodeURIComponent(label)}${iconExtension(c)}`;
 }
