@@ -19,6 +19,7 @@ from typing import Any
 import yaml
 
 from collector import __version__
+from collector.engine.acquire_platform import collector_cloud_for_platform
 from collector.engine.loader import load_artifacts_dir
 
 _KIT_ROOT = Path(__file__).resolve().parent
@@ -53,6 +54,8 @@ _KIT_CLOUD_REQUIREMENTS: dict[str, list[str]] = {
         "google-cloud-securitycenter>=1.28",
         "google-cloud-compute>=1.19",
         "google-cloud-container>=2.45",
+        "google-cloud-bigquery>=3.20",
+        "google-cloud-storage>=2.16",
         "google-auth>=2.29",
         "google-api-core>=2.19",
         "protobuf>=4.25",
@@ -60,7 +63,7 @@ _KIT_CLOUD_REQUIREMENTS: dict[str, list[str]] = {
 }
 
 
-_DEPLOYMENT_PROFILES = ("cloudshell", "workstation", "ec2", "enterprise")
+_DEPLOYMENT_PROFILES = ("cloudshell", "workstation", "enterprise")
 
 _PROFILE_TRADEOFFS: dict[str, str] = {
     "cloudshell": """profile: cloudshell
@@ -69,7 +72,7 @@ TRADEOFFS (summary — full detail in README-operator.md)
 - Best for: quick proof-of-access; client runs in {{CLOUD}} Cloud Shell with no local install.
 - Collects all records in the configured since/until window unless max_records_per_source is set in acquisition.yaml.
 - ~1 GB home disk and ~20 min idle timeout — very large pulls may fail on disk or session timeout; use EC2 or --stream-to s3:// for multi-GB handoff.
-- Switch to workstation or EC2 for long unattended runs or multi-TB S3 sources.
+- Switch to workstation for long unattended runs or multi-TB S3 sources.
 """,
     "workstation": """profile: workstation
 
@@ -77,15 +80,7 @@ TRADEOFFS (summary — full detail in README-operator.md)
 - Best for: responder jump host or local machine with CLI credentials; more disk/time than Cloud Shell.
 - Collects the full since/until window unless max_records_per_source is set in acquisition.yaml.
 - Local sleep/VPN drops can interrupt long runs; credentials live on the workstation during collection.
-- Switch to EC2 for multi-hour or very large S3 pulls; switch to Cloud Shell if client cannot install locally.
-""",
-    "ec2": """profile: ec2
-
-TRADEOFFS (summary — full detail in README-operator.md)
-- Best for: largest pulls, long unattended runs, complete collection within since/until.
-- Requires VM + instance profile + secure copy-out; operational overhead vs Cloud Shell.
-- Optional max_records_per_source in acquisition.yaml caps per-source volume for scoped triage only.
-- Switch to Cloud Shell for quick proof-of-access; workstation when EC2 provisioning is not allowed.
+- Switch to Enterprise for multi-hour or very large pulls; switch to Cloud Shell if client cannot install locally.
 """,
     "enterprise": """profile: enterprise
 
@@ -117,6 +112,7 @@ def build_kit(
     max_records_per_source: int | None = None,
     artifact_parameters: dict[str, dict[str, Any]] | None = None,
     transport: str = "",
+    gcp_log_backend: dict[str, Any] | None = None,
     bundle_wheel: bool = True,
     require_wheel: bool = False,
     deployment_profile: str = "cloudshell",
@@ -125,6 +121,7 @@ def build_kit(
     profile = deployment_profile.strip().lower() or "cloudshell"
     if profile not in _DEPLOYMENT_PROFILES:
         raise ValueError(f"unknown deployment profile: {deployment_profile!r}")
+    collector_cloud = collector_cloud_for_platform(cloud)
     root = artifacts_root or Path("artifacts")
     staging = out_zip.with_suffix(".staging")
     if staging.exists():
@@ -139,7 +136,7 @@ def build_kit(
     params_by_collector = artifact_parameters or {}
     acq: dict[str, Any] = {
         "case_id": case_id,
-        "cloud": cloud,
+        "cloud": collector_cloud,
         "ventra_version": __version__,
         "deployment_profile": profile,
         "artifacts": [],
@@ -164,9 +161,14 @@ def build_kit(
         acq["max_records_per_source"] = max_records_per_source
     elif profile == "enterprise":
         acq["max_records_per_source"] = 0
+    else:
+        # Explicit unlimited — kits never inherit a triage cap unless the operator sets one.
+        acq["max_records_per_source"] = 0
     transport_spec = (transport or "").strip()
     if transport_spec:
         acq["transport"] = transport_spec
+    if collector_cloud == "gcp" and gcp_log_backend:
+        acq["gcp_log_backend"] = dict(gcp_log_backend)
 
     for art in selected:
         collector = art["collector"]
@@ -198,15 +200,29 @@ def build_kit(
 
     if iam_policy_paths:
         wanted_actions = {a for art in selected for a in art.get("required_actions", [])}
+        if collector_cloud == "gcp" and gcp_log_backend:
+            from collector.engine.gcp_log_backend import apply_gcp_log_backend_iam
+
+            wanted_actions = apply_gcp_log_backend_iam(wanted_actions, gcp_log_backend)
         _write_iam(staging / "iam", iam_policy_paths, wanted_actions)
 
     if bundle_wheel:
         _bundle_wheel(staging, required=require_wheel)
 
-    _write_kit_requirements(staging, cloud)
+    _write_kit_requirements(staging, collector_cloud)
     shutil.copy2(_TEMPLATES / "ventra.py", staging / "ventra.py")
     shutil.copy2(_TEMPLATES / "run.sh", staging / "run.sh")
-    _write_deployment_docs(staging, cloud, profile)
+    _write_deployment_docs(staging, collector_cloud, profile)
+    if collector_cloud == "gcp" and gcp_log_backend:
+        mode = str(gcp_log_backend.get("mode") or "logging_api")
+        if mode == "bigquery":
+            src = _TEMPLATES / "gcp-log-setup-bigquery.md"
+            if src.is_file():
+                shutil.copy2(src, staging / "SETUP-gcp-log-export-bigquery.md")
+        elif mode == "gcs":
+            src = _TEMPLATES / "gcp-log-setup-gcs.md"
+            if src.is_file():
+                shutil.copy2(src, staging / "SETUP-gcp-log-export-gcs.md")
 
     out_zip.parent.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(out_zip, "w", zipfile.ZIP_DEFLATED) as zf:
@@ -333,7 +349,7 @@ def _write_deployment_docs(staging: Path, cloud: str, profile: str) -> None:
     notes = notes.replace("{{CLOUD}}", cloud.upper())
     (staging / "deployment-profile.txt").write_text(notes, encoding="utf-8")
     ec2_script = _TEMPLATES / "ec2-bootstrap.sh"
-    if profile in ("ec2", "enterprise") and ec2_script.is_file():
+    if profile in ("enterprise",) and ec2_script.is_file():
         shutil.copy2(ec2_script, staging / "ec2-bootstrap.sh")
 
 

@@ -155,28 +155,17 @@ def test_kit_ships_ventra_py_and_requirements(tmp_path: Path) -> None:
     assert "ventra.py" in run_sh
 
 
-def test_build_kit_deployment_profile_ec2(tmp_path: Path) -> None:
-    out = build_kit(
-        tmp_path / "kit.zip",
-        cloud="aws",
-        case_id="CASE-EC2",
-        artifact_names=["guardduty"],
-        artifacts_root=ARTIFACTS,
-        deployment_profile="ec2",
-        bundle_wheel=False,
-    )
-    with zipfile.ZipFile(out) as zf:
-        names = zf.namelist()
-        assert "deployment-profile.txt" in names
-        assert "ec2-bootstrap.sh" in names
-        profile_txt = zf.read("deployment-profile.txt").decode()
-        assert profile_txt.startswith("profile: ec2")
-        assert "TRADEOFFS" in profile_txt
-        acq = yaml.safe_load(zf.read("acquisition.yaml"))
-        readme = zf.read("README-operator.md").decode()
-    assert acq["deployment_profile"] == "ec2"
-    assert "EC2 collector instance" in readme
-    assert "Tradeoffs (read before you run)" in readme
+def test_build_kit_rejects_ec2_deployment_profile(tmp_path: Path) -> None:
+    with pytest.raises(ValueError, match="unknown deployment profile"):
+        build_kit(
+            tmp_path / "kit.zip",
+            cloud="aws",
+            case_id="CASE-EC2",
+            artifact_names=["guardduty"],
+            artifacts_root=ARTIFACTS,
+            deployment_profile="ec2",
+            bundle_wheel=False,
+        )
 
 
 def test_build_kit_enterprise_sets_unlimited_records(tmp_path: Path) -> None:

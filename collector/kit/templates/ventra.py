@@ -117,6 +117,19 @@ def _acquisition_window_args() -> list[str]:
     return extra
 
 
+_GCP_EXPORT_REQUIREMENTS = (
+    "google-cloud-bigquery>=3.20",
+    "google-cloud-storage>=2.16",
+)
+
+
+def _install_gcp_export_requirements(uv: str, py: Path, cloud: str) -> None:
+    """Kits built before export deps were pinned may omit these from requirements.txt."""
+    if cloud != "gcp":
+        return
+    _uv_pip_install(uv, py, *_GCP_EXPORT_REQUIREMENTS)
+
+
 def _ensure_ventra(cloud: str) -> Path:
     """Create venv with uv, install requirements + bundled wheel, return ventra executable."""
     uv = _ensure_uv()
@@ -129,6 +142,7 @@ def _ensure_ventra(cloud: str) -> Path:
     reqs = ROOT / "requirements.txt"
     if reqs.is_file():
         _uv_pip_install(uv, py, "-r", str(reqs))
+        _install_gcp_export_requirements(uv, py, cloud)
     else:
         fallback = [
             "rich>=13.7",
@@ -159,6 +173,8 @@ def _ensure_ventra(cloud: str) -> Path:
                 "google-cloud-securitycenter>=1.28",
                 "google-cloud-compute>=1.19",
                 "google-cloud-container>=2.45",
+                "google-cloud-bigquery>=3.20",
+                "google-cloud-storage>=2.16",
                 "protobuf>=4.25",
             ]
         _uv_pip_install(uv, py, *fallback)

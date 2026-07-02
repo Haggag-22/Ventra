@@ -3,14 +3,14 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import Any, Iterator
 
 from collector.lib.base import Collector
 from collector.lib.limits import records_unlimited
 from collector.lib.models import GapReason, SourceResult, SourceStatus, TimeWindow
-from collector.lib.params import effective_window, param_int, param_raw, param_strings
+from collector.lib.params import logging_window, param_int, param_raw, param_strings
 from collector.lib.scoping import gcp_logging_filter_extension
-from collector.clouds.gcp.client_factory import GcpAccessDenied, GcpServiceNotEnabled
+from collector.clouds.gcp.client_factory import GcpAccessDenied, GcpRateLimited, GcpServiceNotEnabled
 
 DEFAULT_WINDOW_DAYS = 90
 from collector.lib.limits import DEFAULT_MAX_RECORDS as MAX_RECORDS
@@ -28,9 +28,9 @@ class GcpLoggingCollector(Collector):
     log_filter: str = ""
     default_window_days: int = DEFAULT_WINDOW_DAYS
 
-    def _window(self) -> tuple[datetime, datetime]:
+    def _window(self) -> tuple[datetime | None, datetime | None]:
         default_days = param_int(self.artifact_params(), "window_days", default=self.default_window_days)
-        return effective_window(
+        return logging_window(
             self.ctx,
             self.name,
             default_days=default_days or self.default_window_days,
@@ -51,10 +51,31 @@ class GcpLoggingCollector(Collector):
         scoped = gcp_logging_filter_extension(params)
         if scoped:
             extra_parts.append(scoped)
+        regions = self._regions_clause()
+        if regions:
+            extra_parts.append(regions)
         if not extra_parts:
             return base
         joined = " AND ".join(extra_parts)
         return f"({base}) AND ({joined})" if base else joined
+
+    def _regions_clause(self) -> str:
+        """Global Regions scope from the run config, when the analyst set one.
+
+        GCP log entries carry the region under different labels per resource type, so a
+        region matches ``region``/``location`` exactly or ``zone`` as a prefix.
+        """
+        regions = [r.strip() for r in (self.ctx.regions or []) if r and r.strip()]
+        if not regions:
+            return ""
+        parts = []
+        for region in regions:
+            parts.append(
+                f'resource.labels.region="{region}" OR '
+                f'resource.labels.location="{region}" OR '
+                f'resource.labels.zone:"{region}"'
+            )
+        return f"({' OR '.join(parts)})"
 
     def _cap(self) -> int:
         return self.max_records(MAX_RECORDS)
@@ -65,6 +86,28 @@ class GcpLoggingCollector(Collector):
         if isinstance(audit_project, str) and audit_project.strip():
             return [audit_project.strip()]
         return self.ctx.project_ids
+
+    def _iter_log_entries(
+        self,
+        cf: Any,
+        project_id: str,
+        *,
+        log_filter: str,
+        start: datetime,
+        end: datetime,
+        max_records: int,
+    ) -> Iterator[dict[str, Any]]:
+        backend = getattr(self.ctx, "gcp_log_backend", {}) or {}
+        return cf.list_log_entries_for_backend(
+            project_id,
+            collector=self.name,
+            log_filter=log_filter,
+            start=start,
+            end=end,
+            max_records=max_records,
+            gcp_log_backend=backend,
+            artifact_params=self.artifact_params(),
+        )
 
     def collect(self) -> SourceResult:
         cf = self.ctx.client_factory
@@ -84,44 +127,100 @@ class GcpLoggingCollector(Collector):
         per_project: list[dict[str, Any]] = []
         truncated = False
         record_count = 0
+        backend = getattr(self.ctx, "gcp_log_backend", {}) or {}
+        backend_mode = str(backend.get("mode") or "logging_api")
+        read_stats: dict[str, Any] = {}
 
         with self.open_jsonl("events.jsonl.gz") as writer:
-            for project_id in projects:
-                if not records_unlimited(cap) and record_count >= cap:
-                    truncated = True
-                    break
-                before = record_count
+            if backend_mode in ("bigquery", "gcs"):
+                # Export backends read each distinct dataset/bucket once for all projects —
+                # re-reading per project would duplicate evidence. Rows are scoped to the
+                # in-scope projects and attributed to their owner from logName.
+                counts: dict[str, int] = {}
                 try:
-                    remaining = cap - record_count if not records_unlimited(cap) else cap
-                    for entry in cf.list_log_entries(
-                        project_id,
+                    for owner, entry in cf.iter_log_entries_all_projects(
+                        projects,
+                        collector=self.name,
                         log_filter=log_filter,
                         start=start,
                         end=end,
-                        max_records=remaining,
+                        max_records=cap,
+                        gcp_log_backend=backend,
+                        artifact_params=self.artifact_params(),
+                        stats=read_stats,
                     ):
                         tagged = dict(entry)
-                        tagged["_ventra_project_id"] = project_id
+                        tagged["_ventra_project_id"] = owner
                         writer.write_record(tagged)
+                        counts[owner] = counts.get(owner, 0) + 1
                         record_count += 1
                         if not records_unlimited(cap) and record_count >= cap:
                             truncated = True
                             break
                 except GcpAccessDenied as exc:
-                    gaps.append((self.name, GapReason.ACCESS_DENIED, f"{project_id}: {exc.message}"))
-                    continue
+                    gaps.append((self.name, GapReason.ACCESS_DENIED, exc.message))
                 except GcpServiceNotEnabled as exc:
-                    gaps.append((self.name, GapReason.SERVICE_NOT_ENABLED, f"{project_id}: {exc.message}"))
-                    continue
+                    gaps.append((self.name, GapReason.SERVICE_NOT_ENABLED, exc.message))
+                except GcpRateLimited as exc:
+                    gaps.append((self.name, GapReason.RATE_LIMITED, exc.message))
+                for project_id in projects:
+                    per_project.append(
+                        {
+                            "project_id": project_id,
+                            "records": counts.pop(project_id, 0),
+                            "window_start": start.isoformat() if start is not None else None,
+                            "window_end": end.isoformat() if end is not None else None,
+                        }
+                    )
+                for owner, n in counts.items():  # rows owned by folders/orgs or aliases
+                    per_project.append({"project_id": owner, "records": n})
+            else:
+                for project_id in projects:
+                    if not records_unlimited(cap) and record_count >= cap:
+                        truncated = True
+                        break
+                    before = record_count
+                    try:
+                        remaining = cap - record_count if not records_unlimited(cap) else cap
+                        for entry in self._iter_log_entries(
+                            cf,
+                            project_id,
+                            log_filter=log_filter,
+                            start=start,
+                            end=end,
+                            max_records=remaining,
+                        ):
+                            tagged = dict(entry)
+                            tagged["_ventra_project_id"] = project_id
+                            writer.write_record(tagged)
+                            record_count += 1
+                            if not records_unlimited(cap) and record_count >= cap:
+                                truncated = True
+                                break
+                    except GcpAccessDenied as exc:
+                        gaps.append(
+                            (self.name, GapReason.ACCESS_DENIED, f"{project_id}: {exc.message}")
+                        )
+                        continue
+                    except GcpServiceNotEnabled as exc:
+                        gaps.append(
+                            (self.name, GapReason.SERVICE_NOT_ENABLED, f"{project_id}: {exc.message}")
+                        )
+                        continue
+                    except GcpRateLimited as exc:
+                        gaps.append(
+                            (self.name, GapReason.RATE_LIMITED, f"{project_id}: {exc.message}")
+                        )
+                        continue
 
-                per_project.append(
-                    {
-                        "project_id": project_id,
-                        "records": record_count - before,
-                        "window_start": start.isoformat(),
-                        "window_end": end.isoformat(),
-                    }
-                )
+                    per_project.append(
+                        {
+                            "project_id": project_id,
+                            "records": record_count - before,
+                            "window_start": start.isoformat() if start is not None else None,
+                            "window_end": end.isoformat() if end is not None else None,
+                        }
+                    )
 
         if truncated:
             self.append_truncation_gap(
@@ -131,16 +230,16 @@ class GcpLoggingCollector(Collector):
                 f"Truncated at {cap:,} records; narrow the window or use enterprise profile.",
             )
 
-        files = [
-            self.write_json(
-                {
-                    "projects": per_project,
-                    "log_filter": log_filter,
-                    "artifact_parameters": self.artifact_params(),
-                },
-                "config.json",
-            )
-        ]
+        config: dict[str, Any] = {
+            "projects": per_project,
+            "log_filter": log_filter,
+            "gcp_log_backend_mode": backend_mode,
+            "artifact_parameters": self.artifact_params(),
+        }
+        if read_stats:
+            config["tables_read"] = read_stats.get("tables_read", [])
+            config["rows_by_table"] = read_stats.get("rows_by_table", {})
+        files = [self.write_json(config, "config.json")]
         if record_count:
             files.append(writer.finalize())
 
@@ -150,6 +249,8 @@ class GcpLoggingCollector(Collector):
                 "records": record_count,
                 "projects": per_project,
                 "truncated": truncated,
+                "gcp_log_backend_mode": backend_mode,
+                "tables_read": read_stats.get("tables_read", []),
             }
         )
 
@@ -160,7 +261,11 @@ class GcpLoggingCollector(Collector):
                 notes += f" Truncated at {cap:,} records."
         else:
             status = SourceStatus.EMPTY
-            notes = "No matching log entries in the time window."
+            notes = (
+                "No matching log entries in the configured window."
+                if start is not None or end is not None
+                else "No matching log entries found."
+            )
             if not gaps:
                 gaps.append(
                     (

@@ -11,9 +11,9 @@ class CloudCdnCollector(GcpLoggingCollector):
         "HTTP(S) load balancer access logging."
     )
     required_actions = ("logging.logEntries.list",)
+    # CDN-served requests are the LB `requests` rows that carry a cacheDecision.
     log_filter = (
-        'resource.type="http_load_balancer" AND ('
-        "httpRequest.cacheLookup=true OR jsonPayload.cacheLookup=true"
-        ")"
+        'resource.type="http_load_balancer" AND logName:"requests" '
+        "AND jsonPayload.cacheDecision:*"
     )
     default_window_days = 14

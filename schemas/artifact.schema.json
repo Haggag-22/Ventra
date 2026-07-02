@@ -70,6 +70,10 @@
     "estimated_volume": {
       "type": "string",
       "enum": ["low", "medium", "high"]
+    },
+    "subset_of": {
+      "type": "string",
+      "description": "Collector id this one is a filter/subset view over (e.g. cloud_cdn -> load_balancer)"
     }
   },
   "additionalProperties": false

@@ -24,6 +24,7 @@ class RunReporter:
         plan_label: str = "",
         artifact_labels: dict[str, str] | None = None,
         artifact_severities: dict[str, str] | None = None,
+        preflight_lines: list[str] | None = None,
     ) -> None:
         """Called once after identity/regions are resolved. No-op by default; the CLI's
         matrix reporter overrides it to print the run header and pre-populate the matrix

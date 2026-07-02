@@ -14,6 +14,10 @@ export interface CatalogGroup {
 export const CLOUDS = ["aws", "azure", "gcp"] as const;
 export type Cloud = (typeof CLOUDS)[number];
 
+/** Acquire page tabs — M365 is split from Azure (collectors still run on the Azure engine). */
+export const ACQUIRE_PLATFORMS = ["aws", "azure", "gcp", "m365"] as const;
+export type AcquirePlatform = (typeof ACQUIRE_PLATFORMS)[number];
+
 /** Case list tabs — cloud providers plus standalone Kubernetes packages (roadmap). */
 export const CASE_PLATFORMS = [...CLOUDS, "kubernetes"] as const;
 export type CasePlatform = (typeof CASE_PLATFORMS)[number];
@@ -24,10 +28,26 @@ export const CLOUD_LABELS: Record<Cloud, string> = {
   gcp: "GCP",
 };
 
+export const ACQUIRE_PLATFORM_LABELS: Record<AcquirePlatform, string> = {
+  aws: "AWS",
+  azure: "Azure",
+  gcp: "GCP",
+  m365: "Microsoft 365",
+};
+
 export const CASE_PLATFORM_LABELS: Record<CasePlatform, string> = {
   ...CLOUD_LABELS,
   kubernetes: "Kubernetes",
 };
+
+/** Icon folder under ``public/icons/`` for artifact chips on the Acquire tab. */
+export function artifactIconCloud(platform: string): Cloud | AcquirePlatform {
+  return platform.toLowerCase() === "m365" ? "m365" : (platform.toLowerCase() as Cloud);
+}
+
+export function isAcquirePlatform(value: string): value is AcquirePlatform {
+  return (ACQUIRE_PLATFORMS as readonly string[]).includes(value.toLowerCase());
+}
 
 /** Labels for inventory / identity collectors not listed on the logs cheat sheet. */
 export const EXTRA_COLLECTOR_LABELS: Record<string, string> = {
@@ -117,9 +137,7 @@ const AZURE: CatalogGroup[] = [
       { id: "log_analytics", label: "Log Analytics (LA-routed diagnostics)", description: "" },
       { id: "nsg_flow", label: "NSG flow logs", description: "" },
       { id: "oauth_consent", label: "OAuth consent grants", description: "" },
-      { id: "storage_access", label: "GCS Access Logs", description: "" },
-      { id: "unified_audit", label: "M365 Unified Audit Log", description: "" },
-      { id: "unified_audit_search", label: "M365 UAL (Search-UnifiedAuditLog)", description: "" },
+      { id: "storage_access", label: "Storage access logs", description: "" },
       { id: "vnet_flow", label: "VNet flow logs", description: "" },
     ],
   },

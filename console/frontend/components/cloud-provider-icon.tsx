@@ -1,12 +1,13 @@
-import { CASE_PLATFORM_LABELS, CLOUD_LABELS, type Cloud } from "@/lib/catalog";
+import { ACQUIRE_PLATFORM_LABELS, CASE_PLATFORM_LABELS, CLOUD_LABELS, type AcquirePlatform, type Cloud } from "@/lib/catalog";
 import { cn } from "@/lib/utils";
 import { Container } from "lucide-react";
 import Image from "next/image";
 
-const LOGOS: Record<Cloud, { src: string; alt: string; aspect: number }> = {
+const LOGOS: Record<Cloud | "m365", { src: string; alt: string; aspect: number }> = {
   aws: { src: "/logos/aws.png", alt: "Amazon Web Services", aspect: 662 / 464 },
   azure: { src: "/logos/azure.png", alt: "Microsoft Azure", aspect: 1 },
   gcp: { src: "/logos/gcp.png", alt: "Google Cloud", aspect: 1 },
+  m365: { src: "/icons/icon8/m365.png", alt: "Microsoft 365", aspect: 1 },
 };
 
 export function CloudProviderIcon({
@@ -33,7 +34,7 @@ export function CloudProviderIcon({
     );
   }
 
-  const meta = LOGOS[key as Cloud];
+  const meta = LOGOS[key as Cloud | "m365"];
 
   if (!meta) {
     return (
@@ -100,6 +101,7 @@ export function CloudPlatformLabel({
   const key = cloud.toLowerCase();
   const label =
     CASE_PLATFORM_LABELS[key as keyof typeof CASE_PLATFORM_LABELS]
+    ?? ACQUIRE_PLATFORM_LABELS[key as AcquirePlatform]
     ?? CLOUD_LABELS[key as Cloud]
     ?? cloud.toUpperCase();
 
