@@ -32,6 +32,7 @@ class GapReason(enum.StrEnum):
     SERVICE_NOT_ENABLED = "service_not_enabled"
     LOGGING_NOT_CONFIGURED = "logging_not_configured"
     ACCESS_DENIED = "access_denied"
+    RATE_LIMITED = "rate_limited"
     REGION_OPTED_OUT = "region_opted_out"
     NOT_PRESENT = "not_present"
     COLLECTOR_ERROR = "collector_error"
@@ -274,6 +275,8 @@ class CollectionContext:
     # Per-artifact parameter values from the acquisition spec, keyed by collector name. A
     # collector reads its own filters here (e.g. a per-artifact ``since``) via ``artifact_params``.
     artifact_parameters: dict[str, dict[str, Any]] = field(default_factory=dict)
+    # GCP: how logging collectors read records (Logging API, BigQuery export, GCS archive).
+    gcp_log_backend: dict[str, Any] = field(default_factory=dict)
     # Injected by the runner; typed loosely to keep this module cloud-agnostic.
     client_factory: Any = None
     logger: Any = None

@@ -1,11 +1,11 @@
-import type { Cloud } from "./catalog";
+import type { AcquirePlatform, Cloud } from "./catalog";
 
 /** Canonical URL for the cases list (outside any open case). */
 export const CASES_HREF = "/cases";
 
 export type AcquireHrefParams = {
   caseId?: string;
-  cloud?: Cloud;
+  cloud?: AcquirePlatform;
   /** Collector registry keys to pre-select in the kit cart. */
   collectors?: string[];
 };

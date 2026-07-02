@@ -6,7 +6,7 @@ import { ArtifactInfoButton } from "@/components/artifact-detail-dialog";
 import { IamActionsDialog } from "@/components/iam-actions-dialog";
 import { ArtifactIcon } from "@/components/artifact-icon";
 import { CloudProviderIcon } from "@/components/cloud-provider-icon";
-import { Button, Card, EmptyState, Input, LoadingPanel } from "@/components/ui";
+import { Badge, Button, Card, EmptyState, Input, LoadingPanel, Tooltip } from "@/components/ui";
 import { saveKitHandoff, type KitHandoffRecord } from "@/lib/acquire-handoff";
 import {
   buildTransportSpec,
@@ -20,7 +20,16 @@ import {
 } from "@/lib/artifact-params";
 import { api, buildAcquisitionKit, previewAcquisitionKit, type AcquisitionBuild } from "@/lib/api";
 import { displayArtifactLabel } from "@/lib/artifact-icons";
-import { CLOUDS, CLOUD_LABELS, compareCollectorCategories, type Cloud } from "@/lib/catalog";
+import { ACQUIRE_PLATFORM_LABELS, ACQUIRE_PLATFORMS, artifactIconCloud, compareCollectorCategories, isAcquirePlatform, type AcquirePlatform } from "@/lib/catalog";
+import {
+  DEFAULT_GCP_LOG_BACKEND_FORM,
+  cartNeedsGcpLogBackend,
+  GCP_LOGGING_COLLECTOR_IDS,
+  serializeGcpLogBackend,
+  validateGcpLogBackendForm,
+  type GcpLogBackendFormState,
+} from "@/lib/gcp-log-backend";
+import { GcpLogBackendFields } from "@/components/gcp-log-backend-fields";
 import {
   DEPLOYMENT_PROFILES,
   isEnterpriseProfile,
@@ -42,9 +51,8 @@ import {
   ChevronRight,
   Download,
   FileJson,
-  Layers,
+  Link2,
   PackageOpen,
-  Plus,
   Search,
   Settings2,
   ShieldCheck,
@@ -53,29 +61,28 @@ import {
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useSearchParams } from "next/navigation";
-import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
-const PACK_LABELS: Record<string, string> = {
-  "baseline-ir-aws": "Baseline AWS",
-  "baseline-ir-azure": "Baseline Azure",
-  "baseline-ir-gcp": "Baseline GCP",
-};
-
-function displayPack(pack: string): string {
-  return (
-    PACK_LABELS[pack] ??
-    pack
-      .split("-")
-      .filter((w) => w !== "ir")
-      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
-      .join(" ")
-  );
-}
-
-function parseCloud(raw: string | null): Cloud {
+function parseAcquirePlatform(raw: string | null): AcquirePlatform {
   const c = (raw || "aws").toLowerCase();
-  return CLOUDS.includes(c as Cloud) ? (c as Cloud) : "aws";
+  return isAcquirePlatform(c) ? c : "aws";
 }
+
+function KitSectionTitle({ children }: { children: ReactNode }) {
+  return <p className="text-sm font-semibold text-accent">{children}</p>;
+}
+
+function KitFieldLabel({ children }: { children: ReactNode }) {
+  return <span className="text-sm font-medium text-fg">{children}</span>;
+}
+
+const KIT_INPUT_CLASS = "text-sm text-fg placeholder:text-fg-faint";
+
+const KIT_RADIO_CARD = (selected: boolean) =>
+  cn(
+    "flex cursor-pointer gap-3 rounded-md border px-3 py-3 transition-colors",
+    selected ? "border-accent/60 bg-accent/10" : "border-border hover:border-accent/40",
+  );
 
 function joinScopeValues(values: string[]): string | undefined {
   const cleaned = values.map((v) => v.trim()).filter(Boolean);
@@ -83,7 +90,7 @@ function joinScopeValues(values: string[]): string | undefined {
 }
 
 function buildRequestBody(
-  cloud: Cloud,
+  platform: AcquirePlatform,
   caseId: string,
   collectors: string[],
   since: string,
@@ -99,6 +106,7 @@ function buildRequestBody(
   deploymentProfile: DeploymentProfile,
   maxRecordsPerSource: string,
   transport?: string,
+  gcpLogBackend?: GcpLogBackendFormState,
 ): AcquisitionBuild {
   const regionList = regions
     .split(",")
@@ -114,18 +122,18 @@ function buildRequestBody(
     }
   }
   return {
-    cloud,
+    cloud: platform,
     case_id: caseId.trim() || "CASE-PENDING",
     artifacts: collectors,
     include_iam: true,
     since: since.trim() || undefined,
     until: until.trim() || undefined,
     regions: regionList.length ? regionList : undefined,
-    project: cloud === "gcp" ? joinScopeValues(projectIds) : undefined,
-    subscription: cloud === "azure" ? joinScopeValues(subscriptionIds) : undefined,
-    azure_tenant_id: cloud === "azure" ? azureTenantId.trim() || undefined : undefined,
-    azure_client_id: cloud === "azure" ? azureClientId.trim() || undefined : undefined,
-    aws_profile: cloud === "aws" ? awsProfile.trim() || undefined : undefined,
+    project: platform === "gcp" ? joinScopeValues(projectIds) : undefined,
+    subscription: platform === "azure" ? joinScopeValues(subscriptionIds) : undefined,
+    azure_tenant_id: platform === "azure" || platform === "m365" ? azureTenantId.trim() || undefined : undefined,
+    azure_client_id: platform === "azure" || platform === "m365" ? azureClientId.trim() || undefined : undefined,
+    aws_profile: platform === "aws" ? awsProfile.trim() || undefined : undefined,
     artifact_parameters: Object.keys(params).length ? params : undefined,
     deployment_profile: deploymentProfile,
     max_records_per_source: (() => {
@@ -136,6 +144,8 @@ function buildRequestBody(
       return n;
     })(),
     transport: transport?.trim() || undefined,
+    gcp_log_backend:
+      platform === "gcp" ? serializeGcpLogBackend(gcpLogBackend ?? DEFAULT_GCP_LOG_BACKEND_FORM) : undefined,
     bundle_wheel: true,
     require_wheel: true,
   };
@@ -145,7 +155,7 @@ function AcquireContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const urlCaseId = searchParams.get("case_id")?.trim() || "";
-  const urlCloud = parseCloud(searchParams.get("cloud"));
+  const urlCloud = parseAcquirePlatform(searchParams.get("cloud"));
   const urlCollectors = useMemo(
     () =>
       (searchParams.get("collectors") || "")
@@ -156,7 +166,7 @@ function AcquireContent() {
   );
   const prefillDone = useRef(false);
 
-  const [cloud, setCloud] = useState<Cloud>(urlCloud);
+  const [platform, setPlatform] = useState<AcquirePlatform>(urlCloud);
   const [search, setSearch] = useState("");
   const [cart, setCart] = useState<Set<string>>(() => new Set(urlCollectors));
   const [caseId, setCaseId] = useState(urlCaseId);
@@ -185,13 +195,15 @@ function AcquireContent() {
   const [iamActionsOpen, setIamActionsOpen] = useState(false);
   const [handoff, setHandoff] = useState<KitHandoffRecord | null>(null);
   const [handoffOpen, setHandoffOpen] = useState(false);
+  const [gcpLogBackend, setGcpLogBackend] = useState<GcpLogBackendFormState>(
+    DEFAULT_GCP_LOG_BACKEND_FORM,
+  );
 
   const artifacts = useQuery({
-    queryKey: ["artifacts", cloud],
-    queryFn: () => api.artifacts(cloud),
+    queryKey: ["artifacts", platform],
+    queryFn: () => api.artifacts(platform),
     staleTime: 0,
   });
-  const packs = useQuery({ queryKey: ["packs", cloud], queryFn: () => api.packs(cloud) });
 
   const all = (artifacts.data?.artifacts ?? []).filter((a) => a.selectable !== false);
 
@@ -199,7 +211,7 @@ function AcquireContent() {
     if (prefillDone.current || !all.length) return;
     prefillDone.current = true;
     if (urlCaseId) setCaseId(urlCaseId);
-    if (urlCloud) setCloud(urlCloud);
+    if (urlCloud) setPlatform(urlCloud);
     if (urlCollectors.length) {
       const valid = new Set(all.map((a) => a.collector));
       setCart(new Set(urlCollectors.filter((c) => valid.has(c))));
@@ -220,14 +232,44 @@ function AcquireContent() {
     );
   }, [all, search]);
 
-  const byCategory = useMemo(() => {
+  const byCollector = useMemo(() => {
+    const m = new Map<string, Artifact>();
+    for (const a of all) m.set(a.collector, a);
+    return m;
+  }, [all]);
+
+  // Subset collectors whose parent is in the same category render as nested rows directly
+  // under it (e.g. cloud_cdn/cloud_armor under load_balancer, both Network) — reorder so
+  // each child immediately follows its parent, and track which ids are nested for styling.
+  const { byCategory, nestedChildIds } = useMemo(() => {
     const groups = new Map<string, typeof visible>();
     for (const a of visible) {
       const key = a.category || "Other";
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(a);
     }
-    return [...groups.entries()].sort((a, b) => compareCollectorCategories(a[0], b[0]));
+    const nestedChildIds = new Set<string>();
+    for (const [key, items] of groups) {
+      const byId = new Set(items.map((a) => a.collector));
+      const children = new Map<string, typeof visible>();
+      for (const a of items) {
+        if (a.subset_of && byId.has(a.subset_of)) {
+          nestedChildIds.add(a.collector);
+          if (!children.has(a.subset_of)) children.set(a.subset_of, []);
+          children.get(a.subset_of)!.push(a);
+        }
+      }
+      if (children.size === 0) continue;
+      const ordered: typeof visible = [];
+      for (const a of items) {
+        if (nestedChildIds.has(a.collector)) continue;
+        ordered.push(a);
+        for (const child of children.get(a.collector) ?? []) ordered.push(child);
+      }
+      groups.set(key, ordered);
+    }
+    const byCategory = [...groups.entries()].sort((a, b) => compareCollectorCategories(a[0], b[0]));
+    return { byCategory, nestedChildIds };
   }, [visible]);
 
   const cartForCloud = useMemo(
@@ -237,6 +279,16 @@ function AcquireContent() {
 
   const collectors = useMemo(() => cartForCloud.map((a) => a.collector), [cartForCloud]);
 
+  const needsGcpLogBackend = platform === "gcp" && cartNeedsGcpLogBackend(collectors);
+  const gcpLoggingCollectors = useMemo(
+    () => collectors.filter((c) => GCP_LOGGING_COLLECTOR_IDS.has(c)),
+    [collectors],
+  );
+  const gcpLogBackendError = useMemo(
+    () => validateGcpLogBackendForm(gcpLogBackend, needsGcpLogBackend),
+    [gcpLogBackend, needsGcpLogBackend],
+  );
+
   const transportSpec = useMemo(() => {
     if (!isEnterpriseProfile(deploymentProfile)) return "";
     return buildTransportSpec(handoffMode, s3Bucket, s3Prefix, presignedUrl);
@@ -245,7 +297,7 @@ function AcquireContent() {
   const requestBody = useMemo(
     () =>
       buildRequestBody(
-        cloud,
+        platform,
         caseId,
         collectors,
         since,
@@ -261,9 +313,10 @@ function AcquireContent() {
         deploymentProfile,
         maxRecordsPerSource,
         isEnterpriseProfile(deploymentProfile) ? transportSpec : undefined,
+        gcpLogBackend,
       ),
     [
-      cloud,
+      platform,
       caseId,
       collectors,
       since,
@@ -279,6 +332,7 @@ function AcquireContent() {
       cartForCloud,
       deploymentProfile,
       transportSpec,
+      gcpLogBackend,
     ],
   );
 
@@ -331,9 +385,6 @@ function AcquireContent() {
       [collector]: values,
     }));
 
-  const addPack = (artifactKeys: string[]) =>
-    setCart((prev) => new Set([...prev, ...artifactKeys]));
-
   const clear = () => setCart(new Set());
 
   const downloadIamPreview = () => {
@@ -368,13 +419,17 @@ function AcquireContent() {
         return;
       }
     }
+    const gcpLogErr = validateGcpLogBackendForm(gcpLogBackend, needsGcpLogBackend);
+    if (gcpLogErr) {
+      return;
+    }
     setBuilding(true);
     setError("");
     try {
       await buildAcquisitionKit(requestBody);
       const record: KitHandoffRecord = {
         caseId: requestBody.case_id || "CASE-PENDING",
-        cloud,
+        cloud: platform,
         collectors,
         deploymentProfile,
         builtAt: new Date().toISOString(),
@@ -403,7 +458,8 @@ function AcquireContent() {
     router.push(`${CASES_HREF}?import_s3=1`);
   }, [router]);
 
-  const tabs = CLOUDS.map((c) => ({ id: c, label: CLOUD_LABELS[c] }));
+  const tabs = ACQUIRE_PLATFORMS.map((c) => ({ id: c, label: ACQUIRE_PLATFORM_LABELS[c] }));
+  const iconCloud = artifactIconCloud(platform);
 
   const renderParamHints = (a: Artifact) => {
     const missing = missingRequiredParams(a, artifactParams[a.collector]);
@@ -431,12 +487,7 @@ function AcquireContent() {
             <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-accent/15 text-accent">
               <Anchor className="h-5 w-5" />
             </div>
-            <div>
-              <h1 className="text-lg font-semibold tracking-tight">Acquire</h1>
-              <p className="text-xs text-fg-subtle">
-                Build a read-only collection kit for the client to run
-              </p>
-            </div>
+            <h1 className="text-lg font-semibold tracking-tight">Acquire</h1>
           </div>
           <Link href={fromCase ? `/cases/${encodeURIComponent(caseId)}/collection` : CASES_HREF}>
             <Button variant="ghost" icon={ArrowLeft}>
@@ -459,11 +510,11 @@ function AcquireContent() {
         <div className="min-w-0">
           <div className="mb-4 flex items-center gap-1 border-b border-border">
             {tabs.map((t) => {
-              const active = cloud === t.id;
+              const active = platform === t.id;
               return (
                 <button
                   key={t.id}
-                  onClick={() => setCloud(t.id)}
+                  onClick={() => setPlatform(t.id)}
                   className={cn(
                     "relative -mb-px flex items-center gap-2 px-4 py-2.5 text-sm transition-colors",
                     active ? "text-fg" : "text-fg-subtle hover:text-fg",
@@ -491,26 +542,14 @@ function AcquireContent() {
             </div>
           </div>
 
-          {(packs.data?.packs.length ?? 0) > 0 && (
-            <div className="mb-5">
-              <div className="mb-2 flex items-center gap-2 text-xs font-medium text-fg-subtle">
-                <Layers className="h-3.5 w-3.5" /> Curated packs
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {packs.data!.packs.map((p) => (
-                  <button
-                    key={p.pack}
-                    onClick={() => addPack(p.artifacts)}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs font-medium text-fg transition-colors hover:border-accent/50 hover:bg-surface-2"
-                    title={`Add ${p.artifacts.length} artifacts`}
-                  >
-                    <Plus className="h-3.5 w-3.5 text-accent" />
-                    {displayPack(p.pack)}
-                    <span className="mono text-2xs text-fg-subtle">{p.artifacts.length}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
+          {needsGcpLogBackend && (
+            <GcpLogBackendFields
+              cloud={platform}
+              loggingCollectors={gcpLoggingCollectors}
+              form={gcpLogBackend}
+              onChange={setGcpLogBackend}
+              required={needsGcpLogBackend}
+            />
           )}
 
           {artifacts.isPending ? (
@@ -553,12 +592,19 @@ function AcquireContent() {
                       const hasParams = fields.length > 0;
                       const paramsExpanded = expanded.has(a.collector);
                       const missing = selected ? missingRequiredParams(a, artifactParams[a.collector]) : [];
+                      const isNestedChild = nestedChildIds.has(a.collector);
+                      const parent = a.subset_of ? byCollector.get(a.subset_of) : undefined;
+                      // Cross-category subset (parent lives in a different category section,
+                      // e.g. storage_access/DataStorage under cloud_audit_data/ManagementPlane)
+                      // — no DOM nesting possible, show a badge instead.
+                      const showSubsetBadge = !!parent && !isNestedChild;
                       return (
                         <div
                           key={a.collector}
                           className={cn(
                             "transition-colors",
-                            selected ? "bg-accent/5" : "bg-surface hover:bg-surface-2/50",
+                            isNestedChild && "bg-surface-2/20",
+                            selected ? "bg-accent/5" : !isNestedChild && "bg-surface hover:bg-surface-2/50",
                           )}
                         >
                           <div
@@ -572,8 +618,15 @@ function AcquireContent() {
                               }
                             }}
                             className={cn(
-                              "flex cursor-pointer items-center gap-3 px-3 py-2.5 text-left",
-                              selected ? "border-l-2 border-l-accent pl-[10px]" : "border-l-2 border-l-transparent",
+                              "flex cursor-pointer items-center gap-3 py-2.5 pr-3 text-left border-l-2",
+                              selected ? "border-l-accent" : "border-l-transparent",
+                              isNestedChild
+                                ? selected
+                                  ? "pl-[42px]"
+                                  : "pl-11"
+                                : selected
+                                  ? "pl-[10px]"
+                                  : "pl-3",
                             )}
                           >
                             <span
@@ -586,7 +639,7 @@ function AcquireContent() {
                             >
                               {selected && <Check className="h-3 w-3" />}
                             </span>
-                            <ArtifactIcon cloud={cloud} collector={a.collector} size={24} />
+                            <ArtifactIcon cloud={iconCloud} collector={a.collector} size={isNestedChild ? 18 : 24} />
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className="truncate text-sm font-medium text-fg">
@@ -604,6 +657,16 @@ function AcquireContent() {
                                     {missing.length}
                                   </span>
                                 )}
+                                {showSubsetBadge && parent && (
+                                  <Tooltip
+                                    content={`Collected once via ${displayArtifactLabel(parent.collector)} when both are selected`}
+                                  >
+                                    <Badge className="border-border bg-surface-2 text-fg-subtle">
+                                      <Link2 className="h-3 w-3" />
+                                      via {displayArtifactLabel(parent.collector)}
+                                    </Badge>
+                                  </Tooltip>
+                                )}
                               </div>
                               {paramsExpanded && a.description ? (
                                 <p className="mt-0.5 line-clamp-1 text-2xs text-fg-subtle">
@@ -611,7 +674,7 @@ function AcquireContent() {
                                 </p>
                               ) : null}
                             </div>
-                            <ArtifactInfoButton collector={a.collector} cloud={cloud} />
+                            <ArtifactInfoButton collector={a.collector} cloud={platform} />
                             {selected && hasParams && (
                               <button
                                 type="button"
@@ -672,7 +735,7 @@ function AcquireContent() {
             <div className="p-4">
               {cartForCloud.length === 0 ? (
                 <p className="py-6 text-center text-sm text-fg-subtle">
-                  Pick artifacts (or a pack) to add them to the kit.
+                  Pick artifacts to add them to the kit.
                 </p>
               ) : (
                 <ul className="mb-4 max-h-40 space-y-1 overflow-auto">
@@ -683,7 +746,7 @@ function AcquireContent() {
                     >
                       <span className="flex min-w-0 flex-1 flex-col gap-0.5">
                         <span className="flex min-w-0 items-center gap-2">
-                          <ArtifactIcon cloud={cloud} collector={a.collector} size={18} />
+                          <ArtifactIcon cloud={iconCloud} collector={a.collector} size={18} />
                           <span className="truncate text-fg">{displayArtifactLabel(a.collector)}</span>
                         </span>
                         {renderParamHints(a)}
@@ -700,31 +763,24 @@ function AcquireContent() {
                 </ul>
               )}
 
-              <div className="space-y-3 border-t border-border pt-3">
-                <p className="text-2xs font-medium uppercase tracking-wide text-fg-subtle">
-                  Deployment profile
-                </p>
+              <div className="space-y-3 border-t border-border pt-4">
+                <KitSectionTitle>Deployment profile</KitSectionTitle>
                 <div className="space-y-2">
                   {DEPLOYMENT_PROFILES.map((p) => (
                     <label
                       key={p.id}
-                      className={cn(
-                        "flex cursor-pointer gap-2 rounded-md border px-2.5 py-2 text-xs transition-colors",
-                        deploymentProfile === p.id
-                          ? "border-accent/50 bg-accent/5"
-                          : "border-border hover:border-accent/30",
-                      )}
+                      className={KIT_RADIO_CARD(deploymentProfile === p.id)}
                     >
                       <input
                         type="radio"
                         name="deployment_profile"
                         checked={deploymentProfile === p.id}
                         onChange={() => setDeploymentProfile(parseDeploymentProfile(p.id))}
-                        className="mt-0.5"
+                        className="mt-1"
                       />
                       <span>
-                        <span className="font-medium text-fg">{p.label}</span>
-                        <span className="mt-0.5 block text-2xs text-fg-subtle">{p.summary}</span>
+                        <span className="text-sm font-semibold text-fg">{p.label}</span>
+                        <span className="mt-1 block text-xs leading-relaxed text-fg">{p.summary}</span>
                       </span>
                     </label>
                   ))}
@@ -732,31 +788,24 @@ function AcquireContent() {
               </div>
 
               {isEnterpriseProfile(deploymentProfile) && (
-                <div className="space-y-3 border-t border-border pt-3">
-                  <p className="text-2xs font-medium uppercase tracking-wide text-fg-subtle">
-                    Evidence handoff
-                  </p>
+                <div className="space-y-3 border-t border-border pt-4">
+                  <KitSectionTitle>Evidence handoff</KitSectionTitle>
                   <div className="space-y-2">
                     {HANDOFF_MODES.map((mode) => (
                       <label
                         key={mode.id}
-                        className={cn(
-                          "flex cursor-pointer gap-2 rounded-md border px-2.5 py-2 text-xs transition-colors",
-                          handoffMode === mode.id
-                            ? "border-accent/50 bg-accent/5"
-                            : "border-border hover:border-accent/30",
-                        )}
+                        className={KIT_RADIO_CARD(handoffMode === mode.id)}
                       >
                         <input
                           type="radio"
                           name="handoff_mode"
                           checked={handoffMode === mode.id}
                           onChange={() => setHandoffMode(mode.id)}
-                          className="mt-0.5"
+                          className="mt-1"
                         />
                         <span>
-                          <span className="font-medium text-fg">{mode.label}</span>
-                          <span className="mt-0.5 block text-2xs text-fg-subtle">{mode.summary}</span>
+                          <span className="text-sm font-semibold text-fg">{mode.label}</span>
+                          <span className="mt-1 block text-xs leading-relaxed text-fg">{mode.summary}</span>
                         </span>
                       </label>
                     ))}
@@ -764,26 +813,26 @@ function AcquireContent() {
 
                   {handoffMode === "s3_ir_bucket" && (
                     <>
-                      <p className="text-2xs text-fg-subtle">
+                      <p className="text-xs leading-relaxed text-fg">
                         Your Ventra server must be able to read this bucket (Import from S3 uses
                         server-side AWS credentials, not the client browser).
                       </p>
-                      <label className="block space-y-1">
-                        <span className="text-2xs text-fg-subtle">Your IR bucket</span>
+                      <label className="block space-y-1.5">
+                        <KitFieldLabel>Your IR bucket</KitFieldLabel>
                         <Input
                           value={s3Bucket}
                           onChange={(e) => setS3Bucket(e.target.value)}
                           placeholder="ir-evidence-bucket"
-                          className="mono text-xs"
+                          className={cn("mono", KIT_INPUT_CLASS)}
                         />
                       </label>
-                      <label className="block space-y-1">
-                        <span className="text-2xs text-fg-subtle">Prefix</span>
+                      <label className="block space-y-1.5">
+                        <KitFieldLabel>Prefix</KitFieldLabel>
                         <Input
                           value={s3Prefix}
                           onChange={(e) => setS3Prefix(e.target.value)}
                           placeholder="cases"
-                          className="mono text-xs"
+                          className={cn("mono", KIT_INPUT_CLASS)}
                         />
                       </label>
                     </>
@@ -791,76 +840,78 @@ function AcquireContent() {
 
                   {handoffMode === "presigned" && (
                     <>
-                      <p className="text-2xs text-fg-subtle">
+                      <p className="text-xs leading-relaxed text-fg">
                         Generate a presigned PUT URL in your IR bucket, paste it here, and send
                         the kit to the client. After upload, ingest from your bucket.
                       </p>
-                      <label className="block space-y-1">
-                        <span className="text-2xs text-fg-subtle">Presigned PUT URL</span>
+                      <label className="block space-y-1.5">
+                        <KitFieldLabel>Presigned PUT URL</KitFieldLabel>
                         <Input
                           value={presignedUrl}
                           onChange={(e) => setPresignedUrl(e.target.value)}
                           placeholder="https://bucket.s3.amazonaws.com/key?X-Amz-..."
-                          className="mono text-xs"
+                          className={cn("mono", KIT_INPUT_CLASS)}
                         />
                       </label>
                     </>
                   )}
 
                   {handoffMode === "file" && (
-                    <p className="text-2xs text-fg-subtle">
+                    <p className="text-xs leading-relaxed text-fg">
                       No automatic upload — client returns the sealed package and you use Import
                       package on Cases.
                     </p>
                   )}
 
                   {transportSpec && (
-                    <p className="mono text-2xs text-accent">{transportSpec}</p>
+                    <p className="mono text-xs text-accent">{transportSpec}</p>
                   )}
                 </div>
               )}
 
-              <div className="space-y-3 border-t border-border pt-3">
-                <p className="text-2xs font-medium uppercase tracking-wide text-fg-subtle">
-                  Global collection window
-                </p>
+              <div className="space-y-3 border-t border-border pt-4">
+                <KitSectionTitle>Global collection window</KitSectionTitle>
                 <label className="block space-y-1.5">
-                  <span className="text-xs font-medium text-fg">Case ID</span>
+                  <KitFieldLabel>Case ID</KitFieldLabel>
                   <Input
                     value={caseId}
                     onChange={(e) => setCaseId(e.target.value)}
                     placeholder="CASE-2026-0042"
+                    className={KIT_INPUT_CLASS}
                   />
                 </label>
                 <div className="grid grid-cols-2 gap-2">
-                  <label className="block space-y-1">
-                    <span className="text-2xs text-fg-subtle">Since</span>
+                  <label className="block space-y-1.5">
+                    <KitFieldLabel>Since</KitFieldLabel>
                     <Input
                       value={since}
                       onChange={(e) => setSince(e.target.value)}
                       placeholder="2026-05-01"
+                      className={KIT_INPUT_CLASS}
                     />
                   </label>
-                  <label className="block space-y-1">
-                    <span className="text-2xs text-fg-subtle">Until</span>
+                  <label className="block space-y-1.5">
+                    <KitFieldLabel>Until</KitFieldLabel>
                     <Input
                       value={until}
                       onChange={(e) => setUntil(e.target.value)}
                       placeholder="2026-06-01"
+                      className={KIT_INPUT_CLASS}
                     />
                   </label>
                 </div>
-                <label className="block space-y-1">
-                  <span className="text-2xs text-fg-subtle">Regions</span>
+                <label className="block space-y-1.5">
+                  <KitFieldLabel>Regions</KitFieldLabel>
                   <Input
                     value={regions}
                     onChange={(e) => setRegions(e.target.value)}
-                    placeholder={cloud === "aws" ? "us-east-1,us-west-2" : "optional"}
+                    placeholder={platform === "aws" ? "us-east-1,us-west-2" : "optional"}
+                    className={KIT_INPUT_CLASS}
                   />
                 </label>
-                {cloud === "gcp" && (
-                  <div className="block space-y-1">
-                    <span className="text-2xs text-fg-subtle">Project ID(s)</span>
+                {platform === "gcp" && (
+                  <div className="block space-y-1.5">
+                    <KitFieldLabel>Project ID(s)</KitFieldLabel>
                     <MultiValueInput
                       items={projectIds}
                       placeholder="my-project"
@@ -868,53 +919,82 @@ function AcquireContent() {
                     />
                   </div>
                 )}
-                {cloud === "aws" && (
-                  <label className="block space-y-1">
-                    <span className="text-2xs text-fg-subtle">AWS profile (optional)</span>
+                {platform === "aws" && (
+                  <label className="block space-y-1.5">
+                    <KitFieldLabel>AWS profile (optional)</KitFieldLabel>
                     <Input
                       value={awsProfile}
                       onChange={(e) => setAwsProfile(e.target.value)}
                       placeholder="Named profile from ~/.aws/credentials"
-                      className="mono text-xs"
+                      className={cn("mono", KIT_INPUT_CLASS)}
                     />
                   </label>
                 )}
-                {cloud === "azure" && (
+                {platform === "azure" && (
                   <>
-                    <div className="block space-y-1">
-                      <span className="text-2xs text-fg-subtle">Subscription ID(s)</span>
+                    <div className="block space-y-1.5">
+                      <KitFieldLabel>Subscription ID(s)</KitFieldLabel>
                       <MultiValueInput
                         items={subscriptionIds}
                         placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"
                         onChange={setSubscriptionIds}
                       />
                     </div>
-                    <label className="block space-y-1">
-                      <span className="text-2xs text-fg-subtle">Entra tenant ID (optional)</span>
+                    <label className="block space-y-1.5">
+                      <KitFieldLabel>Entra tenant ID (optional)</KitFieldLabel>
                       <Input
                         value={azureTenantId}
                         onChange={(e) => setAzureTenantId(e.target.value)}
                         placeholder="Embedded in acquisition.yaml — or use AZURE_TENANT_ID"
-                        className="mono text-xs"
+                        className={cn("mono", KIT_INPUT_CLASS)}
                       />
                     </label>
-                    <label className="block space-y-1">
-                      <span className="text-2xs text-fg-subtle">App client ID (optional)</span>
+                    <label className="block space-y-1.5">
+                      <KitFieldLabel>App client ID (optional)</KitFieldLabel>
                       <Input
                         value={azureClientId}
                         onChange={(e) => setAzureClientId(e.target.value)}
                         placeholder="Embedded in acquisition.yaml — or use AZURE_CLIENT_ID"
-                        className="mono text-xs"
+                        className={cn("mono", KIT_INPUT_CLASS)}
                       />
                     </label>
-                    <p className="text-2xs text-fg-subtle">
+                    <p className="text-xs leading-relaxed text-fg">
                       Set <span className="mono">AZURE_CLIENT_SECRET</span> in the environment before
                       running <span className="mono">ventra.py</span> — never put secrets in the kit zip.
                     </p>
                   </>
                 )}
-                <label className="block space-y-1">
-                  <span className="text-2xs text-fg-subtle">Records count to collect (optional)</span>
+                {platform === "m365" && (
+                  <>
+                    <label className="block space-y-1.5">
+                      <KitFieldLabel>Entra tenant ID (optional)</KitFieldLabel>
+                      <Input
+                        value={azureTenantId}
+                        onChange={(e) => setAzureTenantId(e.target.value)}
+                        placeholder="Embedded in acquisition.yaml — or use AZURE_TENANT_ID"
+                        className={cn("mono", KIT_INPUT_CLASS)}
+                      />
+                    </label>
+                    <label className="block space-y-1.5">
+                      <KitFieldLabel>App client ID (optional)</KitFieldLabel>
+                      <Input
+                        value={azureClientId}
+                        onChange={(e) => setAzureClientId(e.target.value)}
+                        placeholder="Embedded in acquisition.yaml — or use AZURE_CLIENT_ID"
+                        className={cn("mono", KIT_INPUT_CLASS)}
+                      />
+                    </label>
+                    <p className="text-xs leading-relaxed text-fg">
+                      M365 Unified Audit requires Graph and Exchange permissions — see{" "}
+                      <span className="mono">iam/azure-collector-graph.json</span> and{" "}
+                      <span className="mono">iam/azure-collector-m365.json</span> in the kit. Set{" "}
+                      <span className="mono">AZURE_CLIENT_SECRET</span> in the environment before running{" "}
+                      <span className="mono">ventra.py</span>.
+                    </p>
+                  </>
+                )}
+                <label className="block space-y-1.5">
+                  <KitFieldLabel>Records count to collect (optional)</KitFieldLabel>
                   <Input
                     type="number"
                     min={0}
@@ -922,14 +1002,14 @@ function AcquireContent() {
                     value={maxRecordsPerSource}
                     onChange={(e) => setMaxRecordsPerSource(e.target.value)}
                     placeholder="Unlimited"
-                    className="mono text-xs"
+                    className={cn("mono", KIT_INPUT_CLASS)}
                   />
                 </label>
               </div>
 
-              <div className="mt-3 space-y-2 border-t border-border pt-3">
-                <div className="flex items-center gap-2 text-xs font-medium text-fg">
-                  <ShieldCheck className="h-3.5 w-3.5 text-fg-subtle" />
+              <div className="mt-3 space-y-2 border-t border-border pt-4">
+                <div className="flex items-center gap-2 text-sm font-semibold text-accent">
+                  <ShieldCheck className="h-4 w-4" />
                   Read-only IAM policy
                 </div>
                 {collectors.length > 0 && (
@@ -938,11 +1018,11 @@ function AcquireContent() {
                       <p className="text-xs text-bad-red">{iamPreviewError}</p>
                     ) : iamPreview ? (
                       <>
-                        <p className="text-xs text-fg">
-                          <span className="mono font-medium">{iamPreview.iam_action_count}</span> IAM
+                        <p className="text-sm text-fg">
+                          <span className="mono font-semibold">{iamPreview.iam_action_count}</span> IAM
                           action{iamPreview.iam_action_count === 1 ? "" : "s"}
                           {iamPreview.implicit_collectors.length > 0 && (
-                            <span className="text-fg-subtle">
+                            <span className="text-fg">
                               {" "}
                               (+ {iamPreview.implicit_collectors.length} implicit)
                             </span>
@@ -980,11 +1060,19 @@ function AcquireContent() {
 
               {error && <p className="mt-3 text-xs text-bad-red">{error}</p>}
 
+              {needsGcpLogBackend && gcpLogBackendError && (
+                <p className="mt-3 text-xs text-warn-amber">{gcpLogBackendError}</p>
+              )}
+
               <Button
                 variant="primary-dark"
                 icon={Download}
                 className="mt-4 w-full justify-center"
-                disabled={cartForCloud.length === 0 || building}
+                disabled={
+                  cartForCloud.length === 0 ||
+                  building ||
+                  (needsGcpLogBackend && !!gcpLogBackendError)
+                }
                 loading={building}
                 onClick={download}
               >
@@ -999,7 +1087,7 @@ function AcquireContent() {
       <IamActionsDialog
         open={iamActionsOpen}
         onClose={() => setIamActionsOpen(false)}
-        cloud={cloud}
+        cloud={platform}
         actions={iamPreview?.iam_actions ?? []}
         actionCount={iamPreview?.iam_action_count ?? 0}
         implicitCount={iamPreview?.implicit_collectors.length ?? 0}

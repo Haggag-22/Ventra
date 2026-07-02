@@ -6,8 +6,9 @@ from pathlib import Path
 
 import pytest
 
-from collector.cli import _plan_collection, _resolve_collectors, build_parser
+from collector.cli import _cli_reporter, _plan_collection, _resolve_collectors, build_parser
 from collector.engine.registry import GCP_COLLECTOR_ORDER, GCP_REGISTRY
+from collector.lib.models import GapReason, SourceResult, SourceStatus
 
 
 def test_resolve_collectors_defaults_to_all() -> None:
@@ -72,3 +73,29 @@ def test_plan_collection_default_collectors() -> None:
     assert names == list(GCP_COLLECTOR_ORDER)
     assert len(refs) == len(names)
     assert spec is None
+
+
+def test_require_complete_parser_flag_defaults_false() -> None:
+    parser = build_parser()
+    args = parser.parse_args(["collect", "gcp", "--case", "C", "--project", "p"])
+    assert args.require_complete is False
+    args = parser.parse_args(["collect", "gcp", "--case", "C", "--project", "p", "--require-complete"])
+    assert args.require_complete is True
+
+
+def test_reporter_flags_rate_limited_sources() -> None:
+    reporter, _ = _cli_reporter(quiet=True, json_mode=False, cloud="gcp")
+    reporter.begin_run("proj", [], "CASE", ["vpc_flow", "cloud_dns"])
+    reporter.finish(
+        "vpc_flow",
+        SourceResult(
+            name="vpc_flow",
+            status=SourceStatus.EMPTY,
+            gaps=[("vpc_flow", GapReason.RATE_LIMITED, "proj: quota exhausted")],
+        ),
+    )
+    reporter.finish(
+        "cloud_dns",
+        SourceResult(name="cloud_dns", status=SourceStatus.COLLECTED, record_count=5),
+    )
+    assert reporter.rate_limited_collectors() == ["vpc_flow"]

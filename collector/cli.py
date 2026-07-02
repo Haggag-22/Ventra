@@ -31,7 +31,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from . import __version__
-from .lib.models import SourceStatus, utcnow_iso
+from .lib.models import GapReason, SourceStatus, utcnow_iso
 from .lib.transport import get_transport
 
 if TYPE_CHECKING:
@@ -255,6 +255,12 @@ def _add_gcp_parser(sub: argparse._SubParsersAction) -> None:
         "--collectors",
         default="",
         help="Comma-separated collector names to run (default: all registered).",
+    )
+    gcp.add_argument(
+        "--require-complete",
+        action="store_true",
+        help="Exit non-zero (3) if any source was left incomplete by the logging read quota — "
+        "for enterprise runs that must cover the full window.",
     )
     _add_acquisition_args(gcp)
 
@@ -526,6 +532,8 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
             self._plan_label = ""
             self._artifact_labels: dict[str, str] = {}
             self._artifact_severities: dict[str, str] = {}
+            # Sources cut short by the logging read quota (429 past the patient-retry budget).
+            self._rate_limited: list[str] = []
 
         def _new_table(self):
             table = Table(
@@ -567,6 +575,7 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
             plan_label: str = "",
             artifact_labels: dict[str, str] | None = None,
             artifact_severities: dict[str, str] | None = None,
+            preflight_lines: list[str] | None = None,
         ) -> None:
             self._account = account_id or ""
             self._masked = (account_id[:4] + "***") if account_id else "????"
@@ -595,9 +604,12 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
                 return
             if self._quiet:
                 plan = f" — {self._plan_label}" if self._plan_label else ""
+                bq = ""
+                if preflight_lines:
+                    bq = f" — {preflight_lines[0]}"
                 print(
                     f"[+] Ventra collection — account {self._masked} — case {case_id or '—'} "
-                    f"— {region_str} — {len(self._order)} collectors{plan}"
+                    f"— {region_str} — {len(self._order)} collectors{plan}{bq}"
                 )
                 return
 
@@ -615,6 +627,8 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
                     self._console.print(
                         f"  [bright_black]Plan[/] [bold]{escape(self._plan_label)}[/]"
                     )
+                for line in preflight_lines or []:
+                    self._console.print(f"  {line}")
                 self._console.print()
                 self._live = Live(
                     self._render_table(),
@@ -693,6 +707,8 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
         def finish(self, name: str, result) -> None:
             severity = self._state.get(name, {}).get("severity") or self._severity_for(name)
             label, _ = _classify(result.status, severity)
+            if any(g[1] == GapReason.RATE_LIMITED for g in (result.gaps or [])):
+                self._rate_limited.append(name)
             count = result.record_count
             tag = f"{count:,}" if isinstance(count, int) else "-"
             if result.status != SourceStatus.COLLECTED and result.gaps:
@@ -760,6 +776,10 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
             ]
             gaps.sort(key=lambda g: rank.get(g["severity"], 3))
             return gaps
+
+        def rate_limited_collectors(self) -> list[str]:
+            """Sources abandoned because the logging read quota stayed exhausted (429)."""
+            return list(self._rate_limited)
 
         def collectors_report(self) -> list[dict]:
             """Per-collector structured result for the --json payload."""
@@ -1034,7 +1054,7 @@ def _plan_collection(args, cloud: str, all_names: list[str], registry):
 
 
 def _window_from_args(args, spec) -> TimeWindow:
-    from .engine.api.aws.runner import parse_window
+    from .engine.run_common import parse_window
 
     since = getattr(args, "since", None) or (spec.since if spec else None)
     until = getattr(args, "until", None) or (spec.until if spec else None)
@@ -1372,6 +1392,72 @@ def _gcp_credentials_from_args(args) -> str | None:
     return raw or None
 
 
+def _gcp_bigquery_dataset_preflight(args, spec, project: str | None):
+    """When BigQuery export is configured, verify the dataset exists before collection."""
+    from collector.clouds.gcp.client_factory import GcpClientFactory
+    from collector.engine.gcp_log_backend import GcpLogBackendSpec
+    from collector.engine.gcp_log_export import BigQueryDatasetCheck, check_bigquery_log_dataset
+
+    raw = dict(spec.gcp_log_backend) if spec and spec.gcp_log_backend else {}
+    if not raw:
+        return None
+    backend = GcpLogBackendSpec.from_acquisition_dict(raw)
+    if not backend.uses_bigquery() or not backend.bigquery_dataset.strip():
+        return None
+
+    factory = GcpClientFactory(
+        project_id=project,
+        credentials_path=_gcp_credentials_from_args(args),
+    )
+    return check_bigquery_log_dataset(
+        credentials=factory._credentials,
+        dataset=backend.bigquery_dataset,
+        default_project=project or factory._default_project or "",
+    )
+
+
+def _gcp_bigquery_preflight_line(check, console) -> str:
+    if check.found:
+        if check.table_count:
+            suffix = f" ({check.table_count} table{'s' if check.table_count != 1 else ''})"
+        else:
+            suffix = " (empty)"
+        if console:
+            return (
+                f"[bright_black]BigQuery dataset[/] [bold green]found[/]"
+                f" — [bold]{check.ref}[/]{suffix}"
+            )
+        return f"BigQuery dataset: found — {check.ref}{suffix}"
+    if console:
+        line = (
+            f"[bright_black]BigQuery dataset[/] [bold red]not found[/]"
+            f" — [bold]{check.ref}[/]"
+        )
+        if check.message:
+            try:
+                from rich.markup import escape
+
+                line += f" [bright_black]— {escape(check.message)}[/]"
+            except Exception:  # noqa: BLE001
+                line += f" — {check.message}"
+        return line
+    line = f"BigQuery dataset: not found — {check.ref}"
+    if check.message:
+        line += f" — {check.message}"
+    return line
+
+
+def _bigquery_preflight_json(check) -> dict:
+    return {
+        "ref": check.ref,
+        "project_id": check.project_id,
+        "dataset_id": check.dataset_id,
+        "found": check.found,
+        "table_count": check.table_count,
+        "message": check.message,
+    }
+
+
 def _run_gcp(args) -> int:
     from .engine.api.gcp.runner import GcpRunConfig, run_gcp_collection
     from .engine.registry import GCP_COLLECTOR_ORDER as COLLECTOR_ORDER
@@ -1408,6 +1494,11 @@ def _run_gcp(args) -> int:
         args, "gcp", collectors, artifact_refs
     )
 
+    bq_check = _gcp_bigquery_dataset_preflight(args, spec, project)
+    preflight_lines: list[str] = []
+    if bq_check:
+        preflight_lines = [_gcp_bigquery_preflight_line(bq_check, console)]
+
     cfg = GcpRunConfig(
         case_id=case_id,
         collectors=collectors,
@@ -1422,6 +1513,8 @@ def _run_gcp(args) -> int:
         artifact_refs=artifact_refs,
         max_records_per_source=spec.max_records_per_source if spec else None,
         artifact_parameters=spec.artifact_parameters() if spec else {},
+        gcp_log_backend=dict(spec.gcp_log_backend) if spec and spec.gcp_log_backend else {},
+        preflight_lines=preflight_lines,
         plan_label=plan_label,
         artifact_labels=artifact_labels,
         artifact_severities=artifact_severities,
@@ -1481,6 +1574,9 @@ def _run_gcp(args) -> int:
             ingest_code = ingest_after_collect(package.path, case_store, reporter=say)
         ingested = ingest_code == 0
 
+    rate_limited = reporter.rate_limited_collectors()
+    incomplete = bool(getattr(args, "require_complete", False)) and bool(rate_limited)
+
     if json_mode:
         import json as _json
 
@@ -1490,6 +1586,8 @@ def _run_gcp(args) -> int:
             "account_id": reporter._account,
             "collectors": reporter.collectors_report(),
             "coverage_gaps": reporter.coverage_gaps(),
+            "rate_limited": rate_limited,
+            "complete": not rate_limited,
             "package": {
                 "path": str(package.path),
                 "compression": package.compression,
@@ -1504,8 +1602,19 @@ def _run_gcp(args) -> int:
             },
             "ingested": ingested,
         }
+        if bq_check is not None:
+            payload["bigquery_dataset"] = _bigquery_preflight_json(bq_check)
         print(_json.dumps(payload, indent=2))
 
+    if incomplete:
+        if not json_mode:
+            print(
+                "\nIncomplete: the logging read quota stayed exhausted for "
+                f"{', '.join(rate_limited)}. Raise the quota (or VENTRA_GCP_LOG_STALL_LIMIT_S) "
+                "and re-run; the window was not fully covered.",
+                file=sys.stderr,
+            )
+        return 3
     return 1 if transport_error else ingest_code
 
 

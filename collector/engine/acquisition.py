@@ -49,6 +49,7 @@ class AcquisitionSpec:
     azure_client_id: str = ""
     aws_profile: str = ""  # AWS named profile from ~/.aws/credentials (workstation kits)
     max_records_per_source: int | None = None  # None/0 = unlimited; positive = cap per source
+    gcp_log_backend: dict[str, Any] = field(default_factory=dict)
 
     def artifact_parameters(self) -> dict[str, dict[str, Any]]:
         """Per-collector parameter values, keyed by collector — for CollectionContext."""
@@ -90,6 +91,9 @@ def load_acquisition(path: Path) -> AcquisitionSpec:
     if isinstance(regions, str):
         regions = [r.strip() for r in regions.split(",") if r.strip()]
     cap = data.get("max_records_per_source")
+    gcp_log_backend = data.get("gcp_log_backend")
+    if not isinstance(gcp_log_backend, dict):
+        gcp_log_backend = {}
     return AcquisitionSpec(
         case_id=str(data.get("case_id") or "").strip(),
         cloud=cloud,
@@ -106,6 +110,7 @@ def load_acquisition(path: Path) -> AcquisitionSpec:
         azure_client_id=str(data.get("azure_client_id") or "").strip(),
         aws_profile=str(data.get("aws_profile") or "").strip(),
         max_records_per_source=int(cap) if cap is not None and str(cap) != "" else None,
+        gcp_log_backend=dict(gcp_log_backend),
     )
 
 

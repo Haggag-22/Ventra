@@ -207,7 +207,7 @@ def test_gke_audit_collector_with_logs(tmp_path: Path) -> None:
             "loggingConfig": {"componentConfig": {"enableComponents": ["APISERVER"]}},
         }
     ]
-    cf.list_log_entries.return_value = [
+    cf.list_log_entries_for_backend.return_value = [
         {"logName": "projects/demo/logs/container", "jsonPayload": {"verb": "create"}}
     ]
 
@@ -233,12 +233,12 @@ def test_gke_audit_collector_logging_gap(tmp_path: Path) -> None:
 
     assert result.status == SourceStatus.EMPTY
     assert any(g[1] == GapReason.LOGGING_NOT_CONFIGURED for g in result.gaps)
-    cf.list_log_entries.assert_not_called()
+    cf.list_log_entries_for_backend.assert_not_called()
 
 
 def test_cloud_dns_collector(tmp_path: Path) -> None:
     cf = MagicMock()
-    cf.list_log_entries.return_value = [
+    cf.list_log_entries_for_backend.return_value = [
         {"resource": {"type": "dns_query"}, "jsonPayload": {"queryName": "example.com."}}
     ]
 
@@ -248,13 +248,13 @@ def test_cloud_dns_collector(tmp_path: Path) -> None:
 
     assert result.status == SourceStatus.COLLECTED
     assert result.record_count == 1
-    _, kwargs = cf.list_log_entries.call_args
+    _, kwargs = cf.list_log_entries_for_backend.call_args
     assert 'resource.type="dns_query"' in kwargs["log_filter"]
 
 
 def test_cloud_nat_collector(tmp_path: Path) -> None:
     cf = MagicMock()
-    cf.list_log_entries.return_value = [
+    cf.list_log_entries_for_backend.return_value = [
         {
             "resource": {"type": "nat_gateway", "labels": {"gateway_name": "egress-nat"}},
             "jsonPayload": {"connection": {"src_ip": "10.0.0.5", "dest_ip": "203.0.113.1"}},
@@ -273,7 +273,7 @@ def test_cloud_nat_collector(tmp_path: Path) -> None:
 
     assert result.status == SourceStatus.COLLECTED
     assert result.record_count == 1
-    _, kwargs = cf.list_log_entries.call_args
+    _, kwargs = cf.list_log_entries_for_backend.call_args
     assert 'resource.type="nat_gateway"' in kwargs["log_filter"]
     assert 'compute.googleapis.com%2Fnat_flows' in kwargs["log_filter"]
     assert 'resource.labels.gateway_name="egress-nat"' in kwargs["log_filter"]
@@ -282,7 +282,7 @@ def test_cloud_nat_collector(tmp_path: Path) -> None:
 
 def test_bigquery_audit_collector(tmp_path: Path) -> None:
     cf = MagicMock()
-    cf.list_log_entries.return_value = [
+    cf.list_log_entries_for_backend.return_value = [
         {
             "protoPayload": {"serviceName": "bigquery.googleapis.com", "methodName": "jobservice.jobcompleted"},
             "logName": "projects/demo/logs/cloudaudit.googleapis.com%2Fdata_access",
@@ -301,16 +301,17 @@ def test_bigquery_audit_collector(tmp_path: Path) -> None:
 
     assert result.status == SourceStatus.COLLECTED
     assert result.record_count == 1
-    _, kwargs = cf.list_log_entries.call_args
+    _, kwargs = cf.list_log_entries_for_backend.call_args
     assert 'protoPayload.serviceName="bigquery.googleapis.com"' in kwargs["log_filter"]
-    assert 'resource.type="bigquery_resource"' in kwargs["log_filter"]
+    # A strict serviceName view over data_access — subset of the broad stream for dedup.
+    assert 'cloudaudit.googleapis.com%2Fdata_access' in kwargs["log_filter"]
     assert 'resource.labels.dataset_id="customer_data"' in kwargs["log_filter"]
     assert 'resource.labels.table_id="events"' in kwargs["log_filter"]
 
 
 def test_cloud_sql_collector(tmp_path: Path) -> None:
     cf = MagicMock()
-    cf.list_log_entries.return_value = [
+    cf.list_log_entries_for_backend.return_value = [
         {
             "resource": {"type": "cloudsql_database", "labels": {"database_id": "prod-mysql"}},
             "textPayload": "2026-06-01 12:00:00 UTC [123]: LOG: connection authorized",
@@ -324,14 +325,14 @@ def test_cloud_sql_collector(tmp_path: Path) -> None:
 
     assert result.status == SourceStatus.COLLECTED
     assert result.record_count == 1
-    _, kwargs = cf.list_log_entries.call_args
+    _, kwargs = cf.list_log_entries_for_backend.call_args
     assert 'resource.type="cloudsql_database"' in kwargs["log_filter"]
     assert 'resource.labels.database_id="prod-mysql"' in kwargs["log_filter"]
 
 
 def test_secret_manager_collector(tmp_path: Path) -> None:
     cf = MagicMock()
-    cf.list_log_entries.return_value = [
+    cf.list_log_entries_for_backend.return_value = [
         {
             "protoPayload": {
                 "serviceName": "secretmanager.googleapis.com",
@@ -348,7 +349,7 @@ def test_secret_manager_collector(tmp_path: Path) -> None:
 
     assert result.status == SourceStatus.COLLECTED
     assert result.record_count == 1
-    _, kwargs = cf.list_log_entries.call_args
+    _, kwargs = cf.list_log_entries_for_backend.call_args
     assert 'protoPayload.serviceName="secretmanager.googleapis.com"' in kwargs["log_filter"]
     assert 'cloudaudit.googleapis.com%2Fdata_access' in kwargs["log_filter"]
     assert 'resource.labels.secret_id="api-key"' in kwargs["log_filter"]
@@ -357,8 +358,8 @@ def test_secret_manager_collector(tmp_path: Path) -> None:
 def test_cloud_armor_collector(tmp_path: Path) -> None:
     cf = MagicMock()
     cf.compute_security_policies.return_value = [{"name": "default-policy", "id": "123"}]
-    cf.list_log_entries.return_value = [
-        {"jsonPayload": {"enforcedSecurityPolicy": {"name": "default-policy"}}}
+    cf.iter_log_entries_all_projects.return_value = [
+        ("demo-project", {"jsonPayload": {"enforcedSecurityPolicy": {"name": "default-policy"}}})
     ]
 
     ctx = _ctx(tmp_path)
@@ -374,7 +375,7 @@ def test_cloud_armor_collector(tmp_path: Path) -> None:
 def test_cloud_armor_logging_gap(tmp_path: Path) -> None:
     cf = MagicMock()
     cf.compute_security_policies.return_value = [{"name": "default-policy", "id": "123"}]
-    cf.list_log_entries.return_value = []
+    cf.list_log_entries_for_backend.return_value = []
 
     ctx = _ctx(tmp_path)
     ctx.client_factory = cf

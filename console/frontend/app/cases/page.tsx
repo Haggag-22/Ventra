@@ -211,9 +211,14 @@ function CaseCard({ c }: { c: CaseSummary }) {
   };
 
   return (
-    <Link href={`/cases/${encodeURIComponent(c.case_id)}/cloudtrail`}>
-      <Card className="group relative p-3 transition-colors hover:border-accent/40">
-        <div className="flex items-center justify-between gap-3">
+    <Link href={`/cases/${encodeURIComponent(c.case_id)}/cloudtrail`} className="block">
+      <Card
+        className={cn(
+          "group relative p-3 transition-colors hover:border-accent/40",
+          confirming && "min-h-[11.5rem]",
+        )}
+      >
+        <div className={cn("flex items-center justify-between gap-3", confirming && "invisible")}>
           <div className="min-w-0">
             <div className="flex min-w-0 items-baseline gap-2">
               <span className="mono truncate text-sm font-semibold text-fg">{c.case_id}</span>
@@ -253,27 +258,38 @@ function CaseCard({ c }: { c: CaseSummary }) {
         {confirming && (
           <div
             onClick={stop}
-            className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-[inherit] bg-surface/95 px-4 text-center backdrop-blur-sm"
+            className="absolute inset-0 z-10 flex flex-col rounded-[inherit] bg-surface/95 p-4 backdrop-blur-sm"
           >
-            <div className="w-full max-w-full space-y-2">
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto text-center">
               <p className="text-sm text-fg">Delete this case and all its evidence?</p>
               <p className="rounded border border-border bg-surface-2 px-2 py-1.5 mono text-2xs font-semibold leading-relaxed text-fg break-all">
                 {c.case_id}
               </p>
+              {del.error && (
+                <p className="text-xs text-bad-red">{(del.error as Error).message}</p>
+              )}
             </div>
-            {del.error && (
-              <p className="text-xs text-bad-red">{(del.error as Error).message}</p>
-            )}
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" onClick={(e) => { stop(e); setConfirming(false); }}>
+            <div className="mt-3 flex shrink-0 items-center justify-end gap-2 border-t border-border/50 pt-3">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={(e) => {
+                  stop(e);
+                  setConfirming(false);
+                }}
+              >
                 Cancel
               </Button>
               <Button
                 variant="danger"
+                size="sm"
                 icon={Trash2}
                 loading={del.isPending}
                 disabled={del.isPending}
-                onClick={(e) => { stop(e); del.mutate(); }}
+                onClick={(e) => {
+                  stop(e);
+                  del.mutate();
+                }}
               >
                 {del.isPending ? "Deleting…" : "Delete"}
               </Button>

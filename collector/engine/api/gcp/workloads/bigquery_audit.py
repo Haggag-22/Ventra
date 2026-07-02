@@ -8,9 +8,10 @@ class BigQueryAuditCollector(GcpLoggingCollector):
     priority = 1
     description = "BigQuery data access audit logs from Cloud Logging."
     required_actions = ("logging.logEntries.list",)
+    # The bigquery.googleapis.com serviceName view over the shared data_access stream.
+    # Kept strictly a subset of that stream so dedup can serve it from the broad read.
     log_filter = (
-        '(protoPayload.serviceName="bigquery.googleapis.com" '
-        'AND logName:"cloudaudit.googleapis.com%2Fdata_access") '
-        'OR resource.type="bigquery_resource"'
+        'logName:"cloudaudit.googleapis.com%2Fdata_access" '
+        'AND protoPayload.serviceName="bigquery.googleapis.com"'
     )
     default_window_days = 30

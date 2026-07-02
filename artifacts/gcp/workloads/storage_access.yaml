@@ -8,6 +8,7 @@ description: GCS bucket access and data-plane audit logs from Cloud Logging.
 version: 1.0.0
 collector: storage_access
 type: storage_access
+subset_of: cloud_audit_data
 required_actions:
 - logging.logEntries.list
 parameters:

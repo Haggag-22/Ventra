@@ -114,44 +114,6 @@ export const IMPLEMENTED_LOG_COLLECTORS = new Set([
   "cloud_monitoring",
 ]);
 
-const AWS_LOGS_BASELINE = new Set([
-  "cloudtrail",
-  "config",
-  "vpc_flow",
-  "guardduty",
-  "waf",
-]);
-
-const AZURE_LOGS_BASELINE = new Set([
-  "activity_log",
-  "entra_signin",
-  "entra_audit",
-  "nsg_flow",
-  "defender",
-]);
-
-const GCP_LOGS_BASELINE = new Set([
-  "cloud_audit_admin",
-  "cloud_audit_data",
-  "vpc_flow",
-  "scc_findings",
-  "login_events",
-]);
-
-export function baselineCollectorIds(cloud: Cloud): string[] {
-  const items = catalogItems(cloud);
-  if (cloud === "aws") {
-    return items.filter((i) => AWS_LOGS_BASELINE.has(i.id)).map((i) => i.id);
-  }
-  if (cloud === "azure") {
-    return items.filter((i) => AZURE_LOGS_BASELINE.has(i.id)).map((i) => i.id);
-  }
-  if (cloud === "gcp") {
-    return items.filter((i) => GCP_LOGS_BASELINE.has(i.id)).map((i) => i.id);
-  }
-  return items.map((i) => i.id);
-}
-
 export function aggregateManifestSources(sources: ManifestSource[] = []) {
   const bySource = new Map<string, { status: string; records: number; notes: string }>();
   for (const s of sources) {

@@ -1,14 +1,14 @@
 "use client";
 
 import { Button } from "@/components/ui";
-import { CLOUD_LABELS, type Cloud } from "@/lib/catalog";
+import { ACQUIRE_PLATFORM_LABELS, type AcquirePlatform } from "@/lib/catalog";
 import { List, X } from "lucide-react";
 import { useEffect } from "react";
 
 type Props = {
   open: boolean;
   onClose: () => void;
-  cloud: Cloud;
+  cloud: AcquirePlatform;
   actions: string[];
   actionCount: number;
   implicitCount: number;
@@ -47,7 +47,7 @@ export function IamActionsDialog({
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <h3 id="iam-actions-title" className="flex items-center gap-2 text-sm font-semibold">
             <List className="h-4 w-4 text-fg-subtle" />
-            IAM actions — {CLOUD_LABELS[cloud]}
+            IAM actions — {ACQUIRE_PLATFORM_LABELS[cloud]}
           </h3>
           <button type="button" onClick={onClose} className="text-fg-subtle hover:text-fg" aria-label="Close">
             <X className="h-4 w-4" />

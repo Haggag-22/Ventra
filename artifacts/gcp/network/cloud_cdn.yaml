@@ -8,6 +8,7 @@ description: Cloud CDN cache hit/miss, cache fill, and byte-range request logs f
 version: 1.0.0
 collector: cloud_cdn
 type: cloud_cdn
+subset_of: load_balancer
 required_actions:
 - logging.logEntries.list
 parameters:

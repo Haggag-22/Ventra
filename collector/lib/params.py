@@ -132,6 +132,20 @@ def scoped_window(
     return effective_window(ctx, collector_name, default_days=default_days)
 
 
+def logging_window(
+    ctx: CollectionContext,
+    collector_name: str,
+    *,
+    default_days: int = DEFAULT_WINDOW_DAYS,
+) -> tuple[datetime | None, datetime | None]:
+    """Log collection bounds from acquisition.yaml / CLI.
+
+    When the operator leaves since/until empty in Acquire, returns ``(None, None)`` so export
+    backends read every row in the configured table and the Logging API omits a timestamp filter.
+    """
+    return scoped_window(ctx, collector_name, default_days=default_days)
+
+
 def window_bounds(tw: TimeWindow, default_days: int = DEFAULT_WINDOW_DAYS) -> tuple[datetime, datetime]:
     end = tw.until or datetime.now(UTC)
     start = tw.since or (end - timedelta(days=default_days))

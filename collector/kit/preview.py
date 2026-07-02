@@ -8,6 +8,7 @@ from typing import Any
 
 from collector import __version__
 from collector.engine.acquisition import augment_collectors
+from collector.engine.acquire_platform import collector_cloud_for_platform
 from collector.kit.build import _filter_policy, _select_artifacts
 
 
@@ -18,9 +19,11 @@ def preview_kit(
     artifacts_root: Path,
     iam_policy_paths: list[Path] | None = None,
     include_iam: bool = True,
+    gcp_log_backend: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Return IAM action counts and artifact summary for the Acquire UI."""
-    names = augment_collectors(cloud, list(artifact_names))
+    collector_cloud = collector_cloud_for_platform(cloud)
+    names = augment_collectors(collector_cloud, list(artifact_names))
     selected = _select_artifacts(artifacts_root, cloud, names)
     if not selected:
         raise ValueError(f"no artifacts matched for cloud={cloud}: {artifact_names}")
@@ -29,6 +32,10 @@ def preview_kit(
     for art in selected:
         for action in art.get("required_actions") or []:
             wanted.add(str(action))
+    if collector_cloud == "gcp" and gcp_log_backend:
+        from collector.engine.gcp_log_backend import apply_gcp_log_backend_iam
+
+        wanted = apply_gcp_log_backend_iam(wanted, gcp_log_backend)
 
     actions: set[str] = set()
     policy_files: list[str] = []
@@ -49,6 +56,7 @@ def preview_kit(
     return {
         "ventra_version": __version__,
         "cloud": cloud,
+        "collector_cloud": collector_cloud,
         "artifact_count": len(selected),
         "collectors": [a.get("collector") for a in selected],
         "implicit_collectors": implicit,

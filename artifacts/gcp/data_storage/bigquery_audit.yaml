@@ -8,6 +8,7 @@ description: BigQuery data access audit logs from Cloud Logging.
 version: 1.0.0
 collector: bigquery_audit
 type: bigquery_audit
+subset_of: cloud_audit_data
 required_actions:
 - logging.logEntries.list
 parameters:

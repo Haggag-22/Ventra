@@ -320,6 +320,42 @@ def build_vpc_flow() -> list[dict]:
     return out
 
 
+def build_load_balancer() -> list[dict]:
+    """Web & DNS panel coverage: plain LB requests, a CDN cache hit, an Armor-blocked probe."""
+
+    def req(offset: int, status: str, path: str, *, ip: str = "198.51.100.20",
+             cache_decision: list[str] | None = None, armor_policy: str | None = None) -> dict:
+        json_payload: dict = {}
+        if cache_decision is not None:
+            json_payload["cacheDecision"] = cache_decision
+        if armor_policy is not None:
+            json_payload["enforcedSecurityPolicy"] = {"name": armor_policy, "outcome": "DENY"}
+        return {
+            "timestamp": _t(offset),
+            "severity": "INFO",
+            "resource": {
+                "type": "http_load_balancer",
+                "labels": {"project_id": PROJECT_ID, "forwarding_rule_name": "web-lb"},
+            },
+            "httpRequest": {
+                "requestMethod": "GET",
+                "requestUrl": f"https://shop.example.com{path}",
+                "status": status,
+                "remoteIp": ip,
+            },
+            "jsonPayload": json_payload,
+            "_ventra_project_id": PROJECT_ID,
+        }
+
+    out: list[dict] = []
+    for i in range(6):
+        out.append(req(900 + i * 5, "200", f"/product/{i}"))
+    out.append(req(940, "200", "/static/logo.png", cache_decision=["HIT"]))
+    out.append(req(945, "200", "/static/app.js", cache_decision=["HIT"]))
+    out.append(req(960, "403", "/admin/login", ip=ATTACKER_IP, armor_policy="default-policy"))
+    return out
+
+
 def build_scc_findings() -> list[dict]:
     """SCC-relevant misconfig / detection signals aligned to matrix techniques."""
     src = f"organizations/{ORG_ID}/sources/55555"
@@ -494,7 +530,7 @@ def generate(out_dir: Path, case_id: str = "CASE-2026-GCP7") -> Path:
         staging = Path(tmp)
         sources = [
             "project", "iam_policy", "cloud_audit_admin", "cloud_audit_system", "login_events",
-            "cloud_audit_data", "vpc_flow", "firewall_logs", "scc_findings",
+            "cloud_audit_data", "vpc_flow", "firewall_logs", "load_balancer", "scc_findings",
         ]
         manifest = Manifest(
             schema_version="1.0.0", tool_version="0.1.0", case_id=case_id,
@@ -527,6 +563,7 @@ def generate(out_dir: Path, case_id: str = "CASE-2026-GCP7") -> Path:
         data = build_cloud_audit_data()
         vpc = build_vpc_flow()
         fw = build_firewall_logs()
+        lb = build_load_balancer()
         scc = build_scc_findings()
 
         src("project", [("snapshot.json", _write_json(
@@ -567,6 +604,11 @@ def generate(out_dir: Path, case_id: str = "CASE-2026-GCP7") -> Path:
             ("config.json", _write_json(sd / "firewall_logs/config.json",
                                         {"subnets": [{"name": "default", "region": REGION}]})),
         ], notes="Firewall hits: scan probes + exfil allow (Matrix TA0005/TA0010).")
+        src("load_balancer", [
+            ("events.jsonl.gz", _write_gz_jsonl(sd / "load_balancer/events.jsonl.gz", lb)),
+            ("config.json", _write_json(sd / "load_balancer/config.json",
+                                        {"projects": [{"project_id": PROJECT_ID, "records": len(lb)}]})),
+        ], notes="LB requests incl. CDN cache hits and an Armor-blocked probe.")
         src("scc_findings", [
             ("events.jsonl.gz", _write_gz_jsonl(sd / "scc_findings/events.jsonl.gz", scc)),
             ("config.json", _write_json(sd / "scc_findings/config.json",
