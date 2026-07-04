@@ -14,6 +14,7 @@ import {
   Gauge,
   Globe,
   Globe2,
+  LayoutDashboard,
   Network,
   ScrollText,
   Search,
@@ -31,17 +32,23 @@ interface Item {
   run: () => void;
 }
 
-const PANELS = [
-  { href: "cloudtrail", panel: "cloudtrail" as const, icon: ScrollText },
-  { href: "search", panel: "search" as const, icon: ShieldAlert },
-  { href: "identity", panel: "identity" as const, icon: Fingerprint },
-  { href: "network", panel: "network" as const, icon: Network },
-  { href: "web", panel: "web" as const, icon: Globe2 },
-  { href: "kubernetes-audit", panel: "kubernetes-audit" as const, icon: Container },
-  { href: "data-access", panel: "data-access" as const, icon: Database },
-  { href: "collection", panel: "collection" as const, icon: Gauge },
-  { href: "files", panel: "files" as const, icon: FileText },
-  { href: "report", panel: "report" as const, icon: FileText },
+const PANELS: {
+  href: string;
+  panel?: Parameters<typeof panelLabel>[1];
+  icon: typeof Gauge;
+  label?: string;
+}[] = [
+  { href: "overview", icon: LayoutDashboard, label: "Overview" },
+  { href: "cloudtrail", panel: "cloudtrail", icon: ScrollText },
+  { href: "search", panel: "search", icon: ShieldAlert },
+  { href: "identity", panel: "identity", icon: Fingerprint },
+  { href: "network", panel: "network", icon: Network },
+  { href: "web", panel: "web", icon: Globe2 },
+  { href: "kubernetes-audit", panel: "kubernetes-audit", icon: Container },
+  { href: "data-access", panel: "data-access", icon: Database },
+  { href: "collection", panel: "collection", icon: Gauge },
+  { href: "files", panel: "files", icon: FileText },
+  { href: "report", panel: "report", icon: FileText },
 ];
 
 export function CommandPalette({
@@ -81,7 +88,7 @@ export function CommandPalette({
     };
     const base: Item[] = PANELS.map((p) => ({
       id: `panel-${p.href}`,
-      label: panelLabel(cloud, p.panel),
+      label: p.label ?? (p.panel ? panelLabel(cloud, p.panel) : p.href),
       hint: "Panel",
       icon: p.icon,
       run: go(p.href),

@@ -1,0 +1,19 @@
+[
+  {
+    "id": "30942f8d-7d8c-4c95-a03c-db5bd9486317",
+    "created_at": "2026-07-02T17:00:12.050121+00:00",
+    "name": "Ventra",
+    "platform": "aws",
+    "alias": "",
+    "auth_method": "profile",
+    "profile_name": "default",
+    "role_arn": "",
+    "aws_account_id": "",
+    "project": "",
+    "subscription": "",
+    "azure_tenant_id": "",
+    "azure_client_id": "",
+    "last_tested_at": "2026-07-02T17:00:12.361801+00:00",
+    "last_test_ok": true
+  }
+]

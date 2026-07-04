@@ -51,7 +51,13 @@ class Settings:
     ingest_state_file: Path | None = (
         Path(_ingest_state).resolve() if _ingest_state else None
     )
+    # Saved connections and collection profiles for the Configuration section.
+    config_dir: Path = Path(os.environ.get("VENTRA_CONFIG_DIR", "./.ventra-config")).resolve()
+    # File-backed collection run state (matrix + SSE events).
+    runs_dir: Path = Path(os.environ.get("VENTRA_RUNS_DIR", "./.ventra-runs")).resolve()
 
 
 settings = Settings()
 settings.upload_dir.mkdir(parents=True, exist_ok=True)
+settings.config_dir.mkdir(parents=True, exist_ok=True)
+settings.runs_dir.mkdir(parents=True, exist_ok=True)

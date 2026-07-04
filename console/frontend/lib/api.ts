@@ -4,8 +4,10 @@
 import type {
   Artifact,
   ArtifactPack,
+  CaseOverview,
   CaseSummary,
   CloudTrailCollection,
+  CollectorMatrixRow,
   EventsResponse,
   Facets,
   IdentityResponse,
@@ -17,6 +19,8 @@ import type {
   EvidenceLines,
   NetworkResponse,
   NetworkVpcsResponse,
+  RunMatrix,
+  RunMeta,
   WebDnsResponse,
 } from "./types";
 
@@ -70,8 +74,40 @@ function qs(params: Record<string, unknown>): string {
   return s ? `?${s}` : "";
 }
 
+/** Shown when the Next.js /api proxy cannot reach the FastAPI backend. */
+export const BACKEND_UNREACHABLE =
+  "Can't reach backend — run `ventra dev` from the Ventra repo root (starts console on :8080 and API on :8000).";
+
+const API_TIMEOUT_MS = 15_000;
+
+function isProxyOrNetworkFailure(err: unknown): boolean {
+  if (err instanceof DOMException && (err.name === "TimeoutError" || err.name === "AbortError")) {
+    return true;
+  }
+  return err instanceof TypeError;
+}
+
+async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: AbortSignal.timeout(API_TIMEOUT_MS),
+    });
+  } catch (err) {
+    if (isProxyOrNetworkFailure(err)) throw new Error(BACKEND_UNREACHABLE);
+    throw err;
+  }
+}
+
+function throwIfBackendDown(res: Response): void {
+  if (res.status === 502 || res.status === 503 || res.status === 504) {
+    throw new Error(BACKEND_UNREACHABLE);
+  }
+}
+
 async function get<T>(path: string): Promise<T> {
-  const res = await fetch(`/api${path}`, { headers: { Accept: "application/json" } });
+  const res = await apiFetch(`/api${path}`, { headers: { Accept: "application/json" } });
+  throwIfBackendDown(res);
   if (!res.ok) {
     const body = await res.text().catch(() => "");
     throw new Error(`${res.status} ${res.statusText}: ${body.slice(0, 200)}`);
@@ -120,15 +156,178 @@ export const api = {
   packs: (cloud?: string) => get<{ packs: ArtifactPack[] }>(`/packs${qs({ cloud })}`),
   enterpriseSettings: () =>
     get<{ ingest_s3_prefix: string; max_upload_mb: number }>("/enterprise/settings"),
+  overview: (c: string) => get<CaseOverview>(`/cases/${c}/overview`),
 };
+
+// ---- Configuration (connections + profiles) --------------------------------------------
+
+export type Connection = {
+  id: string;
+  name: string;
+  platform: string;
+  alias?: string;
+  auth_method?: string;
+  profile_name?: string;
+  role_arn?: string;
+  aws_account_id?: string;
+  project?: string;
+  subscription?: string;
+  azure_tenant_id?: string;
+  azure_client_id?: string;
+  created_at?: string;
+  last_tested_at?: string;
+  last_test_ok?: boolean;
+};
+
+export type CollectionProfile = AcquisitionBuild & {
+  id: string;
+  name: string;
+};
+
+const CONFIG_HEADERS = { "X-Ventra-Role": "investigator" };
+
+async function configRequest<T>(path: string, init?: RequestInit): Promise<T> {
+  const res = await apiFetch(`/api${path}`, {
+    ...init,
+    headers: {
+      Accept: "application/json",
+      "Content-Type": "application/json",
+      ...CONFIG_HEADERS,
+      ...init?.headers,
+    },
+  });
+  throwIfBackendDown(res);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(body.detail || `${res.status} ${res.statusText}`);
+  }
+  if (res.status === 204) return undefined as T;
+  return res.json() as Promise<T>;
+}
+
+export function listConnections(): Promise<{ connections: Connection[] }> {
+  return configRequest("/config/connections");
+}
+
+export function createConnection(
+  body: Omit<Connection, "id">,
+): Promise<Connection> {
+  return configRequest("/config/connections", { method: "POST", body: JSON.stringify(body) });
+}
+
+export function updateConnection(
+  id: string,
+  body: Partial<Omit<Connection, "id">>,
+): Promise<Connection> {
+  return configRequest(`/config/connections/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteConnection(id: string): Promise<{ deleted: string }> {
+  return configRequest(`/config/connections/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+export function testConnection(id: string): Promise<{
+  ok: boolean;
+  platform?: string;
+  account_id?: string;
+  arn?: string;
+  tenant_id?: string;
+  principal?: string;
+  project_id?: string;
+  error?: string;
+}> {
+  return configRequest(`/config/connections/${encodeURIComponent(id)}/test`, { method: "POST" });
+}
+
+export function listProfiles(): Promise<{ profiles: CollectionProfile[] }> {
+  return configRequest("/config/profiles");
+}
+
+export function createProfile(body: AcquisitionBuild & { name: string }): Promise<CollectionProfile> {
+  return configRequest("/config/profiles", { method: "POST", body: JSON.stringify(body) });
+}
+
+export function updateProfile(
+  id: string,
+  body: Partial<AcquisitionBuild & { name: string }>,
+): Promise<CollectionProfile> {
+  return configRequest(`/config/profiles/${encodeURIComponent(id)}`, {
+    method: "PATCH",
+    body: JSON.stringify(body),
+  });
+}
+
+export function deleteProfile(id: string): Promise<{ deleted: string }> {
+  return configRequest(`/config/profiles/${encodeURIComponent(id)}`, { method: "DELETE" });
+}
+
+export async function getProfile(id: string): Promise<CollectionProfile> {
+  const { profiles } = await listProfiles();
+  const profile = profiles.find((p) => p.id === id);
+  if (!profile) throw new Error(`Profile not found: ${id}`);
+  return profile;
+}
+
+// ---- Collection runs -------------------------------------------------------------------
+
+export function runEventsUrl(runId: string): string {
+  return `/api/runs/${encodeURIComponent(runId)}/events`;
+}
+
+export async function startRun(body: AcquisitionBuild & { auto_ingest?: boolean; connection_id?: string }): Promise<{ run_id: string }> {
+  const res = await apiFetch("/api/runs", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Ventra-Role": "responder" },
+    body: JSON.stringify({ ...body, auto_ingest: body.auto_ingest ?? true }),
+  });
+  throwIfBackendDown(res);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || "Failed to start run");
+  }
+  return res.json() as Promise<{ run_id: string }>;
+}
+
+export function listRuns(): Promise<{ runs: RunMeta[] }> {
+  return get<{ runs: RunMeta[] }>("/runs");
+}
+
+export function getRun(runId: string): Promise<RunMeta> {
+  return get<RunMeta>(`/runs/${encodeURIComponent(runId)}`);
+}
+
+export function getRunMatrix(runId: string): Promise<RunMatrix> {
+  return get<Record<string, unknown>>(`/runs/${encodeURIComponent(runId)}/matrix`).then((raw) => ({
+    run_id: runId,
+    status: raw.status as RunMatrix["status"],
+    complete: Number(raw.complete ?? 0),
+    total: Number(raw.total ?? 0),
+    masked_account: raw.masked_account as string | undefined,
+    case_id: raw.case_id as string | undefined,
+    regions: raw.regions as string[] | undefined,
+    rows: ((raw.collectors ?? raw.rows ?? []) as CollectorMatrixRow[]).map((c) => ({
+      name: c.name,
+      status: c.status,
+      severity: c.severity,
+      records: c.records,
+      elapsed_ms: c.elapsed_ms,
+      detail: c.detail,
+      live_msg: c.live_msg,
+    })),
+  }));
+}
 
 export async function deleteCase(caseId: string): Promise<{ deleted: string }> {
   // Deleting a case is a Data Custodian action. In a real deployment the role is set by the
   // upstream auth proxy; locally the single analyst holds every role, so we assert it here.
-  const res = await fetch(`/api/cases/${encodeURIComponent(caseId)}`, {
+  const res = await apiFetch(`/api/cases/${encodeURIComponent(caseId)}`, {
     method: "DELETE",
     headers: { "X-Ventra-Role": "data_custodian" },
   });
+  throwIfBackendDown(res);
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(body.detail || "Delete failed");
@@ -140,7 +339,8 @@ export async function importPackage(file: File, caseId?: string): Promise<any> {
   const form = new FormData();
   form.append("file", file);
   if (caseId?.trim()) form.append("case_id", caseId.trim());
-  const res = await fetch("/api/cases/import", { method: "POST", body: form });
+  const res = await apiFetch("/api/cases/import", { method: "POST", body: form });
+  throwIfBackendDown(res);
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(body.detail || "Import failed");
@@ -161,11 +361,12 @@ export type S3ImportResult = {
 };
 
 export async function importFromS3(s3Prefix?: string): Promise<S3ImportResult> {
-  const res = await fetch("/api/cases/import/s3", {
+  const res = await apiFetch("/api/cases/import/s3", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ s3_prefix: s3Prefix?.trim() || "" }),
   });
+  throwIfBackendDown(res);
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(body.detail || "S3 import failed");
@@ -174,10 +375,11 @@ export async function importFromS3(s3Prefix?: string): Promise<S3ImportResult> {
 }
 
 export async function exportCaseElastic(caseId: string): Promise<void> {
-  const res = await fetch(`/api/cases/${encodeURIComponent(caseId)}/export/elastic`, {
+  const res = await apiFetch(`/api/cases/${encodeURIComponent(caseId)}/export/elastic`, {
     method: "POST",
     headers: { "X-Ventra-Role": "investigator" },
   });
+  throwIfBackendDown(res);
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(body.detail || "Export failed");
@@ -234,11 +436,12 @@ export type AcquisitionPreview = {
 
 /** Preview IAM narrowing and kit metadata before download. */
 export async function previewAcquisitionKit(body: AcquisitionBuild): Promise<AcquisitionPreview> {
-  const res = await fetch("/api/acquisitions/preview", {
+  const res = await apiFetch("/api/acquisitions/preview", {
     method: "POST",
     headers: { "Content-Type": "application/json", "X-Ventra-Role": "responder" },
     body: JSON.stringify(body),
   });
+  throwIfBackendDown(res);
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail || "Kit preview failed");
@@ -248,12 +451,13 @@ export async function previewAcquisitionKit(body: AcquisitionBuild): Promise<Acq
 
 /** POST the acquisition selection and trigger a browser download of the returned kit zip. */
 export async function buildAcquisitionKit(body: AcquisitionBuild): Promise<void> {
-  const res = await fetch("/api/acquisitions/build", {
+  const res = await apiFetch("/api/acquisitions/build", {
     method: "POST",
     // The Responder role owns the acquisition phase (matches backend RBAC).
     headers: { "Content-Type": "application/json", "X-Ventra-Role": "responder" },
     body: JSON.stringify(body),
   });
+  throwIfBackendDown(res);
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail || "Kit build failed");

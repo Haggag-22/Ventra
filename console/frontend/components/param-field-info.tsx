@@ -69,8 +69,12 @@ export function ParamFieldLabel({
   compact?: boolean;
 }) {
   return (
-    <div className="flex items-center gap-1">
-      <span className={cn("font-medium text-fg", compact ? "text-xs" : "text-sm")}>
+    <div className="flex items-center gap-1.5">
+      <span
+        className={cn(
+          compact ? "text-sm font-semibold text-fg" : "text-sm font-medium text-fg",
+        )}
+      >
         {label}
         {required ? <span className="ml-1 text-warn-amber">*</span> : null}
       </span>

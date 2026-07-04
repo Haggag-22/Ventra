@@ -12,7 +12,19 @@ The analyst investigation GUI. Two parts:
 From a clone, one command starts both halves with hot reload (no Docker):
 
 ```bash
-ventra gui        # http://localhost:8080  (first run sets up .venv + npm)
+ventra dev        # or: ventra gui — http://localhost:8080  (first run sets up .venv + npm)
+```
+
+This starts the FastAPI backend (default `:8000`) and the Next.js console (default `:8080`).
+The frontend proxies `/api/*` to the backend via `VENTRA_API`.
+
+**Do not run `npm run dev` alone on `:3000` without the backend** — pages like Acquire
+call `/api/artifacts` and will hang or fail if nothing is listening on `:8000`. If you see
+"Can't reach backend", stop stray dev servers and run `ventra dev` from the repo root:
+
+```bash
+lsof -ti :8000,:8080,:3000 | xargs kill -9   # free stuck ports (optional)
+ventra dev
 ```
 
 A packaged desktop app is planned for the v1 release. To run the pieces by hand during
@@ -24,7 +36,7 @@ pip install ./backend
 VENTRA_CASE_STORE=../cases ventra-console      # http://127.0.0.1:8000
 
 # Frontend
-cd frontend && npm install && npm run dev      # http://localhost:8080  (proxies /api → backend)
+cd frontend && npm install && VENTRA_API=http://127.0.0.1:8000 npm run dev   # :3000, proxies /api → backend
 ```
 
 ## Panels
