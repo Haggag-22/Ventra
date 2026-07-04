@@ -12,8 +12,9 @@ type ButtonSize = "sm" | "md" | "icon";
 
 const BTN_VARIANTS: Record<ButtonVariant, string> = {
   primary: "bg-accent text-accent-fg hover:bg-accent/90 font-medium",
-  "primary-dark": "bg-[rgb(30,58,138)] text-white hover:bg-[rgb(30,64,175)] font-medium shadow-sm",
-  secondary: "bg-surface-2 text-fg border border-border hover:bg-surface-2/70",
+  "primary-dark":
+    "bg-surface-2 text-fg border border-border-strong hover:border-accent/50 hover:bg-surface-2/70 font-medium",
+  secondary: "bg-surface-2 text-fg border border-border hover:bg-surface-2/70 hover:border-border-strong",
   ghost: "text-fg-subtle hover:text-fg hover:bg-surface-2",
   danger: "bg-bad-red/15 text-bad-red border border-bad-red/30 hover:bg-bad-red/25",
   subtle: "text-fg-subtle hover:text-fg",
@@ -40,7 +41,7 @@ export const Button = React.forwardRef<
     <button
       ref={ref}
       className={cn(
-        "inline-flex items-center rounded-md transition-colors disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap",
+        "inline-flex items-center rounded-md transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap",
         BTN_VARIANTS[variant],
         BTN_SIZES[size],
         className,

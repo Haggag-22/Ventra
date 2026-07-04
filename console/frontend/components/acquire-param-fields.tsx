@@ -1,7 +1,7 @@
 "use client";
 
 import { ParamFieldLabel } from "@/components/param-field-info";
-import { Button, Input } from "@/components/ui";
+import { Input } from "@/components/ui";
 import type { ParamFieldDef } from "@/lib/collector-param-definitions";
 import { cn } from "@/lib/utils";
 import { Plus, X } from "lucide-react";
@@ -55,27 +55,21 @@ export function AcquireParamFields({
   return (
     <div
       className={cn(
-        compact ? "grid gap-3 sm:grid-cols-2" : "grid gap-4 md:grid-cols-2 xl:grid-cols-3",
+        compact
+          ? "grid gap-x-6 gap-y-4 sm:grid-cols-2"
+          : "grid gap-x-8 gap-y-5 md:grid-cols-2 xl:grid-cols-3",
         className,
       )}
     >
       {fields.map((field) => (
-        <div
-          key={field.key}
-          className={cn(
-            "rounded-lg border border-border/80 bg-surface-2/40",
-            compact ? "p-2.5" : "p-3",
-          )}
-        >
-          <div className={compact ? "mb-1.5" : "mb-2"}>
-            <ParamFieldLabel
-              label={field.label}
-              required={field.required}
-              description={field.description}
-              docUrl={field.docUrl}
-              compact={compact}
-            />
-          </div>
+        <div key={field.key} className="min-w-0 space-y-2">
+          <ParamFieldLabel
+            label={field.label}
+            required={field.required}
+            description={field.description}
+            docUrl={field.docUrl}
+            compact={compact}
+          />
 
           {field.type === "boolean" ? (
             <label className="flex cursor-pointer items-center gap-2 text-sm text-fg">
@@ -89,7 +83,7 @@ export function AcquireParamFields({
             </label>
           ) : field.type === "string" ? (
             <Input
-              className="h-9 text-sm"
+              className="h-9 w-full text-sm"
               placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}…`}
               value={stringValue(values, field.key)}
               onChange={(e) => setString(field.key, e.target.value)}
@@ -122,43 +116,48 @@ export function MultiValueInput({
 
   return (
     <div className={cn("space-y-2", className)}>
-      {rows.map((item, idx) => (
-        <div key={idx} className="flex items-center gap-2">
-          <Input
-            className="h-9 flex-1 text-sm mono"
-            placeholder={placeholder}
-            value={item}
-            onChange={(e) => {
-              const next = [...rows];
-              next[idx] = e.target.value;
-              onChange(next.filter((v, i) => v.trim() || i === idx));
-            }}
-          />
-          {rows.length > 1 || item.trim() ? (
-            <button
-              type="button"
-              aria-label="Remove value"
-              className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border text-fg-subtle hover:border-bad-red/50 hover:text-bad-red"
-              onClick={() => {
-                const next = rows.filter((_, i) => i !== idx);
-                onChange(next.length ? next : []);
+      {rows.map((item, idx) => {
+        const isLast = idx === rows.length - 1;
+        const showRemove = rows.length > 1 || item.trim();
+
+        return (
+          <div key={idx} className="flex items-center gap-2">
+            <Input
+              className="h-9 flex-1 text-sm mono"
+              placeholder={placeholder}
+              value={item}
+              onChange={(e) => {
+                const next = [...rows];
+                next[idx] = e.target.value;
+                onChange(next.filter((v, i) => v.trim() || i === idx));
               }}
-            >
-              <X className="h-4 w-4" />
-            </button>
-          ) : null}
-        </div>
-      ))}
-      <Button
-        type="button"
-        variant="ghost"
-        size="sm"
-        icon={Plus}
-        className="text-xs"
-        onClick={() => onChange([...rows.filter((r) => r.trim()), ""])}
-      >
-        Add value
-      </Button>
+            />
+            {isLast ? (
+              <button
+                type="button"
+                aria-label="Add value"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border text-fg-subtle transition-colors hover:border-accent/50 hover:text-fg"
+                onClick={() => onChange([...rows.filter((r) => r.trim()), ""])}
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            ) : null}
+            {showRemove ? (
+              <button
+                type="button"
+                aria-label="Remove value"
+                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border text-fg-subtle transition-colors hover:border-bad-red/50 hover:text-bad-red"
+                onClick={() => {
+                  const next = rows.filter((_, i) => i !== idx);
+                  onChange(next.length ? next : []);
+                }}
+              >
+                <X className="h-4 w-4" />
+              </button>
+            ) : null}
+          </div>
+        );
+      })}
     </div>
   );
 }

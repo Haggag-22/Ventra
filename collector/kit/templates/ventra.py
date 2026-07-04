@@ -273,6 +273,16 @@ def main(argv: list[str] | None = None) -> int:
         help="GCP: path to service account JSON key (GOOGLE_APPLICATION_CREDENTIALS)",
     )
     parser.add_argument(
+        "--run-id",
+        metavar="ID",
+        help="Console run id for live matrix relay (Cloud Shell mode)",
+    )
+    parser.add_argument(
+        "--relay-url",
+        metavar="URL",
+        help="POST matrix events to this console URL (e.g. http://host:8000/api/runs/{id}/events)",
+    )
+    parser.add_argument(
         "--out",
         default=DEFAULT_OUT,
         metavar="DIR",
@@ -295,6 +305,16 @@ def main(argv: list[str] | None = None) -> int:
             )
         if not Path(creds).expanduser().is_file():
             raise SystemExit(f"error: credentials file not found: {creds}")
+
+
+    run_id = (getattr(args, "run_id", "") or os.environ.get("VENTRA_RUN_ID", "")).strip()
+    relay_url = (getattr(args, "relay_url", "") or os.environ.get("VENTRA_RELAY_URL", "")).strip()
+    if run_id and relay_url:
+        os.environ["VENTRA_RUN_ID"] = run_id
+        os.environ["VENTRA_RELAY_URL"] = relay_url
+        if "{run_id}" in relay_url or "{id}" in relay_url:
+            relay_url = relay_url.format(run_id=run_id, id=run_id)
+        os.environ["VENTRA_RELAY_URL"] = relay_url
 
     ventra_bin = _ensure_ventra(cloud)
 

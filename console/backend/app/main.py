@@ -6,18 +6,23 @@ endpoint, which runs the ingester. No outbound calls, no telemetry.
 
 from __future__ import annotations
 
+import asyncio
+import json
 import re
 from pathlib import Path
 from typing import Any
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, Response
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
 from . import __version__
 from .config import settings
 from .rbac import Role, _check, current_role
+from .config_store import ConfigNotFound, config_store
+from .run_store import RunNotFound, run_store
+from .run_service import apply_relay_payload, start_run, test_connection
 from .store import CaseNotFound, EventQuery, store
 
 
@@ -48,6 +53,76 @@ class AcquisitionPreviewRequest(AcquisitionBuildRequest):
     """Same shape as build — used for IAM / metadata preview only."""
 
 
+
+
+class ConnectionCreateRequest(BaseModel):
+    name: str
+    platform: str
+    alias: str = ""
+    auth_method: str = "default"
+    profile_name: str = ""
+    role_arn: str = ""
+    aws_account_id: str = ""
+    project: str = ""
+    subscription: str = ""
+    azure_tenant_id: str = ""
+    azure_client_id: str = ""
+
+
+class ConnectionUpdateRequest(BaseModel):
+    name: str | None = None
+    platform: str | None = None
+    alias: str | None = None
+    auth_method: str | None = None
+    profile_name: str | None = None
+    role_arn: str | None = None
+    aws_account_id: str | None = None
+    project: str | None = None
+    subscription: str | None = None
+    azure_tenant_id: str | None = None
+    azure_client_id: str | None = None
+    last_tested_at: str | None = None
+    last_test_ok: bool | None = None
+
+
+class ProfileCreateRequest(AcquisitionBuildRequest):
+    name: str
+
+
+class ProfileUpdateRequest(BaseModel):
+    name: str | None = None
+    cloud: str | None = None
+    case_id: str | None = None
+    artifacts: list[str] | None = None
+    pack: str | None = None
+    include_iam: bool | None = None
+    since: str | None = None
+    until: str | None = None
+    regions: list[str] | None = None
+    project: str | None = None
+    subscription: str | None = None
+    azure_tenant_id: str | None = None
+    azure_client_id: str | None = None
+    aws_profile: str | None = None
+    max_records_per_source: int | None = None
+    artifact_parameters: dict[str, dict[str, Any]] | None = None
+    deployment_profile: str | None = None
+    transport: str | None = None
+    gcp_log_backend: dict[str, Any] | None = None
+
+
+class RunRequest(AcquisitionBuildRequest):
+    connection_id: str | None = None
+    auto_ingest: bool = True
+
+
+class RelayPayload(BaseModel):
+    type: str | None = None
+    matrix: dict[str, Any] | None = None
+    event: dict[str, Any] | None = None
+    meta: dict[str, Any] | None = None
+
+
 class S3ImportRequest(BaseModel):
     s3_prefix: str = ""
 
@@ -65,7 +140,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
     allow_credentials=False,
-    allow_methods=["GET", "POST", "DELETE"],
+    allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["*"],
 )
 
@@ -73,6 +148,16 @@ app.add_middleware(
 @app.exception_handler(CaseNotFound)
 async def _case_not_found(_, exc: CaseNotFound) -> JSONResponse:
     return JSONResponse(status_code=404, content={"detail": f"Case not found: {exc}"})
+
+
+@app.exception_handler(ConfigNotFound)
+async def _config_not_found(_, exc: ConfigNotFound) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
+
+
+@app.exception_handler(RunNotFound)
+async def _run_not_found(_, exc: RunNotFound) -> JSONResponse:
+    return JSONResponse(status_code=404, content={"detail": str(exc)})
 
 
 # -- meta --------------------------------------------------------------------------------
@@ -683,6 +768,228 @@ def export_case_elastic(
         filename=f"{case_id}-elastic-export.zip",
     )
 
+
+
+
+# -- configuration (connections + profiles) ----------------------------------------------
+
+@app.get("/api/config/connections")
+def list_connections(_: Role = Depends(_check("manage_config"))) -> dict[str, Any]:
+    return {"connections": config_store.list_connections()}
+
+
+@app.post("/api/config/connections")
+def create_connection(
+    body: ConnectionCreateRequest, _: Role = Depends(_check("manage_config"))
+) -> dict[str, Any]:
+    return config_store.create_connection(body.model_dump())
+
+
+@app.patch("/api/config/connections/{connection_id}")
+def update_connection(
+    connection_id: str,
+    body: ConnectionUpdateRequest,
+    _: Role = Depends(_check("manage_config")),
+) -> dict[str, Any]:
+    patch = {k: v for k, v in body.model_dump().items() if v is not None}
+    return config_store.update_connection(connection_id, patch)
+
+
+@app.delete("/api/config/connections/{connection_id}")
+def delete_connection(connection_id: str, _: Role = Depends(_check("manage_config"))) -> dict[str, str]:
+    config_store.delete_connection(connection_id)
+    return {"deleted": connection_id}
+
+
+@app.post("/api/config/connections/{connection_id}/test")
+def test_saved_connection(
+    connection_id: str, _: Role = Depends(_check("manage_config"))
+) -> dict[str, Any]:
+    from datetime import datetime, timezone
+
+    result = test_connection(connection_id)
+    config_store.update_connection(
+        connection_id,
+        {
+            "last_tested_at": datetime.now(timezone.utc).isoformat(),
+            "last_test_ok": bool(result.get("ok")),
+        },
+    )
+    return result
+
+
+@app.get("/api/config/profiles")
+def list_profiles(_: Role = Depends(_check("manage_config"))) -> dict[str, Any]:
+    return {"profiles": config_store.list_profiles()}
+
+
+@app.post("/api/config/profiles")
+def create_profile(body: ProfileCreateRequest, _: Role = Depends(_check("manage_config"))) -> dict[str, Any]:
+    payload = body.model_dump()
+    name = payload.pop("name")
+    return config_store.create_profile({"name": name, **payload})
+
+
+@app.patch("/api/config/profiles/{profile_id}")
+def update_profile(
+    profile_id: str, body: ProfileUpdateRequest, _: Role = Depends(_check("manage_config"))
+) -> dict[str, Any]:
+    patch = {k: v for k, v in body.model_dump().items() if v is not None}
+    return config_store.update_profile(profile_id, patch)
+
+
+@app.delete("/api/config/profiles/{profile_id}")
+def delete_profile(profile_id: str, _: Role = Depends(_check("manage_config"))) -> dict[str, str]:
+    config_store.delete_profile(profile_id)
+    return {"deleted": profile_id}
+
+
+# -- collection runs ---------------------------------------------------------------------
+
+def _run_meta_view(meta: dict[str, Any], matrix: dict[str, Any] | None = None) -> dict[str, Any]:
+    done = matrix.get("complete", 0) if matrix else 0
+    total = matrix.get("total", 0) if matrix else 0
+    return {
+        "run_id": meta["run_id"],
+        "status": meta.get("status", "pending"),
+        "cloud": meta.get("cloud", ""),
+        "case_id": meta.get("case_id", ""),
+        "started_at": meta.get("started_at") or meta.get("created_at", ""),
+        "completed_at": meta.get("finished_at"),
+        "error": meta.get("error"),
+        "account": meta.get("masked_account") or meta.get("account_id"),
+        "regions": meta.get("regions") or [],
+        "collectors_total": total,
+        "collectors_complete": done,
+    }
+
+
+def _run_matrix_view(run_id: str, meta: dict[str, Any], matrix: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "run_id": run_id,
+        "status": meta.get("status", "pending"),
+        "rows": matrix.get("collectors") or [],
+        "complete": matrix.get("complete", 0),
+        "total": matrix.get("total", 0),
+    }
+
+
+@app.post("/api/runs")
+def create_run(body: RunRequest, _: Role = Depends(_check("run_collection"))) -> dict[str, Any]:
+    case_id = _normalize_case_id(body.case_id) or body.case_id
+    payload = body.model_dump()
+    payload["case_id"] = case_id
+    _resolve_acquisition_request(body)
+    return start_run(payload)
+
+
+@app.get("/api/runs")
+def list_runs(_: Role = Depends(_check("view_case"))) -> dict[str, Any]:
+    return {"runs": run_store.list_runs()}
+
+
+@app.get("/api/runs/{run_id}")
+def get_run(run_id: str, _: Role = Depends(_check("view_case"))) -> dict[str, Any]:
+    meta = run_store.get_run(run_id)
+    matrix: dict[str, Any] | None = None
+    try:
+        matrix = run_store.get_matrix(run_id)
+    except RunNotFound:
+        pass
+    view = _run_meta_view(meta, matrix)
+    return {**meta, **view, "progress": {"complete": view["collectors_complete"], "total": view["collectors_total"]}}
+
+
+@app.get("/api/runs/{run_id}/matrix")
+def get_run_matrix(run_id: str, _: Role = Depends(_check("view_case"))) -> dict[str, Any]:
+    meta = run_store.get_run(run_id)
+    matrix = run_store.get_matrix(run_id)
+    return _run_matrix_view(run_id, meta, matrix)
+
+
+@app.post("/api/runs/{run_id}/events")
+def post_run_event(
+    run_id: str, body: RelayPayload, _: Role = Depends(_check("run_collection"))
+) -> dict[str, str]:
+    apply_relay_payload(run_id, body.model_dump(exclude_none=True))
+    return {"accepted": run_id}
+
+
+@app.get("/api/runs/{run_id}/events")
+async def stream_run_events(run_id: str, _: Role = Depends(_check("view_case"))):
+    run_store.get_run(run_id)
+
+    async def _generator():
+        offset = 0
+        last_matrix_sig = ""
+        while True:
+            batch = await asyncio.to_thread(run_store.read_events_since, run_id, offset)
+            for ev in batch:
+                offset += 1
+                yield f"data: {json.dumps(ev)}\n\n"
+            meta = await asyncio.to_thread(run_store.get_run, run_id)
+            try:
+                matrix = await asyncio.to_thread(run_store.get_matrix, run_id)
+                view = _run_matrix_view(run_id, meta, matrix)
+                sig = json.dumps(view, sort_keys=True)
+                if sig != last_matrix_sig:
+                    last_matrix_sig = sig
+                    yield f"event: matrix\ndata: {json.dumps(view)}\n\n"
+            except RunNotFound:
+                pass
+            if meta.get("status") in {"completed", "failed", "cancelled"} and offset >= len(
+                await asyncio.to_thread(run_store.read_events, run_id)
+            ):
+                break
+            await asyncio.sleep(0.5)
+
+    return StreamingResponse(_generator(), media_type="text/event-stream")
+
+
+@app.post("/api/runs/{run_id}/cancel")
+def cancel_run(run_id: str, _: Role = Depends(_check("run_collection"))) -> dict[str, Any]:
+    return run_store.request_cancel(run_id)
+
+
+# -- case overview (dashboard shortcut) --------------------------------------------------
+
+@app.get("/api/cases/{case_id}/overview")
+def case_overview(case_id: str, _: Role = Depends(_check("view_case"))) -> dict[str, Any]:
+    summary = store.summary(case_id)
+    manifest = store.manifest(case_id)
+    inventory = store.inventory_summary(case_id)
+    findings_facets = store.facets(
+        case_id,
+        EventQuery(filters={"event_kind": "finding"}, limit=0),
+    )
+    severity_counts = {
+        item["value"]: item["count"]
+        for item in findings_facets.get("event_severity", [])
+    }
+    recent = store.query_events(
+        case_id,
+        EventQuery(sort="timestamp", order="desc", limit=10),
+    )
+    sources = manifest.get("sources") or []
+    if sources:
+        ok = sum(1 for s in sources if s.get("status") in ("collected", "partial"))
+        coverage_pct = round(100 * ok / len(sources))
+    else:
+        coverage_pct = 0
+    gaps = [
+        {"name": g.get("name", ""), "reason": g.get("reason", ""), "detail": g.get("detail", "")}
+        for g in (manifest.get("gaps") or [])
+    ]
+    return {
+        "case_id": case_id,
+        "summary": summary,
+        "manifest": manifest,
+        "inventory": inventory,
+        "findings_by_severity": severity_counts,
+        "coverage_pct": coverage_pct,
+        "gaps": gaps,
+        "recent_events": recent.get("events", []),
+    }
 
 # -- delete (RBAC: delete_case — Data Custodian only) ------------------------------------
 
