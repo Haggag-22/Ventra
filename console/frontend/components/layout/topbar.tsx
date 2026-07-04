@@ -48,7 +48,7 @@ function ThemeToggle() {
     <button
       type="button"
       onClick={cycle}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border text-fg-subtle transition-colors hover:border-accent/40 hover:text-fg"
+      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-surface text-fg-subtle transition-colors hover:border-accent/40 hover:bg-surface-2 hover:text-fg"
       title={`Theme: ${theme}`}
       aria-label={`Switch theme (current: ${theme})`}
     >
@@ -77,12 +77,12 @@ export function TopBar({
   const accountId = summary?.account_id ?? "—";
 
   return (
-    <header className="flex h-[3.75rem] shrink-0 items-center justify-between gap-6 border-b border-border/80 bg-raised/90 px-6 backdrop-blur-sm">
+    <header className="flex h-[3.75rem] shrink-0 items-center justify-between gap-6 border-b border-border/80 bg-raised px-6">
       <div className="flex min-w-0 items-center gap-3">
         {variant === "case" && caseId ? (
           <Link
             href={CASES_HREF}
-            className="flex items-center gap-2 rounded-md border border-border bg-surface-2 px-2.5 py-1.5 transition-colors hover:border-accent/40"
+            className="flex items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-1.5 transition-colors hover:border-accent/45 hover:bg-surface-2"
             title="Back to all cases"
           >
             <span className="text-2xs uppercase tracking-wide text-fg-subtle">Case</span>
