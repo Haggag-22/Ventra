@@ -11,10 +11,10 @@ type ButtonVariant = "primary" | "primary-dark" | "secondary" | "ghost" | "dange
 type ButtonSize = "sm" | "md" | "icon";
 
 const BTN_VARIANTS: Record<ButtonVariant, string> = {
-  primary: "bg-accent text-accent-fg hover:bg-accent/90 font-medium",
+  primary: "bg-accent-cta text-accent-cta-fg hover:bg-accent-cta/90 font-semibold shadow-[0_1px_0_rgb(255_255_255/0.18)_inset]",
   "primary-dark":
-    "bg-surface-2 text-fg border border-border-strong hover:border-accent/50 hover:bg-surface-2/70 font-medium",
-  secondary: "bg-surface-2 text-fg border border-border hover:bg-surface-2/70 hover:border-border-strong",
+    "bg-fg text-bg border border-fg/15 hover:bg-fg/90 font-semibold shadow-[0_1px_0_rgb(255_255_255/0.18)_inset]",
+  secondary: "bg-surface text-fg border border-border hover:bg-surface-2 hover:border-border-strong",
   ghost: "text-fg-subtle hover:text-fg hover:bg-surface-2",
   danger: "bg-bad-red/15 text-bad-red border border-bad-red/30 hover:bg-bad-red/25",
   subtle: "text-fg-subtle hover:text-fg",
@@ -41,7 +41,7 @@ export const Button = React.forwardRef<
     <button
       ref={ref}
       className={cn(
-        "inline-flex items-center rounded-md transition-all duration-150 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap",
+        "inline-flex items-center rounded-md transition-all duration-150 active:translate-y-px disabled:opacity-50 disabled:pointer-events-none whitespace-nowrap",
         BTN_VARIANTS[variant],
         BTN_SIZES[size],
         className,
@@ -159,7 +159,7 @@ export function EmptyState({
 }) {
   return (
     <div className="flex flex-col items-center justify-center gap-3 px-6 py-16 text-center">
-      <div className="rounded-xl border border-border bg-surface-2 p-3">
+      <div className="rounded-md border border-border bg-surface-2 p-3">
         <Icon className="h-6 w-6 text-fg-subtle" />
       </div>
       <div className="max-w-md">
