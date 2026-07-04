@@ -109,10 +109,10 @@ export function GlobalSidebar() {
       <div className="px-3 pt-3">
         <Link
           href={COLLECTION_KITS_HREF}
-          className="flex w-full items-center justify-center gap-2 rounded-lg bg-accent px-3 py-2.5 text-sm font-semibold text-accent-fg shadow-glow transition-colors hover:bg-accent/90"
+          className="sb-primary-action flex w-full items-center justify-center gap-2 rounded-md border border-accent-cta/20 bg-accent-cta px-3 py-2.5 text-sm font-semibold text-accent-cta-fg shadow-[0_1px_0_rgb(255_255_255/0.25)_inset] transition-colors hover:bg-accent-cta/90"
         >
           <Play className="h-4 w-4" aria-hidden />
-          Run collection
+          <span>Run collection</span>
         </Link>
       </div>
 
