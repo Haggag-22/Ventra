@@ -15,6 +15,7 @@ const config: Config = {
   theme: {
     extend: {
       colors: {
+        sidebar: "rgb(var(--sidebar) / <alpha-value>)",
         bg: "rgb(var(--bg) / <alpha-value>)",
         raised: "rgb(var(--raised) / <alpha-value>)",
         surface: "rgb(var(--surface) / <alpha-value>)",
@@ -27,6 +28,8 @@ const config: Config = {
         "fg-faint": "rgb(var(--fg-faint) / <alpha-value>)",
         accent: "rgb(var(--accent) / <alpha-value>)",
         "accent-fg": "rgb(var(--accent-fg) / <alpha-value>)",
+        "accent-cta": "rgb(var(--accent-cta) / <alpha-value>)",
+        "accent-cta-fg": "rgb(var(--accent-cta-fg) / <alpha-value>)",
         // severity
         critical: "rgb(var(--sev-critical) / <alpha-value>)",
         high: "rgb(var(--sev-high) / <alpha-value>)",
@@ -46,13 +49,14 @@ const config: Config = {
         "2xs": ["0.6875rem", { lineHeight: "1rem" }],
       },
       borderRadius: {
-        lg: "0.625rem",
-        md: "0.4375rem",
-        sm: "0.3125rem",
+        lg: "0.75rem",
+        md: "0.5rem",
+        sm: "0.375rem",
       },
       boxShadow: {
-        card: "0 1px 2px 0 rgb(0 0 0 / 0.25), 0 1px 1px -1px rgb(0 0 0 / 0.2)",
-        pop: "0 12px 32px -8px rgb(0 0 0 / 0.55), 0 4px 8px -4px rgb(0 0 0 / 0.4)",
+        card: "0 1px 2px 0 rgb(0 0 0 / 0.3), inset 0 1px 0 0 rgb(255 255 255 / 0.025)",
+        pop: "0 16px 40px -12px rgb(0 0 0 / 0.6), 0 4px 10px -4px rgb(0 0 0 / 0.45)",
+        glow: "0 0 0 1px rgb(91 155 255 / 0.35), 0 6px 22px -6px rgb(91 155 255 / 0.4)",
       },
       keyframes: {
         "fade-in": { from: { opacity: "0" }, to: { opacity: "1" } },

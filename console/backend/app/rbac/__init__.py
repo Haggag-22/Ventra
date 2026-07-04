@@ -29,6 +29,10 @@ CAPABILITIES: dict[str, set[Role]] = {
     "view_audit": {Role.DATA_CUSTODIAN, Role.INVESTIGATOR},
     # Building an acquisition kit is the Responder's job (acquisition phase).
     "build_acquisition": {Role.RESPONDER, Role.INVESTIGATOR, Role.DATA_CUSTODIAN},
+    # Saved connections and collection profiles (Configuration section).
+    "manage_config": {Role.INVESTIGATOR, Role.DATA_CUSTODIAN, Role.RESPONDER},
+    # Server-side collection runs with live matrix.
+    "run_collection": {Role.RESPONDER, Role.INVESTIGATOR, Role.DATA_CUSTODIAN},
 }
 
 

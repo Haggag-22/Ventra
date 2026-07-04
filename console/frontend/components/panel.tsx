@@ -21,7 +21,7 @@ export function PanelHeader({
   const stacked = Boolean(panel || description);
 
   return (
-    <div className="flex items-start justify-between gap-4 border-b border-border bg-surface px-6 py-4">
+    <div className="flex items-start justify-between gap-4 border-b border-border/80 bg-surface/60 px-6 py-5 backdrop-blur-sm">
       <div
         className={cn(
           "flex min-w-0 flex-1 gap-3",
@@ -34,12 +34,12 @@ export function PanelHeader({
         <div className="min-w-0 flex-1">
           {stacked ? (
             <div className="flex h-8 items-center">
-              <h1 className="text-base font-semibold tracking-tight leading-none">{title}</h1>
+              <h1 className="text-lg font-semibold tracking-tight leading-none">{title}</h1>
             </div>
           ) : (
-            <h1 className="text-base font-semibold tracking-tight leading-none">{title}</h1>
+            <h1 className="text-lg font-semibold tracking-tight leading-none">{title}</h1>
           )}
-          {description && <p className="mt-0.5 text-xs text-fg-subtle">{description}</p>}
+          {description && <p className="mt-1 text-sm text-fg-subtle">{description}</p>}
           {panel && <PanelCollectors panel={panel} />}
         </div>
       </div>

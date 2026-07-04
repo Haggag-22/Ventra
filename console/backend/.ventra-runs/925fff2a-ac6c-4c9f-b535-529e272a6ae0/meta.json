@@ -1,0 +1,120 @@
+{
+  "run_id": "925fff2a-ac6c-4c9f-b535-529e272a6ae0",
+  "status": "completed",
+  "created_at": "2026-07-02T19:51:02.799658Z",
+  "started_at": null,
+  "finished_at": "2026-07-02T19:51:54.230026Z",
+  "cloud": "aws",
+  "case_id": "Test-AWS",
+  "connection_id": "30942f8d-7d8c-4c95-a03c-db5bd9486317",
+  "auto_ingest": true,
+  "request": {
+    "cloud": "aws",
+    "case_id": "Test-AWS",
+    "artifacts": [
+      "account",
+      "iam",
+      "kms",
+      "secrets"
+    ],
+    "pack": null,
+    "include_iam": true,
+    "since": "",
+    "until": "",
+    "regions": [],
+    "project": "",
+    "subscription": "",
+    "azure_tenant_id": "",
+    "azure_client_id": "",
+    "aws_profile": "",
+    "max_records_per_source": null,
+    "artifact_parameters": {},
+    "deployment_profile": "cloudshell",
+    "transport": "",
+    "gcp_log_backend": null,
+    "connection_id": "30942f8d-7d8c-4c95-a03c-db5bd9486317"
+  },
+  "account_id": "194722414229",
+  "masked_account": "1947***",
+  "regions": [
+    "ap-northeast-1",
+    "ap-northeast-2",
+    "ap-northeast-3",
+    "ap-south-1",
+    "ap-southeast-1",
+    "ap-southeast-2",
+    "ca-central-1",
+    "eu-central-1",
+    "eu-north-1",
+    "eu-west-1",
+    "eu-west-2",
+    "eu-west-3",
+    "sa-east-1",
+    "us-east-1",
+    "us-east-2",
+    "us-west-1",
+    "us-west-2"
+  ],
+  "plan_label": "5 artifacts",
+  "package": {
+    "path": "/var/folders/43/4pdnskbj6t59gmt05_2p_r480000gn/T/ventra-run-vqhlxv2e/case-Test-AWS-194722414229-20260702T195153Z.tar.zst",
+    "compression": "zstd",
+    "bytes": 101132,
+    "sha256": "fa3db3c402b84f55fbabf58e7782c66aab82a8d9f8d042c3193ebebe0c428a90"
+  },
+  "collectors": [
+    {
+      "name": "account",
+      "status": "pass",
+      "severity": "High",
+      "records": null,
+      "elapsed_seconds": 0.44,
+      "detail": "Environment + operator context."
+    },
+    {
+      "name": "iam",
+      "status": "pass",
+      "severity": "High",
+      "records": 24,
+      "elapsed_seconds": 4.451,
+      "detail": "2 users, 22 roles, 24 attached + 0 inline policies."
+    },
+    {
+      "name": "kms",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 5,
+      "elapsed_seconds": 9.085,
+      "detail": "5 key(s)."
+    },
+    {
+      "name": "secrets",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_seconds": 10.008,
+      "detail": "No secrets in scope."
+    },
+    {
+      "name": "log_posture",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 0,
+      "elapsed_seconds": 26.078,
+      "detail": "Logging posture recorded for 3 source(s)."
+    }
+  ],
+  "coverage_gaps": [
+    {
+      "collector": "secrets",
+      "severity": "Medium",
+      "detail": "No secrets in scope."
+    }
+  ],
+  "ingest": {
+    "case_id": "Test-AWS",
+    "events": 2,
+    "integrity": "amber",
+    "warnings": []
+  }
+}

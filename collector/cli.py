@@ -32,6 +32,12 @@ from typing import TYPE_CHECKING
 
 from . import __version__
 from .lib.models import GapReason, SourceStatus, utcnow_iso
+from .engine.matrix_state import (
+    ARTIFACT_SEVERITY as _ARTIFACT_SEV,
+    DEFAULT_SEVERITY as _SEVERITY,
+    MatrixState,
+    classify as _classify,
+)
 from .lib.transport import get_transport
 
 if TYPE_CHECKING:
@@ -383,82 +389,7 @@ def _normalize_argv(argv: list[str]) -> list[str]:
 # Per-source severity. Drives the PASS/FAIL/INFO classification: a *missing* High source
 # (service not enabled / logging not configured) is a FAIL; a missing Medium/Low source is
 # informational. This mirrors how a responder weighs a coverage gap.
-_SEVERITY: dict[str, str] = {
-    "account": "Low",
-    "cloudtrail": "High",
-    "iam": "High",
-    "vpc_flow": "High",
-    "waf": "Medium",
-    "guardduty": "High",
-    "macie": "Medium",
-    "detective": "Medium",
-    "config": "High",
-    "securityhub": "High",
-    "kms": "Medium",
-    "secrets": "Medium",
-    "ec2": "Medium",
-    "s3": "Medium",
-    "lambda": "Low",
-    "inspector2": "Medium",
-    "elb_alb": "Medium",
-    "cloudfront": "Medium",
-    "s3_access": "Medium",
-    "route53_resolver": "Medium",
-    "eks_audit": "Medium",
-    "log_posture": "Low",
-    "subscription": "Low",
-    "activity_log": "High",
-    "entra_signin": "High",
-    "entra_audit": "High",
-    "rbac": "High",
-    "nsg_flow": "High",
-    "defender": "High",
-    "vnet_flow": "High",
-    "azure_firewall": "Medium",
-    "app_gateway": "Medium",
-    "front_door": "Medium",
-    "dns": "Medium",
-    "storage_access": "Medium",
-    "bigquery_audit": "High",
-    "cloud_sql": "High",
-    "secret_manager": "High",
-    "key_vault": "Medium",
-    "aks_audit": "Medium",
-    "entra_directory": "High",
-    "resource_graph": "Low",
-    "diag_posture": "Low",
-    "log_analytics": "Medium",
-    "unified_audit": "High",
-    "unified_audit_search": "High",
-    "oauth_consent": "High",
-    "cloud_audit_admin": "High",
-    "cloud_audit_system": "High",
-    "cloud_audit_data": "High",
-    "login_events": "High",
-    "firewall_logs": "Medium",
-    "load_balancer": "Medium",
-    "cloud_cdn": "Medium",
-    "api_gateway": "Medium",
-    "vm_logs": "Medium",
-    "cloud_functions": "Medium",
-    "scc_findings": "High",
-    "cloud_monitoring": "Medium",
-    "iam_policy": "High",
-    "project": "Low",
-}
-
 _SEV_COLOR = {"High": "red", "Medium": "yellow", "Low": "cyan"}
-
-# Map artifact YAML severity (critical/extended/optional) to matrix tiers.
-_ARTIFACT_SEV = {"critical": "High", "extended": "Medium", "optional": "Low"}
-
-
-def _classify(status: SourceStatus, severity: str) -> tuple[str, str]:
-    """Map a collector outcome to PASS or FAIL for the live matrix."""
-    del severity  # binary matrix; severity stays in CSV detail only
-    if status in (SourceStatus.COLLECTED, SourceStatus.PARTIAL):
-        return "PASS", "green"
-    return "FAIL", "red"
 
 
 def _fmt_dur(seconds: float | None) -> str:
@@ -487,6 +418,19 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
         from .engine.registry import AWS_REGISTRY as REGISTRY
 
         cloud_title = "AWS"
+    run_id = os.environ.get("VENTRA_RUN_ID", "").strip()
+    relay_url = os.environ.get("VENTRA_RELAY_URL", "").strip()
+    if run_id and relay_url:
+        from .engine.api_reporter import ApiReporter
+
+        def _severity_for(name: str) -> str:
+            cls = REGISTRY.get(name)
+            priority = getattr(cls, "priority", 2)
+            return _SEVERITY.get(name, "High" if priority == 1 else "Medium")
+
+        matrix = MatrixState(severity_resolver=_severity_for, registry_get=REGISTRY.get)
+        return ApiReporter(matrix, run_id=run_id, relay_url=relay_url), None
+
     from .engine.run_common import RunReporter
 
     try:
@@ -516,24 +460,36 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
 
         def __init__(self) -> None:
             super().__init__()
-            self.rows: list[dict] = []  # finished rows, for the CSV export
             self._console = console
             self._quiet = quiet
             self._json = json_mode
-            self._silent = quiet or json_mode  # no live matrix in either mode
+            self._silent = quiet or json_mode
             self._live = None
             self._spinner = None
             self._plain_header = False
-            self._account = ""
-            self._masked = "????"
-            # Ordered list of collector names and their mutable display state.
-            self._order: list[str] = []
-            self._state: dict[str, dict] = {}
-            self._plan_label = ""
-            self._artifact_labels: dict[str, str] = {}
             self._artifact_severities: dict[str, str] = {}
-            # Sources cut short by the logging read quota (429 past the patient-retry budget).
-            self._rate_limited: list[str] = []
+            self._matrix = MatrixState(severity_resolver=self._severity_for, registry_get=REGISTRY.get)
+            self._order: list[str] = []
+            self._regions: list[str] = []
+
+        @property
+        def rows(self) -> list[dict]:
+            return self._matrix.finished_csv_rows
+
+        @property
+        def _account(self) -> str:
+            return self._matrix.account_id
+
+        @property
+        def _order_names(self) -> list[str]:
+            return self._matrix.order
+
+        def _severity_for(self, name: str) -> str:
+            if name in self._artifact_severities:
+                return self._artifact_severities[name]
+            cls = REGISTRY.get(name)
+            priority = getattr(cls, "priority", 2)
+            return _SEVERITY.get(name, "High" if priority == 1 else "Medium")
 
         def _new_table(self):
             table = Table(
@@ -543,7 +499,7 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
                 expand=True,
                 pad_edge=False,
             )
-            table.add_column("", width=3, no_wrap=True, justify="center")  # status glyph
+            table.add_column("", width=3, no_wrap=True, justify="center")
             table.add_column("Collector", width=16, no_wrap=True)
             table.add_column("Severity", width=8, no_wrap=True)
             table.add_column("Records", width=10, justify="right", no_wrap=True)
@@ -551,20 +507,12 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
             table.add_column("Detail", ratio=1, overflow="ellipsis", no_wrap=True)
             return table
 
-        def _severity_for(self, name: str) -> str:
-            if name in self._artifact_severities:
-                return self._artifact_severities[name]
-            cls = REGISTRY.get(name)
-            priority = getattr(cls, "priority", 2)
-            return _SEVERITY.get(name, "High" if priority == 1 else "Medium")
-
         def _artifact_hint(self, name: str) -> str:
-            label = self._artifact_labels.get(name, "")
+            label = self._matrix.artifact_labels.get(name, "")
             if not label or label == name:
                 return ""
             return label.split(".")[-1] if "." in label else label
 
-        # -- lifecycle ------------------------------------------------------
         def begin_run(
             self,
             account_id: str,
@@ -577,23 +525,20 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
             artifact_severities: dict[str, str] | None = None,
             preflight_lines: list[str] | None = None,
         ) -> None:
-            self._account = account_id or ""
-            self._masked = (account_id[:4] + "***") if account_id else "????"
-            self._order = list(collectors or [])
-            self._plan_label = plan_label
-            self._artifact_labels = dict(artifact_labels or {})
             self._artifact_severities = dict(artifact_severities or {})
-            for name in self._order:
-                self._state[name] = {
-                    "status": "pending",
-                    "count": None,
-                    "detail": "queued",
-                    "severity": self._severity_for(name),
-                    "elapsed": None,
-                    "started": None,
-                    "live_msg": "",
-                }
-
+            self._matrix.severity_resolver = self._severity_for
+            self._matrix.registry_get = REGISTRY.get
+            self._matrix.begin_run(
+                account_id,
+                regions,
+                case_id,
+                collectors,
+                plan_label=plan_label,
+                artifact_labels=artifact_labels,
+                artifact_severities=artifact_severities,
+            )
+            self._order = list(self._matrix.order)
+            self._regions = list(regions)
             region_str = (
                 ", ".join(regions) if regions and len(regions) <= 6
                 else f"{len(regions)} region(s)"
@@ -603,12 +548,12 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
             if self._json:
                 return
             if self._quiet:
-                plan = f" — {self._plan_label}" if self._plan_label else ""
+                plan = f" — {plan_label}" if plan_label else ""
                 bq = ""
                 if preflight_lines:
                     bq = f" — {preflight_lines[0]}"
                 print(
-                    f"[+] Ventra collection — account {self._masked} — case {case_id or '—'} "
+                    f"[+] Ventra collection — account {self._matrix.masked_account} — case {case_id or '—'} "
                     f"— {region_str} — {len(self._order)} collectors{plan}{bq}"
                 )
                 return
@@ -618,14 +563,14 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
                 self._console.print()
                 self._console.rule(f"[bold cyan]VENTRA[/]  ·  {cloud_title} Evidence Collection")
                 self._console.print(
-                    f"  [bright_black]Account[/] [bold]{self._masked}[/]"
+                    f"  [bright_black]Account[/] [bold]{self._matrix.masked_account}[/]"
                     f"   [bright_black]Case[/] [bold]{escape(case_id or '—')}[/]"
                     f"   [bright_black]Regions[/] [bold]{escape(region_str)}[/]"
                     f"   [bright_black]Started[/] [bold]{ts}[/]"
                 )
-                if self._plan_label:
+                if plan_label:
                     self._console.print(
-                        f"  [bright_black]Plan[/] [bold]{escape(self._plan_label)}[/]"
+                        f"  [bright_black]Plan[/] [bold]{escape(plan_label)}[/]"
                     )
                 for line in preflight_lines or []:
                     self._console.print(f"  {line}")
@@ -638,15 +583,15 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
                 )
                 self._live.start()
             else:
-                print(f"[+] Ventra collection — account {self._masked} — {ts}")
+                print(f"[+] Ventra collection — account {self._matrix.masked_account} — {ts}")
                 print(f"    case {case_id or '—'} · {region_str} · {len(self._order)} collectors")
 
         def _render_table(self):
             table = self._new_table()
             done = 0
-            for name in self._order:
-                st = self._state[name]
-                status = st["status"]
+            for name in self._matrix.order:
+                row = self._matrix.rows[name]
+                status = row.status
                 if status == "pending":
                     glyph = _PENDING
                     hint = self._artifact_hint(name)
@@ -657,30 +602,31 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
                     time_cell = ""
                 elif status == "running":
                     glyph = self._spinner
-                    msg = st["live_msg"] or "collecting…"
+                    msg = row.live_msg or "collecting…"
                     detail = f"[yellow]{escape(msg)}[/yellow]"
                     records = "[dim]·[/dim]"
-                    started = st["started"]
+                    started = self._matrix._started_at.get(name)
                     live = _fmt_dur(time.monotonic() - started) if started else ""
                     time_cell = f"[dim]{live}[/dim]"
                 else:
                     done += 1
                     glyph = _PASS if status == "pass" else _FAIL
-                    detail = escape(st["detail"] or "")
+                    detail = escape(row.detail or "")
                     records = (
-                        f"{st['count']:,}" if isinstance(st["count"], int) else "[dim]-[/dim]"
+                        f"{row.records:,}" if isinstance(row.records, int) else "[dim]-[/dim]"
                     )
-                    time_cell = f"[bright_black]{_fmt_dur(st['elapsed'])}[/]"
-                sev = st["severity"]
+                    elapsed_s = row.elapsed_ms / 1000 if row.elapsed_ms is not None else None
+                    time_cell = f"[bright_black]{_fmt_dur(elapsed_s)}[/]"
+                sev = row.severity
                 sev_cell = f"[{_SEV_COLOR.get(sev, 'white')}]{sev}[/]"
                 name_cell = (
                     f"[dim]{name.upper()}[/dim]" if status == "pending" else name.upper()
                 )
                 table.add_row(glyph, name_cell, sev_cell, records, time_cell, detail)
-            total = len(self._order)
+            total = len(self._matrix.order)
             cap = f"[bright_black]{done}/{total} complete[/]"
-            if self._plan_label:
-                cap += f" · {escape(self._plan_label)}"
+            if self._matrix.plan_label:
+                cap += f" · {escape(self._matrix.plan_label)}"
             table.caption = cap
             return table
 
@@ -689,63 +635,36 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
                 self._live.update(self._render_table())
 
         def start(self, name: str) -> None:
-            if name in self._state:
-                self._state[name]["status"] = "running"
-                self._state[name]["started"] = time.monotonic()
+            self._matrix.start(name)
             if not self._silent:
                 self._refresh()
 
         def event(self, name: str, msg: str) -> None:
-            """Surface a collector's latest sub-step in its (running) row."""
             super().event(name, msg)
-            st = self._state.get(name)
-            if st is not None and st["status"] == "running":
-                st["live_msg"] = msg
-                if not self._silent:
-                    self._refresh()
+            self._matrix.event(name, msg)
+            if not self._silent:
+                self._refresh()
 
         def finish(self, name: str, result) -> None:
-            severity = self._state.get(name, {}).get("severity") or self._severity_for(name)
-            label, _ = _classify(result.status, severity)
-            if any(g[1] == GapReason.RATE_LIMITED for g in (result.gaps or [])):
-                self._rate_limited.append(name)
-            count = result.record_count
-            tag = f"{count:,}" if isinstance(count, int) else "-"
-            if result.status != SourceStatus.COLLECTED and result.gaps:
-                desc = result.gaps[0][2] or result.notes
-            else:
-                cls = REGISTRY.get(name)
-                desc = result.notes or (cls.description if cls else "")
-
-            elapsed = None
-            if name in self._state:
-                started = self._state[name]["started"]
-                elapsed = (time.monotonic() - started) if started else None
-                self._state[name].update(
-                    status="pass" if label == "PASS" else "fail",
-                    count=count if isinstance(count, int) else None,
-                    detail=desc,
-                    elapsed=elapsed,
-                    live_msg="",
-                )
-            self.rows.append(
-                {
-                    "label": label,
-                    "scope": "global",
-                    "check": name.upper(),
-                    "severity": severity,
-                    "tag": tag,
-                    "elapsed": f"{elapsed:.2f}" if elapsed is not None else "",
-                    "desc": desc,
-                }
-            )
-
+            self._matrix.finish(name, result)
             if self._silent:
                 return
             if self._live is not None:
                 self._refresh()
-            elif self._console is None:
-                self._print_plain_row(label, name, severity, tag, _fmt_dur(elapsed), desc)
+            else:
+                row = self._matrix.rows.get(name)
+                label = "PASS" if row and row.status == "pass" else "FAIL"
+                count = row.records if row else None
+                tag = f"{count:,}" if isinstance(count, int) else "-"
+                elapsed_s = row.elapsed_ms / 1000 if row and row.elapsed_ms is not None else None
+                self._print_plain_row(
+                    label,
+                    name,
+                    row.severity if row else "",
+                    tag,
+                    _fmt_dur(elapsed_s),
+                    row.detail if row else "",
+                )
 
         def stop(self) -> None:
             if self._live is not None:
@@ -757,59 +676,29 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
                 self._refresh()
             self.stop()
             if self._json:
-                return  # the CLI emits the JSON document instead
+                return
             self._emit_summary()
 
-        # -- summaries / structured output ---------------------------------
         def coverage_gaps(self) -> list[dict]:
-            """Collectors that did not collect, worst severity first — these are the gaps."""
-            rank = {"High": 0, "Medium": 1, "Low": 2}
-            gaps = [
-                {
-                    "collector": name,
-                    "severity": st["severity"],
-                    "detail": st["detail"],
-                }
-                for name in self._order
-                for st in (self._state[name],)
-                if st["status"] == "fail"
-            ]
-            gaps.sort(key=lambda g: rank.get(g["severity"], 3))
-            return gaps
+            return self._matrix.coverage_gaps()
 
         def rate_limited_collectors(self) -> list[str]:
-            """Sources abandoned because the logging read quota stayed exhausted (429)."""
-            return list(self._rate_limited)
+            return self._matrix.rate_limited_collectors()
 
         def collectors_report(self) -> list[dict]:
-            """Per-collector structured result for the --json payload."""
-            return [
-                {
-                    "name": name,
-                    "status": self._state[name]["status"],
-                    "severity": self._state[name]["severity"],
-                    "records": self._state[name]["count"],
-                    "elapsed_seconds": (
-                        round(self._state[name]["elapsed"], 3)
-                        if self._state[name]["elapsed"] is not None
-                        else None
-                    ),
-                    "detail": self._state[name]["detail"],
-                }
-                for name in self._order
-            ]
+            return self._matrix.collectors_report()
 
         def _emit_summary(self) -> None:
             from collections import Counter
 
-            c = Counter(r["label"] for r in self.rows)
+            c = Counter(r["label"] for r in self._matrix.finished_csv_rows)
             passed, failed = c.get("PASS", 0), c.get("FAIL", 0)
             gaps = self.coverage_gaps()
             if self._console:
                 self._console.print(
                     f"\n  [bold green]✓ {passed} passed[/]   "
                     f"[bold red]✗ {failed} failed[/]   "
-                    f"[bright_black]{len(self.rows)} collectors[/]"
+                    f"[bright_black]{len(self._matrix.finished_csv_rows)} collectors[/]"
                 )
                 if gaps:
                     self._console.print(
@@ -843,9 +732,9 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
                     ["status", "account", "scope", "check", "severity", "records",
                      "elapsed_s", "detail"]
                 )
-                for r in self.rows:
+                for r in self._matrix.finished_csv_rows:
                     w.writerow(
-                        [r["label"], self._account, r["scope"], r["check"],
+                        [r["label"], self._matrix.account_id, r["scope"], r["check"],
                          r["severity"], r["tag"], r["elapsed"], r["desc"]]
                     )
             return path
@@ -864,6 +753,7 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
                 f"{label:<6} {name.upper():<16} {severity:<8} {records:>10} "
                 f"{elapsed:>7}  {detail}"
             )
+
 
     return MatrixReporter(), console
 

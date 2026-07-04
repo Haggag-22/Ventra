@@ -399,3 +399,55 @@ export interface EvidenceLines {
   has_more: boolean;
   records: unknown[];
 }
+
+// ---- Collection runs -------------------------------------------------------------------
+
+export type RunStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
+
+export interface RunMeta {
+  run_id: string;
+  status: RunStatus;
+  cloud: string;
+  case_id: string;
+  connection_id?: string | null;
+  created_at?: string;
+  started_at?: string | null;
+  finished_at?: string | null;
+  error?: string | null;
+  account_id?: string | null;
+  masked_account?: string | null;
+  regions?: string[];
+  collectors_total?: number;
+  collectors_complete?: number;
+  duration_ms?: number | null;
+  progress?: { complete: number; total: number };
+}
+
+export interface CollectorMatrixRow {
+  name: string;
+  status: string;
+  severity?: string;
+  records?: number | null;
+  elapsed_ms?: number | null;
+  detail?: string;
+  live_msg?: string;
+}
+
+export interface RunMatrix {
+  run_id: string;
+  status?: RunStatus;
+  rows: CollectorMatrixRow[];
+  complete: number;
+  total: number;
+  masked_account?: string;
+  case_id?: string;
+  regions?: string[];
+}
+
+export interface CaseOverview {
+  summary: CaseSummary;
+  manifest: Record<string, unknown>;
+  inventory: InventorySummary;
+  findings_by_severity: Record<string, number>;
+  recent_events: UnifiedEvent[];
+}

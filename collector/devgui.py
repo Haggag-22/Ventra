@@ -155,6 +155,110 @@ def ensure_dev_environment(root: Path, *, force: bool = False) -> Path:
     return py_exec
 
 
+def _default_frontend_port(args: Namespace) -> int:
+    """CLI ``--port``, overridden by ``VENTRA_CONSOLE_PORT`` when set."""
+    raw = os.environ.get("VENTRA_CONSOLE_PORT", "").strip()
+    if not raw:
+        return args.port
+    try:
+        return int(raw)
+    except ValueError:
+        print(
+            f"warning: invalid VENTRA_CONSOLE_PORT={raw!r}; using --port {args.port}.",
+            file=sys.stderr,
+        )
+        return args.port
+
+
+def _pids_listening_on_port(port: int) -> list[int]:
+    """Return PIDs with a TCP LISTEN socket on ``port`` (empty if lsof unavailable)."""
+    try:
+        proc = subprocess.run(
+            ["lsof", "-tiTCP", f":{port}", "-sTCP:LISTEN"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+    except FileNotFoundError:
+        return []
+    if proc.returncode != 0:
+        return []
+    pids: list[int] = []
+    for line in proc.stdout.splitlines():
+        line = line.strip()
+        if line.isdigit():
+            pids.append(int(line))
+    return pids
+
+
+def _process_command(pid: int) -> str:
+    proc = subprocess.run(
+        ["ps", "-p", str(pid), "-o", "command="],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if proc.returncode != 0:
+        return ""
+    return proc.stdout.strip()
+
+
+def _is_stale_dev_process(command: str) -> bool:
+    """True when ``command`` looks like a prior Ventra dev / Next / uvicorn listener."""
+    cmd = command.lower()
+    if not cmd:
+        return False
+    if "next-server" in cmd or "next dev" in cmd:
+        return True
+    if "node_modules/next" in cmd or "node_modules/.bin/next" in cmd:
+        return True
+    if "npm" in cmd and "run dev" in cmd:
+        return True
+    if "uvicorn" in cmd:
+        return True
+    if "ventra" in cmd and (" dev" in cmd or " gui" in cmd or "devgui" in cmd):
+        return True
+    return False
+
+
+def _free_stale_dev_ports(*ports: int) -> None:
+    """Terminate stale Ventra dev listeners so preferred ports can bind."""
+    skip = {os.getpid(), os.getppid()}
+    seen: set[int] = set()
+    for port in ports:
+        for pid in _pids_listening_on_port(port):
+            if pid in skip or pid in seen:
+                continue
+            seen.add(pid)
+            command = _process_command(pid)
+            if not _is_stale_dev_process(command):
+                print(
+                    f"  Port {port} in use by pid {pid} ({command or 'unknown'}) — leaving it.",
+                    file=sys.stderr,
+                )
+                continue
+            label = command.split()[0] if command else f"pid {pid}"
+            print(f"  Freeing port {port}: stopping stale {label} (pid {pid})…")
+            try:
+                os.kill(pid, signal.SIGTERM)
+            except ProcessLookupError:
+                continue
+            except PermissionError:
+                print(f"  warning: could not stop pid {pid} on port {port}.", file=sys.stderr)
+                continue
+            for _ in range(20):
+                try:
+                    os.kill(pid, 0)
+                except ProcessLookupError:
+                    break
+                time.sleep(0.1)
+            else:
+                try:
+                    os.kill(pid, signal.SIGKILL)
+                except ProcessLookupError:
+                    pass
+
+
 def _port_available(port: int, *, bind_host: str = "127.0.0.1") -> bool:
     """Return True if ``bind_host:port`` can be bound (matches uvicorn / Next.js)."""
     if bind_host == "::":
@@ -260,8 +364,11 @@ def cmd_dev(args: Namespace) -> int:
     venv_bin = venv_python.parent
 
     env = _dev_env(root, venv_bin)
-    frontend_port = _pick_port(args.port, bind_host="::")
-    backend_port = _pick_port(args.backend_port, bind_host="127.0.0.1")
+    frontend_preferred = _default_frontend_port(args)
+    backend_preferred = args.backend_port
+    _free_stale_dev_ports(frontend_preferred, backend_preferred, frontend_preferred + 1)
+    frontend_port = _pick_port(frontend_preferred, bind_host="::")
+    backend_port = _pick_port(backend_preferred, bind_host="127.0.0.1")
     env["PORT"] = str(frontend_port)
     env["VENTRA_API"] = f"http://127.0.0.1:{backend_port}"
 
@@ -279,10 +386,10 @@ def cmd_dev(args: Namespace) -> int:
     print(f"  Console (hot reload):  http://127.0.0.1:{frontend_port}")
     print(f"  Backend  (--reload):     http://127.0.0.1:{backend_port}")
     print(f"  Cases:                   {env['VENTRA_CASE_STORE']}")
-    if frontend_port != args.port:
-        print(f"  Note: port {args.port} busy — using {frontend_port}")
-    if backend_port != args.backend_port:
-        print(f"  Note: port {args.backend_port} busy — using {backend_port}")
+    if frontend_port != frontend_preferred:
+        print(f"  Note: port {frontend_preferred} busy — using {frontend_port}")
+    if backend_port != backend_preferred:
+        print(f"  Note: port {backend_preferred} busy — using {backend_port}")
     print()
 
     procs.append(
@@ -343,6 +450,19 @@ def cmd_dev(args: Namespace) -> int:
     return _wait_procs(procs)
 
 
+def _app_routes_stale(frontend_dir: Path) -> bool:
+    """True when app routes changed but .next/server still references old paths."""
+    app_dir = frontend_dir / "app"
+    next_server = frontend_dir / ".next" / "server" / "app"
+    if not app_dir.is_dir() or not next_server.is_dir():
+        return False
+    for page_tsx in app_dir.rglob("page.tsx"):
+        built = next_server / page_tsx.relative_to(app_dir).with_suffix(".js")
+        if not built.is_file():
+            return True
+    return False
+
+
 def _repair_next_dev_build(frontend_dir: Path, *, force: bool = False) -> None:
     """Refresh Next.js dev output so client chunks match the dev server."""
     next_dir = frontend_dir / ".next"
@@ -352,10 +472,18 @@ def _repair_next_dev_build(frontend_dir: Path, *, force: bool = False) -> None:
         return
     if not next_dir.is_dir():
         return
-    webpack_cache = next_dir / "cache" / "webpack"
-    if webpack_cache.is_dir():
-        shutil.rmtree(webpack_cache, ignore_errors=True)
+    if _app_routes_stale(frontend_dir):
+        print("Repairing stale Next.js dev build (app routes changed)…")
+        shutil.rmtree(next_dir, ignore_errors=True)
+        return
+    # Dev HTML references /_next/static/css/app/layout.css; a partial .next (e.g. after
+    # route-group migration) leaves hashed production CSS but no dev layout.css → 404.
+    dev_css = next_dir / "static" / "css" / "app" / "layout.css"
     server = next_dir / "server"
+    if server.is_dir() and not dev_css.is_file():
+        print("Repairing stale Next.js dev build (CSS out of sync)…")
+        shutil.rmtree(next_dir, ignore_errors=True)
+        return
     static = next_dir / "static"
     if server.is_dir() and not static.is_dir():
         print("Repairing stale Next.js dev build (.next)…")

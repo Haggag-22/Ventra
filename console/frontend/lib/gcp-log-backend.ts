@@ -59,6 +59,18 @@ export const DEFAULT_GCP_LOG_BACKEND_FORM: GcpLogBackendFormState = {
   gcsPrefix: "",
 };
 
+export function gcpConfigToForm(cfg?: GcpLogBackendConfig | null): GcpLogBackendFormState {
+  if (!cfg?.mode) return { ...DEFAULT_GCP_LOG_BACKEND_FORM };
+  return {
+    mode: cfg.mode,
+    bqDataset: cfg.bigquery?.dataset ?? "",
+    gcsBucket: cfg.gcs?.bucket ?? "",
+    gcsPrefix: cfg.gcs?.prefix ?? "",
+  };
+}
+
+export const GCP_LOG_BACKEND_DEFAULT_KEY = "ventra.gcp-log-default";
+
 export function serializeGcpLogBackend(form: GcpLogBackendFormState): GcpLogBackendConfig | undefined {
   if (!form.mode) return undefined;
   if (form.mode === "logging_api") {
