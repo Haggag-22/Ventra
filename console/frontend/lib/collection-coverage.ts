@@ -68,7 +68,16 @@ const GAP_TO_STATE: Record<string, CoverageState> = {
 };
 
 export function catalogItems(cloud: Cloud): CatalogItem[] {
-  return (CATALOG[cloud] ?? []).flatMap((g) => g.items);
+  const seen = new Set<string>();
+  const out: CatalogItem[] = [];
+  for (const group of CATALOG[cloud] ?? []) {
+    for (const item of group.items) {
+      if (seen.has(item.id)) continue;
+      seen.add(item.id);
+      out.push(item);
+    }
+  }
+  return out;
 }
 
 /** Log sources with a Ventra collector today (maps to manifest `sources[].name`). */
@@ -386,4 +395,155 @@ export function missingCollectorIds(
     if (ACQUIRABLE_COVERAGE.has(cov.state)) out.push(item.id);
   }
   return out;
+}
+
+// ---- Coverage by source family (for the overview radar) ---------------------------------
+// The catalog's own groups aren't a consistent taxonomy across clouds (AWS/Azure are one flat
+// group; only GCP is grouped), so we map collector ids into stable families that read the same
+// on every cloud. Unmapped ids are simply ignored.
+
+export type SourceFamily =
+  | "control"
+  | "identity"
+  | "network"
+  | "data"
+  | "findings"
+  | "workloads";
+
+const FAMILY_LABELS: Record<SourceFamily, string> = {
+  control: "Control plane",
+  identity: "Identity",
+  network: "Network",
+  data: "Data & storage",
+  findings: "Threat findings",
+  workloads: "Workloads",
+};
+
+/** Single-word labels for the radar axes (long labels clip in a narrow chart). */
+const FAMILY_SHORT: Record<SourceFamily, string> = {
+  control: "Control",
+  identity: "Identity",
+  network: "Network",
+  data: "Data",
+  findings: "Findings",
+  workloads: "Workloads",
+};
+
+const FAMILY_ORDER: SourceFamily[] = [
+  "control",
+  "identity",
+  "network",
+  "data",
+  "findings",
+  "workloads",
+];
+
+const FAMILY_BY_ID: Record<string, SourceFamily> = {
+  // control plane / audit
+  cloudtrail: "control",
+  config: "control",
+  activity_log: "control",
+  cloud_audit_admin: "control",
+  cloud_audit_system: "control",
+  cloud_audit_data: "control",
+  logging_posture: "control",
+  // identity
+  entra_signin: "identity",
+  entra_audit: "identity",
+  oauth_consent: "identity",
+  login_events: "identity",
+  key_vault: "identity",
+  // network
+  vpc_flow: "network",
+  nsg_flow: "network",
+  vnet_flow: "network",
+  route53_resolver: "network",
+  dns: "network",
+  cloud_dns: "network",
+  firewall_logs: "network",
+  azure_firewall: "network",
+  network_firewall: "network",
+  cloud_nat: "network",
+  load_balancer: "network",
+  elb_alb: "network",
+  cloud_cdn: "network",
+  cloudfront: "network",
+  app_gateway: "network",
+  front_door: "network",
+  waf: "network",
+  cloud_armor: "network",
+  api_gateway: "network",
+  apigateway: "network",
+  network_posture: "network",
+  // data & storage
+  s3_access: "data",
+  storage_access: "data",
+  bigquery_audit: "data",
+  cloud_sql: "data",
+  rds: "data",
+  secret_manager: "data",
+  dynamodb_streams: "data",
+  // threat findings / detections
+  guardduty: "findings",
+  securityhub: "findings",
+  detective: "findings",
+  inspector2: "findings",
+  macie: "findings",
+  defender: "findings",
+  scc_findings: "findings",
+  cloud_monitoring: "findings",
+  // workloads / compute
+  eks_audit: "workloads",
+  aks_audit: "workloads",
+  gke_audit: "workloads",
+  lambda_logs: "workloads",
+  cloud_functions: "workloads",
+  vm_logs: "workloads",
+  gce: "workloads",
+  opensearch: "workloads",
+};
+
+export interface FamilyCoverage {
+  family: SourceFamily;
+  label: string;
+  short: string;
+  collected: number;
+  total: number;
+  /** 0–100 share of this family's catalog sources that have data. */
+  pct: number;
+}
+
+/** Roll catalog coverage up into source families for the overview radar. */
+export function familyCoverage(
+  cloud: Cloud,
+  bySource: Map<string, { status: string; records: number; notes: string }>,
+  gaps: ManifestGap[],
+): FamilyCoverage[] {
+  const acc = new Map<SourceFamily, { collected: number; total: number }>();
+  const seen = new Set<string>();
+
+  for (const item of catalogItems(cloud)) {
+    const family = FAMILY_BY_ID[item.id];
+    if (!family || seen.has(item.id)) continue; // catalog has duplicate ids
+    seen.add(item.id);
+
+    const cov = resolveCollectorCoverage(item.id, bySource, gaps);
+    const covered = cov.state === "collected" || cov.state === "partial";
+    const cur = acc.get(family) ?? { collected: 0, total: 0 };
+    cur.total += 1;
+    if (covered) cur.collected += 1;
+    acc.set(family, cur);
+  }
+
+  return FAMILY_ORDER.filter((f) => acc.has(f)).map((family) => {
+    const { collected, total } = acc.get(family)!;
+    return {
+      family,
+      label: FAMILY_LABELS[family],
+      short: FAMILY_SHORT[family],
+      collected,
+      total,
+      pct: Math.round((collected / Math.max(total, 1)) * 100),
+    };
+  });
 }

@@ -161,6 +161,8 @@ const ARTIFACT_DISPLAY_LABELS: Record<string, string> = {
   cloud_dns: "Cloud DNS Logs",
   cloud_armor: "Cloud Armor Logs",
   cloud_nat: "Cloud NAT Logs",
+  package: "Seal evidence package",
+  ingest: "Ingest into case store",
 };
 
 export function displayArtifactLabel(collector: string): string {

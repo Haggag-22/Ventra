@@ -29,6 +29,10 @@ dependencies = [
     "rich>=13.7",
     "zstandard>=0.22",
     "PyYAML>=6.0",
+    # Fast log filtering (DuckDB SQL over GCS-export NDJSON). Optional at runtime: the collector
+    # falls back to the pure-Python filter path if duckdb is unavailable or VENTRA_GCP_DUCKDB_FILTER
+    # is disabled.
+    "duckdb>=0.10",
     # GCP collectors
     "google-cloud-logging>=3.10",
     "google-cloud-resource-manager>=1.12",
@@ -36,7 +40,6 @@ dependencies = [
     "google-cloud-securitycenter>=1.28",
     "google-cloud-compute>=1.19",
     "google-cloud-container>=2.45",
-    "google-cloud-bigquery>=3.20",
     "google-cloud-storage>=2.16",
     "google-auth>=2.29",
     "google-api-core>=2.19",

@@ -10,6 +10,7 @@ from __future__ import annotations
 import gzip
 import tarfile
 import tempfile
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -36,14 +37,34 @@ def _archive_name(case_id: str, account_id: str) -> str:
     return f"case-{safe_case}-{account_id}-{ts}"
 
 
-def _write_tar(staging: Path, tar_path: Path) -> None:
+def _write_tar(
+    staging: Path,
+    tar_path: Path,
+    *,
+    on_progress: Callable[[str], None] | None = None,
+) -> None:
+    files = sorted(p for p in staging.rglob("*") if p.is_file())
+    total = len(files)
+    if on_progress is not None:
+        on_progress(f"Archiving {total:,} evidence file(s)…")
     with tarfile.open(tar_path, mode="w") as tar:
-        for item in sorted(staging.rglob("*")):
-            if item.is_file():
-                tar.add(item, arcname=item.relative_to(staging).as_posix())
+        for index, item in enumerate(files, start=1):
+            tar.add(item, arcname=item.relative_to(staging).as_posix())
+            if on_progress is not None and index % 25 == 0:
+                on_progress(f"Archived {index:,}/{total:,} file(s)…")
+    if on_progress is not None and total:
+        on_progress(f"Archive built ({total:,} file(s))")
 
 
-def _compress_file(src: Path, dst: Path, *, compression: str) -> None:
+def _compress_file(
+    src: Path,
+    dst: Path,
+    *,
+    compression: str,
+    on_progress: Callable[[str], None] | None = None,
+) -> None:
+    if on_progress is not None:
+        on_progress(f"Compressing archive ({compression})…")
     if compression == "zstd" and _zstd is not None:
         cctx = _zstd.ZstdCompressor(level=19)
         with src.open("rb") as fin, dst.open("wb") as fout:
@@ -53,7 +74,14 @@ def _compress_file(src: Path, dst: Path, *, compression: str) -> None:
         fout.write(gzip.compress(fin.read(), compresslevel=9))
 
 
-def seal_package(staging: Path, out_dir: Path, case_id: str, account_id: str) -> PackageResult:
+def seal_package(
+    staging: Path,
+    out_dir: Path,
+    case_id: str,
+    account_id: str,
+    *,
+    on_progress: Callable[[str], None] | None = None,
+) -> PackageResult:
     """Tar the staging tree, compress, hash. Returns package metadata.
 
     The staging directory must already contain ``manifest.json``, ``manifest.json.sig``,
@@ -70,8 +98,11 @@ def seal_package(staging: Path, out_dir: Path, case_id: str, account_id: str) ->
 
     with tempfile.TemporaryDirectory(prefix="ventra-seal-") as tmp:
         tar_path = Path(tmp) / f"{base}.tar"
-        _write_tar(staging, tar_path)
-        _compress_file(tar_path, out_path, compression=compression)
+        _write_tar(staging, tar_path, on_progress=on_progress)
+        _compress_file(tar_path, out_path, compression=compression, on_progress=on_progress)
+
+    if on_progress is not None:
+        on_progress("Computing package checksum…")
 
     digest = sha256_file(out_path)
     (out_dir / f"{out_path.name}.sha256").write_text(

@@ -5,7 +5,8 @@ aliases:
 cloud: gcp
 category: ManagementPlane
 description: "Cloud Audit Logs \u2014 Data Access (read/write operations and policy\
-  \ denials)."
+  \ denials). Captures data-plane access across all services in one stream \u2014 including\
+  \ Cloud Login, Cloud Storage (GCS) access, BigQuery, and Secret Manager access events."
 version: 1.0.0
 collector: cloud_audit_data
 type: cloud_audit_data

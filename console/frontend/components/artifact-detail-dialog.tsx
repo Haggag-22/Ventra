@@ -29,6 +29,15 @@ function ArtifactBody({ art }: { art: Artifact }) {
   return (
     <div className="space-y-1">
       <Field label="Description">{art.description}</Field>
+      {art.subset_of ? (
+        <Field label="Included in">
+          <span className="text-fg">{displayArtifactLabel(art.subset_of)}</span>
+          <span className="mt-0.5 block text-xs text-fg-subtle">
+            A filtered view of {displayArtifactLabel(art.subset_of)}. Selecting it too adds no extra
+            coverage — it only produces a smaller, pre-filtered file.
+          </span>
+        </Field>
+      ) : null}
       {gcpApis?.calls.length ? (
         <Field label="API">
           <ul className="space-y-0.5 text-xs text-fg-subtle">

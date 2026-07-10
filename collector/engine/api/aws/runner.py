@@ -20,7 +20,6 @@ from collector.engine.registry import AWS_REGISTRY
 from collector.engine.run_common import RunReporter, parse_window
 from collector.lib.auth import manifest_profile_overrides
 from collector.lib.base import Collector
-from collector.lib.chain_of_custody.signing import sign_manifest
 from collector.lib.models import (
     ArtifactRef,
     CollectionContext,
@@ -32,7 +31,7 @@ from collector.lib.models import (
     TimeWindow,
     utcnow_iso,
 )
-from collector.lib.packaging.packager import PackageResult, seal_package
+from collector.lib.packaging.packager import PackageResult
 
 __all__ = ["AwsRunConfig", "RunReporter", "parse_window", "run_aws_collection"]
 
@@ -50,12 +49,16 @@ class AwsRunConfig:
     key_path: Path | None = None
     reporter: RunReporter | None = None
     aws_profile: str = ""
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    aws_session_token: str = ""
     artifact_refs: list[ArtifactRef] = field(default_factory=list)
     max_records_per_source: int | None = None
     artifact_parameters: dict[str, dict] = field(default_factory=dict)
     plan_label: str = ""
     artifact_labels: dict[str, str] = field(default_factory=dict)
     artifact_severities: dict[str, str] = field(default_factory=dict)
+    pipeline_steps: list[str] = field(default_factory=list)
 
 
 def _detect_environment() -> str:
@@ -72,10 +75,19 @@ def _detect_environment() -> str:
 
 def run_aws_collection(cfg: AwsRunConfig, *, factory: AwsClientFactory | None = None) -> PackageResult:
     started = utcnow_iso()
-    if factory is None and cfg.aws_profile:
+    if factory is None:
         import boto3
 
-        factory = AwsClientFactory(boto3.Session(profile_name=cfg.aws_profile))
+        if cfg.aws_access_key_id and cfg.aws_secret_access_key:
+            session_kwargs: dict[str, str] = {
+                "aws_access_key_id": cfg.aws_access_key_id,
+                "aws_secret_access_key": cfg.aws_secret_access_key,
+            }
+            if cfg.aws_session_token:
+                session_kwargs["aws_session_token"] = cfg.aws_session_token
+            factory = AwsClientFactory(boto3.Session(**session_kwargs))
+        elif cfg.aws_profile:
+            factory = AwsClientFactory(boto3.Session(profile_name=cfg.aws_profile))
     cf = factory or AwsClientFactory()
     identity = cf.caller_identity()
     regions = cfg.regions or cf.enabled_regions()
@@ -89,6 +101,7 @@ def run_aws_collection(cfg: AwsRunConfig, *, factory: AwsClientFactory | None = 
         plan_label=cfg.plan_label,
         artifact_labels=cfg.artifact_labels,
         artifact_severities=cfg.artifact_severities,
+        pipeline_steps=cfg.pipeline_steps,
     )
 
     with tempfile.TemporaryDirectory(prefix="ventra-stage-") as tmp:
@@ -131,6 +144,9 @@ def run_aws_collection(cfg: AwsRunConfig, *, factory: AwsClientFactory | None = 
 
         collection_log: list[dict] = []
         for name in cfg.collectors:
+            if reporter.should_cancel():
+                reporter.abort_remaining()
+                break
             cls = AWS_REGISTRY.get(name)
             if cls is None:
                 manifest.add_source_result(
@@ -165,16 +181,17 @@ def run_aws_collection(cfg: AwsRunConfig, *, factory: AwsClientFactory | None = 
         _write_collection_log(staging, collection_log)
         manifest_path = staging / "manifest.json"
         manifest.write(manifest_path)
-        sign_result = sign_manifest(manifest_path, cfg.key_path)
-        reporter.event("_seal", f"manifest signed via {sign_result.method}")
 
-        package = seal_package(
+        from ...run_finalize import finalize_and_seal_package
+
+        return finalize_and_seal_package(
+            reporter=reporter,
             staging=staging,
             out_dir=cfg.out_dir,
             case_id=cfg.case_id,
             account_id=identity.account_id,
+            key_path=cfg.key_path,
         )
-        return package
 
 
 def _run_one(cls: type[Collector], ctx: CollectionContext) -> SourceResult:

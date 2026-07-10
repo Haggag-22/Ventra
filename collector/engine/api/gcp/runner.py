@@ -35,7 +35,6 @@ from collector.engine.gcp_strategy_resolver import (
 )
 from collector.engine.registry import GCP_REGISTRY
 from collector.engine.run_common import RunReporter, parse_window
-from collector.lib.chain_of_custody.signing import sign_manifest
 from collector.lib.models import (
     ArtifactRef,
     CollectionContext,
@@ -47,11 +46,55 @@ from collector.lib.models import (
     TimeWindow,
     utcnow_iso,
 )
-from collector.lib.packaging.packager import PackageResult, seal_package
+from collector.lib.packaging.packager import PackageResult
 
 __all__ = ["GcpRunConfig", "run_gcp_collection", "parse_window"]
 
 SCHEMA_VERSION = "1.0.0"
+
+
+def _source_result_for_dedup(
+    name: str, broad: str, outcome: CollectorOutcome, note: str
+) -> SourceResult:
+    if outcome.status == STATUS_COLLECTED:
+        return SourceResult(
+            name=name,
+            status=SourceStatus.COLLECTED,
+            record_count=None,
+            notes=note,
+        )
+    reason = outcome.reason or note
+    return SourceResult(
+        name=name,
+        status=SourceStatus.SKIPPED,
+        notes=reason,
+        gaps=[(name, GapReason.NOT_PRESENT, reason)],
+    )
+
+
+def _publish_dedup_collector(
+    reporter: RunReporter,
+    name: str,
+    broad: str,
+    broad_outcome: CollectorOutcome | None,
+    *,
+    manifest: Manifest,
+    outcomes: dict[str, CollectorOutcome],
+) -> CollectorOutcome:
+    note = (
+        f"Deduplicated: '{name}' is a filter view over '{broad}', which is also "
+        "selected — collected once via that stream."
+    )
+    outcome = _deduplicated_outcome(name, broad, broad_outcome)
+    outcomes[name] = outcome
+    result = _source_result_for_dedup(name, broad, outcome, note)
+    manifest.add_source_result(result)
+    matrix = getattr(reporter, "matrix", None)
+    row = matrix.rows.get(name) if matrix is not None else None
+    if row is None or row.status in ("pending", "running"):
+        reporter.start(name)
+        reporter.finish(name, result)
+    return outcome
 
 
 @dataclass
@@ -66,6 +109,7 @@ class GcpRunConfig:
     key_path: Path | None = None
     reporter: RunReporter | None = None
     credentials_path: str | None = None
+    gcp_service_account_json: str = ""
     artifact_refs: list[ArtifactRef] = field(default_factory=list)
     max_records_per_source: int | None = None
     artifact_parameters: dict[str, dict] = field(default_factory=dict)
@@ -74,16 +118,28 @@ class GcpRunConfig:
     plan_label: str = ""
     artifact_labels: dict[str, str] = field(default_factory=dict)
     artifact_severities: dict[str, str] = field(default_factory=dict)
+    pipeline_steps: list[str] = field(default_factory=list)
 
 
 def run_gcp_collection(
     cfg: GcpRunConfig, *, factory: GcpClientFactory | None = None
 ) -> PackageResult:
     started = utcnow_iso()
-    cf = factory or GcpClientFactory(
-        project_id=cfg.project_id,
-        credentials_path=cfg.credentials_path,
-    )
+    if factory is None:
+        raw = (cfg.gcp_service_account_json or "").strip()
+        if raw:
+            info = json.loads(raw)
+            cf = GcpClientFactory(
+                project_id=cfg.project_id or info.get("project_id") or None,
+                service_account_info=info,
+            )
+        else:
+            cf = GcpClientFactory(
+                project_id=cfg.project_id,
+                credentials_path=cfg.credentials_path,
+            )
+    else:
+        cf = factory
     identity = cf.caller_identity()
     explicit = None
     if cfg.project_id:
@@ -100,6 +156,7 @@ def run_gcp_collection(
         artifact_labels=cfg.artifact_labels,
         artifact_severities=cfg.artifact_severities,
         preflight_lines=cfg.preflight_lines,
+        pipeline_steps=cfg.pipeline_steps,
     )
 
     with (
@@ -174,16 +231,43 @@ def run_gcp_collection(
             for c in run_list
             if c in GCP_LOGGING_COLLECTOR_IDS and c not in skipped_by_resolution
         ]
-        if backend_spec.mode in ("bigquery", "gcs"):
-            # Phase 3 prep: subset views sharing one table (broad stream not selected) fill
-            # a single spooled read and fan out in memory instead of re-querying per service.
+        shared_groups: dict[str, dict[str, Any]] = {}
+        spool_plans: list[Any] = []
+        defer_export: set[str] = set()
+        cap = cfg.max_records_per_source
+        full_window = cap is None or cap <= 0
+        if backend_spec.mode == "gcs":
             shared_groups = shared_log_read_groups(active_logging)
             if shared_groups:
                 cf.prime_shared_log_reads(shared_groups, spool_dir=spool_tmp)
 
+            if full_window and active_logging:
+                from collector.engine.gcp_export_bulk import build_export_spool_plans
+                from collector.engine.gcp_strategy_resolver import COLLECTOR_MAP
+
+                def _log_filter_for(collector_id: str) -> str:
+                    cls = GCP_REGISTRY.get(collector_id)
+                    if cls is not None and getattr(cls, "log_filter", ""):
+                        return str(cls.log_filter)
+                    return str((COLLECTOR_MAP.get(collector_id) or {}).get("log_filter") or "")
+
+                spool_plans = build_export_spool_plans(
+                    collectors=active_logging,
+                    dedup_map=dedup_map,
+                    shared_groups=shared_groups,
+                    projects=projects,
+                    log_filter_for=_log_filter_for,
+                )
+                if spool_plans:
+                    defer_export = set(active_logging)
+
         collection_log: list[dict] = []
         outcomes: dict[str, CollectorOutcome] = {}
-        for name in cfg.collectors:
+
+        def _process_collector(name: str) -> None:
+            if reporter.should_cancel():
+                reporter.abort_remaining()
+                return
             cls = GCP_REGISTRY.get(name)
             if cls is None:
                 manifest.add_source_result(
@@ -199,19 +283,22 @@ def run_gcp_collection(
                     strategy_used="none",
                     reason=f"Unknown collector {name!r}.",
                 )
-                continue
+                return
             if name in dedup_map:
                 broad = dedup_map[name]
-                note = (
-                    f"Deduplicated: '{name}' is a filter view over '{broad}', which is also "
-                    "selected — collected once via that stream."
-                )
-                result = SourceResult(name=name, status=SourceStatus.SKIPPED, notes=note)
-                manifest.add_source_result(result)
                 collection_log.append(
                     {"collector": name, "status": "deduplicated", "via": broad}
                 )
-                continue  # summary outcome mirrors the broad stream, filled after the loop
+                if broad in outcomes:
+                    _publish_dedup_collector(
+                        reporter,
+                        name,
+                        broad,
+                        outcomes[broad],
+                        manifest=manifest,
+                        outcomes=outcomes,
+                    )
+                return
             if name in skipped_by_resolution:
                 res = skipped_by_resolution[name]
                 reason = res.reason or "Not collected for the chosen strategy."
@@ -234,15 +321,71 @@ def run_gcp_collection(
                     reason=reason,
                     tables=list(res.tables),
                 )
-                continue
+                return
             reporter.start(name)
             result = _run_one(cls, ctx, collection_log)
             reporter.finish(name, result)
             manifest.add_source_result(result)
             outcomes[name] = _outcome_from_result(name, result, resolutions.get(name), strategy)
 
+        # Pass 1: inventory / API collectors — do not wait for GCS export spools.
+        for name in cfg.collectors:
+            if name in defer_export:
+                continue
+            _process_collector(name)
+            if reporter.should_cancel():
+                break
+
+        # Pass 2: parallel export pre-read (enterprise fast path) with live progress.
+        if spool_plans and not reporter.should_cancel():
+            from collector.lib.params import logging_window
+
+            reporter.raw_log(
+                "export_bulk",
+                f"Parallel GCS export read: {len(spool_plans)} collector group(s), "
+                f"workers={min(len(spool_plans), 8)}.",
+            )
+            cf.prime_export_bulk_reads(
+                plans=spool_plans,
+                spool_dir=spool_tmp,
+                spec=backend_spec,
+                window_for=lambda cid: logging_window(ctx, cid),
+                artifact_parameters=cfg.artifact_parameters,
+                on_spool_start=lambda cid: reporter.raw_log(
+                    cid, "spool fill started — reading GCS log export"
+                ),
+                on_spool_progress=lambda cid, n: reporter.raw_log(
+                    cid, f"spool: {n:,} rows buffered from GCS export"
+                ),
+                on_spool_done=lambda cid, n: reporter.raw_log(
+                    cid, f"spool ready — {n:,} rows on disk"
+                ),
+                on_raw_log=lambda cid, msg: reporter.raw_log(cid, msg),
+            )
+
+        # Pass 3: log collectors replay from spools.
+        for name in cfg.collectors:
+            if name not in defer_export:
+                continue
+            _process_collector(name)
+            if reporter.should_cancel():
+                break
+
         for name, broad in dedup_map.items():
-            outcomes[name] = _deduplicated_outcome(name, broad, outcomes.get(broad))
+            broad_outcome = outcomes.get(broad)
+            if name not in outcomes:
+                outcomes[name] = _deduplicated_outcome(name, broad, broad_outcome)
+            matrix = getattr(reporter, "matrix", None)
+            row = matrix.rows.get(name) if matrix is not None else None
+            if row is not None and row.status in ("pending", "running"):
+                _publish_dedup_collector(
+                    reporter,
+                    name,
+                    broad,
+                    broad_outcome,
+                    manifest=manifest,
+                    outcomes=outcomes,
+                )
 
         summary = build_collection_summary(
             case_id=cfg.case_id,
@@ -259,25 +402,24 @@ def run_gcp_collection(
         manifest.write(staging / "manifest.json")
         (staging / "collection.log").write_text(json.dumps(collection_log, indent=2), encoding="utf-8")
 
-        sign_manifest(staging / "manifest.json", key_path=cfg.key_path)
-        return seal_package(
-            staging,
-            cfg.out_dir,
-            cfg.case_id,
-            identity.organization_id or identity.project_id or "",
+        from ...run_finalize import finalize_and_seal_package
+
+        return finalize_and_seal_package(
+            reporter=reporter,
+            staging=staging,
+            out_dir=cfg.out_dir,
+            case_id=cfg.case_id,
+            account_id=identity.organization_id or identity.project_id or "",
+            key_path=cfg.key_path,
         )
 
 
 def _strategy_for_mode(mode: str) -> str:
-    return {"bigquery": "bigquery", "gcs": "storage"}.get(mode, "log_explorer")
+    return "storage" if mode == "gcs" else "log_explorer"
 
 
 def _strategy_target(spec: GcpLogBackendSpec) -> str:
-    if spec.uses_bigquery():
-        return spec.bigquery_dataset
-    if spec.uses_gcs():
-        return spec.gcs_bucket
-    return ""
+    return spec.gcs_bucket if spec.uses_gcs() else ""
 
 
 def _preflight_resolution(
@@ -294,10 +436,7 @@ def _preflight_resolution(
     other resolution failure is advisory — collection proceeds without pre-flight
     validation rather than blocking evidence capture.
     """
-    from collector.engine.gcp_strategy_resolver import (
-        BucketNotFoundError,
-        DatasetNotFoundError,
-    )
+    from collector.engine.gcp_strategy_resolver import BucketNotFoundError
 
     logging_ids = [c for c in run_list if c in GCP_LOGGING_COLLECTOR_IDS]
     if not logging_ids:
@@ -316,7 +455,7 @@ def _preflight_resolution(
             gcs_sink_prefix=spec.gcs_prefix,
             discovery_out=discovery,
         )
-    except (DatasetNotFoundError, BucketNotFoundError):
+    except BucketNotFoundError:
         raise
     except Exception as exc:  # noqa: BLE001 — validation must never block collection
         reporter.event(

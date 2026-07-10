@@ -14,8 +14,11 @@ export interface CatalogGroup {
 export const CLOUDS = ["aws", "azure", "gcp"] as const;
 export type Cloud = (typeof CLOUDS)[number];
 
-/** Acquire page tabs — M365 is split from Azure (collectors still run on the Azure engine). */
-export const ACQUIRE_PLATFORMS = ["aws", "azure", "gcp", "m365"] as const;
+/**
+ * Acquire page tabs (Configuration → Acquire).
+ * M365 is temporarily hidden from Acquire selection; docs / providers may still use it.
+ */
+export const ACQUIRE_PLATFORMS = ["aws", "azure", "gcp"] as const;
 export type AcquirePlatform = (typeof ACQUIRE_PLATFORMS)[number];
 
 /** Case list tabs — cloud providers plus standalone Kubernetes packages (roadmap). */
@@ -28,11 +31,12 @@ export const CLOUD_LABELS: Record<Cloud, string> = {
   gcp: "GCP",
 };
 
-export const ACQUIRE_PLATFORM_LABELS: Record<AcquirePlatform, string> = {
+/** Labels for Acquire tabs plus M365 for docs and other surfaces. */
+export const ACQUIRE_PLATFORM_LABELS: Record<AcquirePlatform | "m365", string> = {
   aws: "AWS",
   azure: "Azure",
   gcp: "GCP",
-  m365: "Microsoft 365",
+  m365: "M365",
 };
 
 export const CASE_PLATFORM_LABELS: Record<CasePlatform, string> = {
@@ -41,7 +45,7 @@ export const CASE_PLATFORM_LABELS: Record<CasePlatform, string> = {
 };
 
 /** Icon folder under ``public/icons/`` for artifact chips on the Acquire tab. */
-export function artifactIconCloud(platform: string): Cloud | AcquirePlatform {
+export function artifactIconCloud(platform: string): Cloud | "m365" {
   return platform.toLowerCase() === "m365" ? "m365" : (platform.toLowerCase() as Cloud);
 }
 
@@ -94,7 +98,6 @@ const AWS_LOGS: CatalogGroup[] = [
     category: "Logs Checked",
     items: [
       { id: "apigateway", label: "API Gateway Access Logs", description: "" },
-      { id: "apigateway", label: "API Gateway Access Logs", description: "" },
       { id: "cloudfront", label: "CloudFront Access Logs", description: "" },
       { id: "cloudtrail", label: "CloudTrail (Management, Data Events, Insights)", description: "" },
       { id: "config", label: "AWS Config", description: "" },
@@ -105,11 +108,9 @@ const AWS_LOGS: CatalogGroup[] = [
       { id: "guardduty", label: "GuardDuty", description: "" },
       { id: "inspector2", label: "Inspector2", description: "" },
       { id: "lambda_logs", label: "Lambda Logs", description: "" },
-      { id: "lambda_logs", label: "Lambda Logs", description: "" },
       { id: "macie", label: "Macie2", description: "" },
       { id: "network_firewall", label: "Network Firewall Logs", description: "" },
       { id: "opensearch", label: "OpenSearch Logs", description: "" },
-      { id: "rds", label: "RDS Export Logs", description: "" },
       { id: "rds", label: "RDS Export Logs", description: "" },
       { id: "route53_resolver", label: "Route53 Resolver Query Logs", description: "" },
       { id: "s3_access", label: "S3 Access Logs", description: "" },

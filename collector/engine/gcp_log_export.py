@@ -1,7 +1,7 @@
-"""Read GCP log rows from BigQuery export tables or GCS archive objects.
+"""Read GCP log rows from GCS archive objects.
 
-Collectors keep their Cloud Logging filter semantics; export backends resolve *where*
-to read (dataset table / bucket prefix) and apply the same filter to each row.
+Collectors keep their Cloud Logging filter semantics; the GCS archive backend resolves
+where to read (bucket prefix) and applies the same filter to each row.
 """
 
 from __future__ import annotations
@@ -11,8 +11,7 @@ import os
 import random
 import re
 import time
-from collections.abc import Iterator
-from dataclasses import dataclass
+from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import unquote
@@ -20,85 +19,18 @@ from urllib.parse import unquote
 from collector.lib.limits import records_unlimited
 
 
-@dataclass(frozen=True)
-class BigQueryDatasetCheck:
-    """Result of checking whether a configured log-export dataset exists."""
+class UnrecognizedFilterAtom(ValueError):
+    """A filter clause matches no known grammar rule (e.g. a typo'd field name).
 
-    ref: str
-    project_id: str
-    dataset_id: str
-    found: bool
-    table_count: int = 0
-    message: str = ""
+    Raised by both the Python matcher and the DuckDB translator so an unrecognized clause fails
+    loud with an actionable message instead of silently matching every record.
+    """
 
-
-def check_bigquery_log_dataset(
-    *,
-    credentials: Any,
-    dataset: str,
-    default_project: str = "",
-) -> BigQueryDatasetCheck:
-    """Return whether ``dataset`` exists and how many tables it contains."""
-    from google.api_core import exceptions as gcp_exc
-    from google.cloud import bigquery
-
-    bq_project, dataset_id = parse_bigquery_dataset(dataset, default_project=default_project)
-    ref = f"{bq_project}.{dataset_id}"
-    client = bigquery.Client(project=bq_project, credentials=credentials)
-    try:
-        tables = list(client.list_tables(f"{bq_project}.{dataset_id}"))
-    except gcp_exc.NotFound:
-        return BigQueryDatasetCheck(
-            ref=ref,
-            project_id=bq_project,
-            dataset_id=dataset_id,
-            found=False,
-            message=f"Dataset '{ref}' was not found.",
+    def __init__(self, clause: str) -> None:
+        self.clause = clause
+        super().__init__(
+            f"Unrecognized filter clause: {clause!r}. Check for typos in field names."
         )
-    except gcp_exc.Forbidden as exc:
-        return BigQueryDatasetCheck(
-            ref=ref,
-            project_id=bq_project,
-            dataset_id=dataset_id,
-            found=False,
-            message=f"Access denied listing dataset '{ref}': {exc}",
-        )
-    except gcp_exc.GoogleAPIError as exc:
-        return BigQueryDatasetCheck(
-            ref=ref,
-            project_id=bq_project,
-            dataset_id=dataset_id,
-            found=False,
-            message=str(exc),
-        )
-
-    count = len(tables)
-    if count:
-        suffix = "s" if count != 1 else ""
-        message = f"Dataset '{ref}' found ({count} table{suffix})."
-    else:
-        message = f"Dataset '{ref}' found but contains no tables yet."
-    return BigQueryDatasetCheck(
-        ref=ref,
-        project_id=bq_project,
-        dataset_id=dataset_id,
-        found=True,
-        table_count=count,
-        message=message,
-    )
-
-
-def parse_bigquery_dataset(raw: str, *, default_project: str = "") -> tuple[str, str]:
-    """Return ``(project_id, dataset_id)`` from ``project.dataset`` or ``dataset``."""
-    text = raw.strip().strip("`")
-    if not text:
-        raise ValueError("BigQuery dataset is required.")
-    if "." in text:
-        project, dataset = text.split(".", 1)
-        return project.strip(), dataset.strip()
-    if not default_project:
-        raise ValueError(f"BigQuery dataset {raw!r} needs a project prefix (project.dataset).")
-    return default_project.strip(), text
 
 
 def normalize_gcs_bucket(raw: str) -> str:
@@ -154,7 +86,11 @@ def entry_in_window(entry: dict[str, Any], start: datetime | None, end: datetime
         return True
     ts = entry_timestamp(entry)
     if ts is None:
-        return True
+        # Fail closed: a record whose timestamp is missing/unparseable cannot be confirmed to
+        # fall inside the requested window, so it is EXCLUDED from windowed results (it used to
+        # be included). Callers count these exclusions via entry_timestamp() so they surface as a
+        # gap rather than vanishing silently. The DuckDB window predicate mirrors this.
+        return False
     if start is not None and ts < start:
         return False
     return end is None or ts <= end
@@ -320,8 +256,10 @@ def _eval_atom(entry: dict[str, Any], expr: str) -> bool:
     if m:
         return _nested_present(entry, "jsonPayload", *m.group(1).split("."))
 
-    # Unknown clause — do not drop rows on partial grammar support.
-    return True
+    # Unrecognized clause — fail loud rather than silently matching every record. A typo in a
+    # field name (e.g. resource.tpye="x") must not quietly widen results. The DuckDB translator
+    # (gcp_log_filter_sql._atom_to_sql) raises the identical error for the same clause.
+    raise UnrecognizedFilterAtom(text)
 
 
 def _log_name_matches(entry: dict[str, Any], fragment: str) -> bool:
@@ -374,25 +312,21 @@ def _severity_rank(name: str) -> int:
     return _SEVERITY_RANK.get(name.upper(), 0)
 
 
-def bigquery_table_patterns(table_id: str) -> list[tuple[str, bool]]:
-    """Return ``(table_pattern, uses_wildcard)`` pairs for a configured table id.
-
-    Log Router BigQuery sinks shard rows into daily tables such as
-    ``cloudaudit_googleapis_com_activity_20250628``, not a single static table name.
-    """
-    if table_id == "_Default":
-        return [(table_id, False)]
-    base = table_id.rstrip("_")
-    patterns: list[tuple[str, bool]] = [(table_id, False)]
-    wildcard = f"{base}_*"
-    if wildcard != table_id:
-        patterns.append((wildcard, True))
-    return patterns
-
-
-_BQ_PAGE_SIZE = 10_000
-_BACKOFF_CAP_S = 60.0  # read quotas are per-minute; they fully refill within 60s
+_BACKOFF_CAP_S = 60.0
 _STALL_LIMIT_S_DEFAULT = 600.0
+_DEFAULT_GCS_WORKERS = 20
+# Raw rows filtered per DuckDB call in the GCS reader. Large enough to amortise DuckDB setup,
+# small enough to cap the transient buffer well below a whole prefix.
+_MATCH_BATCH = 50_000
+
+
+def _export_parallel_workers() -> int:
+    raw = os.environ.get("VENTRA_GCP_EXPORT_PARALLEL", "").strip()
+    try:
+        value = int(raw) if raw else 0
+    except ValueError:
+        value = 0
+    return value if value > 0 else _DEFAULT_GCS_WORKERS
 
 
 def _export_stall_limit_s() -> float:
@@ -409,18 +343,10 @@ def _is_quota_error(exc: Exception) -> bool:
 
     if isinstance(exc, gcp_exc.ResourceExhausted):
         return True
-    # BigQuery surfaces some rate quotas as 403 rateLimitExceeded, not 429.
     return isinstance(exc, gcp_exc.Forbidden) and "ratelimitexceeded" in str(exc).lower()
 
 
 class _PatientRetry:
-    """Quota backoff that delays, never caps: a 429 mid-range means wait and re-issue.
-
-    Patience resets whenever the scan makes progress; collection is only abandoned after
-    the stall limit of zero-progress quota errors, at which point the block is no longer a
-    refilling per-minute quota.
-    """
-
     def __init__(self) -> None:
         self._attempt = 0
         self._stalled = 0.0
@@ -440,29 +366,11 @@ class _PatientRetry:
         self._stalled += delay
 
 
-def _bq_page_limit(max_records: int, emitted: int) -> int:
-    if records_unlimited(max_records):
-        return _BQ_PAGE_SIZE
-    remaining = max_records - emitted
-    if remaining <= 0:
-        return 0
-    return min(_BQ_PAGE_SIZE, remaining)
-
-
-def _bq_timestamp_iso(value: datetime) -> str:
-    return value.astimezone(UTC).isoformat()
-
-
 def _project_log_prefixes(project_scope: list[str] | None) -> list[str]:
     return [f"projects/{p.strip()}/" for p in (project_scope or []) if p and p.strip()]
 
 
 def entry_in_project_scope(entry: dict[str, Any], project_scope: list[str] | None) -> bool:
-    """True when the entry's logName belongs to one of the selected projects.
-
-    Entries without a logName are kept — scoping must never silently drop evidence the
-    filter grammar cannot attribute.
-    """
     prefixes = _project_log_prefixes(project_scope)
     if not prefixes:
         return True
@@ -472,217 +380,25 @@ def entry_in_project_scope(entry: dict[str, Any], project_scope: list[str] | Non
     return any(log_name.startswith(p) for p in prefixes)
 
 
-def _bq_query_page(
-    client: Any,
-    *,
-    bq_project: str,
-    dataset_id: str,
-    pattern: str,
-    uses_wildcard: bool,
-    start: datetime | None,
-    end: datetime | None,
-    cursor_ts: datetime | None,
-    cursor_insert_id: str,
-    project_scope: list[str] | None,
-    page_limit: int,
-) -> Any:
-    """Run one keyset-paginated BigQuery page.
-
-    Rows are totally ordered by ``(timestamp DESC, insertId DESC)`` so the
-    ``(cursor_ts, cursor_insert_id)`` keyset resumes exactly after the last row of the
-    previous page — rows sharing a boundary timestamp are neither dropped nor re-read.
-    Date-shard pruning (``_TABLE_SUFFIX``) stays on every page; the shard range never
-    changes while paginating.
-    """
-    from google.cloud import bigquery
-
-    table_ref = f"`{bq_project}.{dataset_id}.{pattern}`"
-    where_parts: list[str] = []
-    params: list[Any] = []
-
-    if start is not None:
-        where_parts.append("timestamp >= TIMESTAMP(@ts_start)")
-        params.append(bigquery.ScalarQueryParameter("ts_start", "STRING", _bq_timestamp_iso(start)))
-    if end is not None:
-        where_parts.append("timestamp <= TIMESTAMP(@ts_end)")
-        params.append(bigquery.ScalarQueryParameter("ts_end", "STRING", _bq_timestamp_iso(end)))
-    if cursor_ts is not None:
-        where_parts.append(
-            "(timestamp < TIMESTAMP(@cursor_ts) OR "
-            "(timestamp = TIMESTAMP(@cursor_ts) AND IFNULL(insertId, '') < @cursor_id))"
-        )
-        params.extend(
-            [
-                bigquery.ScalarQueryParameter("cursor_ts", "STRING", _bq_timestamp_iso(cursor_ts)),
-                bigquery.ScalarQueryParameter("cursor_id", "STRING", cursor_insert_id),
-            ]
-        )
-    if uses_wildcard and start is not None and end is not None:
-        where_parts.append("_TABLE_SUFFIX BETWEEN @suffix_start AND @suffix_end")
-        params.extend(
-            [
-                bigquery.ScalarQueryParameter(
-                    "suffix_start", "STRING", start.astimezone(UTC).strftime("%Y%m%d")
-                ),
-                bigquery.ScalarQueryParameter(
-                    "suffix_end", "STRING", end.astimezone(UTC).strftime("%Y%m%d")
-                ),
-            ]
-        )
-    scope_prefixes = _project_log_prefixes(project_scope)
-    if scope_prefixes:
-        clauses = []
-        for i, scope_prefix in enumerate(scope_prefixes):
-            clauses.append(f"STARTS_WITH(logName, @project_scope_{i})")
-            params.append(
-                bigquery.ScalarQueryParameter(f"project_scope_{i}", "STRING", scope_prefix)
-            )
-        where_parts.append(f"({' OR '.join(clauses)})")
-
-    where_sql = f"WHERE {' AND '.join(where_parts)}" if where_parts else ""
-    sql = (
-        f"SELECT * FROM {table_ref} "
-        f"{where_sql} "
-        f"ORDER BY timestamp DESC, IFNULL(insertId, '') DESC "
-        f"LIMIT @page_limit"
-    )
-    params.append(bigquery.ScalarQueryParameter("page_limit", "INT64", page_limit))
-    job_config = bigquery.QueryJobConfig(query_parameters=params)
-    return client.query(sql, job_config=job_config).result()
-
-
-def iter_bigquery_log_entries(
-    *,
-    credentials: Any,
-    project_id: str,
-    dataset: str,
-    tables: list[str],
-    log_filter: str,
-    start: datetime | None,
-    end: datetime | None,
-    max_records: int,
-    read_all_tables: bool = False,
-    project_scope: list[str] | None = None,
-    stats: dict[str, Any] | None = None,
-) -> Iterator[dict[str, Any]]:
-    """Query exported log tables and yield entries matching ``log_filter``.
-
-    Paginates through the full result set — a cap applies only when the analyst set
-    ``max_records``. When ``start`` and ``end`` are both ``None``, every row in the
-    matching export tables is eligible. ``read_all_tables`` unions every listed table
-    (vpc_flows ×2, per-stream agent/engine logs); otherwise the listed tables are
-    alternative names for one log and reading stops at the first that yields rows.
-    ``stats`` (optional) collects the tables read and per-table row counts for the
-    collection summary.
-    """
-    from google.api_core import exceptions as gcp_exc
-    from google.cloud import bigquery
-
-    bq_project, dataset_id = parse_bigquery_dataset(dataset, default_project=project_id)
-    client = bigquery.Client(project=bq_project, credentials=credentials)
-    emitted = 0
-    last_error: Exception | None = None
-
-    for table_id in tables:
-        if not records_unlimited(max_records) and emitted >= max_records:
-            return
-        table_emitted = 0
-        for pattern, uses_wildcard in bigquery_table_patterns(table_id):
-            pattern_emitted = 0
-            cursor_ts: datetime | None = None
-            cursor_insert_id = ""
-            table_missing = False
-            retry = _PatientRetry()
-            while True:
-                page_limit = _bq_page_limit(max_records, emitted)
-                if page_limit <= 0:
-                    return
-                try:
-                    rows = list(
-                        _bq_query_page(
-                            client,
-                            bq_project=bq_project,
-                            dataset_id=dataset_id,
-                            pattern=pattern,
-                            uses_wildcard=uses_wildcard,
-                            start=start,
-                            end=end,
-                            cursor_ts=cursor_ts,
-                            cursor_insert_id=cursor_insert_id,
-                            project_scope=project_scope,
-                            page_limit=page_limit,
-                        )
-                    )
-                except gcp_exc.NotFound:
-                    table_missing = True
-                    break
-                except gcp_exc.GoogleAPIError as exc:
-                    if _is_quota_error(exc):
-                        retry.backoff_or_raise(exc)
-                        continue  # re-issue the same page; backoff delays, it never caps
-                    if isinstance(exc, gcp_exc.Forbidden):
-                        raise GcpExportAccessDenied(str(exc)) from exc
-                    last_error = exc
-                    break
-                retry.progressed()
-
-                if not rows:
-                    break
-
-                for row in rows:
-                    entry = normalize_log_entry(dict(row))
-                    if not entry_in_window(entry, start, end):
-                        continue
-                    if not entry_in_project_scope(entry, project_scope):
-                        continue
-                    if not matches_gcp_log_filter(entry, log_filter):
-                        continue
-                    yield entry
-                    emitted += 1
-                    pattern_emitted += 1
-                    if not records_unlimited(max_records) and emitted >= max_records:
-                        _record_stats(stats, pattern, pattern_emitted)
-                        return
-
-                if len(rows) < page_limit:
-                    break
-                last = normalize_log_entry(dict(rows[-1]))
-                cursor_ts = entry_timestamp(last)
-                if cursor_ts is None:
-                    break
-                cursor_insert_id = str(last.get("insertId") or "")
-
-            table_emitted += pattern_emitted
-            if not table_missing:
-                _record_stats(stats, pattern, pattern_emitted)
-            if pattern_emitted:
-                break  # this table name form held the data; skip its alternate form
-        if table_emitted and not read_all_tables:
-            return
-
-    if last_error is not None:
-        raise GcpExportError(str(last_error))
-    return
+def _emit_progress(on_progress: Callable[[str], None] | None, message: str) -> None:
+    if on_progress is not None:
+        on_progress(message)
 
 
 def _record_stats(stats: dict[str, Any] | None, pattern: str, rows: int) -> None:
     if stats is None:
         return
-    tables = stats.setdefault("tables_read", [])
+    tables = stats.setdefault("prefixes_read", [])
     if pattern not in tables:
         tables.append(pattern)
-    by_table = stats.setdefault("rows_by_table", {})
-    by_table[pattern] = by_table.get(pattern, 0) + rows
+    by_prefix = stats.setdefault("rows_by_prefix", {})
+    by_prefix[pattern] = by_prefix.get(pattern, 0) + rows
 
 
 _GCS_OBJECT_DATE = re.compile(r"/(\d{4})/(\d{2})/(\d{2})/")
 
 
 def _gcs_object_in_window(name: str, start: datetime | None, end: datetime | None) -> bool:
-    """Prefix-level window pruning: skip objects whose /YYYY/MM/DD/ path is out of range.
-
-    Objects without a recognizable date path are kept and filtered per entry instead.
-    """
     if start is None and end is None:
         return True
     match = _GCS_OBJECT_DATE.search(name)
@@ -709,14 +425,15 @@ def iter_gcs_log_entries(
     read_all_prefixes: bool = False,
     project_scope: list[str] | None = None,
     stats: dict[str, Any] | None = None,
+    on_progress: Callable[[str], None] | None = None,
 ) -> Iterator[dict[str, Any]]:
     """Enumerate GCS log export objects and yield entries matching ``log_filter``.
 
-    Every object under each prefix is read (the listing iterator paginates fully); only an
-    analyst-set ``max_records`` stops early. Objects with an out-of-window ``/YYYY/MM/DD/``
-    path are pruned by name without being downloaded. Same first-match vs union semantics
-    over ``prefixes`` as the BigQuery table candidates.
+    Prefix listing and object downloads both run in parallel (``VENTRA_GCP_EXPORT_PARALLEL``,
+    default 20). Date-path pruning happens before any download is scheduled.
     """
+    import concurrent.futures
+
     from google.api_core import exceptions as gcp_exc
     from google.cloud import storage
 
@@ -729,50 +446,96 @@ def iter_gcs_log_entries(
     except gcp_exc.NotFound as exc:
         raise GcpExportNotFound(str(exc)) from exc
 
+    workers = _export_parallel_workers()
     emitted = 0
-    for prefix in prefixes:
-        objects_seen = 0
-        prefix_emitted = 0
-        retry = _PatientRetry()
+
+    def _list_one(prefix: str) -> tuple[str, list[str]]:
+        _emit_progress(on_progress, f"[gcs] listing `{prefix}` …")
         try:
-            blobs = client.list_blobs(bucket, prefix=prefix or None)
-            for blob in blobs:
+            names: list[str] = []
+            for blob in client.list_blobs(bucket, prefix=prefix or None):
                 name = blob.name or ""
                 if not name.endswith(".json"):
                     continue
-                objects_seen += 1
                 if not _gcs_object_in_window(name, start, end):
                     continue
-                while True:
-                    try:
-                        data = blob.download_as_bytes()
-                        retry.progressed()
-                        break
-                    except gcp_exc.GoogleAPIError as exc:
-                        if _is_quota_error(exc):
-                            retry.backoff_or_raise(exc)
-                            continue
-                        data = b""
-                        break
-                for entry in _parse_gcs_log_blob(data):
-                    entry = normalize_log_entry(entry)
-                    if not entry_in_window(entry, start, end):
-                        continue
-                    if not entry_in_project_scope(entry, project_scope):
-                        continue
-                    if not matches_gcp_log_filter(entry, log_filter):
-                        continue
-                    yield entry
-                    emitted += 1
-                    prefix_emitted += 1
-                    if not records_unlimited(max_records) and emitted >= max_records:
-                        _record_stats(stats, prefix, prefix_emitted)
-                        return
+                names.append(name)
         except gcp_exc.Forbidden as exc:
             raise GcpExportAccessDenied(str(exc)) from exc
         except gcp_exc.NotFound as exc:
             raise GcpExportNotFound(str(exc)) from exc
+        _emit_progress(on_progress, f"[gcs] `{prefix}` — {len(names):,} objects")
+        return prefix, names
+
+    list_workers = min(workers, max(len(prefixes), 1))
+    prefix_blobs: list[tuple[str, list[str]]] = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=list_workers) as pool:
+        prefix_blobs = list(pool.map(_list_one, prefixes))
+
+    def _download_one(blob_name: str) -> list[dict[str, Any]]:
+        retry = _PatientRetry()
+        while True:
+            try:
+                data = bucket.blob(blob_name).download_as_bytes()
+                retry.progressed()
+                return _parse_gcs_log_blob(data)
+            except gcp_exc.GoogleAPIError as exc:
+                if _is_quota_error(exc):
+                    retry.backoff_or_raise(exc)
+                    continue
+                return []
+
+    from collector.engine.gcp_log_filter_sql import GcpEntryMatcher
+
+    matcher = GcpEntryMatcher(log_filter, start, end, project_scope, stats=stats)
+
+    for prefix, blob_names in prefix_blobs:
+        objects_seen = len(blob_names)
+        prefix_emitted = 0
+        if not blob_names:
+            _record_stats(stats, prefix, 0)
+            if objects_seen and not read_all_prefixes:
+                return
+            continue
+
+        # Filter one prefix's rows through DuckDB in bounded batches (falling back to the Python
+        # per-record loop on any error). Batching amortises DuckDB setup while capping the raw
+        # rows held to _MATCH_BATCH — the download pool already materialises each blob, so this
+        # does not raise peak memory beyond the existing behaviour.
+        buffer: list[dict[str, Any]] = []
+
+        def _flush(buf: list[dict[str, Any]], prefix: str = prefix):
+            nonlocal emitted, prefix_emitted
+            for entry in matcher.filter_batch(buf):
+                yield entry
+                emitted += 1
+                prefix_emitted += 1
+                if prefix_emitted % 10_000 == 0:
+                    _emit_progress(
+                        on_progress,
+                        f"[gcs] `{prefix}` yielded {prefix_emitted:,} matching rows",
+                    )
+                if not records_unlimited(max_records) and emitted >= max_records:
+                    return
+
+        dl_workers = min(workers, len(blob_names))
+        truncated = False
+        with concurrent.futures.ThreadPoolExecutor(max_workers=dl_workers) as pool:
+            for entries in pool.map(_download_one, blob_names):
+                buffer.extend(entries)
+                if len(buffer) < _MATCH_BATCH:
+                    continue
+                yield from _flush(buffer)
+                buffer = []
+                if not records_unlimited(max_records) and emitted >= max_records:
+                    truncated = True
+                    break
+        if not truncated and buffer:
+            yield from _flush(buffer)
+
         _record_stats(stats, prefix, prefix_emitted)
+        if not records_unlimited(max_records) and emitted >= max_records:
+            return
         if objects_seen and not read_all_prefixes:
             return
 
@@ -785,7 +548,7 @@ def _parse_gcs_log_blob(data: bytes) -> list[dict[str, Any]]:
         try:
             payload = json.loads(text)
         except json.JSONDecodeError:
-            payload = None  # multi-entry JSONL also starts with "{" — parse per line below
+            payload = None
         if isinstance(payload, dict) and isinstance(payload.get("entries"), list):
             return [e for e in payload["entries"] if isinstance(e, dict)]
         if isinstance(payload, dict):
@@ -819,4 +582,4 @@ class GcpExportNotFound(GcpExportError):
 
 
 class GcpExportRateLimited(GcpExportError):
-    """Export read quota (429 / rateLimitExceeded) stayed exhausted past the stall limit."""
+    pass

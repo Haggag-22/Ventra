@@ -1,4 +1,6 @@
-export type HandoffMode = "file" | "s3_ir_bucket" | "presigned";
+export type HandoffMode = "s3_ir_bucket" | "presigned";
+
+export const DEFAULT_HANDOFF_MODE: HandoffMode = "s3_ir_bucket";
 
 export type HandoffModeInfo = {
   id: HandoffMode;
@@ -9,13 +11,6 @@ export type HandoffModeInfo = {
 };
 
 export const HANDOFF_MODES: HandoffModeInfo[] = [
-  {
-    id: "file",
-    label: "Client sends file",
-    summary: "Client returns the sealed .tar.zst to you (email, SFTP, secure share).",
-    clientNote: "Kit writes locally; client sends you the sealed package.",
-    analystNote: "Use Import package on Cases when the file arrives.",
-  },
   {
     id: "s3_ir_bucket",
     label: "Upload to my IR bucket",
@@ -37,8 +32,17 @@ export function handoffModeLabel(id: string): string {
 }
 
 export function parseHandoffMode(raw: string | null | undefined): HandoffMode {
-  const v = (raw || "file") as HandoffMode;
-  return HANDOFF_MODES.some((m) => m.id === v) ? v : "file";
+  if (raw === "file") return DEFAULT_HANDOFF_MODE;
+  const v = (raw || DEFAULT_HANDOFF_MODE) as HandoffMode;
+  return HANDOFF_MODES.some((m) => m.id === v) ? v : DEFAULT_HANDOFF_MODE;
+}
+
+export function handoffModeFromTransport(transport?: string | null): HandoffMode | undefined {
+  const value = transport?.trim();
+  if (!value) return undefined;
+  if (value.startsWith("s3-presigned:")) return "presigned";
+  if (value.startsWith("s3://")) return "s3_ir_bucket";
+  return undefined;
 }
 
 export function buildTransportSpec(
@@ -47,7 +51,6 @@ export function buildTransportSpec(
   prefix: string,
   presignedUrl: string,
 ): string {
-  if (mode === "file") return "";
   if (mode === "presigned") {
     const url = presignedUrl.trim();
     return url ? `s3-presigned:${url}` : "";

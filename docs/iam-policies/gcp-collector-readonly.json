@@ -2,11 +2,6 @@
   "title": "Ventra GCP Collector \u2014 Read-Only IAM Policy",
   "description": "Minimum permissions for Ventra GCP collectors. Attach to a custom role or use as a reference for client security review.",
   "permissions": [
-    "bigquery.datasets.get",
-    "bigquery.jobs.create",
-    "bigquery.tables.get",
-    "bigquery.tables.getData",
-    "bigquery.tables.list",
     "compute.disks.list",
     "compute.firewalls.list",
     "compute.instances.list",

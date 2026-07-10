@@ -234,12 +234,14 @@ export function Popover({
   align = "start",
   side = "bottom",
   contentClassName,
+  triggerClassName,
 }: {
   trigger: React.ReactNode;
   children: React.ReactNode;
   align?: "start" | "center" | "end";
   side?: "top" | "bottom";
   contentClassName?: string;
+  triggerClassName?: string;
 }) {
   const [open, setOpen] = useState(false);
   const triggerRef = useRef<HTMLDivElement>(null);
@@ -299,7 +301,7 @@ export function Popover({
 
   return (
     <>
-      <div className="inline-flex" ref={triggerRef}>
+      <div className={cn("inline-flex", triggerClassName)} ref={triggerRef}>
         <div
           onClick={(event) => {
             event.stopPropagation();

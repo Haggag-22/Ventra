@@ -132,7 +132,7 @@ class GcpLoggingCollector(Collector):
         read_stats: dict[str, Any] = {}
 
         with self.open_jsonl("events.jsonl.gz") as writer:
-            if backend_mode in ("bigquery", "gcs"):
+            if backend_mode == "gcs":
                 # Export backends read each distinct dataset/bucket once for all projects —
                 # re-reading per project would duplicate evidence. Rows are scoped to the
                 # in-scope projects and attributed to their owner from logName.
@@ -228,6 +228,17 @@ class GcpLoggingCollector(Collector):
                 self.name,
                 cap,
                 f"Truncated at {cap:,} records; narrow the window or use enterprise profile.",
+            )
+
+        excluded_ts = int(read_stats.get("excluded_unparseable_timestamp", 0) or 0)
+        if excluded_ts:
+            gaps.append(
+                (
+                    self.name,
+                    GapReason.UNPARSEABLE_TIMESTAMP,
+                    f"{excluded_ts:,} record(s) excluded from the export: unparseable or missing "
+                    "timestamp cannot be confirmed within the requested window.",
+                )
             )
 
         config: dict[str, Any] = {

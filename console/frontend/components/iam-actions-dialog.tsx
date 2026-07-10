@@ -2,16 +2,21 @@
 
 import { Button } from "@/components/ui";
 import { ACQUIRE_PLATFORM_LABELS, type AcquirePlatform } from "@/lib/catalog";
+import { cn } from "@/lib/utils";
 import { List, X } from "lucide-react";
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 
 type Props = {
   open: boolean;
   onClose: () => void;
-  cloud: AcquirePlatform;
+  /** Acquire tabs plus legacy M365 kits that still open this dialog. */
+  cloud: AcquirePlatform | "m365";
   actions: string[];
   actionCount: number;
   implicitCount: number;
+  /** Render above wizard modals (z-[300]). Use when opened from KitRunWizard or similar. */
+  elevated?: boolean;
 };
 
 export function IamActionsDialog({
@@ -21,6 +26,7 @@ export function IamActionsDialog({
   actions,
   actionCount,
   implicitCount,
+  elevated = false,
 }: Props) {
   useEffect(() => {
     if (!open) return;
@@ -31,11 +37,14 @@ export function IamActionsDialog({
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!open || typeof document === "undefined") return null;
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 p-4 animate-fade-in"
+      className={cn(
+        "fixed inset-0 flex items-center justify-center bg-black/50 p-4 animate-fade-in",
+        elevated ? "z-[400]" : "z-[100]",
+      )}
       onMouseDown={onClose}
     >
       <div
@@ -88,6 +97,7 @@ export function IamActionsDialog({
           </Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

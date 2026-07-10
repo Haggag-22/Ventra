@@ -1,0 +1,30 @@
+{
+  "title": "Ventra GCP Collector \u2014 Read-Only IAM Policy",
+  "description": "Minimum permissions for Ventra GCP collectors. Attach to a custom role or use as a reference for client security review.",
+  "permissions": [
+    "compute.disks.list",
+    "compute.firewalls.list",
+    "compute.instances.list",
+    "compute.networks.list",
+    "compute.packetMirrorings.list",
+    "compute.routes.list",
+    "compute.securityPolicies.list",
+    "compute.snapshots.list",
+    "compute.subnetworks.list",
+    "container.clusters.list",
+    "iam.roles.list",
+    "iam.serviceAccountKeys.list",
+    "iam.serviceAccounts.getIamPolicy",
+    "iam.serviceAccounts.list",
+    "logging.logEntries.list",
+    "logging.logs.list",
+    "logging.sinks.list",
+    "resourcemanager.projects.get",
+    "resourcemanager.projects.getIamPolicy",
+    "securitycenter.findings.list",
+    "securitycenter.sources.list",
+    "storage.buckets.get",
+    "storage.objects.get",
+    "storage.objects.list"
+  ]
+}

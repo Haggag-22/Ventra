@@ -4,7 +4,7 @@ import { useCase } from "@/components/case-context";
 import { BackToCases } from "@/components/layout/back-to-cases";
 import { caseCloud } from "@/lib/cloud-sources";
 import { panelLabel } from "@/lib/panel-labels";
-import { acquireHref, CASES_HREF } from "@/lib/routes";
+import { CASES_HREF } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import {
   Container,
@@ -13,7 +13,6 @@ import {
   Fingerprint,
   Gauge,
   Globe2,
-  LayoutDashboard,
   ListChecks,
   Network,
   ScrollText,
@@ -32,11 +31,6 @@ type NavEntry = {
   soon?: boolean;
 };
 
-const OVERVIEW: NavEntry[] = [
-  { href: "overview", label: "Overview", icon: LayoutDashboard },
-  { href: "collection", panel: "collection", icon: ListChecks },
-];
-
 const INVESTIGATE: NavEntry[] = [
   { href: "cloudtrail", panel: "cloudtrail", icon: ScrollText },
   { href: "search", panel: "search", icon: ShieldAlert },
@@ -45,6 +39,7 @@ const INVESTIGATE: NavEntry[] = [
   { href: "web", panel: "web", icon: Globe2 },
   { href: "kubernetes-audit", panel: "kubernetes-audit", icon: Container },
   { href: "data-access", panel: "data-access", icon: Database },
+  { href: "collection", panel: "collection", icon: ListChecks },
 ];
 
 const PACKAGE: NavEntry[] = [
@@ -104,17 +99,6 @@ export function CaseSidebar({ caseId }: { caseId: string }) {
       <BackToCases />
 
       <nav className="sb-nav">
-        <div className="sb-nav-section">Overview</div>
-        {OVERVIEW.map((item) => (
-          <NavItem
-            key={item.href}
-            caseId={caseId}
-            item={item}
-            pathname={pathname}
-            cloud={cloud}
-          />
-        ))}
-
         <div className="sb-nav-section">Investigate</div>
         {INVESTIGATE.map((item) => (
           <NavItem
@@ -137,17 +121,6 @@ export function CaseSidebar({ caseId }: { caseId: string }) {
           />
         ))}
 
-        <div className="sb-nav-section">Acquire</div>
-        <Link
-          href={acquireHref({ caseId, cloud })}
-          className={cn(
-            "sb-nav-item",
-            (pathname.startsWith("/config/acquire") || pathname.startsWith("/acquire")) && "active",
-          )}
-        >
-          <ScrollText className="shrink-0" strokeWidth={1.75} aria-hidden />
-          Build collection kit
-        </Link>
       </nav>
 
       <div className="sb-footer">

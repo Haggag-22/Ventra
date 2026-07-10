@@ -2,10 +2,35 @@
 
 import { artifactSeverityLabel, artifactSeverityMeta } from "@/lib/artifact-severity";
 import { INTEGRITY_META, SEVERITY_META } from "@/lib/severity";
-import type { Integrity, Outcome, Severity } from "@/lib/types";
+import type { Integrity, Outcome, RunStatus, Severity } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { CheckCircle2, ShieldCheck, XCircle } from "lucide-react";
 import { Badge, Tooltip } from "./ui";
+
+/** Tone classes for collection/run status pills. */
+export function runStatusTone(status: RunStatus): string {
+  if (status === "completed") return "text-ok-green bg-ok-green/10 border-ok-green/30";
+  if (status === "failed") return "text-bad-red bg-bad-red/10 border-bad-red/30";
+  if (status === "cancelled") return "text-fg-subtle bg-surface-2 border-border";
+  if (status === "cancelling") return "text-warn-amber bg-warn-amber/10 border-warn-amber/30";
+  if (status === "running" || status === "pending")
+    return "text-accent-cta bg-accent-cta/10 border-accent-cta/30";
+  return "text-fg-subtle bg-surface-2 border-border";
+}
+
+export function RunStatusBadge({
+  status,
+  className,
+}: {
+  status: RunStatus;
+  className?: string;
+}) {
+  return (
+    <Badge className={cn("table-badge capitalize", runStatusTone(status), className)}>
+      {status}
+    </Badge>
+  );
+}
 
 export function ArtifactSeverityBadge({
   severity,

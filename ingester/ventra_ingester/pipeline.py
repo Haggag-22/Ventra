@@ -101,8 +101,10 @@ def _ingest_open_package(
         by_source.setdefault(sf.name, []).append(sf)
 
     with store.open_events_writer() as writer:
+        event_total = 0
         for source, files in by_source.items():
             if has_normalizer(source):
+                _say(reporter, f"Loading {source}…")
                 for sf in files:
                     if sf.kind != "events":
                         continue
@@ -115,6 +117,9 @@ def _ingest_open_package(
                                 writer.write(ev)
                                 summary_acc.add(ev)
                                 source_had_events.add(source)
+                                event_total += 1
+                            if event_total and event_total % 100_000 == 0:
+                                _say(reporter, f"{event_total:,} events normalized…")
                             batch.clear()
                     if batch:
                         for ev in normalize_source(source, batch, ctx):
@@ -122,6 +127,9 @@ def _ingest_open_package(
                             writer.write(ev)
                             summary_acc.add(ev)
                             source_had_events.add(source)
+                            event_total += 1
+                        if event_total and event_total % 100_000 == 0:
+                            _say(reporter, f"{event_total:,} events normalized…")
                 if source in source_had_events:
                     sources_loaded.append(source)
                     _say(reporter, f"  {source}: loaded")

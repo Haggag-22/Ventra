@@ -35,7 +35,7 @@ export function ExportElasticButton({ caseId }: { caseId: string }) {
   return (
     <div className="flex flex-col items-end gap-1">
       <Button
-        variant="secondary"
+        variant="primary"
         icon={Download}
         className="h-8 text-xs"
         loading={loading}

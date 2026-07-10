@@ -16,7 +16,6 @@ from .acquisition import (
 )
 from .acquire_platform import collector_cloud_for_platform
 from .gcp_log_backend import validate_gcp_log_backend_dict
-from .gcp_log_export import check_bigquery_log_dataset
 from .matrix_state import ARTIFACT_SEVERITY, DEFAULT_SEVERITY
 from .run_common import RunReporter, parse_window
 
@@ -34,16 +33,25 @@ class RunLaunchRequest:
     subscription: str = ""
     azure_tenant_id: str = ""
     azure_client_id: str = ""
+    azure_client_secret: str = ""
+    azure_client_certificate_content: str = ""
     aws_profile: str = ""
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    aws_session_token: str = ""
     max_records_per_source: int | None = None
     artifact_parameters: dict[str, dict[str, Any]] = field(default_factory=dict)
     gcp_log_backend: dict[str, Any] | None = None
     credentials_path: str | None = None
+    gcp_service_account_json: str = ""
+    k8s_context: str = ""
+    kubeconfig_content: str = ""
     out_dir: Path | None = None
     engagement_id: str = ""
     key_path: Path | None = None
     reporter: RunReporter | None = None
     artifacts_root: Path | None = None
+    pipeline_steps: list[str] = field(default_factory=list)
 
 
 def _artifact_index(cloud: str, artifacts_root: Path) -> dict[str, dict[str, Any]]:
@@ -83,29 +91,25 @@ def _matrix_meta(
     return plan, labels, sevs
 
 
-def _gcp_preflight(req: RunLaunchRequest, project: str | None) -> tuple[list[str], Any | None]:
-    if not req.gcp_log_backend:
-        return [], None
+def _gcp_factory_from_request(req: RunLaunchRequest, project: str | None):
     from ..clouds.gcp.client_factory import GcpClientFactory
-    from .gcp_log_backend import GcpLogBackendSpec
 
-    backend = GcpLogBackendSpec.from_acquisition_dict(dict(req.gcp_log_backend))
-    if not backend.uses_bigquery() or not backend.bigquery_dataset.strip():
-        return [], None
-    factory = GcpClientFactory(project_id=project, credentials_path=req.credentials_path)
-    check = check_bigquery_log_dataset(
-        credentials=factory._credentials,
-        dataset=backend.bigquery_dataset,
-        default_project=project or factory._default_project or "",
-    )
-    if check.found:
-        suffix = f" ({check.table_count} tables)" if check.table_count else " (empty)"
-        line = f"BigQuery dataset: found — {check.ref}{suffix}"
-    else:
-        line = f"BigQuery dataset: not found — {check.ref}"
-        if check.message:
-            line += f" — {check.message}"
-    return [line], check
+    raw = (req.gcp_service_account_json or "").strip()
+    if raw:
+        import json
+
+        info = json.loads(raw)
+        return GcpClientFactory(
+            project_id=project or info.get("project_id") or None,
+            service_account_info=info,
+        )
+    return GcpClientFactory(project_id=project, credentials_path=req.credentials_path)
+
+
+
+def _gcp_preflight(_req: RunLaunchRequest, _project: str | None) -> tuple[list[str], None]:
+    """GCP preflight hook for the console launcher (no blocking checks)."""
+    return [], None
 
 
 def launch_collection(req: RunLaunchRequest):
@@ -132,12 +136,16 @@ def launch_collection(req: RunLaunchRequest):
             key_path=req.key_path,
             reporter=req.reporter,
             aws_profile=req.aws_profile,
+            aws_access_key_id=req.aws_access_key_id,
+            aws_secret_access_key=req.aws_secret_access_key,
+            aws_session_token=req.aws_session_token,
             artifact_refs=artifact_refs,
             max_records_per_source=req.max_records_per_source,
             artifact_parameters=req.artifact_parameters,
             plan_label=plan_label,
             artifact_labels=artifact_labels,
             artifact_severities=artifact_severities,
+            pipeline_steps=req.pipeline_steps,
         )
         return run_aws_collection(cfg)
 
@@ -157,6 +165,8 @@ def launch_collection(req: RunLaunchRequest):
             auth=AzureAuthOptions(
                 tenant_id=req.azure_tenant_id,
                 client_id=req.azure_client_id,
+                client_secret=req.azure_client_secret,
+                client_certificate_content=req.azure_client_certificate_content,
             ),
             artifact_refs=artifact_refs,
             max_records_per_source=req.max_records_per_source,
@@ -164,6 +174,7 @@ def launch_collection(req: RunLaunchRequest):
             plan_label=plan_label,
             artifact_labels=artifact_labels,
             artifact_severities=artifact_severities,
+            pipeline_steps=req.pipeline_steps,
         )
         return run_azure_collection(cfg)
 
@@ -188,6 +199,7 @@ def launch_collection(req: RunLaunchRequest):
             key_path=req.key_path,
             reporter=req.reporter,
             credentials_path=req.credentials_path,
+            gcp_service_account_json=req.gcp_service_account_json,
             artifact_refs=artifact_refs,
             max_records_per_source=req.max_records_per_source,
             artifact_parameters=req.artifact_parameters,
@@ -196,6 +208,7 @@ def launch_collection(req: RunLaunchRequest):
             plan_label=plan_label,
             artifact_labels=artifact_labels,
             artifact_severities=artifact_severities,
+            pipeline_steps=req.pipeline_steps,
         )
         return run_gcp_collection(cfg)
 

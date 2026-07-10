@@ -79,6 +79,13 @@ _ARTIFACT_SEV = {"critical": "High", "extended": "Medium", "optional": "Low"}
 ARTIFACT_SEVERITY = _ARTIFACT_SEV
 DEFAULT_SEVERITY = _SEVERITY
 
+PIPELINE_PACKAGE = "package"
+PIPELINE_INGEST = "ingest"
+_PIPELINE_LABELS: dict[str, str] = {
+    PIPELINE_PACKAGE: "Seal evidence package",
+    PIPELINE_INGEST: "Ingest into case store",
+}
+
 
 def classify(status: SourceStatus, severity: str) -> str:
     """Map a collector outcome to PASS or FAIL for the live matrix."""
@@ -95,7 +102,7 @@ class CollectorRow:
     severity: str = "Medium"
     records: int | None = None
     elapsed_ms: float | None = None
-    detail: str = "queued"
+    detail: str = "pending"
     live_msg: str = ""
 
     def to_dict(self) -> dict[str, Any]:
@@ -140,6 +147,7 @@ class MatrixState:
         plan_label: str = "",
         artifact_labels: dict[str, str] | None = None,
         artifact_severities: dict[str, str] | None = None,
+        pipeline_steps: list[str] | None = None,
     ) -> None:
         self.account_id = account_id or ""
         self.masked_account = (account_id[:4] + "***") if account_id else "????"
@@ -149,16 +157,20 @@ class MatrixState:
         self.artifact_labels = dict(artifact_labels or {})
         self.artifact_severities = dict(artifact_severities or {})
         self.order = list(collectors or [])
+        for step in pipeline_steps or []:
+            if step not in self.order:
+                self.order.append(step)
         self.rows = {}
         self.finished_csv_rows = []
         self.rate_limited = []
         self._started_at = {}
         for name in self.order:
+            label = _PIPELINE_LABELS.get(name)
             self.rows[name] = CollectorRow(
                 name=name,
                 status="pending",
-                severity=self.severity_for(name),
-                detail="queued",
+                severity="Low" if label else self.severity_for(name),
+                detail=label or "pending",
             )
 
     def start(self, name: str) -> None:
@@ -171,8 +183,35 @@ class MatrixState:
 
     def event(self, name: str, msg: str) -> None:
         row = self.rows.get(name)
-        if row is not None and row.status == "running":
+        if row is not None and row.status in ("pending", "running"):
             row.live_msg = msg
+
+    def start_step(self, name: str, msg: str = "") -> None:
+        row = self.rows.get(name)
+        if row is None:
+            return
+        row.status = "running"
+        row.live_msg = msg or row.detail or "running…"
+        self._started_at[name] = time.monotonic()
+
+    def finish_step(
+        self,
+        name: str,
+        *,
+        success: bool,
+        detail: str,
+        records: int | None = None,
+    ) -> None:
+        row = self.rows.get(name)
+        started = self._started_at.get(name)
+        elapsed = round((time.monotonic() - started) * 1000, 1) if started is not None else None
+        if row is not None:
+            row.status = "pass" if success else "fail"
+            row.detail = detail
+            row.records = records if isinstance(records, int) else None
+            if elapsed is not None:
+                row.elapsed_ms = elapsed
+            row.live_msg = ""
 
     def finish(
         self,
@@ -203,7 +242,10 @@ class MatrixState:
             row.status = "pass" if label == "PASS" else "fail"
             row.records = count if isinstance(count, int) else None
             row.detail = desc or ""
-            row.elapsed_ms = round(elapsed * 1000, 1) if elapsed is not None else None
+            # Keep any elapsed already recorded (e.g. by an operator cancel) rather than
+            # clobbering it with None when the started marker is gone.
+            if elapsed is not None:
+                row.elapsed_ms = round(elapsed * 1000, 1)
             row.live_msg = ""
 
         tag = f"{count:,}" if isinstance(count, int) else "-"
@@ -218,6 +260,38 @@ class MatrixState:
                 "desc": desc or "",
             }
         )
+
+    def abort_non_terminal(
+        self,
+        detail: str = "Cancelled",
+        *,
+        running_detail: str | None = None,
+        pending_detail: str | None = None,
+    ) -> None:
+        """Mark every pending/running collector as failed (operator cancel).
+
+        Running and pending rows get distinct reasons so the UI can show *where* the run
+        was interrupted — mid-collection versus never started. This is idempotent: rows
+        already terminal are left untouched, so it is safe to call on every publish once a
+        cancel has been requested.
+        """
+        running_detail = running_detail or detail
+        pending_detail = pending_detail or detail
+        for name in self.order:
+            row = self.rows.get(name)
+            if row is None:
+                continue
+            if row.status == "running":
+                row.status = "fail"
+                row.detail = running_detail
+                row.live_msg = ""
+                started = self._started_at.get(name)
+                if started is not None and row.elapsed_ms is None:
+                    row.elapsed_ms = round((time.monotonic() - started) * 1000, 1)
+            elif row.status == "pending":
+                row.status = "fail"
+                row.detail = pending_detail
+                row.live_msg = ""
 
     def complete_count(self) -> tuple[int, int]:
         done = sum(1 for n in self.order if self.rows[n].status in ("pass", "fail"))

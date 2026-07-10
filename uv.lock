@@ -864,11 +864,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/44/71/c0321dc6d63d99946da45f7c06299b934e4f7f7da5c4f14d101bcb39adf1/google_auth-2.55.0-py3-none-any.whl", hash = "sha256:a17cef9dedf98c4ebae2fb0c48c8f75952c877cbc2efe09f329ef16c2783d88a", size = 252400, upload-time = "2026-06-15T22:33:14.992Z" },
 ]
 
-[package.optional-dependencies]
-pyopenssl = [
-    { name = "pyopenssl" },
-]
-
 [[package]]
 name = "google-cloud-appengine-logging"
 version = "1.10.0"
@@ -896,24 +891,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/01/46/b971191224557091cc865b47d527e61da180e33b9397904bdefdae1dcacd/google_cloud_audit_log-0.6.0.tar.gz", hash = "sha256:4dd343683c0bb31187ebef3426803f13159e950fbea3fe60a864855cfed959b8", size = 44674, upload-time = "2026-06-03T14:52:48.095Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/bc/99/27c70286bfa3503e43f845578ed5c2ab30c0cc68e525c168286f05f9a51c/google_cloud_audit_log-0.6.0-py3-none-any.whl", hash = "sha256:8c5ecbc341ad3b3daf776981f6d7fd7ab5ff5a29c5dce3172c669b570e0f6717", size = 44853, upload-time = "2026-06-03T14:52:03.775Z" },
-]
-
-[[package]]
-name = "google-cloud-bigquery"
-version = "3.42.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "google-api-core", extra = ["grpc"] },
-    { name = "google-auth", extra = ["pyopenssl"] },
-    { name = "google-cloud-core" },
-    { name = "google-resumable-media" },
-    { name = "packaging" },
-    { name = "python-dateutil" },
-    { name = "requests" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/15/a2/be1cffbb1a9894ecf394ab0096b113ae9e4f73686595d906a9f3082b07c2/google_cloud_bigquery-3.42.1.tar.gz", hash = "sha256:3c6878f424fc2b21f0bb414ca7262abd008465575a7b7c44c552105278a18914", size = 515411, upload-time = "2026-06-22T23:21:05.884Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/7a/1e/8b098aeb69ef87de5195d076ce6d82002c3ebf1920373d386ca7b6e63cfa/google_cloud_bigquery-3.42.1-py3-none-any.whl", hash = "sha256:159143c1b7248858f35549c09efea5d031c2883145623419ea7c505a50c0899a", size = 263814, upload-time = "2026-06-22T23:18:42.313Z" },
 ]
 
 [[package]]
@@ -2162,19 +2139,6 @@ crypto = [
 ]
 
 [[package]]
-name = "pyopenssl"
-version = "26.3.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "cryptography" },
-    { name = "typing-extensions", marker = "python_full_version < '3.13'" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/74/b7/da07bae88f5a9506b4def6f2f4903cf4c3b8831e560dba8fa18ca08f758f/pyopenssl-26.3.0.tar.gz", hash = "sha256:589de7fae1c9ea670d18422ed00fc04da787bbde8e1454aea872aa57b49ad341", size = 182024, upload-time = "2026-06-12T20:28:07.458Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/54/18/1dd71c9b43192ab83f1d531ad6002dc81108ac36c475f79fb7a295abe2f4/pyopenssl-26.3.0-py3-none-any.whl", hash = "sha256:46367f8f66b92271e6d218da9c87607e1ef5a0bc5c8dea5bb3db82f395c385a3", size = 56008, upload-time = "2026-06-12T20:28:05.999Z" },
-]
-
-[[package]]
 name = "pytest"
 version = "9.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2514,9 +2478,9 @@ dependencies = [
     { name = "azure-storage-blob" },
     { name = "boto3" },
     { name = "botocore" },
+    { name = "duckdb" },
     { name = "google-api-core" },
     { name = "google-auth" },
-    { name = "google-cloud-bigquery" },
     { name = "google-cloud-compute" },
     { name = "google-cloud-container" },
     { name = "google-cloud-iam" },
@@ -2570,11 +2534,11 @@ requires-dist = [
     { name = "azure-storage-blob", specifier = ">=12.19" },
     { name = "boto3", specifier = ">=1.34" },
     { name = "botocore", specifier = ">=1.34" },
+    { name = "duckdb", specifier = ">=0.10" },
     { name = "duckdb", marker = "extra == 'console'", specifier = ">=0.10" },
     { name = "fastapi", marker = "extra == 'console'", specifier = ">=0.110" },
     { name = "google-api-core", specifier = ">=2.19" },
     { name = "google-auth", specifier = ">=2.29" },
-    { name = "google-cloud-bigquery", specifier = ">=3.20" },
     { name = "google-cloud-compute", specifier = ">=1.19" },
     { name = "google-cloud-container", specifier = ">=2.45" },
     { name = "google-cloud-iam", specifier = ">=2.15" },

@@ -1,18 +1,23 @@
-"""Generate a realistic synthetic Ventra evidence package for demos and tests.
+"""Generate a realistic synthetic AWS Ventra evidence package for demos and tests.
 
-The data tells one coherent story so the console has something meaningful to render:
+Techniques are mapped to MITRE ATT&CK for Cloud (IaaS):
+https://attack.mitre.org/matrices/enterprise/cloud/iaas/
 
-    A leaked access key for IAM user `dbadmin` is used from a foreign IP. The attacker logs
-    into the console, enumerates the account, escalates privilege by attaching
-    AdministratorAccess, establishes persistence (new user + access key), disables CloudTrail
-    logging, shares an EBS snapshot cross-account, reads objects from a sensitive S3 bucket,
-    and exfiltrates data over the network. GuardDuty fires along the way.
+The data tells one coherent attack story across every AWS collector Ventra ships:
 
-No real data, no AWS calls. Produces a sealed .tar.zst|.tar.gz package via the collector's own
-packaging code, so the demo exercises the real EPF path.
+    Initial Access (T1078.004) via leaked `dbadmin` key + foreign-IP console login →
+    Discovery (T1526/T1087.004) account enumeration → Privilege Escalation (T1098.003)
+  AdministratorAccess attach → Persistence (T1098.001) new user + access key →
+    Defense Evasion (T1562.008) CloudTrail StopLogging → Collection/Exfiltration (T1530/T1537)
+    S3 reads, EBS snapshot share, VPC flow + DNS C2 beaconing → GuardDuty findings throughout.
+
+No real data, no AWS calls. Produces a sealed .tar.zst package via the collector's own
+packaging code, so the demo exercises the real EPF path — including artifact[] provenance in
+the manifest (mirrors what `ventra collect aws --pack baseline-ir-aws` records).
 
 Usage:
     python tests/fixtures/generate_demo_case.py --out tests/fixtures/
+    python tests/fixtures/generate_aws_demo_case.py --out tests/fixtures/
 """
 
 from __future__ import annotations
@@ -29,6 +34,7 @@ from pathlib import Path
 # Make the collector importable when run from the repo root.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "collector"))
 
+from collector.engine.acquisition import artifact_refs_for_collectors  # noqa: E402
 from collector.lib.chain_of_custody.signing import sign_manifest  # noqa: E402
 from collector.lib.models import (  # noqa: E402
     Manifest,
@@ -592,6 +598,11 @@ def generate(out_dir: Path, case_id: str = "CASE-2026-0042") -> Path:
             host_runtime="python 3.11.8",
             time_window=TimeWindow(since=BASE - timedelta(days=3)),
         )
+        sources = [
+            "account", "cloudtrail", "iam", "vpc_flow", "waf", "guardduty",
+            "elb_alb", "route53_resolver", "s3_access", "s3", "ec2", "log_posture",
+        ]
+        manifest.artifacts = artifact_refs_for_collectors("aws", sources)
 
         def src(dirname, files, status=SourceStatus.COLLECTED, gaps=None, notes=""):
             wfs = []

@@ -2,40 +2,42 @@
 
 import { Input } from "@/components/ui";
 import { cn } from "@/lib/utils";
-import { KeyRound, UserCircle } from "lucide-react";
-import type { ProviderAuthMethod, ProviderWizardData } from "./types";
+import { AlertCircle } from "lucide-react";
+import { useState } from "react";
+import {
+  validateAccountId,
+  validateGuid,
+} from "./provider-meta";
+import type { ProviderWizardData } from "./types";
 import { platformLabel } from "./types";
 
-function AuthMethodCard({
-  selected,
-  title,
-  description,
-  icon: Icon,
-  onClick,
+function Field({
+  label,
+  required,
+  error,
+  className,
+  children,
 }: {
-  selected: boolean;
-  title: string;
-  description: string;
-  icon: typeof UserCircle;
-  onClick: () => void;
+  label: string;
+  required?: boolean;
+  error?: string | null;
+  className?: string;
+  children: React.ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        "flex items-start gap-3 rounded-lg border p-4 text-left transition-colors",
-        selected
-          ? "border-accent/60 bg-accent/10 ring-1 ring-accent/30"
-          : "border-border bg-surface hover:border-border-strong hover:bg-surface-2",
-      )}
-    >
-      <Icon className="mt-0.5 h-4 w-4 shrink-0 text-fg-subtle" />
-      <span>
-        <span className="block text-sm font-medium text-fg">{title}</span>
-        <span className="mt-0.5 block text-xs text-fg-subtle leading-relaxed">{description}</span>
+    <label className={cn("block space-y-1.5", className)}>
+      <span className="flex items-center gap-1 text-xs font-medium text-fg-subtle">
+        {label}
+        {required && <span className="text-bad-red">*</span>}
       </span>
-    </button>
+      {children}
+      {error && (
+        <span className="flex items-center gap-1 text-2xs text-bad-red">
+          <AlertCircle className="h-3 w-3 shrink-0" />
+          {error}
+        </span>
+      )}
+    </label>
   );
 }
 
@@ -47,123 +49,106 @@ export function ProviderStepDetails({
   onChange: (patch: Partial<ProviderWizardData>) => void;
 }) {
   const platform = data.platform;
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const markTouched = (key: string) => setTouched((t) => ({ ...t, [key]: true }));
+
+  const accountErr = touched.aws_account_id ? validateAccountId(data.aws_account_id) : null;
+  const subErr = touched.subscription
+    ? validateGuid(data.subscription, "Subscription ID")
+    : null;
 
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-base font-semibold text-fg">Provider details</h2>
-        <p className="mt-1 text-sm text-fg-subtle">
-          Configure how this {platform ? platformLabel(platform) : "cloud"} provider appears in
-          Ventra and which scope to target.
-        </p>
+        <h2 className="text-base font-semibold text-fg">Name &amp; scope</h2>
       </div>
 
       <div className="grid gap-4 sm:grid-cols-2">
-        <label className="block space-y-1.5 sm:col-span-2">
-          <span className="text-xs font-medium text-fg-subtle">Display name</span>
+        <Field label="Display name" required className="sm:col-span-2">
           <Input
             value={data.name}
             onChange={(e) => onChange({ name: e.target.value })}
             placeholder={`My ${platform ? platformLabel(platform) : "cloud"} account`}
+            autoFocus
           />
-        </label>
+        </Field>
 
-        <label className="block space-y-1.5 sm:col-span-2">
-          <span className="text-xs font-medium text-fg-subtle">Alias (optional)</span>
+        <Field
+          label={platform === "azure" || platform === "m365" || platform === "kubernetes" ? "Provider alias" : "Alias"}
+          className="sm:col-span-2"
+        >
           <Input
             value={data.alias}
             onChange={(e) => onChange({ alias: e.target.value })}
-            placeholder="Production, EU tenant, etc."
+            placeholder={
+              platform === "azure" || platform === "m365" || platform === "kubernetes"
+                ? "Enter the provider alias"
+                : "Production"
+            }
           />
-        </label>
+        </Field>
 
         {platform === "aws" && (
-          <>
-            <label className="block space-y-1.5">
-              <span className="text-xs font-medium text-fg-subtle">Account ID (optional)</span>
-              <Input
-                value={data.aws_account_id}
-                onChange={(e) => onChange({ aws_account_id: e.target.value })}
-                placeholder="123456789012"
-                className="mono"
-              />
-            </label>
-            <div className="sm:col-span-2">
-              <span className="text-xs font-medium text-fg-subtle">Authentication method</span>
-              <div className="mt-2 grid gap-3 sm:grid-cols-2">
-                <AuthMethodCard
-                  selected={data.auth_method === "profile"}
-                  title="Ambient / named profile"
-                  description="Use AWS credentials or a named profile on the Ventra server host."
-                  icon={UserCircle}
-                  onClick={() => onChange({ auth_method: "profile" as ProviderAuthMethod })}
-                />
-                <AuthMethodCard
-                  selected={data.auth_method === "role"}
-                  title="Assume IAM role"
-                  description="Ventra assumes a cross-account IAM role using server-side credentials."
-                  icon={KeyRound}
-                  onClick={() => onChange({ auth_method: "role" as ProviderAuthMethod })}
-                />
-              </div>
-            </div>
-          </>
+          <Field label="Account ID" className="sm:col-span-2" error={accountErr}>
+            <Input
+              value={data.aws_account_id}
+              onChange={(e) => onChange({ aws_account_id: e.target.value })}
+              onBlur={() => markTouched("aws_account_id")}
+              placeholder="123456789012"
+              inputMode="numeric"
+              className={cn("mono", accountErr && "border-bad-red/60 focus:border-bad-red")}
+            />
+          </Field>
         )}
 
         {platform === "gcp" && (
-          <label className="block space-y-1.5 sm:col-span-2">
-            <span className="text-xs font-medium text-fg-subtle">GCP project ID</span>
+          <Field label="Project ID" required className="sm:col-span-2">
             <Input
               value={data.project}
               onChange={(e) => onChange({ project: e.target.value })}
               placeholder="my-gcp-project"
               className="mono"
             />
-          </label>
+          </Field>
         )}
 
-        {(platform === "azure" || platform === "m365") && (
-          <>
-            <label className="block space-y-1.5">
-              <span className="text-xs font-medium text-fg-subtle">Tenant ID</span>
-              <Input
-                value={data.azure_tenant_id}
-                onChange={(e) => onChange({ azure_tenant_id: e.target.value })}
-                placeholder="00000000-0000-0000-0000-000000000000"
-                className="mono"
-              />
-            </label>
-            <label className="block space-y-1.5">
-              <span className="text-xs font-medium text-fg-subtle">Client ID (app registration)</span>
-              <Input
-                value={data.azure_client_id}
-                onChange={(e) => onChange({ azure_client_id: e.target.value })}
-                placeholder="00000000-0000-0000-0000-000000000000"
-                className="mono"
-              />
-            </label>
-            {platform === "azure" && (
-              <label className="block space-y-1.5 sm:col-span-2">
-                <span className="text-xs font-medium text-fg-subtle">Subscription ID</span>
-                <Input
-                  value={data.subscription}
-                  onChange={(e) => onChange({ subscription: e.target.value })}
-                  placeholder="00000000-0000-0000-0000-000000000000"
-                  className="mono"
-                />
-              </label>
-            )}
-          </>
+        {platform === "m365" && (
+          <Field label="Domain ID" required className="sm:col-span-2">
+            <Input
+              value={data.m365_domain}
+              onChange={(e) => onChange({ m365_domain: e.target.value })}
+              placeholder="e.g. your-domain.onmicrosoft.com"
+              className="mono"
+            />
+          </Field>
+        )}
+
+        {platform === "azure" && (
+          <Field
+            label="Subscription ID"
+            required
+            className="sm:col-span-2"
+            error={subErr}
+          >
+            <Input
+              value={data.subscription}
+              onChange={(e) => onChange({ subscription: e.target.value })}
+              onBlur={() => markTouched("subscription")}
+              placeholder="fc94207a-d396-4a14-a7fd-12ab34cd56ef"
+              className={cn("mono", subErr && "border-bad-red/60 focus:border-bad-red")}
+            />
+          </Field>
         )}
 
         {platform === "kubernetes" && (
-          <div className="sm:col-span-2 rounded-lg border border-border bg-surface-2 p-4">
-            <p className="text-sm font-medium text-fg">Kubernetes support is coming soon</p>
-            <p className="mt-1 text-sm text-fg-subtle">
-              Cluster-based collection will be available in a future release. Choose AWS, GCP,
-              Azure, or Microsoft 365 for now.
-            </p>
-          </div>
+          <Field label="Kubernetes Context" required className="sm:col-span-2">
+            <Input
+              value={data.k8s_context}
+              onChange={(e) => onChange({ k8s_context: e.target.value })}
+              placeholder="e.g. my-cluster-context"
+              className="mono"
+            />
+          </Field>
         )}
       </div>
     </div>
