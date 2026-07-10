@@ -43,7 +43,6 @@ export default function ResourcesPage() {
         icon={Boxes}
         panel="resources"
         title="Resource Inventory"
-        description="Resources"
         actions={
           hasAny ? (
             <span className="text-xs text-fg-subtle">

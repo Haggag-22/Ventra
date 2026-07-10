@@ -1,0 +1,268 @@
+{
+  "run_id": "c5c5b232-d7b8-4a96-bb0c-234057f30e9f",
+  "status": "completed",
+  "created_at": "2026-07-10T14:48:10.257185Z",
+  "started_at": "2026-07-10T14:48:10.258664Z",
+  "finished_at": "2026-07-10T15:38:25.812949Z",
+  "cloud": "gcp",
+  "case_id": "Complete-GCP",
+  "connection_id": "ecd703bb-c597-4901-9e15-00a07365a12f",
+  "auto_ingest": true,
+  "request": {
+    "cloud": "gcp",
+    "case_id": "Complete-GCP",
+    "artifacts": [
+      "bigquery_audit",
+      "cloud_sql",
+      "secret_manager",
+      "cloud_audit_admin",
+      "cloud_audit_data",
+      "api_gateway",
+      "cloud_armor",
+      "cloud_cdn",
+      "cloud_dns",
+      "cloud_nat",
+      "firewall_logs",
+      "load_balancer",
+      "network_posture",
+      "vpc_flow",
+      "cloud_functions",
+      "gce",
+      "gke_audit",
+      "storage_access",
+      "vm_logs"
+    ],
+    "pack": null,
+    "include_iam": true,
+    "since": "2026-07-01",
+    "until": "2026-07-05",
+    "regions": [],
+    "project": "ultimate-opus-500916-b2",
+    "subscription": "",
+    "azure_tenant_id": "",
+    "azure_client_id": "",
+    "aws_profile": "",
+    "max_records_per_source": null,
+    "artifact_parameters": {},
+    "deployment_profile": "platform",
+    "transport": "",
+    "gcp_log_backend": {
+      "mode": "gcs",
+      "gcs": {
+        "bucket": "gs://ventralogsultimateopusb"
+      }
+    },
+    "connection_id": "ecd703bb-c597-4901-9e15-00a07365a12f"
+  },
+  "account_id": "ultimate-opus-500916-b2",
+  "masked_account": "ulti***",
+  "regions": [
+    "ultimate-opus-500916-b2"
+  ],
+  "plan_label": "19 artifacts",
+  "duration_ms": 3015554,
+  "package": {
+    "path": "/var/folders/43/4pdnskbj6t59gmt05_2p_r480000gn/T/ventra-run-1kzzly9l/case-Complete-GCP-1047878869569-20260710T152254Z.tar.zst",
+    "compression": "zstd",
+    "bytes": 706762662,
+    "sha256": "7c6cf1ae85cc968151f47965d8965ff7c7ff2912ac944df74185999aaeefb19d"
+  },
+  "collectors": [
+    {
+      "name": "cloud_audit_admin",
+      "status": "pass",
+      "severity": "High",
+      "records": 3568821,
+      "elapsed_seconds": 73.243,
+      "detail": "3568821 log record(s) across 1 project(s)."
+    },
+    {
+      "name": "cloud_audit_data",
+      "status": "pass",
+      "severity": "High",
+      "records": 4802388,
+      "elapsed_seconds": 105.63,
+      "detail": "4802388 log record(s) across 1 project(s)."
+    },
+    {
+      "name": "vpc_flow",
+      "status": "pass",
+      "severity": "High",
+      "records": 1536769,
+      "elapsed_seconds": 39.419,
+      "detail": "1536769 log record(s) across 1 project(s)."
+    },
+    {
+      "name": "firewall_logs",
+      "status": "pass",
+      "severity": "High",
+      "records": 537828,
+      "elapsed_seconds": 9.822,
+      "detail": "537828 log record(s) across 1 project(s)."
+    },
+    {
+      "name": "cloud_nat",
+      "status": "pass",
+      "severity": "High",
+      "records": 1318,
+      "elapsed_seconds": 0.031,
+      "detail": "1318 log record(s) across 1 project(s)."
+    },
+    {
+      "name": "network_posture",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 106,
+      "elapsed_seconds": 34.506,
+      "detail": "12 firewall rule(s), 43 subnet(s), 1 packet mirroring policy(ies)"
+    },
+    {
+      "name": "load_balancer",
+      "status": "pass",
+      "severity": "High",
+      "records": 12107,
+      "elapsed_seconds": 0.3,
+      "detail": "12107 log record(s) across 1 project(s)."
+    },
+    {
+      "name": "cloud_cdn",
+      "status": "pass",
+      "severity": "High",
+      "records": null,
+      "elapsed_seconds": 0.0,
+      "detail": "Deduplicated: 'cloud_cdn' is a filter view over 'load_balancer', which is also selected \u2014 collected once via that stream."
+    },
+    {
+      "name": "api_gateway",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_seconds": 0.001,
+      "detail": "Catch-all sink configured but no matching objects found under prefix 'apigateway.googleapis.com/requests/' for this collector's time window. Logs may not have been generated yet or the log type may not be enabled."
+    },
+    {
+      "name": "cloud_dns",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 47828,
+      "elapsed_seconds": 0.862,
+      "detail": "47828 log record(s) across 1 project(s)."
+    },
+    {
+      "name": "cloud_armor",
+      "status": "pass",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_seconds": 0.0,
+      "detail": "Deduplicated: 'cloud_armor' is a filter view over 'load_balancer', which is also selected \u2014 collected once via that stream."
+    },
+    {
+      "name": "vm_logs",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 8939,
+      "elapsed_seconds": 0.113,
+      "detail": "8939 log record(s) across 1 project(s)."
+    },
+    {
+      "name": "gce",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 10,
+      "elapsed_seconds": 1.093,
+      "detail": "4 instance(s), 1 snapshot(s), 0 NIC(s)"
+    },
+    {
+      "name": "cloud_functions",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_seconds": 0.001,
+      "detail": "Catch-all sink configured but no matching objects found under prefix 'cloudfunctions.googleapis.com/cloud-functions/' for this collector's time window. Logs may not have been generated yet or the log type may not be enabled."
+    },
+    {
+      "name": "gke_audit",
+      "status": "fail",
+      "severity": "High",
+      "records": null,
+      "elapsed_seconds": 0.001,
+      "detail": "Catch-all sink configured but no matching objects found under prefix 'container.googleapis.com/apiserver/' for this collector's time window. Logs may not have been generated yet or the log type may not be enabled."
+    },
+    {
+      "name": "storage_access",
+      "status": "pass",
+      "severity": "High",
+      "records": null,
+      "elapsed_seconds": 0.0,
+      "detail": "Deduplicated: 'storage_access' is a filter view over 'cloud_audit_data', which is also selected \u2014 collected once via that stream."
+    },
+    {
+      "name": "bigquery_audit",
+      "status": "pass",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_seconds": 0.001,
+      "detail": "Deduplicated: 'bigquery_audit' is a filter view over 'cloud_audit_data', which is also selected \u2014 collected once via that stream."
+    },
+    {
+      "name": "cloud_sql",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_seconds": 0.0,
+      "detail": "Catch-all sink configured but no matching objects found under prefix 'cloudsql.googleapis.com/' for this collector's time window. Logs may not have been generated yet or the log type may not be enabled."
+    },
+    {
+      "name": "secret_manager",
+      "status": "pass",
+      "severity": "High",
+      "records": null,
+      "elapsed_seconds": 0.0,
+      "detail": "Deduplicated: 'secret_manager' is a filter view over 'cloud_audit_data', which is also selected \u2014 collected once via that stream."
+    },
+    {
+      "name": "package",
+      "status": "pass",
+      "severity": "Low",
+      "records": null,
+      "elapsed_seconds": 114.135,
+      "detail": "706,762,662 bytes \u00b7 zstd"
+    },
+    {
+      "name": "ingest",
+      "status": "pending",
+      "severity": "Low",
+      "records": null,
+      "elapsed_seconds": null,
+      "detail": "Ingest into case store"
+    }
+  ],
+  "coverage_gaps": [
+    {
+      "collector": "gke_audit",
+      "severity": "High",
+      "detail": "Catch-all sink configured but no matching objects found under prefix 'container.googleapis.com/apiserver/' for this collector's time window. Logs may not have been generated yet or the log type may not be enabled."
+    },
+    {
+      "collector": "api_gateway",
+      "severity": "Medium",
+      "detail": "Catch-all sink configured but no matching objects found under prefix 'apigateway.googleapis.com/requests/' for this collector's time window. Logs may not have been generated yet or the log type may not be enabled."
+    },
+    {
+      "collector": "cloud_functions",
+      "severity": "Medium",
+      "detail": "Catch-all sink configured but no matching objects found under prefix 'cloudfunctions.googleapis.com/cloud-functions/' for this collector's time window. Logs may not have been generated yet or the log type may not be enabled."
+    },
+    {
+      "collector": "cloud_sql",
+      "severity": "Medium",
+      "detail": "Catch-all sink configured but no matching objects found under prefix 'cloudsql.googleapis.com/' for this collector's time window. Logs may not have been generated yet or the log type may not be enabled."
+    }
+  ],
+  "ingest": {
+    "case_id": "Complete-GCP",
+    "events": 10466852,
+    "integrity": "amber",
+    "warnings": []
+  }
+}

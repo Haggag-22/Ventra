@@ -1,0 +1,14 @@
+{"type": "begin_run", "account_id": "194722414229", "regions": ["ap-northeast-1", "ap-northeast-2", "ap-northeast-3", "ap-south-1", "ap-southeast-1", "ap-southeast-2", "ca-central-1", "eu-central-1", "eu-north-1", "eu-west-1", "eu-west-2", "eu-west-3", "sa-east-1", "us-east-1", "us-east-2", "us-west-1", "us-west-2"], "case_id": "Test-AWS", "collectors": ["account", "iam", "kms", "secrets", "log_posture"], "plan_label": "5 artifacts", "preflight_lines": [], "ts": "2026-07-05T23:27:30.969559Z"}
+{"type": "start", "collector": "account", "ts": "2026-07-05T23:27:31.004230Z"}
+{"type": "finish", "collector": "account", "status": "collected", "records": null, "ts": "2026-07-05T23:27:31.492359Z"}
+{"type": "start", "collector": "iam", "ts": "2026-07-05T23:27:31.494723Z"}
+{"type": "finish", "collector": "iam", "status": "collected", "records": 24, "ts": "2026-07-05T23:27:35.308243Z"}
+{"type": "start", "collector": "kms", "ts": "2026-07-05T23:27:35.308728Z"}
+{"type": "finish", "collector": "kms", "status": "collected", "records": 5, "ts": "2026-07-05T23:27:43.512788Z"}
+{"type": "start", "collector": "secrets", "ts": "2026-07-05T23:27:43.513340Z"}
+{"type": "finish", "collector": "secrets", "status": "empty", "records": null, "ts": "2026-07-05T23:27:51.813790Z"}
+{"type": "start", "collector": "log_posture", "ts": "2026-07-05T23:27:51.815864Z"}
+{"type": "finish", "collector": "log_posture", "status": "collected", "records": 0, "ts": "2026-07-05T23:28:15.775384Z"}
+{"type": "event", "collector": "_seal", "message": "manifest signed via sha256-stamp", "ts": "2026-07-05T23:28:15.778474Z"}
+{"type": "ingested", "case_id": "Test-AWS", "events": 2, "integrity": "amber", "warnings": [], "ts": "2026-07-05T23:28:16.514155Z"}
+{"type": "completed", "ts": "2026-07-05T23:28:16.514438Z"}

@@ -1,0 +1,94 @@
+{
+  "account_id": "ultimate-opus-500916-b2",
+  "masked_account": "ulti***",
+  "case_id": "Network-GCP",
+  "regions": [
+    "ultimate-opus-500916-b2"
+  ],
+  "plan_label": "9 artifacts",
+  "complete": 9,
+  "total": 9,
+  "collectors": [
+    {
+      "name": "project",
+      "status": "pass",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": 282.0,
+      "detail": "Project + organization context.",
+      "live_msg": ""
+    },
+    {
+      "name": "vpc_flow",
+      "status": "pass",
+      "severity": "High",
+      "records": 271825,
+      "elapsed_ms": 6705.4,
+      "detail": "271825 log record(s) across 1 project(s).",
+      "live_msg": ""
+    },
+    {
+      "name": "cloud_nat",
+      "status": "pass",
+      "severity": "High",
+      "records": 310,
+      "elapsed_ms": 12.2,
+      "detail": "310 log record(s) across 1 project(s).",
+      "live_msg": ""
+    },
+    {
+      "name": "network_posture",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 106,
+      "elapsed_ms": 42912.3,
+      "detail": "12 firewall rule(s), 43 subnet(s), 1 packet mirroring policy(ies)",
+      "live_msg": ""
+    },
+    {
+      "name": "load_balancer",
+      "status": "pass",
+      "severity": "High",
+      "records": 2706,
+      "elapsed_ms": 75.0,
+      "detail": "2706 log record(s) across 1 project(s).",
+      "live_msg": ""
+    },
+    {
+      "name": "cloud_cdn",
+      "status": "pass",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": 0.2,
+      "detail": "Deduplicated: 'cloud_cdn' is a filter view over 'load_balancer', which is also selected \u2014 collected once via that stream.",
+      "live_msg": ""
+    },
+    {
+      "name": "api_gateway",
+      "status": "fail",
+      "severity": "Medium",
+      "records": 0,
+      "elapsed_ms": 5.5,
+      "detail": "No log entries found \u2014 logging may not be enabled or exported.",
+      "live_msg": ""
+    },
+    {
+      "name": "cloud_dns",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 11311,
+      "elapsed_ms": 212.0,
+      "detail": "11311 log record(s) across 1 project(s).",
+      "live_msg": ""
+    },
+    {
+      "name": "cloud_armor",
+      "status": "pass",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": 0.2,
+      "detail": "Deduplicated: 'cloud_armor' is a filter view over 'load_balancer', which is also selected \u2014 collected once via that stream.",
+      "live_msg": ""
+    }
+  ]
+}

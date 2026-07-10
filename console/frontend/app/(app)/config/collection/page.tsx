@@ -1,30 +1,36 @@
 "use client";
 
+import { RunStatusBadge } from "@/components/badges";
 import { CloudProviderIcon } from "@/components/cloud-provider-icon";
-import { Badge, Button, Card, EmptyState, LoadingPanel } from "@/components/ui";
+import { Button, Card, EmptyState, LoadingPanel } from "@/components/ui";
 import { KpiMetricCard, SegmentedProgress } from "@/components/stat";
-import { listConnections, listRuns } from "@/lib/api";
+import { cancelRun, listConnections, listRuns } from "@/lib/api";
 import { CASE_PLATFORM_LABELS, type CasePlatform } from "@/lib/catalog";
+import { fmtTime } from "@/lib/format";
+import { rerunScan, type RunMetaWithRequest } from "@/lib/rerun-run";
 import {
+  acquireRunHref,
   ACQUIRE_HREF,
   caseHref,
   runHref,
-  RUNS_NEW_HREF,
 } from "@/lib/routes";
+import { readLastConnection } from "@/lib/provider-storage";
 import type { RunMeta, RunStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Activity,
   AlertCircle,
+  Ban,
   ExternalLink,
   Eye,
   Play,
   Plus,
+  RotateCcw,
 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
 type StatusFilter = "all" | "running" | "completed" | "failed" | "cancelled";
 
@@ -35,15 +41,6 @@ const FILTERS: { id: StatusFilter; label: string }[] = [
   { id: "failed", label: "Failed" },
   { id: "cancelled", label: "Cancelled" },
 ];
-
-function statusTone(status: RunStatus): string {
-  if (status === "completed") return "text-ok-green bg-ok-green/10 border-ok-green/30";
-  if (status === "failed") return "text-bad-red bg-bad-red/10 border-bad-red/30";
-  if (status === "cancelled") return "text-fg-subtle bg-surface-2 border-border";
-  if (status === "running" || status === "pending")
-    return "text-accent bg-accent/10 border-accent/30";
-  return "text-fg-subtle bg-surface-2 border-border";
-}
 
 function fmtDuration(meta: RunMeta): string {
   if (meta.duration_ms != null) {
@@ -66,15 +63,112 @@ function runProgress(meta: RunMeta): { complete: number; total: number } {
   return { complete, total };
 }
 
+function isLiveRun(status: RunStatus): boolean {
+  return status === "running" || status === "pending" || status === "cancelling";
+}
+
 function matchesFilter(status: RunStatus, filter: StatusFilter): boolean {
   if (filter === "all") return true;
-  if (filter === "running") return status === "running" || status === "pending";
+  if (filter === "running") return isLiveRun(status);
   return status === filter;
+}
+
+function isActiveRun(status: RunStatus): boolean {
+  return status === "running" || status === "pending";
+}
+
+function RunRowActions({ run }: { run: RunMeta }) {
+  const queryClient = useQueryClient();
+  const router = useRouter();
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [rerunError, setRerunError] = useState("");
+
+  const cancelMut = useMutation({
+    mutationFn: () => cancelRun(run.run_id),
+    onMutate: () => setCancellingId(run.run_id),
+    onSettled: () => setCancellingId(null),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: ["runs"] }),
+  });
+
+  const rerunMut = useMutation({
+    mutationFn: () => rerunScan(run as RunMetaWithRequest),
+    onMutate: () => setRerunError(""),
+    onSuccess: ({ run_id }) => {
+      queryClient.invalidateQueries({ queryKey: ["runs"] });
+      router.push(runHref(run_id));
+    },
+    onError: (e: unknown) =>
+      setRerunError(e instanceof Error ? e.message : "Failed to re-run scan"),
+  });
+
+  const active = isActiveRun(run.status);
+  const cancelling = run.status === "cancelling";
+  const loading = cancellingId === run.run_id;
+  const canRerun = !active && !cancelling;
+
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-2">
+      {active && (
+        <Button
+          variant="primary"
+          size="sm"
+          icon={Ban}
+          loading={loading}
+          disabled={loading}
+          onClick={() => cancelMut.mutate()}
+        >
+          Cancel
+        </Button>
+      )}
+      {cancelling && (
+        <Button variant="secondary" size="sm" icon={Ban} loading disabled>
+          Cancelling…
+        </Button>
+      )}
+      {canRerun && (
+        <Button
+          variant="secondary"
+          size="sm"
+          icon={RotateCcw}
+          loading={rerunMut.isPending}
+          disabled={rerunMut.isPending || !run.request}
+          onClick={() => rerunMut.mutate()}
+          title={
+            !run.request
+              ? "This run has no saved configuration to re-run."
+              : rerunError || "Re-run this scan with the same configuration"
+          }
+        >
+          Re-run
+        </Button>
+      )}
+      <Link href={runHref(run.run_id)}>
+        <Button variant="secondary" size="sm" icon={Eye}>
+          View
+        </Button>
+      </Link>
+      <Link href={caseHref(run.case_id)}>
+        <Button variant="ghost" size="sm" icon={ExternalLink}>
+          Case
+        </Button>
+      </Link>
+    </div>
+  );
 }
 
 export default function CollectionPage() {
   const router = useRouter();
   const [filter, setFilter] = useState<StatusFilter>("all");
+  const newRunHref = acquireRunHref(readLastConnection());
+
+  // Clicking a row always opens that existing run — it never starts a new scan. Re-running is
+  // an explicit per-row "Re-run" button (see RunRowActions).
+  const handleRowClick = useCallback(
+    (run: RunMeta) => {
+      router.push(runHref(run.run_id));
+    },
+    [router],
+  );
 
   const runs = useQuery({
     queryKey: ["runs"],
@@ -82,7 +176,7 @@ export default function CollectionPage() {
     retry: false,
     refetchInterval: (q) => {
       const rows = q.state.data?.runs ?? [];
-      const active = rows.some((r) => r.status === "running" || r.status === "pending");
+      const active = rows.some((r) => isLiveRun(r.status));
       return active ? 2500 : false;
     },
   });
@@ -125,14 +219,11 @@ export default function CollectionPage() {
         <div>
           <h1 className="page-title">
             <Activity className="h-5 w-5 text-accent" />
-            Collection
+            Scans
           </h1>
-          <p className="page-subtitle">
-            Monitor ongoing and completed evidence collection jobs across your providers.
-          </p>
         </div>
-        <Link href={RUNS_NEW_HREF}>
-          <Button variant="primary-dark" icon={Plus} className="bg-accent text-accent-fg hover:bg-accent/90">
+        <Link href={newRunHref}>
+          <Button variant="primary" icon={Plus}>
             Run collection
           </Button>
         </Link>
@@ -145,28 +236,25 @@ export default function CollectionPage() {
             value={all.length}
             sub={`${runningCount} active`}
             icon={Activity}
-            tone="accent"
-            sparkline={[25, 40, 35, 50, 45, 60, 55]}
+            tone="cta"
           />
           <KpiMetricCard
             label="Completed"
             value={completedCount}
             sub={all.length > 0 ? `${Math.round((completedCount / all.length) * 100)}% success rate` : "—"}
             tone="success"
-            sparkline={[20, 30, 45, 55, 60, 70, 75]}
           />
           <KpiMetricCard
             label="Failed"
             value={failedCount}
             sub={failedCount > 0 ? "Review failed runs" : "No failures"}
-            tone={failedCount > 0 ? "critical" : "default"}
-            sparkline={[10, 8, 12, 6, 4, 3, failedCount > 0 ? 25 : 5]}
+            tone="critical"
           />
           <KpiMetricCard
             label="Avg progress"
             value={`${avgProgress}%`}
             sub="Across all runs"
-            sparkline={[30, 42, 50, 58, 62, 68, avgProgress]}
+            tone="cta"
           />
         </div>
       )}
@@ -219,9 +307,9 @@ export default function CollectionPage() {
               </>
             }
             action={
-              <Link href={RUNS_NEW_HREF}>
+              <Link href={newRunHref}>
                 <Button variant="secondary" icon={Play}>
-                  Configure run
+                  Open Acquire
                 </Button>
               </Link>
             }
@@ -232,11 +320,11 @@ export default function CollectionPage() {
           <EmptyState
             icon={Play}
             title="No collection runs yet"
-            description="Start a server-side collection to see live collector progress here."
+            description="Start a Ventra Console collection to see live collector progress here."
             action={
               <div className="flex flex-wrap justify-center gap-2">
-                <Link href={RUNS_NEW_HREF}>
-                  <Button variant="primary-dark" icon={Plus}>
+                <Link href={newRunHref}>
+                  <Button variant="primary" icon={Plus}>
                     Run collection
                   </Button>
                 </Link>
@@ -264,12 +352,12 @@ export default function CollectionPage() {
         <Card className="glass-card-glow overflow-hidden">
           <div className="overflow-x-auto">
             <table className="w-full text-left text-sm">
-              <thead className="border-b border-border bg-surface-2/40">
-                <tr>
+              <thead>
+                <tr className="table-head-row">
                   <th className="table-header-cell-center">Status</th>
                   <th className="table-header-cell">Case ID</th>
-                  <th className="table-header-cell">Platform</th>
-                  <th className="table-header-cell">Provider</th>
+                  <th className="table-header-cell-center">Platform</th>
+                  <th className="table-header-cell">Authentication</th>
                   <th className="table-header-cell">Started</th>
                   <th className="table-header-cell">Duration</th>
                   <th className="table-header-cell">Progress</th>
@@ -285,31 +373,31 @@ export default function CollectionPage() {
                     <tr
                       key={run.run_id}
                       className="cursor-pointer border-b border-border/50 transition-colors hover:bg-surface-2/30"
-                      onClick={() => router.push(runHref(run.run_id))}
+                      onClick={() => handleRowClick(run)}
                     >
                       <td className="table-cell-center">
-                        <Badge className={cn("table-badge capitalize", statusTone(run.status))}>
-                          {run.status}
-                        </Badge>
+                        <RunStatusBadge status={run.status} />
                       </td>
                       <td className="table-cell">
                         <Link
                           href={caseHref(run.case_id)}
-                          className="mono text-fg hover:text-accent"
+                          className="text-fg hover:text-accent"
                           onClick={(e) => e.stopPropagation()}
                         >
                           {run.case_id}
                         </Link>
                       </td>
-                      <td className="table-cell">
-                        <span className="inline-flex items-center gap-2">
+                      <td className="table-cell-center">
+                        <span
+                          className="inline-flex justify-center"
+                          title={CASE_PLATFORM_LABELS[run.cloud as CasePlatform] ?? run.cloud}
+                        >
                           <CloudProviderIcon cloud={run.cloud as CasePlatform} />
-                          {CASE_PLATFORM_LABELS[run.cloud as CasePlatform] ?? run.cloud}
                         </span>
                       </td>
                       <td className="table-cell-muted">{provider}</td>
                       <td className="table-cell-muted mono">
-                        {(run.started_at ?? run.created_at)?.slice(0, 19) ?? "—"}
+                        {fmtTime(run.started_at ?? run.created_at)}
                       </td>
                       <td className="table-cell-muted mono">{fmtDuration(run)}</td>
                       <td className="table-cell">
@@ -327,19 +415,8 @@ export default function CollectionPage() {
                           <span className="mono text-fg-subtle">—</span>
                         )}
                       </td>
-                      <td className="table-cell-center">
-                        <div className="flex flex-wrap items-center justify-center gap-2" onClick={(e) => e.stopPropagation()}>
-                          <Link href={runHref(run.run_id)}>
-                            <Button variant="secondary" size="sm" icon={Eye}>
-                              View
-                            </Button>
-                          </Link>
-                          <Link href={caseHref(run.case_id)}>
-                            <Button variant="ghost" size="sm" icon={ExternalLink}>
-                              Case
-                            </Button>
-                          </Link>
-                        </div>
+                      <td className="table-cell-center" onClick={(e) => e.stopPropagation()}>
+                        <RunRowActions run={run} />
                       </td>
                     </tr>
                   );

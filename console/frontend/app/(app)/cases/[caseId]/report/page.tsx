@@ -60,7 +60,6 @@ export default function ReportPage() {
       <PanelHeader
         icon={FileText}
         title="Report"
-        description="Pin evidence as you investigate, then export"
         actions={
           <Button variant="primary" icon={Download} onClick={exportMd} disabled={pins.length === 0 && !notes}>
             Export Markdown

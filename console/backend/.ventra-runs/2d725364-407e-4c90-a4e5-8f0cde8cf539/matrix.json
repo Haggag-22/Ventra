@@ -1,0 +1,74 @@
+{
+  "account_id": "194722414229",
+  "masked_account": "1947***",
+  "case_id": "Test-AWS",
+  "regions": [
+    "ap-northeast-1",
+    "ap-northeast-2",
+    "ap-northeast-3",
+    "ap-south-1",
+    "ap-southeast-1",
+    "ap-southeast-2",
+    "ca-central-1",
+    "eu-central-1",
+    "eu-north-1",
+    "eu-west-1",
+    "eu-west-2",
+    "eu-west-3",
+    "sa-east-1",
+    "us-east-1",
+    "us-east-2",
+    "us-west-1",
+    "us-west-2"
+  ],
+  "plan_label": "5 artifacts",
+  "complete": 5,
+  "total": 5,
+  "collectors": [
+    {
+      "name": "account",
+      "status": "pass",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": 488.1,
+      "detail": "Environment + operator context.",
+      "live_msg": ""
+    },
+    {
+      "name": "iam",
+      "status": "pass",
+      "severity": "High",
+      "records": 24,
+      "elapsed_ms": 3813.5,
+      "detail": "2 users, 22 roles, 24 attached + 0 inline policies.",
+      "live_msg": ""
+    },
+    {
+      "name": "kms",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 5,
+      "elapsed_ms": 8210.2,
+      "detail": "5 key(s).",
+      "live_msg": ""
+    },
+    {
+      "name": "secrets",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": 8306.5,
+      "detail": "No secrets in scope.",
+      "live_msg": ""
+    },
+    {
+      "name": "log_posture",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 0,
+      "elapsed_ms": 23966.4,
+      "detail": "Logging posture recorded for 3 source(s).",
+      "live_msg": ""
+    }
+  ]
+}

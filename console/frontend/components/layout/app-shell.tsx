@@ -13,9 +13,9 @@ export function AppShell({
   children: ReactNode;
 }) {
   return (
-    <div className="flex h-screen overflow-hidden bg-bg">
+    <div className="flex h-screen overflow-hidden bg-transparent">
       {sidebar}
-      <div className="flex min-w-0 flex-1 flex-col bg-bg">
+      <div className="flex min-w-0 flex-1 flex-col bg-transparent">
         {topbar}
         <main className="flex flex-1 flex-col overflow-y-auto">
           <PageTransition>{children}</PageTransition>

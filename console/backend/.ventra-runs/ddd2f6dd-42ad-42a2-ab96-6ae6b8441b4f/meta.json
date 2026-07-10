@@ -1,0 +1,147 @@
+{
+  "run_id": "ddd2f6dd-42ad-42a2-ab96-6ae6b8441b4f",
+  "status": "completed",
+  "created_at": "2026-07-08T19:26:59.840307Z",
+  "started_at": "2026-07-08T19:26:59.841024Z",
+  "finished_at": "2026-07-08T19:29:44.679430Z",
+  "cloud": "gcp",
+  "case_id": "Network-GCP",
+  "connection_id": "ecd703bb-c597-4901-9e15-00a07365a12f",
+  "auto_ingest": true,
+  "request": {
+    "cloud": "gcp",
+    "case_id": "Network-GCP",
+    "artifacts": [
+      "project",
+      "api_gateway",
+      "cloud_armor",
+      "cloud_cdn",
+      "cloud_dns",
+      "cloud_nat",
+      "load_balancer",
+      "network_posture",
+      "vpc_flow"
+    ],
+    "pack": null,
+    "include_iam": true,
+    "since": "",
+    "until": "",
+    "regions": [],
+    "project": "ultimate-opus-500916-b2",
+    "subscription": "",
+    "azure_tenant_id": "",
+    "azure_client_id": "",
+    "aws_profile": "",
+    "max_records_per_source": null,
+    "artifact_parameters": {},
+    "deployment_profile": "workstation",
+    "transport": "",
+    "gcp_log_backend": {
+      "mode": "gcs",
+      "gcs": {
+        "bucket": "gs://test-ventra"
+      }
+    },
+    "connection_id": "ecd703bb-c597-4901-9e15-00a07365a12f"
+  },
+  "account_id": "ultimate-opus-500916-b2",
+  "masked_account": "ulti***",
+  "regions": [
+    "ultimate-opus-500916-b2"
+  ],
+  "plan_label": "9 artifacts",
+  "duration_ms": 164838,
+  "package": {
+    "path": "/var/folders/43/4pdnskbj6t59gmt05_2p_r480000gn/T/ventra-run-ww877121/case-Network-GCP-1047878869569-20260708T192920Z.tar.zst",
+    "compression": "zstd",
+    "bytes": 15317415,
+    "sha256": "58aac45fe366d1a58532d1c94b0e6e5f6f2b1d0afc635fe3f4b045e419908b75"
+  },
+  "collectors": [
+    {
+      "name": "project",
+      "status": "pass",
+      "severity": "High",
+      "records": null,
+      "elapsed_seconds": 0.282,
+      "detail": "Project + organization context."
+    },
+    {
+      "name": "vpc_flow",
+      "status": "pass",
+      "severity": "High",
+      "records": 271825,
+      "elapsed_seconds": 6.705,
+      "detail": "271825 log record(s) across 1 project(s)."
+    },
+    {
+      "name": "cloud_nat",
+      "status": "pass",
+      "severity": "High",
+      "records": 310,
+      "elapsed_seconds": 0.012,
+      "detail": "310 log record(s) across 1 project(s)."
+    },
+    {
+      "name": "network_posture",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 106,
+      "elapsed_seconds": 42.912,
+      "detail": "12 firewall rule(s), 43 subnet(s), 1 packet mirroring policy(ies)"
+    },
+    {
+      "name": "load_balancer",
+      "status": "pass",
+      "severity": "High",
+      "records": 2706,
+      "elapsed_seconds": 0.075,
+      "detail": "2706 log record(s) across 1 project(s)."
+    },
+    {
+      "name": "cloud_cdn",
+      "status": "pass",
+      "severity": "High",
+      "records": null,
+      "elapsed_seconds": 0.0,
+      "detail": "Deduplicated: 'cloud_cdn' is a filter view over 'load_balancer', which is also selected \u2014 collected once via that stream."
+    },
+    {
+      "name": "api_gateway",
+      "status": "fail",
+      "severity": "Medium",
+      "records": 0,
+      "elapsed_seconds": 0.005,
+      "detail": "No log entries found \u2014 logging may not be enabled or exported."
+    },
+    {
+      "name": "cloud_dns",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 11311,
+      "elapsed_seconds": 0.212,
+      "detail": "11311 log record(s) across 1 project(s)."
+    },
+    {
+      "name": "cloud_armor",
+      "status": "pass",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_seconds": 0.0,
+      "detail": "Deduplicated: 'cloud_armor' is a filter view over 'load_balancer', which is also selected \u2014 collected once via that stream."
+    }
+  ],
+  "coverage_gaps": [
+    {
+      "collector": "api_gateway",
+      "severity": "Medium",
+      "detail": "No log entries found \u2014 logging may not be enabled or exported."
+    }
+  ],
+  "ingest": {
+    "case_id": "Network-GCP",
+    "events": 274531,
+    "integrity": "amber",
+    "warnings": []
+  }
+}

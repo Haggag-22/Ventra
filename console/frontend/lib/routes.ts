@@ -1,5 +1,11 @@
 import type { AcquirePlatform, Cloud } from "./catalog";
-import { docProviderLabel, isDocProvider } from "./docs-routes";
+import {
+  docProviderLabel,
+  docsDefaultHref,
+  docSectionLabel,
+  isDocProvider,
+  isDocSection,
+} from "./docs-routes";
 
 /** Canonical URL for the cases list (outside any open case). */
 export const CASES_HREF = "/cases";
@@ -8,7 +14,16 @@ export const CONFIG_ACQUIRE_HREF = "/config/acquire";
 export const ACQUIRE_HREF = CONFIG_ACQUIRE_HREF;
 export const COLLECTION_KITS_HREF = "/collection-kits";
 export const RUNS_HREF = "/runs";
+/** @deprecated Bookmarks — redirects to Acquire run mode via `/runs/new`. */
 export const RUNS_NEW_HREF = "/runs/new";
+
+/** Build `/config/acquire?mode=run` with optional saved connection. */
+export function acquireRunHref(connectionId?: string | null): string {
+  const base = `${CONFIG_ACQUIRE_HREF}?mode=run`;
+  return connectionId?.trim()
+    ? `${base}&connection=${encodeURIComponent(connectionId.trim())}`
+    : base;
+}
 export const SETTINGS_HREF = "/settings";
 export const CONFIG_COLLECTION_HREF = "/config/collection";
 export const CONFIG_PROVIDERS_HREF = "/config/providers";
@@ -73,7 +88,8 @@ export function breadcrumbsFromPath(pathname: string, caseId?: string): Breadcru
   if (pathname === CASES_HREF) return items;
 
   if (pathname.startsWith("/collection-kits")) {
-    items.push({ label: "Collection kits" });
+    items.push({ label: "Configuration" });
+    items.push({ label: "Collection Kits" });
     return items;
   }
 
@@ -85,10 +101,8 @@ export function breadcrumbsFromPath(pathname: string, caseId?: string): Breadcru
 
   if (pathname.startsWith("/runs")) {
     items.push({ label: "Configuration" });
-    items.push({ label: "Collection", href: CONFIG_COLLECTION_HREF });
-    if (pathname === RUNS_NEW_HREF) {
-      items.push({ label: "New run" });
-    } else if (pathname.startsWith("/runs/")) {
+    items.push({ label: "Scans", href: CONFIG_COLLECTION_HREF });
+    if (pathname.startsWith("/runs/")) {
       const runId = pathname.split("/")[2];
       if (runId && runId !== "new") items.push({ label: runId });
     }
@@ -101,11 +115,11 @@ export function breadcrumbsFromPath(pathname: string, caseId?: string): Breadcru
       pathname.startsWith(CONFIG_PROVIDERS_HREF) ||
       pathname.startsWith(CONFIG_CONNECTIONS_HREF)
     ) {
-      items.push({ label: "Providers" });
+      items.push({ label: "Authentication" });
     } else if (pathname.startsWith(CONFIG_ACQUIRE_HREF)) items.push({ label: "Acquire" });
-    else if (pathname.startsWith(CONFIG_PROFILES_HREF)) items.push({ label: "Collection kits" });
+    else if (pathname.startsWith(CONFIG_PROFILES_HREF)) items.push({ label: "Collection Kits" });
     else if (pathname.startsWith(CONFIG_LOG_BACKENDS_HREF)) items.push({ label: "Acquire" });
-    else if (pathname.startsWith(CONFIG_COLLECTION_HREF)) items.push({ label: "Collection" });
+    else if (pathname.startsWith(CONFIG_COLLECTION_HREF)) items.push({ label: "Scans" });
     return items;
   }
 
@@ -115,14 +129,23 @@ export function breadcrumbsFromPath(pathname: string, caseId?: string): Breadcru
   }
 
   if (pathname.startsWith("/docs")) {
-    items.push({ label: "Documentation", href: "/docs" });
+    items.push({ label: "Documentation", href: docsDefaultHref() });
     const parts = pathname.split("/").filter(Boolean);
     const provider = parts[1];
     if (provider && isDocProvider(provider)) {
-      items.push({ label: docProviderLabel(provider), href: `/docs/${provider}` });
-      const collector = parts[2];
-      if (collector) {
-        items.push({ label: decodeURIComponent(collector).replace(/_/g, " ") });
+      items.push({
+        label: docProviderLabel(provider),
+        href: `/docs/${provider}/authentication`,
+      });
+      const section = parts[2];
+      if (section && isDocSection(section)) {
+        items.push({
+          label: docSectionLabel(section),
+          href: `/docs/${provider}/${section}`,
+        });
+        if (section === "collectors" && parts[3]) {
+          items.push({ label: decodeURIComponent(parts[3]).replace(/_/g, " ") });
+        }
       }
     }
     return items;

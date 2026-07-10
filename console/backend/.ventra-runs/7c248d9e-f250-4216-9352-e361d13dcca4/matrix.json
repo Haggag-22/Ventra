@@ -1,0 +1,92 @@
+{
+  "account_id": "",
+  "masked_account": "????",
+  "case_id": "Partial-GCP",
+  "regions": [],
+  "plan_label": "9 artifacts",
+  "complete": 9,
+  "total": 9,
+  "collectors": [
+    {
+      "name": "project",
+      "status": "fail",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Run failed before this collector started.",
+      "live_msg": ""
+    },
+    {
+      "name": "vpc_flow",
+      "status": "fail",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Run failed before this collector started.",
+      "live_msg": ""
+    },
+    {
+      "name": "cloud_nat",
+      "status": "fail",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Run failed before this collector started.",
+      "live_msg": ""
+    },
+    {
+      "name": "network_posture",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Run failed before this collector started.",
+      "live_msg": ""
+    },
+    {
+      "name": "load_balancer",
+      "status": "fail",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Run failed before this collector started.",
+      "live_msg": ""
+    },
+    {
+      "name": "cloud_cdn",
+      "status": "fail",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Run failed before this collector started.",
+      "live_msg": ""
+    },
+    {
+      "name": "api_gateway",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Run failed before this collector started.",
+      "live_msg": ""
+    },
+    {
+      "name": "cloud_dns",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Run failed before this collector started.",
+      "live_msg": ""
+    },
+    {
+      "name": "cloud_armor",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Run failed before this collector started.",
+      "live_msg": ""
+    }
+  ]
+}

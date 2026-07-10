@@ -1,0 +1,74 @@
+{
+  "account_id": "194722414229",
+  "masked_account": "1947***",
+  "case_id": "Test-AWS",
+  "regions": [
+    "ap-northeast-1",
+    "ap-northeast-2",
+    "ap-northeast-3",
+    "ap-south-1",
+    "ap-southeast-1",
+    "ap-southeast-2",
+    "ca-central-1",
+    "eu-central-1",
+    "eu-north-1",
+    "eu-west-1",
+    "eu-west-2",
+    "eu-west-3",
+    "sa-east-1",
+    "us-east-1",
+    "us-east-2",
+    "us-west-1",
+    "us-west-2"
+  ],
+  "plan_label": "5 artifacts",
+  "complete": 2,
+  "total": 5,
+  "collectors": [
+    {
+      "name": "account",
+      "status": "pass",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": 554.3,
+      "detail": "Environment + operator context.",
+      "live_msg": ""
+    },
+    {
+      "name": "iam",
+      "status": "pass",
+      "severity": "High",
+      "records": 24,
+      "elapsed_ms": 5590.7,
+      "detail": "2 users, 22 roles, 24 attached + 0 inline policies.",
+      "live_msg": ""
+    },
+    {
+      "name": "kms",
+      "status": "running",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "queued",
+      "live_msg": "collecting\u2026"
+    },
+    {
+      "name": "secrets",
+      "status": "pending",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "queued",
+      "live_msg": ""
+    },
+    {
+      "name": "log_posture",
+      "status": "pending",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "queued",
+      "live_msg": ""
+    }
+  ]
+}

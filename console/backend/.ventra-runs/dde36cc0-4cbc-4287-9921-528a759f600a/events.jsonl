@@ -1,0 +1,73 @@
+{"type": "begin_run", "account_id": "194722414229", "regions": ["ap-northeast-1", "ap-northeast-2", "ap-northeast-3", "ap-south-1", "ap-southeast-1", "ap-southeast-2", "ca-central-1", "eu-central-1", "eu-north-1", "eu-west-1", "eu-west-2", "eu-west-3", "sa-east-1", "us-east-1", "us-east-2", "us-west-1", "us-west-2"], "case_id": "Mario", "collectors": ["account", "cloudtrail", "iam", "vpc_flow", "waf", "guardduty", "macie", "detective", "config", "securityhub", "inspector2", "kms", "secrets", "ec2", "s3", "lambda", "lambda_logs", "elb_alb", "apigateway", "cloudfront", "s3_access", "route53_resolver", "eks_audit", "rds", "log_posture"], "plan_label": "25 artifacts", "preflight_lines": [], "ts": "2026-07-06T16:43:08.792597Z"}
+{"type": "start", "collector": "account", "ts": "2026-07-06T16:43:08.793997Z"}
+{"type": "finish", "collector": "account", "status": "collected", "records": null, "ts": "2026-07-06T16:43:09.323145Z"}
+{"type": "start", "collector": "cloudtrail", "ts": "2026-07-06T16:43:09.323853Z"}
+{"type": "event", "collector": "cloudtrail", "message": "Validating log integrity for trail ventra-lab-trail\u2026", "ts": "2026-07-06T16:43:18.243668Z"}
+{"type": "event", "collector": "cloudtrail", "message": "  ventra-lab-trail: 2/2 digests, 37/37 log files valid", "ts": "2026-07-06T16:43:23.268604Z"}
+{"type": "event", "collector": "cloudtrail", "message": "Collecting trail logs for ventra-lab-trail\u2026", "ts": "2026-07-06T16:43:23.269603Z"}
+{"type": "event", "collector": "cloudtrail", "message": "S3 ventra-lab-cloudtrail-194722414229-dcd98057: 6428 Management records", "ts": "2026-07-06T16:45:23.728002Z"}
+{"type": "event", "collector": "cloudtrail", "message": "Collected logs from 1/1 trail(s) across 1 bucket(s).", "ts": "2026-07-06T16:45:23.730593Z"}
+{"type": "finish", "collector": "cloudtrail", "status": "partial", "records": 6428, "ts": "2026-07-06T16:47:25.089317Z"}
+{"type": "start", "collector": "iam", "ts": "2026-07-06T16:47:25.091225Z"}
+{"type": "finish", "collector": "iam", "status": "collected", "records": 33, "ts": "2026-07-06T16:47:36.809569Z"}
+{"type": "start", "collector": "vpc_flow", "ts": "2026-07-06T16:47:36.810236Z"}
+{"type": "finish", "collector": "vpc_flow", "status": "collected", "records": 9218, "ts": "2026-07-06T16:48:05.328661Z"}
+{"type": "start", "collector": "waf", "ts": "2026-07-06T16:48:05.330755Z"}
+{"type": "event", "collector": "waf", "message": "captured 108 records \u2192 events.jsonl.gz", "ts": "2026-07-06T16:48:20.921057Z"}
+{"type": "finish", "collector": "waf", "status": "collected", "records": 1, "ts": "2026-07-06T16:48:20.923521Z"}
+{"type": "start", "collector": "guardduty", "ts": "2026-07-06T16:48:20.924819Z"}
+{"type": "event", "collector": "guardduty", "message": "captured 437 records \u2192 events.jsonl.gz", "ts": "2026-07-06T16:48:56.349344Z"}
+{"type": "finish", "collector": "guardduty", "status": "collected", "records": 437, "ts": "2026-07-06T16:48:56.351224Z"}
+{"type": "start", "collector": "macie", "ts": "2026-07-06T16:48:56.351735Z"}
+{"type": "event", "collector": "macie", "message": "captured 1 records \u2192 events.jsonl.gz", "ts": "2026-07-06T16:49:11.085948Z"}
+{"type": "finish", "collector": "macie", "status": "collected", "records": 1, "ts": "2026-07-06T16:49:11.088407Z"}
+{"type": "start", "collector": "detective", "ts": "2026-07-06T16:49:11.088994Z"}
+{"type": "finish", "collector": "detective", "status": "collected", "records": 0, "ts": "2026-07-06T16:49:37.678248Z"}
+{"type": "start", "collector": "config", "ts": "2026-07-06T16:49:37.680187Z"}
+{"type": "event", "collector": "config", "message": "captured 375 records \u2192 events.jsonl.gz", "ts": "2026-07-06T16:50:03.068008Z"}
+{"type": "finish", "collector": "config", "status": "collected", "records": 375, "ts": "2026-07-06T16:50:03.068790Z"}
+{"type": "start", "collector": "securityhub", "ts": "2026-07-06T16:50:03.069310Z"}
+{"type": "event", "collector": "securityhub", "message": "captured 7,480 records \u2192 events.jsonl.gz", "ts": "2026-07-06T16:51:19.551956Z"}
+{"type": "finish", "collector": "securityhub", "status": "collected", "records": 7480, "ts": "2026-07-06T16:51:19.561705Z"}
+{"type": "start", "collector": "inspector2", "ts": "2026-07-06T16:51:19.562328Z"}
+{"type": "event", "collector": "inspector2", "message": "captured 36 records \u2192 events.jsonl.gz", "ts": "2026-07-06T16:51:38.082249Z"}
+{"type": "finish", "collector": "inspector2", "status": "collected", "records": 36, "ts": "2026-07-06T16:51:38.083088Z"}
+{"type": "start", "collector": "kms", "ts": "2026-07-06T16:51:38.083554Z"}
+{"type": "finish", "collector": "kms", "status": "collected", "records": 6, "ts": "2026-07-06T16:51:51.075111Z"}
+{"type": "start", "collector": "secrets", "ts": "2026-07-06T16:51:51.075675Z"}
+{"type": "finish", "collector": "secrets", "status": "collected", "records": 2, "ts": "2026-07-06T16:52:04.616851Z"}
+{"type": "start", "collector": "ec2", "ts": "2026-07-06T16:52:04.617386Z"}
+{"type": "finish", "collector": "ec2", "status": "collected", "records": 37, "ts": "2026-07-06T16:52:36.256684Z"}
+{"type": "start", "collector": "s3", "ts": "2026-07-06T16:52:36.257233Z"}
+{"type": "finish", "collector": "s3", "status": "collected", "records": 7, "ts": "2026-07-06T16:52:41.715484Z"}
+{"type": "start", "collector": "lambda", "ts": "2026-07-06T16:52:41.716159Z"}
+{"type": "finish", "collector": "lambda", "status": "collected", "records": 1, "ts": "2026-07-06T16:52:55.484558Z"}
+{"type": "start", "collector": "lambda_logs", "ts": "2026-07-06T16:52:55.486342Z"}
+{"type": "event", "collector": "lambda_logs", "message": "Reading logs for ventra-lab-processor (/aws/lambda/ventra-lab-processor)\u2026", "ts": "2026-07-06T16:53:10.827047Z"}
+{"type": "finish", "collector": "lambda_logs", "status": "empty", "records": 0, "ts": "2026-07-06T16:53:10.957996Z"}
+{"type": "start", "collector": "elb_alb", "ts": "2026-07-06T16:53:10.959784Z"}
+{"type": "event", "collector": "elb_alb", "message": "Reading access logs for ventra-lab-alb (ventra-lab-alb-logs-194722414229-dcd98057)\u2026", "ts": "2026-07-06T16:53:31.506531Z"}
+{"type": "finish", "collector": "elb_alb", "status": "collected", "records": 123, "ts": "2026-07-06T16:53:32.959722Z"}
+{"type": "start", "collector": "apigateway", "ts": "2026-07-06T16:53:32.961521Z"}
+{"type": "event", "collector": "apigateway", "message": "Reading access logs for ventra-lab-api/prod (/ventra-lab/apigateway/prod)\u2026", "ts": "2026-07-06T16:53:54.774301Z"}
+{"type": "finish", "collector": "apigateway", "status": "empty", "records": 0, "ts": "2026-07-06T16:53:55.030462Z"}
+{"type": "start", "collector": "cloudfront", "ts": "2026-07-06T16:53:55.032721Z"}
+{"type": "finish", "collector": "cloudfront", "status": "empty", "records": 0, "ts": "2026-07-06T16:53:55.444382Z"}
+{"type": "start", "collector": "s3_access", "ts": "2026-07-06T16:53:55.445841Z"}
+{"type": "event", "collector": "s3_access", "message": "Reading access logs from ventra-lab-access-logs-194722414229-dcd98057/sensitive-data/\u2026", "ts": "2026-07-06T16:53:56.954470Z"}
+{"type": "finish", "collector": "s3_access", "status": "partial", "records": 0, "ts": "2026-07-06T16:53:57.834189Z"}
+{"type": "start", "collector": "route53_resolver", "ts": "2026-07-06T16:53:57.836004Z"}
+{"type": "finish", "collector": "route53_resolver", "status": "collected", "records": 95, "ts": "2026-07-06T16:54:16.782296Z"}
+{"type": "start", "collector": "eks_audit", "ts": "2026-07-06T16:54:16.785050Z"}
+{"type": "event", "collector": "eks_audit", "message": "Reading audit log for cluster ventra-lab-eks\u2026", "ts": "2026-07-06T16:54:30.627270Z"}
+{"type": "event", "collector": "eks_audit", "message": "captured 52,014 records \u2192 events.jsonl.gz", "ts": "2026-07-06T16:54:57.144714Z"}
+{"type": "finish", "collector": "eks_audit", "status": "collected", "records": 52014, "ts": "2026-07-06T16:54:57.183607Z"}
+{"type": "start", "collector": "rds", "ts": "2026-07-06T16:54:57.184482Z"}
+{"type": "event", "collector": "rds", "message": "Reading postgresql logs for ventra-lab-postgres (/aws/rds/instance/ventra-lab-postgres/postgresql)\u2026", "ts": "2026-07-06T16:55:10.068381Z"}
+{"type": "event", "collector": "rds", "message": "Reading upgrade logs for ventra-lab-postgres (/aws/rds/instance/ventra-lab-postgres/upgrade)\u2026", "ts": "2026-07-06T16:55:13.033200Z"}
+{"type": "finish", "collector": "rds", "status": "partial", "records": 46, "ts": "2026-07-06T16:55:13.105077Z"}
+{"type": "start", "collector": "log_posture", "ts": "2026-07-06T16:55:13.106894Z"}
+{"type": "finish", "collector": "log_posture", "status": "collected", "records": 0, "ts": "2026-07-06T16:55:52.848124Z"}
+{"type": "event", "collector": "_seal", "message": "manifest signed via sha256-stamp", "ts": "2026-07-06T16:55:52.854331Z"}
+{"type": "ingested", "case_id": "Mario", "events": 76320, "integrity": "amber", "warnings": [], "ts": "2026-07-06T16:55:59.793559Z"}
+{"type": "completed", "ts": "2026-07-06T16:55:59.794642Z"}

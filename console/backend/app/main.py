@@ -22,7 +22,7 @@ from .config import settings
 from .rbac import Role, _check, current_role
 from .config_store import ConfigNotFound, config_store
 from .run_store import RunNotFound, run_store
-from .run_service import apply_relay_payload, start_run, test_connection
+from .run_service import apply_relay_payload, cancel_run as cancel_run_service, start_run, test_connection
 from .store import CaseNotFound, EventQuery, store
 
 
@@ -44,9 +44,11 @@ class AcquisitionBuildRequest(BaseModel):
     aws_profile: str = ""
     max_records_per_source: int | None = None
     artifact_parameters: dict[str, dict[str, Any]] = {}
-    deployment_profile: str = "cloudshell"
+    deployment_profile: str = "platform"
     transport: str = ""
     gcp_log_backend: dict[str, Any] | None = None
+    connection_id: str | None = None
+    connection_id: str | None = None
 
 
 class AcquisitionPreviewRequest(AcquisitionBuildRequest):
@@ -60,13 +62,22 @@ class ConnectionCreateRequest(BaseModel):
     platform: str
     alias: str = ""
     auth_method: str = "default"
+    aws_access_key_id: str = ""
+    aws_secret_access_key: str = ""
+    aws_session_token: str = ""
     profile_name: str = ""
     role_arn: str = ""
     aws_account_id: str = ""
     project: str = ""
     subscription: str = ""
+    m365_domain: str = ""
     azure_tenant_id: str = ""
     azure_client_id: str = ""
+    azure_client_secret: str = ""
+    azure_client_certificate_content: str = ""
+    gcp_service_account_json: str = ""
+    k8s_context: str = ""
+    kubeconfig_content: str = ""
 
 
 class ConnectionUpdateRequest(BaseModel):
@@ -74,19 +85,29 @@ class ConnectionUpdateRequest(BaseModel):
     platform: str | None = None
     alias: str | None = None
     auth_method: str | None = None
+    aws_access_key_id: str | None = None
+    aws_secret_access_key: str | None = None
+    aws_session_token: str | None = None
     profile_name: str | None = None
     role_arn: str | None = None
     aws_account_id: str | None = None
     project: str | None = None
     subscription: str | None = None
+    m365_domain: str | None = None
     azure_tenant_id: str | None = None
     azure_client_id: str | None = None
+    azure_client_secret: str | None = None
+    azure_client_certificate_content: str | None = None
+    gcp_service_account_json: str | None = None
+    k8s_context: str | None = None
+    kubeconfig_content: str | None = None
     last_tested_at: str | None = None
     last_test_ok: bool | None = None
 
 
 class ProfileCreateRequest(AcquisitionBuildRequest):
     name: str
+    case_id: str | None = None
 
 
 class ProfileUpdateRequest(BaseModel):
@@ -127,7 +148,8 @@ class S3ImportRequest(BaseModel):
     s3_prefix: str = ""
 
 
-_ALLOWED_PROFILES = frozenset({"cloudshell", "workstation", "enterprise"})
+_ALLOWED_PROFILES = frozenset({"platform", "cloudshell", "workstation", "enterprise"})
+_KIT_DOWNLOAD_PROFILES = frozenset({"cloudshell", "workstation", "enterprise"})
 
 
 app = FastAPI(
@@ -578,7 +600,7 @@ def preview_acquisition(
     from collector.kit.preview import preview_kit
 
     cloud, names, iam_paths = _resolve_acquisition_request(body, require_gcp_log_backend=False)
-    profile = body.deployment_profile.strip().lower() or "cloudshell"
+    profile = body.deployment_profile.strip().lower() or "platform"
     if profile not in _ALLOWED_PROFILES:
         raise HTTPException(status_code=400, detail=f"Unknown deployment profile: {body.deployment_profile!r}")
     gcp_backend = body.gcp_log_backend if cloud == "gcp" else None
@@ -612,12 +634,30 @@ def build_acquisition(
 
     cloud, names, iam_paths = _resolve_acquisition_request(body)
     case_id = _normalize_case_id(body.case_id) or "CASE-PENDING"
-    profile = body.deployment_profile.strip().lower() or "cloudshell"
+    profile = body.deployment_profile.strip().lower() or "platform"
     if profile not in _ALLOWED_PROFILES:
         raise HTTPException(status_code=400, detail=f"Unknown deployment profile: {body.deployment_profile!r}")
+    if profile not in _KIT_DOWNLOAD_PROFILES:
+        raise HTTPException(
+            status_code=400,
+            detail="Platform deployments run server-side; use POST /api/runs instead of building a kit.",
+        )
     gcp_backend = None
     if cloud == "gcp" and body.gcp_log_backend:
         gcp_backend = validate_gcp_log_backend_dict(body.gcp_log_backend)
+
+    connection: dict[str, Any] | None = None
+    if body.connection_id:
+        try:
+            connection = config_store.get_connection(body.connection_id.strip())
+        except ConfigNotFound as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        conn_platform = str(connection.get("platform") or "").strip().lower()
+        if conn_platform and conn_platform != cloud:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Connection platform {conn_platform!r} does not match kit cloud {cloud!r}.",
+            )
 
     with tempfile.TemporaryDirectory(prefix="ventra-kit-") as tmp:
         out = Path(tmp) / "kit.zip"
@@ -644,6 +684,7 @@ def build_acquisition(
                 bundle_wheel=True,
                 require_wheel=True,
                 deployment_profile=profile,
+                connection=connection,
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -782,7 +823,20 @@ def list_connections(_: Role = Depends(_check("manage_config"))) -> dict[str, An
 def create_connection(
     body: ConnectionCreateRequest, _: Role = Depends(_check("manage_config"))
 ) -> dict[str, Any]:
-    return config_store.create_connection(body.model_dump())
+    from .run_service import parse_gcp_service_account_json, validate_kubeconfig_connection
+
+    data = body.model_dump()
+    platform = (data.get("platform") or "").strip().lower()
+    auth_method = (data.get("auth_method") or "").strip().lower()
+    raw = (data.get("gcp_service_account_json") or "").strip()
+    if platform == "gcp" and auth_method != "adc" and raw:
+        parse_gcp_service_account_json(raw)
+    if platform == "kubernetes":
+        validate_kubeconfig_connection(
+            data.get("kubeconfig_content") or "",
+            data.get("k8s_context") or "",
+        )
+    return config_store.create_connection(data)
 
 
 @app.patch("/api/config/connections/{connection_id}")
@@ -791,7 +845,25 @@ def update_connection(
     body: ConnectionUpdateRequest,
     _: Role = Depends(_check("manage_config")),
 ) -> dict[str, Any]:
+    from .run_service import parse_gcp_service_account_json, validate_kubeconfig_connection
+
     patch = {k: v for k, v in body.model_dump().items() if v is not None}
+    raw = patch.get("gcp_service_account_json")
+    if isinstance(raw, str) and raw.strip():
+        existing = config_store.get_connection(connection_id)
+        platform = (patch.get("platform") or existing.get("platform") or "").strip().lower()
+        auth_method = (
+            patch.get("auth_method") or existing.get("auth_method") or ""
+        ).strip().lower()
+        if platform == "gcp" and auth_method != "adc":
+            parse_gcp_service_account_json(raw)
+    kubeconfig_raw = patch.get("kubeconfig_content")
+    if isinstance(kubeconfig_raw, str) and kubeconfig_raw.strip():
+        existing = config_store.get_connection(connection_id)
+        platform = (patch.get("platform") or existing.get("platform") or "").strip().lower()
+        context = patch.get("k8s_context") or existing.get("k8s_context") or ""
+        if platform == "kubernetes":
+            validate_kubeconfig_connection(kubeconfig_raw, context)
     return config_store.update_connection(connection_id, patch)
 
 
@@ -827,6 +899,10 @@ def list_profiles(_: Role = Depends(_check("manage_config"))) -> dict[str, Any]:
 def create_profile(body: ProfileCreateRequest, _: Role = Depends(_check("manage_config"))) -> dict[str, Any]:
     payload = body.model_dump()
     name = payload.pop("name")
+    if payload.get("case_id"):
+        payload["case_id"] = _normalize_case_id(payload["case_id"])
+    else:
+        payload.pop("case_id", None)
     return config_store.create_profile({"name": name, **payload})
 
 
@@ -835,6 +911,8 @@ def update_profile(
     profile_id: str, body: ProfileUpdateRequest, _: Role = Depends(_check("manage_config"))
 ) -> dict[str, Any]:
     patch = {k: v for k, v in body.model_dump().items() if v is not None}
+    if "case_id" in patch:
+        patch["case_id"] = _normalize_case_id(patch["case_id"]) if patch["case_id"] else ""
     return config_store.update_profile(profile_id, patch)
 
 
@@ -915,6 +993,12 @@ def post_run_event(
     return {"accepted": run_id}
 
 
+@app.get("/api/runs/{run_id}/event-log")
+def get_run_event_log(run_id: str, _: Role = Depends(_check("view_case"))) -> dict[str, Any]:
+    """Full run event history from events.jsonl (for UI hydration on page load)."""
+    return {"events": run_store.read_events(run_id)}
+
+
 @app.get("/api/runs/{run_id}/events")
 async def stream_run_events(run_id: str, _: Role = Depends(_check("view_case"))):
     run_store.get_run(run_id)
@@ -943,12 +1027,21 @@ async def stream_run_events(run_id: str, _: Role = Depends(_check("view_case")))
                 break
             await asyncio.sleep(0.5)
 
-    return StreamingResponse(_generator(), media_type="text/event-stream")
+    return StreamingResponse(
+        _generator(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache, no-transform",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 @app.post("/api/runs/{run_id}/cancel")
 def cancel_run(run_id: str, _: Role = Depends(_check("run_collection"))) -> dict[str, Any]:
-    return run_store.request_cancel(run_id)
+    run_store.get_run(run_id)  # 404 if unknown
+    return cancel_run_service(run_id)
 
 
 # -- case overview (dashboard shortcut) --------------------------------------------------
@@ -1045,8 +1138,21 @@ def _normalize_case_id(raw: str | None) -> str | None:
     cid = raw.strip()
     if not cid:
         return None
+    # Accept human-readable labels (spaces) by slugifying to dashes before validation.
+    cid = re.sub(r"\s+", "-", cid)
+    cid = re.sub(r"[^A-Za-z0-9._-]+", "-", cid)
+    cid = re.sub(r"-+", "-", cid).strip("-_.")
+    if not cid:
+        raise HTTPException(status_code=400, detail="Case ID is required.")
+    if not re.match(r"[A-Za-z0-9]", cid[0]):
+        cid = f"CASE-{cid}"
+    if len(cid) > 128:
+        cid = cid[:128]
     if not re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", cid):
-        raise HTTPException(status_code=400, detail="Invalid case ID.")
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid case ID. Use letters, numbers, dashes, dots, or underscores.",
+        )
     return cid
 
 

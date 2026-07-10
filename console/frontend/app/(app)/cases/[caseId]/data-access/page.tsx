@@ -136,7 +136,6 @@ export default function DataAccessPage() {
       <PanelHeader
         icon={Database}
         title={title}
-        description={copy.panelDescription}
         panel="data-access"
       />
       <PanelBody className="space-y-6">

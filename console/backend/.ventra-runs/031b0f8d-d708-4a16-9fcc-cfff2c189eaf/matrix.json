@@ -1,0 +1,255 @@
+{
+  "account_id": "194722414229",
+  "masked_account": "1947***",
+  "case_id": "AWS-Mario",
+  "regions": [
+    "ap-northeast-1",
+    "ap-northeast-2",
+    "ap-northeast-3",
+    "ap-south-1",
+    "ap-southeast-1",
+    "ap-southeast-2",
+    "ca-central-1",
+    "eu-central-1",
+    "eu-north-1",
+    "eu-west-1",
+    "eu-west-2",
+    "eu-west-3",
+    "sa-east-1",
+    "us-east-1",
+    "us-east-2",
+    "us-west-1",
+    "us-west-2"
+  ],
+  "plan_label": "25 artifacts",
+  "complete": 25,
+  "total": 25,
+  "collectors": [
+    {
+      "name": "account",
+      "status": "pass",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": 526.7,
+      "detail": "Environment + operator context.",
+      "live_msg": ""
+    },
+    {
+      "name": "cloudtrail",
+      "status": "fail",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": 262061.7,
+      "detail": "Cancelled while collecting",
+      "live_msg": ""
+    },
+    {
+      "name": "iam",
+      "status": "fail",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "vpc_flow",
+      "status": "fail",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "waf",
+      "status": "fail",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "guardduty",
+      "status": "fail",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "macie",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "detective",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "config",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "securityhub",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "inspector2",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "kms",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "secrets",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "ec2",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "s3",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "lambda",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "lambda_logs",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "elb_alb",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "apigateway",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "cloudfront",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "s3_access",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "route53_resolver",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "eks_audit",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "rds",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "log_posture",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    }
+  ],
+  "status": "cancelled"
+}

@@ -190,6 +190,9 @@ class Collector(abc.ABC):
                 gz.write(line.encode("utf-8"))
                 count += 1
         data = out_path.read_bytes()
+        # Surface a live progress line (drives the console's per-collector log panel and the
+        # CLI live matrix). Cheap: one event per written file, not per record.
+        self._log(f"captured {count:,} records → {filename}")
         return WrittenFile(
             path=out_path.relative_to(self.ctx.staging).as_posix(),
             sha256=hashlib.sha256(data).hexdigest(),

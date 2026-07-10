@@ -8,6 +8,16 @@ import { Plus, X } from "lucide-react";
 
 export type ParamValues = Record<string, string[] | boolean | string>;
 
+/** Matches right-panel `.acquire-kit-input` — visible neutral borders. */
+const PARAM_INPUT_CLASS = "acquire-kit-input";
+
+const PARAM_ACTION_BTN = cn(
+  "flex h-9 w-9 shrink-0 items-center justify-center rounded-md border",
+  "bg-surface-2/60 text-fg-subtle transition-colors",
+  "!border-border-strong/85 hover:!border-border-strong",
+  "focus:outline-none focus-visible:ring-1 focus-visible:ring-accent/30",
+);
+
 function listValues(values: ParamValues, key: string): string[] {
   const v = values[key];
   if (Array.isArray(v)) return v;
@@ -56,13 +66,13 @@ export function AcquireParamFields({
     <div
       className={cn(
         compact
-          ? "grid gap-x-6 gap-y-4 sm:grid-cols-2"
+          ? "grid gap-x-8 gap-y-5 sm:grid-cols-2"
           : "grid gap-x-8 gap-y-5 md:grid-cols-2 xl:grid-cols-3",
         className,
       )}
     >
       {fields.map((field) => (
-        <div key={field.key} className="min-w-0 space-y-2">
+        <div key={field.key} className="min-w-0 space-y-2.5">
           <ParamFieldLabel
             label={field.label}
             required={field.required}
@@ -83,7 +93,7 @@ export function AcquireParamFields({
             </label>
           ) : field.type === "string" ? (
             <Input
-              className="h-9 w-full text-sm"
+              className={cn(PARAM_INPUT_CLASS, "w-full")}
               placeholder={field.placeholder || `Enter ${field.label.toLowerCase()}…`}
               value={stringValue(values, field.key)}
               onChange={(e) => setString(field.key, e.target.value)}
@@ -123,7 +133,7 @@ export function MultiValueInput({
         return (
           <div key={idx} className="flex items-center gap-2">
             <Input
-              className="h-9 flex-1 text-sm mono"
+              className={cn(PARAM_INPUT_CLASS, "min-w-0 flex-1 mono")}
               placeholder={placeholder}
               value={item}
               onChange={(e) => {
@@ -136,7 +146,10 @@ export function MultiValueInput({
               <button
                 type="button"
                 aria-label="Add value"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border text-fg-subtle transition-colors hover:border-accent/50 hover:text-fg"
+                className={cn(
+                  PARAM_ACTION_BTN,
+                  "hover:border-accent hover:bg-accent/10 hover:text-accent",
+                )}
                 onClick={() => onChange([...rows.filter((r) => r.trim()), ""])}
               >
                 <Plus className="h-4 w-4" />
@@ -146,7 +159,10 @@ export function MultiValueInput({
               <button
                 type="button"
                 aria-label="Remove value"
-                className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border text-fg-subtle transition-colors hover:border-bad-red/50 hover:text-bad-red"
+                className={cn(
+                  PARAM_ACTION_BTN,
+                  "hover:border-bad-red/50 hover:bg-bad-red/10 hover:text-bad-red",
+                )}
                 onClick={() => {
                   const next = rows.filter((_, i) => i !== idx);
                   onChange(next.length ? next : []);

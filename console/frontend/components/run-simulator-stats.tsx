@@ -1,6 +1,5 @@
 "use client";
 
-import { SeverityBar } from "@/components/charts";
 import { Card } from "@/components/ui";
 import { fmtNum } from "@/lib/format";
 import { gsap, matchMediaReduced, useGSAP } from "@/lib/gsap-client";
@@ -10,7 +9,6 @@ import {
   CheckCircle2,
   Clock,
   Database,
-  Loader2,
   PauseCircle,
   Radio,
   XCircle,
@@ -18,10 +16,22 @@ import {
 import type { LucideIcon } from "lucide-react";
 import { useRef, type ReactNode } from "react";
 
-const RING_R = 38;
+const RING_R = 40;
 const RING_C = 2 * Math.PI * RING_R;
 
-function ProgressRing({ pct, complete, total }: { pct: number; complete: number; total: number }) {
+function ProgressRing({
+  pct,
+  complete,
+  total,
+  tone = "success",
+}: {
+  pct: number;
+  complete: number;
+  total: number;
+  tone?: "success" | "warn" | "danger";
+}) {
+  const ringColor =
+    tone === "danger" ? "text-bad-red" : tone === "warn" ? "text-warn-amber" : "text-ok-green";
   const containerRef = useRef<HTMLDivElement>(null);
   const progressRef = useRef<SVGCircleElement>(null);
   const pctLabelRef = useRef<HTMLSpanElement>(null);
@@ -98,30 +108,31 @@ function ProgressRing({ pct, complete, total }: { pct: number; complete: number;
   return (
     <div
       ref={containerRef}
-      className="relative flex h-[88px] w-[88px] shrink-0 items-center justify-center"
+      className="relative flex h-[96px] w-[96px] shrink-0 items-center justify-center"
+      aria-label={`Collection progress ${Math.round(clampedPct * 100)} percent`}
     >
-      <svg viewBox="0 0 88 88" className="h-full w-full -rotate-90" aria-hidden>
+      <svg viewBox="0 0 96 96" className="h-full w-full -rotate-90" aria-hidden>
         <circle
-          cx="44"
-          cy="44"
+          cx="48"
+          cy="48"
           r={RING_R}
           fill="none"
           stroke="currentColor"
-          strokeWidth="6"
+          strokeWidth="5"
           className="text-surface-2"
         />
         <circle
           ref={progressRef}
-          cx="44"
-          cy="44"
+          cx="48"
+          cy="48"
           r={RING_R}
           fill="none"
           stroke="currentColor"
-          strokeWidth="6"
+          strokeWidth="5"
           strokeLinecap="round"
           strokeDasharray={RING_C}
           strokeDashoffset={RING_C}
-          className="text-accent"
+          className={ringColor}
         />
       </svg>
       <div className="absolute inset-0 flex flex-col items-center justify-center">
@@ -131,7 +142,7 @@ function ProgressRing({ pct, complete, total }: { pct: number; complete: number;
         >
           0%
         </span>
-        <span ref={countLabelRef} className="text-2xs text-fg-subtle">
+        <span ref={countLabelRef} className="text-2xs tabular-nums text-fg-subtle">
           0/{total}
         </span>
       </div>
@@ -213,16 +224,16 @@ function RunStatCard({
               : "text-fg";
 
   return (
-    <Card className="run-stat-card p-3.5">
-      <div className="flex items-center justify-between gap-2">
+    <div className="run-stat-card">
+      <div className="stat-card-header justify-between">
         <span className="stat-label">{label}</span>
         {Icon && <Icon className={cn("h-4 w-4 shrink-0", valueTone, "opacity-80")} />}
       </div>
-      <div className={cn("mt-1.5 text-xl font-semibold tabular-nums", valueTone)}>
+      <div className={cn("mt-2 text-xl font-semibold tabular-nums", valueTone)}>
         {animateValue != null ? <AnimatedCount value={animateValue} /> : value}
       </div>
-      {sub && <div className="mt-0.5 text-2xs text-fg-subtle">{sub}</div>}
-    </Card>
+      {sub && <div className="mt-1 text-2xs text-fg-subtle">{sub}</div>}
+    </div>
   );
 }
 
@@ -238,7 +249,6 @@ export function RunSimulatorStats({
   className?: string;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const sevTotal = Object.values(stats.severityCounts).reduce((a, b) => a + b, 0);
 
   useGSAP(
     () => {
@@ -252,9 +262,9 @@ export function RunSimulatorStats({
           const reduceMotion = matchMediaReduced(context);
           gsap.from(".run-stat-card", {
             autoAlpha: reduceMotion ? 1 : 0,
-            y: reduceMotion ? 0 : 12,
-            duration: reduceMotion ? 0 : 0.35,
-            stagger: reduceMotion ? 0 : 0.08,
+            y: reduceMotion ? 0 : 8,
+            duration: reduceMotion ? 0 : 0.3,
+            stagger: reduceMotion ? 0 : 0.05,
             ease: "power2.out",
           });
         },
@@ -266,76 +276,74 @@ export function RunSimulatorStats({
   );
 
   return (
-    <div ref={containerRef} className={cn("space-y-4", className)}>
-      <div className="flex flex-wrap items-center gap-4">
-        <ProgressRing pct={stats.pct} complete={stats.complete} total={stats.total} />
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h2 className="text-sm font-medium text-fg">Collection progress</h2>
-            {live && (
-              <span className="inline-flex items-center gap-1 rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-2xs font-medium text-accent">
-                <Radio className="h-3 w-3 animate-pulse" aria-hidden />
-                Live
-              </span>
-            )}
-            {stats.activeCollector && (
-              <span className="inline-flex items-center gap-1 text-2xs text-warn-amber">
-                <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
-                Collecting {stats.activeCollector}
-              </span>
-            )}
-          </div>
-          {sevTotal > 0 && (
-            <div className="mt-3 max-w-md">
-              <p className="mb-1 text-2xs text-fg-subtle">Collected by severity</p>
-              <SeverityBar counts={stats.severityCounts} />
+    <div ref={containerRef}>
+      <Card className={cn("glass-card run-progress-panel", className)}>
+        <div className="run-progress-layout">
+          <div className="run-progress-ring-col">
+            <ProgressRing
+              pct={stats.pct}
+              complete={stats.complete}
+              total={stats.total}
+              tone={
+                stats.fail === 0
+                  ? "success"
+                  : stats.pass + stats.partial === 0
+                    ? "danger"
+                    : "warn"
+              }
+            />
+            <div className="mt-3 text-center">
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <h2 className="text-sm font-medium text-fg">Run progress</h2>
+                {live && (
+                  <span className="inline-flex items-center gap-1 rounded-full border border-accent/30 bg-accent/10 px-2 py-0.5 text-2xs font-medium text-accent">
+                    <Radio className="h-3 w-3 animate-pulse" aria-hidden />
+                    Live
+                  </span>
+                )}
+              </div>
             </div>
-          )}
-        </div>
-      </div>
+          </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <RunStatCard
-          label="Collected"
-          animateValue={stats.pass + stats.partial}
-          sub={`${fmtNum(stats.totalRecords)} records`}
-          icon={CheckCircle2}
-          tone="success"
-        />
-        <RunStatCard
-          label="Failed"
-          animateValue={stats.fail}
-          sub={stats.fail > 0 ? "Review gaps below" : "None"}
-          icon={XCircle}
-          tone={stats.fail > 0 ? "danger" : "muted"}
-        />
-        <RunStatCard
-          label="In progress"
-          animateValue={stats.running}
-          sub={stats.activeCollector ?? "—"}
-          icon={Loader2}
-          tone={stats.running > 0 ? "warn" : "muted"}
-        />
-        <RunStatCard
-          label="Pending"
-          animateValue={stats.pending}
-          sub="Queued collectors"
-          icon={PauseCircle}
-          tone="muted"
-        />
-        <RunStatCard
-          label="Elapsed"
-          value={elapsed}
-          sub={
-            <span className="inline-flex items-center gap-1">
-              <Database className="h-3 w-3" aria-hidden />
-              {stats.complete}/{stats.total} done
-            </span>
-          }
-          icon={Clock}
-          tone="accent"
-        />
-      </div>
+          <div className="run-progress-stats-col">
+            <div className="run-stat-grid">
+            <RunStatCard
+              label="Collected"
+              animateValue={stats.pass + stats.partial}
+              sub={`${fmtNum(stats.totalRecords)} records`}
+              icon={CheckCircle2}
+              tone="success"
+            />
+            <RunStatCard
+              label="Failed"
+              animateValue={stats.fail}
+              sub={stats.fail > 0 ? "Review gaps below" : "None"}
+              icon={XCircle}
+              tone={stats.fail > 0 ? "danger" : "muted"}
+            />
+            <RunStatCard
+              label="Pending"
+              animateValue={stats.pending}
+              sub="Pending"
+              icon={PauseCircle}
+              tone="muted"
+            />
+            <RunStatCard
+              label="Elapsed"
+              value={elapsed}
+              sub={
+                <span className="inline-flex items-center gap-1">
+                  <Database className="h-3 w-3" aria-hidden />
+                  {stats.complete}/{stats.total} done
+                </span>
+              }
+              icon={Clock}
+              tone="accent"
+            />
+          </div>
+          </div>
+        </div>
+      </Card>
     </div>
   );
 }

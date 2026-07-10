@@ -595,7 +595,7 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
                 if status == "pending":
                     glyph = _PENDING
                     hint = self._artifact_hint(name)
-                    detail = "[dim]queued[/dim]"
+                    detail = "[dim]pending[/dim]"
                     if hint:
                         detail += f" · [dim]{escape(hint)}[/dim]"
                     records = "[dim]-[/dim]"
@@ -1282,72 +1282,6 @@ def _gcp_credentials_from_args(args) -> str | None:
     return raw or None
 
 
-def _gcp_bigquery_dataset_preflight(args, spec, project: str | None):
-    """When BigQuery export is configured, verify the dataset exists before collection."""
-    from collector.clouds.gcp.client_factory import GcpClientFactory
-    from collector.engine.gcp_log_backend import GcpLogBackendSpec
-    from collector.engine.gcp_log_export import BigQueryDatasetCheck, check_bigquery_log_dataset
-
-    raw = dict(spec.gcp_log_backend) if spec and spec.gcp_log_backend else {}
-    if not raw:
-        return None
-    backend = GcpLogBackendSpec.from_acquisition_dict(raw)
-    if not backend.uses_bigquery() or not backend.bigquery_dataset.strip():
-        return None
-
-    factory = GcpClientFactory(
-        project_id=project,
-        credentials_path=_gcp_credentials_from_args(args),
-    )
-    return check_bigquery_log_dataset(
-        credentials=factory._credentials,
-        dataset=backend.bigquery_dataset,
-        default_project=project or factory._default_project or "",
-    )
-
-
-def _gcp_bigquery_preflight_line(check, console) -> str:
-    if check.found:
-        if check.table_count:
-            suffix = f" ({check.table_count} table{'s' if check.table_count != 1 else ''})"
-        else:
-            suffix = " (empty)"
-        if console:
-            return (
-                f"[bright_black]BigQuery dataset[/] [bold green]found[/]"
-                f" — [bold]{check.ref}[/]{suffix}"
-            )
-        return f"BigQuery dataset: found — {check.ref}{suffix}"
-    if console:
-        line = (
-            f"[bright_black]BigQuery dataset[/] [bold red]not found[/]"
-            f" — [bold]{check.ref}[/]"
-        )
-        if check.message:
-            try:
-                from rich.markup import escape
-
-                line += f" [bright_black]— {escape(check.message)}[/]"
-            except Exception:  # noqa: BLE001
-                line += f" — {check.message}"
-        return line
-    line = f"BigQuery dataset: not found — {check.ref}"
-    if check.message:
-        line += f" — {check.message}"
-    return line
-
-
-def _bigquery_preflight_json(check) -> dict:
-    return {
-        "ref": check.ref,
-        "project_id": check.project_id,
-        "dataset_id": check.dataset_id,
-        "found": check.found,
-        "table_count": check.table_count,
-        "message": check.message,
-    }
-
-
 def _run_gcp(args) -> int:
     from .engine.api.gcp.runner import GcpRunConfig, run_gcp_collection
     from .engine.registry import GCP_COLLECTOR_ORDER as COLLECTOR_ORDER
@@ -1384,10 +1318,7 @@ def _run_gcp(args) -> int:
         args, "gcp", collectors, artifact_refs
     )
 
-    bq_check = _gcp_bigquery_dataset_preflight(args, spec, project)
     preflight_lines: list[str] = []
-    if bq_check:
-        preflight_lines = [_gcp_bigquery_preflight_line(bq_check, console)]
 
     cfg = GcpRunConfig(
         case_id=case_id,
@@ -1492,8 +1423,6 @@ def _run_gcp(args) -> int:
             },
             "ingested": ingested,
         }
-        if bq_check is not None:
-            payload["bigquery_dataset"] = _bigquery_preflight_json(bq_check)
         print(_json.dumps(payload, indent=2))
 
     if incomplete:

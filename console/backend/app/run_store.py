@@ -79,6 +79,16 @@ class RunStore:
             self._write_json(self._run_dir(run_id) / "meta.json", meta)
             return meta
 
+    def mark_started(self, run_id: str) -> None:
+        """Stamp when execution actually begins so elapsed/duration measure real run time."""
+        with self._lock:
+            meta = self.get_run(run_id)
+            patch: dict[str, Any] = {"status": "running"}
+            if not meta.get("started_at"):
+                patch["started_at"] = _now_iso()
+            meta.update(patch)
+            self._write_json(self._run_dir(run_id) / "meta.json", meta)
+
     def append_event(self, run_id: str, event: dict[str, Any]) -> None:
         line = json.dumps({**event, "ts": _now_iso()})
         with self._lock:
@@ -98,10 +108,19 @@ class RunStore:
         ingested: bool | None = None,
         extra: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
+        finished = _now_iso()
         patch: dict[str, Any] = {
             "status": status,
-            "finished_at": _now_iso(),
+            "finished_at": finished,
         }
+        try:
+            meta = self.get_run(run_id)
+            base = meta.get("started_at") or meta.get("created_at")
+            if base:
+                delta = datetime.fromisoformat(finished) - datetime.fromisoformat(base)
+                patch["duration_ms"] = max(0, int(delta.total_seconds() * 1000))
+        except Exception:  # noqa: BLE001 — duration is best-effort display metadata
+            pass
         if error:
             patch["error"] = error
         if package_path:
@@ -131,7 +150,61 @@ class RunStore:
         return list(self.iter_events(run_id, after=offset))
 
     def request_cancel(self, run_id: str) -> dict[str, Any]:
-        return self.update_meta(run_id, {"cancel_requested": True, "status": "cancelled"})
+        """Flag a run for cancellation and repaint the matrix immediately.
+
+        The worker thread owns finalization, so this never marks the run terminal — it
+        moves an active run to the transient ``cancelling`` state and folds the cancel into
+        the matrix so the UI updates instantly, even while the in-flight collector is still
+        wrapping up. ``cancel_requested`` is what the reporter's ``should_cancel()`` reads.
+        """
+        patch: dict[str, Any] = {
+            "cancel_requested": True,
+            "cancel_requested_at": _now_iso(),
+        }
+        meta = self.get_run(run_id)
+        if str(meta.get("status") or "") in {"pending", "running"}:
+            patch["status"] = "cancelling"
+        result = self.update_meta(run_id, patch)
+        try:
+            matrix = self.get_matrix(run_id)
+            self._apply_cancel_to_matrix(matrix, status="cancelling")
+            self.update_matrix(run_id, matrix)
+            self.append_event(
+                run_id,
+                {"type": "cancelling", "message": "Cancelling — stopping collectors…"},
+            )
+        except RunNotFound:
+            pass
+        return result
+
+    @staticmethod
+    def _apply_cancel_to_matrix(matrix: dict[str, Any], *, status: str = "cancelled") -> dict[str, Any]:
+        """Mark non-terminal collectors failed with a reason so the UI reflects cancellation.
+
+        Running rows are flagged as interrupted mid-collection and pending rows as never
+        started, so the analyst can see *where* the run stopped. Idempotent — terminal rows
+        are left as-is.
+        """
+        collectors = matrix.get("collectors") or []
+        for row in collectors:
+            st = str(row.get("status") or "").lower()
+            if st == "running":
+                row["status"] = "fail"
+                row["detail"] = "Cancelled while collecting"
+                row["live_msg"] = ""
+            elif st == "pending":
+                row["status"] = "fail"
+                row["detail"] = "Cancelled before start"
+                row["live_msg"] = ""
+        done = sum(
+            1
+            for row in collectors
+            if str(row.get("status") or "").lower() in {"pass", "fail", "partial"}
+        )
+        matrix["complete"] = done
+        matrix["total"] = matrix.get("total") or len(collectors)
+        matrix["status"] = status
+        return matrix
 
     @staticmethod
     def _write_json(path: Path, data: dict[str, Any]) -> None:

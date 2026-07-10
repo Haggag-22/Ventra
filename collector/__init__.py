@@ -8,6 +8,17 @@ Forensic invariant: nothing in this package may call a mutating cloud API. See
 ``collector.tools.verify_readonly`` and the ``readonly-guard`` CI check.
 """
 
+import os as _os
+
+# gRPC's default async c-ares DNS resolver fails with "DNS query cancelled" on macOS and behind
+# VPNs/split-horizon DNS (it ignores the OS resolver config). Forcing the native OS resolver
+# (getaddrinfo) fixes it. This MUST be set before grpc is imported — grpc reads GRPC_DNS_RESOLVER
+# when its core initializes (during `from google.cloud import ...`), so the collector package
+# root (which runs before any submodule that imports google) is the earliest reliable point.
+# setdefault keeps an explicit operator override.
+_os.environ.setdefault("GRPC_DNS_RESOLVER", "native")
+del _os
+
 from importlib.metadata import PackageNotFoundError
 from importlib.metadata import version as _pkg_version
 

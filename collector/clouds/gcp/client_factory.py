@@ -10,6 +10,8 @@ from datetime import UTC, datetime
 from threading import Lock
 from typing import Any, Callable, Iterator
 
+# GRPC_DNS_RESOLVER is forced to "native" in collector/__init__.py — it must be set before grpc
+# is imported (which happens on the next lines), so it lives at the package root, not here.
 from google.api_core import exceptions as gcp_exc
 from google.auth import default as google_auth_default
 from google.cloud import compute_v1
@@ -49,6 +51,31 @@ class GcpRateLimited(Exception):
     def __init__(self, message: str) -> None:
         self.message = message
         super().__init__(message)
+
+
+class GcpUnreachable(Exception):
+    """A GCP API endpoint could not be reached (DNS/transport/connectivity)."""
+
+    def __init__(self, message: str) -> None:
+        self.message = message
+        super().__init__(message)
+
+
+def _connectivity_message(host: str, exc: Exception) -> str:
+    return (
+        f"Could not reach the GCP API endpoint {host}. This is a network/DNS problem, not a "
+        "permissions one — check that this machine has internet access, that any VPN or proxy "
+        "allows *.googleapis.com, and that DNS is resolving. "
+        f"Underlying error: {exc}"
+    )
+
+
+def _raise_if_unreachable(host: str, exc: Exception) -> None:
+    """Re-raise transport/DNS failures as a clear GcpUnreachable; ignore everything else."""
+    text = str(exc).lower()
+    transport = isinstance(exc, (gcp_exc.RetryError, gcp_exc.ServiceUnavailable))
+    if transport or "dns" in text or "failed to connect" in text or "unavailable" in text:
+        raise GcpUnreachable(_connectivity_message(host, exc)) from exc
 
 
 def _log_read_qpm() -> int:
@@ -212,13 +239,22 @@ class GcpClientFactory:
         *,
         project_id: str | None = None,
         credentials_path: str | None = None,
+        service_account_info: dict[str, Any] | None = None,
     ) -> None:
         # cloud-platform.read-only is insufficient for IAM Admin and Compute APIs
         # (they return 401, not 403). IAM on the service account still enforces read-only.
         scopes = [
             "https://www.googleapis.com/auth/cloud-platform",
         ]
-        if credentials_path:
+        if service_account_info:
+            from google.oauth2 import service_account
+
+            creds = service_account.Credentials.from_service_account_info(
+                service_account_info, scopes=scopes
+            )
+            self._credentials = creds
+            self._default_project = project_id or service_account_info.get("project_id") or ""
+        elif credentials_path:
             from google.oauth2 import service_account
 
             creds = service_account.Credentials.from_service_account_file(
@@ -272,6 +308,9 @@ class GcpClientFactory:
                 raise GcpAccessDenied(str(exc)) from exc
             except gcp_exc.NotFound:
                 pass
+            except gcp_exc.GoogleAPIError as exc:
+                _raise_if_unreachable("cloudresourcemanager.googleapis.com", exc)
+                raise
         return GcpIdentity(
             project_id=project,
             principal=principal,
@@ -293,6 +332,7 @@ class GcpClientFactory:
         except gcp_exc.PermissionDenied as exc:
             raise GcpAccessDenied(str(exc)) from exc
         except gcp_exc.GoogleAPIError as exc:
+            _raise_if_unreachable("cloudresourcemanager.googleapis.com", exc)
             raise GcpServiceNotEnabled(str(exc)) from exc
         return sorted(set(ids))
 
@@ -424,6 +464,42 @@ class GcpClientFactory:
         self._shared_read_dir = Path(spool_dir) if spool_dir is not None else None
         self._shared_read_spools: dict[tuple[str, str], dict[str, Any]] = {}
 
+    def prime_export_bulk_reads(
+        self,
+        *,
+        plans: list[Any],
+        spool_dir: Any,
+        spec: Any,
+        window_for: Callable[[str], tuple[datetime | None, datetime | None]],
+        artifact_parameters: dict[str, dict] | None = None,
+        on_spool_start: Callable[[str], None] | None = None,
+        on_spool_progress: Callable[[str, int], None] | None = None,
+        on_spool_done: Callable[[str, int], None] | None = None,
+        on_raw_log: Callable[[str, str], None] | None = None,
+    ) -> None:
+        """Pre-fill export spools in parallel for enterprise full-window collection."""
+        from pathlib import Path
+
+        from collector.engine.gcp_export_bulk import (
+            fill_export_spools_parallel,
+            iter_entries_for_export_plan,
+        )
+
+        self._export_spools = fill_export_spools_parallel(
+            plans=plans,
+            spool_dir=Path(spool_dir),
+            iter_entries=lambda project_id, **kwargs: iter_entries_for_export_plan(
+                self, project_id=project_id, **kwargs
+            ),
+            spec=spec,
+            window_for=window_for,
+            artifact_parameters=artifact_parameters,
+            on_spool_start=on_spool_start,
+            on_spool_progress=on_spool_progress,
+            on_spool_done=on_spool_done,
+            on_raw_log=on_raw_log,
+        )
+
     def _shared_spool_replay(
         self,
         entry_plan: dict[str, Any],
@@ -441,11 +517,21 @@ class GcpClientFactory:
         import gzip
         import json as _json
 
-        from collector.engine.gcp_log_export import matches_gcp_log_filter
         from collector.lib.limits import UNLIMITED_RECORDS, records_unlimited
 
         group = str(entry_plan["group"])
         key = (group, project_id or "-")
+        export_spools = getattr(self, "_export_spools", {})
+        if group in export_spools:
+            from collector.engine.gcp_export_bulk import replay_export_spool
+
+            yield from replay_export_spool(
+                export_spools[group],
+                log_filter=log_filter,
+                max_records=max_records,
+                stats=stats,
+            )
+            return
         spool = self._shared_read_spools.get(key)
         if spool is None:
             self._shared_read_dir.mkdir(parents=True, exist_ok=True)
@@ -471,16 +557,14 @@ class GcpClientFactory:
         if stats is not None:
             for k, v in spool["stats"].items():
                 stats.setdefault(k, v)
-        emitted = 0
-        with gzip.open(spool["path"], "rt", encoding="utf-8") as fh:
-            for line in fh:
-                entry = _json.loads(line)
-                if not matches_gcp_log_filter(entry, log_filter):
-                    continue
-                yield entry
-                emitted += 1
-                if not records_unlimited(max_records) and emitted >= max_records:
-                    return
+        from collector.engine.gcp_log_filter_sql import replay_spool_with_fallback
+
+        yield from replay_spool_with_fallback(
+            spool["path"],
+            log_filter,
+            max_records=max_records,
+            unlimited=records_unlimited(max_records),
+        )
 
     def _iter_export_entries(
         self,
@@ -497,8 +581,7 @@ class GcpClientFactory:
         stats: dict[str, Any] | None,
     ) -> Iterator[dict[str, Any]]:
         from collector.engine.gcp_log_backend import (
-            bigquery_reads_all_tables,
-            resolve_bigquery_table_candidates,
+            gcs_reads_all_prefixes,
             resolve_gcs_prefix_candidates,
         )
         from collector.engine.gcp_log_export import (
@@ -506,38 +589,22 @@ class GcpClientFactory:
             GcpExportError,
             GcpExportNotFound,
             GcpExportRateLimited,
-            iter_bigquery_log_entries,
             iter_gcs_log_entries,
         )
 
         try:
-            if spec.uses_bigquery():
-                yield from iter_bigquery_log_entries(
-                    credentials=self._credentials,
-                    project_id=project_id or self._default_project,
-                    dataset=spec.bigquery_dataset,
-                    tables=resolve_bigquery_table_candidates(collector, spec, artifact_params),
-                    log_filter=log_filter,
-                    start=start,
-                    end=end,
-                    max_records=max_records,
-                    read_all_tables=bigquery_reads_all_tables(collector),
-                    project_scope=project_scope,
-                    stats=stats,
-                )
-            else:
-                yield from iter_gcs_log_entries(
-                    credentials=self._credentials,
-                    bucket_name=spec.gcs_bucket,
-                    prefixes=resolve_gcs_prefix_candidates(collector, spec, artifact_params),
-                    log_filter=log_filter,
-                    start=start,
-                    end=end,
-                    max_records=max_records,
-                    read_all_prefixes=bigquery_reads_all_tables(collector),
-                    project_scope=project_scope,
-                    stats=stats,
-                )
+            yield from iter_gcs_log_entries(
+                credentials=self._credentials,
+                bucket_name=spec.gcs_bucket,
+                prefixes=resolve_gcs_prefix_candidates(collector, spec, artifact_params),
+                log_filter=log_filter,
+                start=start,
+                end=end,
+                max_records=max_records,
+                read_all_prefixes=gcs_reads_all_prefixes(collector),
+                project_scope=project_scope,
+                stats=stats,
+            )
         except GcpExportAccessDenied as exc:
             raise GcpAccessDenied(exc.message) from exc
         except GcpExportRateLimited as exc:
@@ -561,11 +628,22 @@ class GcpClientFactory:
         project_scope: list[str] | None = None,
         stats: dict[str, Any] | None = None,
     ) -> Iterator[dict[str, Any]]:
-        """Read log rows via Logging API, BigQuery export, or GCS archive."""
+        """Read log rows via Logging API or GCS archive."""
         from collector.engine.gcp_log_backend import GcpLogBackendSpec
 
         spec = GcpLogBackendSpec.from_acquisition_dict(gcp_log_backend)
-        if spec.uses_bigquery() or spec.uses_gcs():
+        if spec.uses_gcs():
+            export_spools = getattr(self, "_export_spools", {})
+            if collector in export_spools:
+                from collector.engine.gcp_export_bulk import replay_export_spool
+
+                yield from replay_export_spool(
+                    export_spools[collector],
+                    log_filter=log_filter,
+                    max_records=max_records,
+                    stats=stats,
+                )
+                return
             shared = getattr(self, "_shared_read_plan", {}).get(collector)
             if shared is not None and getattr(self, "_shared_read_dir", None) is not None:
                 yield from self._shared_spool_replay(
@@ -627,15 +705,9 @@ class GcpClientFactory:
         spec = GcpLogBackendSpec.from_acquisition_dict(gcp_log_backend)
         projects = [p for p in project_ids if p and p.strip()]
 
-        if spec.uses_bigquery() or spec.uses_gcs():
-            # A bare dataset name resolves per project (each project owns one); a qualified
-            # dataset or a bucket is a single shared target read once for all projects.
-            read_groups: list[tuple[str, list[str]]] = []
-            if spec.uses_bigquery() and "." not in spec.bigquery_dataset.strip():
-                read_groups = [(pid, [pid]) for pid in projects]
-            else:
-                anchor = projects[0] if projects else self._default_project
-                read_groups = [(anchor, projects)]
+        if spec.uses_gcs():
+            anchor = projects[0] if projects else self._default_project
+            read_groups: list[tuple[str, list[str]]] = [(anchor, projects)]
             for anchor_project, scope in read_groups:
                 for entry in self.list_log_entries_for_backend(
                     anchor_project,

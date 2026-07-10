@@ -1,0 +1,208 @@
+{
+  "run_id": "b5f393f6-5c2c-4d8b-8ccb-365a76a57ff8",
+  "status": "completed",
+  "created_at": "2026-07-08T22:37:49.279141Z",
+  "started_at": "2026-07-08T22:37:49.279836Z",
+  "finished_at": "2026-07-08T23:21:53.655045Z",
+  "cloud": "gcp",
+  "case_id": "Audit-GCP",
+  "connection_id": "ecd703bb-c597-4901-9e15-00a07365a12f",
+  "auto_ingest": true,
+  "request": {
+    "cloud": "gcp",
+    "case_id": "Audit-GCP",
+    "artifacts": [
+      "bigquery_audit",
+      "secret_manager",
+      "cloud_audit_admin",
+      "cloud_audit_data",
+      "api_gateway",
+      "cloud_armor",
+      "cloud_cdn",
+      "cloud_dns",
+      "cloud_nat",
+      "firewall_logs",
+      "load_balancer",
+      "network_posture",
+      "vpc_flow",
+      "storage_access"
+    ],
+    "pack": null,
+    "include_iam": true,
+    "since": "2026-07-01",
+    "until": "2026-07-04",
+    "regions": [],
+    "project": "ultimate-opus-500916-b2",
+    "subscription": "",
+    "azure_tenant_id": "",
+    "azure_client_id": "",
+    "aws_profile": "",
+    "max_records_per_source": null,
+    "artifact_parameters": {},
+    "deployment_profile": "platform",
+    "transport": "",
+    "gcp_log_backend": {
+      "mode": "gcs",
+      "gcs": {
+        "bucket": "gs://ventralogsultimateopusb"
+      }
+    },
+    "connection_id": "ecd703bb-c597-4901-9e15-00a07365a12f"
+  },
+  "account_id": "ultimate-opus-500916-b2",
+  "masked_account": "ulti***",
+  "regions": [
+    "ultimate-opus-500916-b2"
+  ],
+  "plan_label": "14 artifacts",
+  "duration_ms": 2644375,
+  "package": {
+    "path": "/var/folders/43/4pdnskbj6t59gmt05_2p_r480000gn/T/ventra-run-g60yf5ia/case-Audit-GCP-1047878869569-20260708T230715Z.tar.zst",
+    "compression": "zstd",
+    "bytes": 681969409,
+    "sha256": "7cecfe001448fb9507f7cf0538d42792f53f6d136745bea0dd5e570c0cfda132"
+  },
+  "collectors": [
+    {
+      "name": "cloud_audit_admin",
+      "status": "pass",
+      "severity": "High",
+      "records": 3392263,
+      "elapsed_seconds": 70.755,
+      "detail": "3392263 log record(s) across 1 project(s)."
+    },
+    {
+      "name": "cloud_audit_data",
+      "status": "pass",
+      "severity": "High",
+      "records": 4850879,
+      "elapsed_seconds": 108.727,
+      "detail": "4850879 log record(s) across 1 project(s)."
+    },
+    {
+      "name": "vpc_flow",
+      "status": "pass",
+      "severity": "High",
+      "records": 1267014,
+      "elapsed_seconds": 33.071,
+      "detail": "1267014 log record(s) across 1 project(s)."
+    },
+    {
+      "name": "firewall_logs",
+      "status": "pass",
+      "severity": "High",
+      "records": 429860,
+      "elapsed_seconds": 7.982,
+      "detail": "429860 log record(s) across 1 project(s)."
+    },
+    {
+      "name": "cloud_nat",
+      "status": "pass",
+      "severity": "High",
+      "records": 1055,
+      "elapsed_seconds": 0.027,
+      "detail": "1055 log record(s) across 1 project(s)."
+    },
+    {
+      "name": "network_posture",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 106,
+      "elapsed_seconds": 49.339,
+      "detail": "12 firewall rule(s), 43 subnet(s), 1 packet mirroring policy(ies)"
+    },
+    {
+      "name": "load_balancer",
+      "status": "pass",
+      "severity": "High",
+      "records": 7986,
+      "elapsed_seconds": 0.202,
+      "detail": "7986 log record(s) across 1 project(s)."
+    },
+    {
+      "name": "cloud_cdn",
+      "status": "pass",
+      "severity": "High",
+      "records": null,
+      "elapsed_seconds": 0.0,
+      "detail": "Deduplicated: 'cloud_cdn' is a filter view over 'load_balancer', which is also selected \u2014 collected once via that stream."
+    },
+    {
+      "name": "api_gateway",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_seconds": 0.001,
+      "detail": "Catch-all sink configured but no matching objects found under prefix 'apigateway.googleapis.com/requests/' for this collector's time window. Logs may not have been generated yet or the log type may not be enabled."
+    },
+    {
+      "name": "cloud_dns",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 38227,
+      "elapsed_seconds": 0.693,
+      "detail": "38227 log record(s) across 1 project(s)."
+    },
+    {
+      "name": "cloud_armor",
+      "status": "pass",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_seconds": 0.0,
+      "detail": "Deduplicated: 'cloud_armor' is a filter view over 'load_balancer', which is also selected \u2014 collected once via that stream."
+    },
+    {
+      "name": "storage_access",
+      "status": "pass",
+      "severity": "High",
+      "records": null,
+      "elapsed_seconds": 0.0,
+      "detail": "Deduplicated: 'storage_access' is a filter view over 'cloud_audit_data', which is also selected \u2014 collected once via that stream."
+    },
+    {
+      "name": "bigquery_audit",
+      "status": "pass",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_seconds": 0.0,
+      "detail": "Deduplicated: 'bigquery_audit' is a filter view over 'cloud_audit_data', which is also selected \u2014 collected once via that stream."
+    },
+    {
+      "name": "secret_manager",
+      "status": "pass",
+      "severity": "High",
+      "records": null,
+      "elapsed_seconds": 0.0,
+      "detail": "Deduplicated: 'secret_manager' is a filter view over 'cloud_audit_data', which is also selected \u2014 collected once via that stream."
+    },
+    {
+      "name": "package",
+      "status": "pass",
+      "severity": "Low",
+      "records": null,
+      "elapsed_seconds": 118.09,
+      "detail": "681,969,409 bytes \u00b7 zstd"
+    },
+    {
+      "name": "ingest",
+      "status": "pending",
+      "severity": "Low",
+      "records": null,
+      "elapsed_seconds": null,
+      "detail": "Ingest into case store"
+    }
+  ],
+  "coverage_gaps": [
+    {
+      "collector": "api_gateway",
+      "severity": "Medium",
+      "detail": "Catch-all sink configured but no matching objects found under prefix 'apigateway.googleapis.com/requests/' for this collector's time window. Logs may not have been generated yet or the log type may not be enabled."
+    }
+  ],
+  "ingest": {
+    "case_id": "Audit-GCP",
+    "events": 9948002,
+    "integrity": "amber",
+    "warnings": []
+  }
+}

@@ -33,10 +33,18 @@ export function isTerminalRow(status: string): boolean {
   return p === "pass" || p === "fail" || p === "partial";
 }
 
+export function effectiveRowStatus(status: string, runCancelled: boolean): string {
+  if (!runCancelled) return status;
+  const phase = rowPhase(status);
+  if (phase === "running" || phase === "pending") return "fail";
+  return status;
+}
+
 export function computeRunMatrixStats(
   rows: CollectorMatrixRow[],
   complete?: number,
   total?: number,
+  runCancelled = false,
 ): RunMatrixStats {
   let pass = 0;
   let fail = 0;
@@ -51,7 +59,7 @@ export function computeRunMatrixStats(
   const gaps: RunMatrixStats["gaps"] = [];
 
   for (const row of rows) {
-    const phase = rowPhase(row.status);
+    const phase = rowPhase(effectiveRowStatus(row.status, runCancelled));
     if (phase === "pass") pass += 1;
     else if (phase === "fail") fail += 1;
     else if (phase === "running") {
@@ -83,7 +91,7 @@ export function computeRunMatrixStats(
   const resolvedTotal = total ?? rows.length;
   const resolvedComplete =
     complete ??
-    rows.filter((r) => isTerminalRow(r.status)).length;
+    rows.filter((r) => isTerminalRow(effectiveRowStatus(r.status, runCancelled))).length;
 
   return {
     pass,
@@ -108,15 +116,15 @@ export function computeGapRows(
 ): { name: string; status: string; detail?: string }[] {
   return rows
     .filter((row) => {
-      const phase = rowPhase(row.status);
+      const phase = rowPhase(effectiveRowStatus(row.status, cancelled));
       if (phase === "fail") return true;
       if (cancelled && (phase === "pending" || phase === "running")) return true;
       return false;
     })
     .map((row) => ({
       name: row.name,
-      status: row.status,
-      detail: row.detail,
+      status: effectiveRowStatus(row.status, cancelled),
+      detail: row.detail ?? (cancelled ? "Cancelled" : undefined),
     }));
 }
 

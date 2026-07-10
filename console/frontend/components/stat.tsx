@@ -59,7 +59,7 @@ export function KpiMetricCard({
   value: React.ReactNode;
   sub?: React.ReactNode;
   icon?: LucideIcon;
-  tone?: "default" | "critical" | "high" | "accent" | "success";
+  tone?: "default" | "critical" | "high" | "accent" | "cta" | "success";
   /** Heights 0–100 for each bar in the mini chart */
   sparkline?: number[];
   onClick?: () => void;
@@ -71,9 +71,11 @@ export function KpiMetricCard({
         ? "text-high"
         : tone === "accent"
           ? "text-accent"
-          : tone === "success"
-            ? "text-ok-green"
-            : "text-fg";
+          : tone === "cta"
+            ? "text-accent-cta"
+            : tone === "success"
+              ? "text-ok-green"
+              : "text-fg";
 
   return (
     <div
@@ -95,16 +97,19 @@ export function KpiMetricCard({
           : undefined
       }
     >
-      <div className="flex items-center justify-between gap-2">
+      <div className="stat-card-header justify-between">
         <span className="stat-label">{label}</span>
-        {Icon && <Icon className="h-4 w-4 text-fg-faint" aria-hidden />}
+        {Icon && <Icon className="h-4 w-4 shrink-0 text-fg-faint" aria-hidden />}
       </div>
       <div className={cn("mt-2 text-2xl font-semibold tabular-nums tracking-tight", toneText)}>
         {value}
       </div>
       {sub && <div className="mt-1 text-xs text-fg-subtle">{sub}</div>}
       {sparkline && sparkline.length > 0 && (
-        <div className="kpi-sparkline" aria-hidden>
+        <div
+          className={cn("kpi-sparkline", tone === "cta" && "kpi-sparkline--cta")}
+          aria-hidden
+        >
           {sparkline.map((h, i) => (
             <span
               key={i}
@@ -146,9 +151,9 @@ export function StatCard({
       className={cn("p-4", onClick && "cursor-pointer hover:border-accent/30 transition-colors")}
       onClick={onClick}
     >
-      <div className="flex items-center justify-between">
+      <div className="stat-card-header justify-between">
         <span className="stat-label">{label}</span>
-        {Icon && <Icon className="h-4 w-4 text-fg-subtle" />}
+        {Icon && <Icon className="h-4 w-4 shrink-0 text-fg-subtle" />}
       </div>
       <div className={cn("mt-2 text-2xl font-semibold tabular-nums", toneText)}>{value}</div>
       {sub && <div className="mt-1 text-xs text-fg-subtle">{sub}</div>}

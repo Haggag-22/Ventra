@@ -1,19 +1,16 @@
 /** GCP log collection backend — mirrors acquisition.yaml ``gcp_log_backend``. */
 
-export type GcpLogBackendMode = "logging_api" | "bigquery" | "gcs";
+export type GcpLogBackendMode = "logging_api" | "gcs";
 
 export type GcpLogBackendConfig = {
   mode: GcpLogBackendMode;
-  bigquery?: {
-    dataset?: string;
-  };
   gcs?: {
     bucket?: string;
     prefix?: string;
   };
 };
 
-/** Collectors that read log rows (Cloud Logging API or future export backends). */
+/** Collectors that read log rows (Cloud Logging API or GCS archive). */
 export const GCP_LOGGING_COLLECTOR_IDS = new Set([
   "cloud_audit_admin",
   "cloud_audit_system",
@@ -47,23 +44,23 @@ export function loggingCollectorsInCart(collectors: string[]): string[] {
 
 export type GcpLogBackendFormState = {
   mode: GcpLogBackendMode | "";
-  bqDataset: string;
   gcsBucket: string;
   gcsPrefix: string;
 };
 
 export const DEFAULT_GCP_LOG_BACKEND_FORM: GcpLogBackendFormState = {
   mode: "",
-  bqDataset: "",
   gcsBucket: "",
   gcsPrefix: "",
 };
 
 export function gcpConfigToForm(cfg?: GcpLogBackendConfig | null): GcpLogBackendFormState {
   if (!cfg?.mode) return { ...DEFAULT_GCP_LOG_BACKEND_FORM };
+  const rawMode = (cfg as { mode?: string }).mode;
+  const mode: GcpLogBackendFormState["mode"] =
+    rawMode === "bigquery" ? "" : rawMode === "gcs" || rawMode === "logging_api" ? rawMode : "";
   return {
-    mode: cfg.mode,
-    bqDataset: cfg.bigquery?.dataset ?? "",
+    mode,
     gcsBucket: cfg.gcs?.bucket ?? "",
     gcsPrefix: cfg.gcs?.prefix ?? "",
   };
@@ -75,12 +72,6 @@ export function serializeGcpLogBackend(form: GcpLogBackendFormState): GcpLogBack
   if (!form.mode) return undefined;
   if (form.mode === "logging_api") {
     return { mode: "logging_api" };
-  }
-  if (form.mode === "bigquery") {
-    return {
-      mode: "bigquery",
-      bigquery: { dataset: form.bqDataset.trim() },
-    };
   }
   return {
     mode: "gcs",
@@ -100,9 +91,6 @@ export function validateGcpLogBackendForm(
   if (!form.mode) {
     return "Choose how GCP logs should be collected before downloading the kit.";
   }
-  if (form.mode === "bigquery" && !form.bqDataset.trim()) {
-    return "Enter a BigQuery dataset (project.dataset).";
-  }
   if (form.mode === "gcs" && !form.gcsBucket.trim()) {
     return "Enter a GCS bucket.";
   }
@@ -111,13 +99,6 @@ export function validateGcpLogBackendForm(
 
 export const GCP_LOG_BACKEND_IAM: Record<GcpLogBackendMode, readonly string[]> = {
   logging_api: ["logging.logEntries.list"],
-  bigquery: [
-    "bigquery.jobs.create",
-    "bigquery.datasets.get",
-    "bigquery.tables.get",
-    "bigquery.tables.getData",
-    "bigquery.tables.list",
-  ],
   gcs: ["storage.buckets.get", "storage.objects.get", "storage.objects.list"],
 };
 
@@ -127,7 +108,6 @@ export const GCP_LOG_BACKEND_BUTTON_CLASS =
 
 export const GCP_LOG_BACKEND_ACCENT_CLASS: Record<GcpLogBackendMode, string> = {
   logging_api: "border-l-[#FBBC04]",
-  bigquery: "border-l-[#FBBC04]",
   gcs: "border-l-[#FBBC04]",
 };
 
@@ -142,11 +122,6 @@ export const GCP_LOG_BACKEND_OPTIONS: {
     label: "Log Explorer (Direct API)",
     summary: "Reads logs directly from Cloud Logging.",
     warning: "About 60 log API requests per minute per project. Large kits may run slowly.",
-  },
-  {
-    mode: "bigquery",
-    label: "BigQuery Export",
-    summary: "Reads exported logs from the configured BigQuery dataset using each collector's log filter.",
   },
   {
     mode: "gcs",

@@ -1,0 +1,47 @@
+{
+  "run_id": "5f83db2c-0bde-441a-b286-58e075a419ae",
+  "status": "cancelled",
+  "created_at": "2026-07-05T23:43:02.908436Z",
+  "started_at": null,
+  "finished_at": null,
+  "cloud": "gcp",
+  "case_id": "demoooooo",
+  "connection_id": "ecd703bb-c597-4901-9e15-00a07365a12f",
+  "auto_ingest": true,
+  "request": {
+    "cloud": "gcp",
+    "case_id": "demoooooo",
+    "artifacts": [
+      "cloud_monitoring",
+      "iam_policy",
+      "login_events",
+      "project",
+      "cloud_audit_admin"
+    ],
+    "pack": null,
+    "include_iam": true,
+    "since": "",
+    "until": "",
+    "regions": [],
+    "project": "",
+    "subscription": "",
+    "azure_tenant_id": "",
+    "azure_client_id": "",
+    "aws_profile": "",
+    "max_records_per_source": null,
+    "artifact_parameters": {},
+    "deployment_profile": "platform",
+    "transport": "",
+    "gcp_log_backend": {
+      "mode": "logging_api"
+    },
+    "connection_id": "ecd703bb-c597-4901-9e15-00a07365a12f"
+  },
+  "account_id": "ultimate-opus-500916-b2",
+  "masked_account": "ulti***",
+  "regions": [
+    "ultimate-opus-500916-b2"
+  ],
+  "plan_label": "5 artifacts",
+  "cancel_requested": true
+}

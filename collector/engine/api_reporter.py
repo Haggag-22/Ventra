@@ -5,11 +5,16 @@ from __future__ import annotations
 import json
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 from typing import Any, Protocol
 
-from ..lib.models import SourceResult
+from ..lib.models import GapReason, SourceResult, SourceStatus
 from .matrix_state import MatrixState
 from .run_common import RunReporter
+
+# Distinct cancel reasons so the console can show where a run was interrupted.
+CANCEL_RUNNING_DETAIL = "Cancelled while collecting"
+CANCEL_PENDING_DETAIL = "Cancelled before start"
 
 
 class RunSink(Protocol):
@@ -64,10 +69,12 @@ class ApiReporter(RunReporter):
         run_id: str,
         sink: RunSink | None = None,
         relay_url: str | None = None,
+        cancel_checker: Callable[[], bool] | None = None,
     ) -> None:
         super().__init__()
         self.matrix = matrix
         self.run_id = run_id
+        self._cancel_checker = cancel_checker or (lambda: False)
         if sink is not None:
             self._sink = sink
         elif relay_url:
@@ -75,7 +82,27 @@ class ApiReporter(RunReporter):
         else:
             raise ValueError("ApiReporter requires sink or relay_url")
 
+    def should_cancel(self) -> bool:
+        return self._cancel_checker()
+
+    def abort_remaining(self, detail: str = "Cancelled") -> None:
+        self.matrix.abort_non_terminal(
+            detail=detail,
+            running_detail=CANCEL_RUNNING_DETAIL,
+            pending_detail=CANCEL_PENDING_DETAIL,
+        )
+        self._publish_matrix()
+        self._sink.append_event(self.run_id, {"type": "cancelled", "message": detail})
+
     def _publish_matrix(self) -> None:
+        # Once a cancel is in flight, fold the abort into every publish. This is the single
+        # guard that stops a still-running collector's late progress event from resurrecting
+        # a "running/collecting…" row after the operator has cancelled.
+        if self.should_cancel():
+            self.matrix.abort_non_terminal(
+                running_detail=CANCEL_RUNNING_DETAIL,
+                pending_detail=CANCEL_PENDING_DETAIL,
+            )
         done, total = self.matrix.progress()
         snap = self.matrix.snapshot()
         payload = {
@@ -88,7 +115,7 @@ class ApiReporter(RunReporter):
 
     def _log_event(self, event_type: str, **fields: Any) -> None:
         self._sink.append_event(self.run_id, {"type": event_type, **fields})
-        if event_type in {"start", "finish", "event", "begin_run"}:
+        if event_type in {"start", "finish", "begin_run"}:
             self._publish_matrix()
 
     def begin_run(
@@ -102,6 +129,7 @@ class ApiReporter(RunReporter):
         artifact_labels: dict[str, str] | None = None,
         artifact_severities: dict[str, str] | None = None,
         preflight_lines: list[str] | None = None,
+        pipeline_steps: list[str] | None = None,
     ) -> None:
         self.matrix.begin_run(
             account_id,
@@ -111,6 +139,7 @@ class ApiReporter(RunReporter):
             plan_label=plan_label,
             artifact_labels=artifact_labels,
             artifact_severities=artifact_severities,
+            pipeline_steps=pipeline_steps,
         )
         self._sink.update_meta(
             self.run_id,
@@ -133,16 +162,81 @@ class ApiReporter(RunReporter):
         )
 
     def start(self, name: str) -> None:
+        # After a cancel, don't flip a not-yet-started collector to running/collecting.
+        if self.should_cancel():
+            return
         self.events.append((name, "running"))
         self.matrix.start(name)
         self._log_event("start", collector=name)
 
     def event(self, name: str, msg: str) -> None:
         super().event(name, msg)
+        # Always surface the raw line so the per-collector panel reads like a terminal…
+        self._sink.append_event(self.run_id, {"type": "event", "collector": name, "message": msg})
+        # …but never let a late progress line repaint a "collecting…" state post-cancel.
+        if self.should_cancel():
+            return
         self.matrix.event(name, msg)
-        self._log_event("event", collector=name, message=msg)
+        self._publish_matrix()
+
+    def raw_log(self, collector: str, message: str) -> None:
+        """Emit a verbose debug line to the run log and optional collector live status."""
+        super().raw_log(collector, message)
+        self._sink.append_event(
+            self.run_id,
+            {"type": "debug", "collector": collector, "message": message},
+        )
+        if self.should_cancel():
+            return
+        if collector not in ("export_bulk", "run", "strategy_resolver"):
+            self.matrix.event(collector, message)
+        self._publish_matrix()
+
+    def start_step(self, name: str, msg: str = "") -> None:
+        if self.should_cancel():
+            return
+        self.matrix.start_step(name, msg)
+        self._log_event("start", collector=name)
+        if msg:
+            self._sink.append_event(
+                self.run_id, {"type": "event", "collector": name, "message": msg}
+            )
+
+    def step_event(self, name: str, msg: str) -> None:
+        super().step_event(name, msg)
+        self._sink.append_event(
+            self.run_id, {"type": "event", "collector": name, "message": msg}
+        )
+        if self.should_cancel():
+            return
+        self.matrix.event(name, msg)
+        self._publish_matrix()
+
+    def finish_step(
+        self,
+        name: str,
+        *,
+        success: bool,
+        detail: str,
+        records: int | None = None,
+    ) -> None:
+        self.matrix.finish_step(name, success=success, detail=detail, records=records)
+        self._log_event(
+            "finish",
+            collector=name,
+            status="collected" if success else "failed",
+            records=records,
+            message=detail,
+        )
 
     def finish(self, name: str, result: SourceResult) -> None:
+        if self.should_cancel():
+            result = SourceResult(
+                name=name,
+                status=SourceStatus.SKIPPED,
+                gaps=[(name, GapReason.COLLECTOR_ERROR, CANCEL_RUNNING_DETAIL)],
+                notes=CANCEL_RUNNING_DETAIL,
+            )
         self.matrix.finish(name, result)
         self.events.append((name, result.status.value))
         self._log_event(

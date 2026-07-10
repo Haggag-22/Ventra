@@ -38,6 +38,7 @@ class GapReason(enum.StrEnum):
     COLLECTOR_ERROR = "collector_error"
     LOG_INTEGRITY_FAILED = "log_integrity_failed"
     OUT_OF_SCOPE = "out_of_scope"
+    UNPARSEABLE_TIMESTAMP = "unparseable_timestamp"
 
 
 @dataclass
@@ -246,6 +247,7 @@ class AzureAuthOptions:
     client_secret: str = ""
     client_certificate_path: str = ""
     client_certificate_password: str = ""
+    client_certificate_content: str = ""
 
 
 @dataclass

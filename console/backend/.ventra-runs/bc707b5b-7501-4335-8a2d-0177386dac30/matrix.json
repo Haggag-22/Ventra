@@ -1,0 +1,149 @@
+{
+  "account_id": "ultimate-opus-500916-b2",
+  "masked_account": "ulti***",
+  "case_id": "All-GCP",
+  "regions": [
+    "ultimate-opus-500916-b2"
+  ],
+  "plan_label": "15 artifacts",
+  "complete": 15,
+  "total": 15,
+  "collectors": [
+    {
+      "name": "project",
+      "status": "pass",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": 298.5,
+      "detail": "Project + organization context.",
+      "live_msg": ""
+    },
+    {
+      "name": "cloud_audit_admin",
+      "status": "pass",
+      "severity": "High",
+      "records": 7714561,
+      "elapsed_ms": 162877.6,
+      "detail": "7714561 log record(s) across 1 project(s).",
+      "live_msg": ""
+    },
+    {
+      "name": "cloud_audit_system",
+      "status": "fail",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": 0.5,
+      "detail": "Catch-all sink configured but no matching objects found under prefix 'cloudaudit.googleapis.com/system_event/' for this collector's time window. Logs may not have been generated yet or the log type may not be enabled.",
+      "live_msg": ""
+    },
+    {
+      "name": "cloud_audit_data",
+      "status": "pass",
+      "severity": "High",
+      "records": 11108682,
+      "elapsed_ms": 258803.5,
+      "detail": "11108682 log record(s) across 1 project(s).",
+      "live_msg": ""
+    },
+    {
+      "name": "vpc_flow",
+      "status": "pass",
+      "severity": "High",
+      "records": 2721096,
+      "elapsed_ms": 72292.5,
+      "detail": "2721096 log record(s) across 1 project(s).",
+      "live_msg": ""
+    },
+    {
+      "name": "cloud_nat",
+      "status": "pass",
+      "severity": "High",
+      "records": 2412,
+      "elapsed_ms": 53.7,
+      "detail": "2412 log record(s) across 1 project(s).",
+      "live_msg": ""
+    },
+    {
+      "name": "network_posture",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 106,
+      "elapsed_ms": 43449.4,
+      "detail": "12 firewall rule(s), 43 subnet(s), 1 packet mirroring policy(ies)",
+      "live_msg": ""
+    },
+    {
+      "name": "load_balancer",
+      "status": "pass",
+      "severity": "High",
+      "records": 21499,
+      "elapsed_ms": 511.3,
+      "detail": "21499 log record(s) across 1 project(s).",
+      "live_msg": ""
+    },
+    {
+      "name": "cloud_cdn",
+      "status": "pass",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": 0.3,
+      "detail": "Deduplicated: 'cloud_cdn' is a filter view over 'load_balancer', which is also selected \u2014 collected once via that stream.",
+      "live_msg": ""
+    },
+    {
+      "name": "api_gateway",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": 0.8,
+      "detail": "Catch-all sink configured but no matching objects found under prefix 'apigateway.googleapis.com/requests/' for this collector's time window. Logs may not have been generated yet or the log type may not be enabled.",
+      "live_msg": ""
+    },
+    {
+      "name": "cloud_dns",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 87280,
+      "elapsed_ms": 1686.8,
+      "detail": "87280 log record(s) across 1 project(s).",
+      "live_msg": ""
+    },
+    {
+      "name": "cloud_armor",
+      "status": "pass",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": 0.3,
+      "detail": "Deduplicated: 'cloud_armor' is a filter view over 'load_balancer', which is also selected \u2014 collected once via that stream.",
+      "live_msg": ""
+    },
+    {
+      "name": "storage_access",
+      "status": "pass",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": 0.3,
+      "detail": "Deduplicated: 'storage_access' is a filter view over 'cloud_audit_data', which is also selected \u2014 collected once via that stream.",
+      "live_msg": ""
+    },
+    {
+      "name": "bigquery_audit",
+      "status": "pass",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": 0.3,
+      "detail": "Deduplicated: 'bigquery_audit' is a filter view over 'cloud_audit_data', which is also selected \u2014 collected once via that stream.",
+      "live_msg": ""
+    },
+    {
+      "name": "secret_manager",
+      "status": "pass",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": 0.3,
+      "detail": "Deduplicated: 'secret_manager' is a filter view over 'cloud_audit_data', which is also selected \u2014 collected once via that stream.",
+      "live_msg": ""
+    }
+  ],
+  "status": "cancelled"
+}

@@ -1,0 +1,254 @@
+{
+  "account_id": "194722414229",
+  "masked_account": "1947***",
+  "case_id": "Spider",
+  "regions": [
+    "ap-northeast-1",
+    "ap-northeast-2",
+    "ap-northeast-3",
+    "ap-south-1",
+    "ap-southeast-1",
+    "ap-southeast-2",
+    "ca-central-1",
+    "eu-central-1",
+    "eu-north-1",
+    "eu-west-1",
+    "eu-west-2",
+    "eu-west-3",
+    "sa-east-1",
+    "us-east-1",
+    "us-east-2",
+    "us-west-1",
+    "us-west-2"
+  ],
+  "plan_label": "25 artifacts",
+  "complete": 25,
+  "total": 25,
+  "collectors": [
+    {
+      "name": "account",
+      "status": "pass",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": 500.0,
+      "detail": "Environment + operator context.",
+      "live_msg": ""
+    },
+    {
+      "name": "cloudtrail",
+      "status": "pass",
+      "severity": "High",
+      "records": 11109,
+      "elapsed_ms": 138462.6,
+      "detail": "No data events log records in window (check S3 path/permissions).",
+      "live_msg": ""
+    },
+    {
+      "name": "iam",
+      "status": "pass",
+      "severity": "High",
+      "records": 33,
+      "elapsed_ms": 8593.9,
+      "detail": "5 users, 28 roles, 33 attached + 2 inline policies.",
+      "live_msg": ""
+    },
+    {
+      "name": "vpc_flow",
+      "status": "pass",
+      "severity": "High",
+      "records": 24425,
+      "elapsed_ms": 36020.2,
+      "detail": "1 flow-log config(s); 24425 CW + 0 S3 records; 17 VPC(s) uncovered.",
+      "live_msg": ""
+    },
+    {
+      "name": "waf",
+      "status": "pass",
+      "severity": "High",
+      "records": 1,
+      "elapsed_ms": 17549.4,
+      "detail": "1 Web ACL(s); 174 sampled request(s).",
+      "live_msg": ""
+    },
+    {
+      "name": "guardduty",
+      "status": "pass",
+      "severity": "High",
+      "records": 421,
+      "elapsed_ms": 33822.1,
+      "detail": "421 findings across 17 detector(s).",
+      "live_msg": ""
+    },
+    {
+      "name": "macie",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 0,
+      "elapsed_ms": 13155.5,
+      "detail": "0 Macie finding(s) across 1 region(s).",
+      "live_msg": ""
+    },
+    {
+      "name": "detective",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 0,
+      "elapsed_ms": 31254.3,
+      "detail": "0 investigation(s) across 1 graph(s).",
+      "live_msg": ""
+    },
+    {
+      "name": "config",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 375,
+      "elapsed_ms": 22132.6,
+      "detail": "Config recording in 1 region(s).",
+      "live_msg": ""
+    },
+    {
+      "name": "securityhub",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 7051,
+      "elapsed_ms": 75685.3,
+      "detail": "7051 active findings.",
+      "live_msg": ""
+    },
+    {
+      "name": "inspector2",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 36,
+      "elapsed_ms": 16785.1,
+      "detail": "36 Inspector2 finding(s).",
+      "live_msg": ""
+    },
+    {
+      "name": "kms",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 6,
+      "elapsed_ms": 12942.7,
+      "detail": "6 key(s).",
+      "live_msg": ""
+    },
+    {
+      "name": "secrets",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 2,
+      "elapsed_ms": 11206.2,
+      "detail": "2 secret(s) (metadata only).",
+      "live_msg": ""
+    },
+    {
+      "name": "ec2",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 37,
+      "elapsed_ms": 33002.4,
+      "detail": "2 instances, 1 snapshots",
+      "live_msg": ""
+    },
+    {
+      "name": "s3",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 7,
+      "elapsed_ms": 5534.8,
+      "detail": "7 bucket(s), 0 public.",
+      "live_msg": ""
+    },
+    {
+      "name": "lambda",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 1,
+      "elapsed_ms": 11594.0,
+      "detail": "1 function(s).",
+      "live_msg": ""
+    },
+    {
+      "name": "lambda_logs",
+      "status": "fail",
+      "severity": "Medium",
+      "records": 0,
+      "elapsed_ms": 14449.4,
+      "detail": "No Lambda log records in window.",
+      "live_msg": ""
+    },
+    {
+      "name": "elb_alb",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 514,
+      "elapsed_ms": 23785.4,
+      "detail": "514 access-log lines from 1/1 load balancer(s) with logging enabled.",
+      "live_msg": ""
+    },
+    {
+      "name": "apigateway",
+      "status": "fail",
+      "severity": "Medium",
+      "records": 0,
+      "elapsed_ms": 19807.5,
+      "detail": "No access-log records in window.",
+      "live_msg": ""
+    },
+    {
+      "name": "cloudfront",
+      "status": "fail",
+      "severity": "Medium",
+      "records": 0,
+      "elapsed_ms": 409.2,
+      "detail": "Standard logging disabled on 1/1 distribution(s): E1QO7ENL2HPU56.",
+      "live_msg": ""
+    },
+    {
+      "name": "s3_access",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 0,
+      "elapsed_ms": 1988.6,
+      "detail": "Server access logging disabled on 6/7 bucket(s): ventra-cases, ventra-lab-access-logs-194722414229-dcd98057, ventra-lab-alb-logs-194722414229-dcd98057, ventra-lab-cloudtrail-194722414229-dcd98057, ventra-lab-config-194722414229-dcd98057, ventra-lab-waf-logs-194722414229-dcd98057.",
+      "live_msg": ""
+    },
+    {
+      "name": "route53_resolver",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 119,
+      "elapsed_ms": 19842.6,
+      "detail": "119 DNS query record(s) from 1 config(s).",
+      "live_msg": ""
+    },
+    {
+      "name": "eks_audit",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 130183,
+      "elapsed_ms": 75517.3,
+      "detail": "130183 audit event(s) from 1/1 cluster(s) with audit logging.",
+      "live_msg": ""
+    },
+    {
+      "name": "rds",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 106,
+      "elapsed_ms": 19898.1,
+      "detail": "/aws/rds/instance/ventra-lab-postgres/upgrade: log group not found (The specified log group does not exist.)",
+      "live_msg": ""
+    },
+    {
+      "name": "log_posture",
+      "status": "pass",
+      "severity": "Medium",
+      "records": 0,
+      "elapsed_ms": 35140.0,
+      "detail": "Logging posture recorded for 3 source(s).",
+      "live_msg": ""
+    }
+  ]
+}

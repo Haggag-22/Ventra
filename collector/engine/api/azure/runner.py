@@ -16,7 +16,6 @@ from collector.engine.registry import AZURE_REGISTRY
 from collector.engine.run_common import RunReporter, parse_window
 from collector.lib.auth import azure_factory_kwargs, manifest_profile_overrides
 from collector.lib.base import Collector
-from collector.lib.chain_of_custody.signing import sign_manifest
 from collector.lib.models import (
     ArtifactRef,
     AzureAuthOptions,
@@ -30,7 +29,7 @@ from collector.lib.models import (
     UalCollectOptions,
     utcnow_iso,
 )
-from collector.lib.packaging.packager import PackageResult, seal_package
+from collector.lib.packaging.packager import PackageResult
 
 __all__ = ["AzureRunConfig", "run_azure_collection", "parse_window"]
 
@@ -56,6 +55,7 @@ class AzureRunConfig:
     plan_label: str = ""
     artifact_labels: dict[str, str] = field(default_factory=dict)
     artifact_severities: dict[str, str] = field(default_factory=dict)
+    pipeline_steps: list[str] = field(default_factory=list)
 
 
 def run_azure_collection(
@@ -75,6 +75,7 @@ def run_azure_collection(
         plan_label=cfg.plan_label,
         artifact_labels=cfg.artifact_labels,
         artifact_severities=cfg.artifact_severities,
+        pipeline_steps=cfg.pipeline_steps,
     )
 
     with tempfile.TemporaryDirectory(prefix="ventra-stage-") as tmp:
@@ -126,6 +127,9 @@ def run_azure_collection(
 
         collection_log: list[dict] = []
         for name in cfg.collectors:
+            if reporter.should_cancel():
+                reporter.abort_remaining()
+                break
             cls = AZURE_REGISTRY.get(name)
             if cls is None:
                 manifest.add_source_result(
@@ -158,14 +162,16 @@ def run_azure_collection(
         _write_collection_log(staging, collection_log)
         manifest_path = staging / "manifest.json"
         manifest.write(manifest_path)
-        sign_result = sign_manifest(manifest_path, cfg.key_path)
-        reporter.event("_seal", f"manifest signed via {sign_result.method}")
 
-        return seal_package(
+        from ...run_finalize import finalize_and_seal_package
+
+        return finalize_and_seal_package(
+            reporter=reporter,
             staging=staging,
             out_dir=cfg.out_dir,
             case_id=cfg.case_id,
             account_id=identity.tenant_id,
+            key_path=cfg.key_path,
         )
 
 

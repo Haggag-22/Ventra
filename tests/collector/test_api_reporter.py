@@ -44,3 +44,110 @@ def test_api_reporter_writes_matrix_on_finish() -> None:
     assert last["total"] == 1
     assert last["collectors"][0]["status"] == "pass"
     assert any(e.get("type") == "finish" for e in sink.events)
+
+
+def test_late_event_after_cancel_does_not_resurrect_running() -> None:
+    """A still-running collector's progress line must not repaint a cancelled row."""
+    sink = _MemorySink()
+    matrix = MatrixState(severity_resolver=lambda _n: "High")
+    cancelled = {"flag": False}
+    reporter = ApiReporter(
+        matrix,
+        run_id="run-1",
+        sink=sink,
+        cancel_checker=lambda: cancelled["flag"],
+    )
+    reporter.begin_run("123456789012", ["us-east-1"], "CASE-1", ["cloudtrail", "iam"])
+    reporter.start("cloudtrail")
+
+    # Operator cancels while cloudtrail is mid-collection.
+    cancelled["flag"] = True
+    # …then a late progress event arrives from the still-running collector.
+    reporter.event("cloudtrail", "reading page 2")
+    # …and the worker eventually drains the run.
+    reporter.finalize()
+
+    # No published matrix may ever show the collector "running" carrying the post-cancel
+    # message — that resurrection is exactly the bug being guarded against.
+    for upd in sink.matrix_updates:
+        for r in upd["matrix"]["collectors"]:
+            if r["name"] == "cloudtrail":
+                assert not (r["status"] == "running" and r.get("live_msg") == "reading page 2")
+
+    last = sink.matrix_updates[-1]["matrix"]
+    rows = {r["name"]: r for r in last["collectors"]}
+    # Running row is failed with a reason, not "running"/"collecting…"; pending never starts.
+    assert rows["cloudtrail"]["status"] == "fail"
+    assert rows["cloudtrail"]["live_msg"] == ""
+    assert rows["cloudtrail"]["detail"] == "Cancelled while collecting"
+    assert rows["iam"]["status"] == "fail"
+    assert rows["iam"]["detail"] == "Cancelled before start"
+    # The raw log line is still recorded so the per-collector panel reads like a terminal.
+    assert any(
+        e.get("type") == "event" and e.get("message") == "reading page 2" for e in sink.events
+    )
+
+
+def test_start_after_cancel_is_suppressed() -> None:
+    """Once cancelled, a not-yet-started collector must not flip to running."""
+    sink = _MemorySink()
+    matrix = MatrixState(severity_resolver=lambda _n: "High")
+    cancelled = {"flag": True}
+    reporter = ApiReporter(
+        matrix, run_id="run-1", sink=sink, cancel_checker=lambda: cancelled["flag"]
+    )
+    reporter.begin_run("123456789012", ["us-east-1"], "CASE-1", ["cloudtrail"])
+    reporter.start("cloudtrail")
+    reporter.finalize()
+
+    last = sink.matrix_updates[-1]["matrix"]
+    assert last["collectors"][0]["status"] == "fail"
+    assert not any(e.get("type") == "start" for e in sink.events)
+
+
+def test_pipeline_steps_publish_live_progress() -> None:
+    sink = _MemorySink()
+    matrix = MatrixState(severity_resolver=lambda _n: "High")
+    reporter = ApiReporter(matrix, run_id="run-1", sink=sink)
+    reporter.begin_run(
+        "123456789012",
+        ["us-east-1"],
+        "CASE-1",
+        ["cloudtrail"],
+        pipeline_steps=["package", "ingest"],
+    )
+    reporter.finish(
+        "cloudtrail",
+        SourceResult(name="cloudtrail", status=SourceStatus.COLLECTED, record_count=10),
+    )
+    reporter.start_step("package", "Archiving evidence files…")
+    reporter.step_event("package", "Compressing archive (zstd)…")
+    reporter.finish_step("package", success=True, detail="1,024 bytes · zstd")
+    reporter.start_step("ingest", "Opening evidence package…")
+    reporter.step_event("ingest", "100,000 events normalized…")
+    reporter.finish_step("ingest", success=True, detail="250,000 events loaded", records=250_000)
+    reporter.finalize()
+
+    last = sink.matrix_updates[-1]["matrix"]
+    assert last["total"] == 3
+    assert last["complete"] == 3
+    names = [row["name"] for row in last["collectors"]]
+    assert names == ["cloudtrail", "package", "ingest"]
+    assert last["collectors"][1]["status"] == "pass"
+    assert last["collectors"][2]["records"] == 250_000
+
+
+def test_raw_log_emits_debug_and_updates_pending_live_msg() -> None:
+    sink = _MemorySink()
+    matrix = MatrixState(severity_resolver=lambda _n: "High")
+    reporter = ApiReporter(matrix, run_id="run-1", sink=sink)
+    reporter.begin_run("123456789012", ["us-east-1"], "CASE-1", ["cloud_audit_admin"])
+    reporter.raw_log("cloud_audit_admin", "[gcs] table `proj.ds.cloudaudit_googleapis_com_activity`")
+    assert any(
+        e.get("type") == "debug" and e.get("message", "").startswith("[gcs]")
+        for e in sink.events
+    )
+    row = sink.matrix_updates[-1]["matrix"]["collectors"][0]
+    assert row["name"] == "cloud_audit_admin"
+    assert row["status"] == "pending"
+    assert "[gcs]" in row.get("live_msg", "")

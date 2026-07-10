@@ -21,6 +21,7 @@ import yaml
 from collector import __version__
 from collector.engine.acquire_platform import collector_cloud_for_platform
 from collector.engine.loader import load_artifacts_dir
+from collector.kit.auth_embed import embed_connection_auth
 
 _KIT_ROOT = Path(__file__).resolve().parent
 _TEMPLATES = _KIT_ROOT / "templates"
@@ -54,7 +55,6 @@ _KIT_CLOUD_REQUIREMENTS: dict[str, list[str]] = {
         "google-cloud-securitycenter>=1.28",
         "google-cloud-compute>=1.19",
         "google-cloud-container>=2.45",
-        "google-cloud-bigquery>=3.20",
         "google-cloud-storage>=2.16",
         "google-auth>=2.29",
         "google-api-core>=2.19",
@@ -116,6 +116,7 @@ def build_kit(
     bundle_wheel: bool = True,
     require_wheel: bool = False,
     deployment_profile: str = "cloudshell",
+    connection: dict[str, Any] | None = None,
 ) -> Path:
     """Generate an acquisition zip: acquisition.yaml + artifacts + narrowed IAM + ventra.py."""
     profile = deployment_profile.strip().lower() or "cloudshell"
@@ -170,6 +171,14 @@ def build_kit(
     if collector_cloud == "gcp" and gcp_log_backend:
         acq["gcp_log_backend"] = dict(gcp_log_backend)
 
+    if connection:
+        embed_connection_auth(staging, connection, acq)
+        # Connection scope wins when the kit template left fields empty.
+        if not str(acq.get("project") or "").strip() and (connection.get("project") or "").strip():
+            acq["project"] = str(connection.get("project") or "").strip()
+        if not str(acq.get("subscription") or "").strip() and (connection.get("subscription") or "").strip():
+            acq["subscription"] = str(connection.get("subscription") or "").strip()
+
     for art in selected:
         collector = art["collector"]
         entry: dict[str, Any] = {
@@ -215,11 +224,7 @@ def build_kit(
     _write_deployment_docs(staging, collector_cloud, profile)
     if collector_cloud == "gcp" and gcp_log_backend:
         mode = str(gcp_log_backend.get("mode") or "logging_api")
-        if mode == "bigquery":
-            src = _TEMPLATES / "gcp-log-setup-bigquery.md"
-            if src.is_file():
-                shutil.copy2(src, staging / "SETUP-gcp-log-export-bigquery.md")
-        elif mode == "gcs":
+        if mode == "gcs":
             src = _TEMPLATES / "gcp-log-setup-gcs.md"
             if src.is_file():
                 shutil.copy2(src, staging / "SETUP-gcp-log-export-gcs.md")

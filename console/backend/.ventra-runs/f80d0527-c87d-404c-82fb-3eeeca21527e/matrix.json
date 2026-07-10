@@ -1,0 +1,239 @@
+{
+  "account_id": "ultimate-opus-500916-b2",
+  "masked_account": "ulti***",
+  "case_id": "mustache-gcp",
+  "regions": [
+    "ultimate-opus-500916-b2"
+  ],
+  "plan_label": "25 artifacts",
+  "complete": 25,
+  "total": 25,
+  "collectors": [
+    {
+      "name": "project",
+      "status": "fail",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "iam_policy",
+      "status": "fail",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "cloud_audit_admin",
+      "status": "fail",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "cloud_audit_system",
+      "status": "fail",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "cloud_audit_data",
+      "status": "fail",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "login_events",
+      "status": "fail",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "vpc_flow",
+      "status": "fail",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "firewall_logs",
+      "status": "fail",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "cloud_nat",
+      "status": "fail",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "network_posture",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "load_balancer",
+      "status": "fail",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "cloud_cdn",
+      "status": "fail",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "api_gateway",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "cloud_dns",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "cloud_armor",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "vm_logs",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "gce",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "cloud_functions",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "gke_audit",
+      "status": "fail",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "storage_access",
+      "status": "fail",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "bigquery_audit",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "cloud_sql",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "secret_manager",
+      "status": "fail",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "scc_findings",
+      "status": "fail",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    },
+    {
+      "name": "cloud_monitoring",
+      "status": "fail",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "Cancelled before start",
+      "live_msg": ""
+    }
+  ],
+  "status": "cancelled"
+}

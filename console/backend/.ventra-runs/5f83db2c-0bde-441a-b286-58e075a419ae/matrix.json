@@ -1,0 +1,58 @@
+{
+  "account_id": "ultimate-opus-500916-b2",
+  "masked_account": "ulti***",
+  "case_id": "demoooooo",
+  "regions": [
+    "ultimate-opus-500916-b2"
+  ],
+  "plan_label": "5 artifacts",
+  "complete": 2,
+  "total": 5,
+  "collectors": [
+    {
+      "name": "project",
+      "status": "pass",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": 215.5,
+      "detail": "Project + organization context.",
+      "live_msg": ""
+    },
+    {
+      "name": "iam_policy",
+      "status": "pass",
+      "severity": "High",
+      "records": 31,
+      "elapsed_ms": 550.7,
+      "detail": "IAM snapshot for 1 project(s): 5 service account(s), 26 project binding(s), 2 custom role(s).",
+      "live_msg": ""
+    },
+    {
+      "name": "cloud_audit_admin",
+      "status": "running",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "queued",
+      "live_msg": "collecting\u2026"
+    },
+    {
+      "name": "login_events",
+      "status": "pending",
+      "severity": "High",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "queued",
+      "live_msg": ""
+    },
+    {
+      "name": "cloud_monitoring",
+      "status": "pending",
+      "severity": "Medium",
+      "records": null,
+      "elapsed_ms": null,
+      "detail": "queued",
+      "live_msg": ""
+    }
+  ]
+}
