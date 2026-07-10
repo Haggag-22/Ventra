@@ -180,3 +180,7 @@
 {"type": "debug", "collector": "cloud_audit_admin", "message": "[gcs] `cloudaudit.googleapis.com/activity/` yielded 70,000 matching rows", "ts": "2026-07-10T20:01:34.318153Z"}
 {"type": "debug", "collector": "vpc_flow", "message": "spool: 350,000 rows buffered from GCS export", "ts": "2026-07-10T20:01:38.554570Z"}
 {"type": "debug", "collector": "vpc_flow", "message": "[gcs] `compute.googleapis.com/vpc_flows/` yielded 350,000 matching rows", "ts": "2026-07-10T20:01:38.562012Z"}
+{"type": "debug", "collector": "cloud_audit_data", "message": "[gcs] `cloudaudit.googleapis.com/data_access/` yielded 30,000 matching rows", "ts": "2026-07-10T20:10:35.862109Z"}
+{"type": "debug", "collector": "cloud_audit_data", "message": "[gcs] `cloudaudit.googleapis.com/data_access/` yielded 40,000 matching rows", "ts": "2026-07-10T20:10:40.932053Z"}
+{"type": "debug", "collector": "cloud_audit_data", "message": "spool: 50,000 rows buffered from GCS export", "ts": "2026-07-10T20:10:43.251890Z"}
+{"type": "debug", "collector": "cloud_audit_data", "message": "[gcs] `cloudaudit.googleapis.com/data_access/` yielded 50,000 matching rows", "ts": "2026-07-10T20:10:43.262041Z"}
