@@ -91,6 +91,7 @@ export interface CaseSummary {
     failures: number;
   };
   event_span: { first: string | null; last: string | null };
+  storage_bytes?: number;
   by_severity: Record<string, number>;
   by_category: Record<string, number>;
   by_source: Record<string, number>;
@@ -402,7 +403,13 @@ export interface EvidenceLines {
 
 // ---- Collection runs -------------------------------------------------------------------
 
-export type RunStatus = "pending" | "running" | "completed" | "failed" | "cancelled";
+export type RunStatus =
+  | "pending"
+  | "running"
+  | "cancelling"
+  | "completed"
+  | "failed"
+  | "cancelled";
 
 export interface RunMeta {
   run_id: string;
@@ -421,6 +428,9 @@ export interface RunMeta {
   collectors_complete?: number;
   duration_ms?: number | null;
   progress?: { complete: number; total: number };
+  /** Original POST /api/runs payload — used to re-run the full scan. */
+  request?: Record<string, unknown>;
+  auto_ingest?: boolean;
 }
 
 export interface CollectorMatrixRow {

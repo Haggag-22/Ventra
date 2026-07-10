@@ -106,18 +106,6 @@ export function GcpLogBackendFields({
                   </label>
 
                   <div className="flex shrink-0 flex-col items-end gap-2">
-                    {opt.mode === "bigquery" && (
-                      <Button
-                        type="button"
-                        variant="secondary"
-                        size="sm"
-                        icon={BookOpen}
-                        className={GCP_LOG_BACKEND_BUTTON_CLASS}
-                        onClick={() => setSetupDialog("bigquery")}
-                      >
-                        How to create Export
-                      </Button>
-                    )}
                     {opt.mode === "gcs" && (
                       <Button
                         type="button"
@@ -142,20 +130,6 @@ export function GcpLogBackendFields({
                     </Button>
                   </div>
                 </div>
-
-                {selected && opt.mode === "bigquery" && (
-                  <div className="space-y-2 border-t border-border/50 px-3 pb-3 pt-3">
-                    <label className="block space-y-1.5">
-                      <span className="text-sm font-medium text-fg">BigQuery dataset</span>
-                      <Input
-                        value={form.bqDataset}
-                        onChange={(e) => set({ bqDataset: e.target.value })}
-                        placeholder="my-project.audit_logs"
-                        className="mono text-xs"
-                      />
-                    </label>
-                  </div>
-                )}
 
                 {selected && opt.mode === "gcs" && (
                   <div className="space-y-2 border-t border-border/50 px-3 pb-3 pt-3">

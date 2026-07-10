@@ -3,7 +3,7 @@ export PYTHONDONTWRITEBYTECODE := 1
 
 UV ?= uv
 
-.PHONY: help install dev-setup demo demo-azure demo-gcp ingest ingest-azure ingest-gcp backend frontend dev gui test lint readonly-guard validate-artifacts generate-catalog clean clean-pycache ensure-no-pycache install-hooks
+.PHONY: help install dev-setup demo demo-azure demo-gcp aws-lab-deploy aws-lab-seed aws-lab-destroy ingest ingest-azure ingest-gcp backend frontend dev gui test lint readonly-guard validate-artifacts generate-catalog clean clean-pycache ensure-no-pycache install-hooks
 
 help:
 	@echo "Ventra targets:"
@@ -12,6 +12,9 @@ help:
 	@echo "  make demo           Generate AWS synthetic evidence package into tests/fixtures/"
 	@echo "  make demo-azure     Generate Azure synthetic evidence package into tests/fixtures/"
 	@echo "  make demo-gcp       Generate GCP synthetic evidence package into tests/fixtures/"
+	@echo "  make aws-lab-deploy Deploy live AWS collector lab (terraform)"
+	@echo "  make aws-lab-seed   Seed attack story activity in the lab"
+	@echo "  make aws-lab-destroy Tear down AWS collector lab"
 	@echo "  make ingest         Ingest the AWS demo package into ./cases"
 	@echo "  make ingest-azure   Ingest the Azure demo package into ./cases"
 	@echo "  make ingest-gcp     Ingest the GCP demo package into ./cases"
@@ -45,6 +48,15 @@ demo-azure:
 
 demo-gcp:
 	$(UV) run python tests/fixtures/generate_gcp_demo_case.py --out tests/fixtures/
+
+aws-lab-deploy:
+	cd docs/deployment/aws/collector-lab/terraform && terraform init -input=false && terraform apply -input=false -auto-approve
+
+aws-lab-seed:
+	$(UV) run python docs/deployment/aws/collector-lab/seed/seed_attack_story.py
+
+aws-lab-destroy:
+	cd docs/deployment/aws/collector-lab/terraform && terraform destroy -input=false -auto-approve
 
 ingest:
 	$(UV) run ventra-ingest tests/fixtures/case-CASE-2026-0042-*.tar.zst --case-store ./cases

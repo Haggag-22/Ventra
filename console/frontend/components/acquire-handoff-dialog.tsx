@@ -18,23 +18,16 @@ const STANDARD_STEPS = [
   "Import the package into Ventra Investigate to continue analysis.",
 ];
 
-const ENTERPRISE_FILE_STEPS = [
-  "Send the kit zip to the client operator (secure channel).",
-  "Client runs collection on EC2/VM using the Enterprise profile (no record cap).",
-  "Client returns the sealed package (.tar.zst) to your IR team.",
-  "Use Import package on Cases when the file arrives.",
-];
-
 const ENTERPRISE_IR_BUCKET_STEPS = [
   "Send the kit zip to the client operator (secure channel).",
-  "Client runs collection on EC2/VM using the Enterprise profile (no record cap).",
+  "Client runs collection on EC2/VM using the Client Deployment profile (no record cap).",
   "Kit uploads the sealed package to your IR S3 bucket automatically.",
   "Use Import from S3 on Cases when collection completes (Ventra reads your bucket server-side).",
 ];
 
 const ENTERPRISE_PRESIGNED_STEPS = [
   "Send the kit zip to the client operator (secure channel).",
-  "Client runs collection on EC2/VM using the Enterprise profile (no record cap).",
+  "Client runs collection on EC2/VM using the Client Deployment profile (no record cap).",
   "Kit uploads via the presigned PUT URL you configured — client needs no bucket IAM.",
   "Ingest from your bucket after upload (Import from S3 or Import package).",
 ];
@@ -44,7 +37,7 @@ function stepsForHandoff(handoff: KitHandoffRecord): string[] {
   const mode = parseHandoffMode(handoff.handoffMode);
   if (mode === "s3_ir_bucket") return ENTERPRISE_IR_BUCKET_STEPS;
   if (mode === "presigned") return ENTERPRISE_PRESIGNED_STEPS;
-  return ENTERPRISE_FILE_STEPS;
+  return ENTERPRISE_IR_BUCKET_STEPS;
 }
 
 type Props = {
@@ -62,8 +55,7 @@ export function AcquireHandoffDialog({ open, handoff, onClose, onImport, onImpor
   const handoffMode = parseHandoffMode(handoff.handoffMode);
   const modeInfo = HANDOFF_MODES.find((m) => m.id === handoffMode);
   const steps = stepsForHandoff(handoff);
-  const showS3Import =
-    enterprise && handoffMode !== "file" && !!handoff.transport && !!onImportS3;
+  const showS3Import = enterprise && !!handoff.transport && !!onImportS3;
 
   return (
     <div
@@ -142,7 +134,7 @@ export function AcquireHandoffDialog({ open, handoff, onClose, onImport, onImpor
                 Import from S3
               </Button>
             )}
-            {(!enterprise || handoffMode === "file") && (
+            {!enterprise && (
               <Button variant="primary-dark" icon={Upload} onClick={onImport}>
                 Import evidence
               </Button>
@@ -153,7 +145,9 @@ export function AcquireHandoffDialog({ open, handoff, onClose, onImport, onImpor
               ? "Import from S3 uses credentials on your Ventra server — not the client's browser."
               : enterprise && handoffMode === "presigned"
                 ? "After the client uploads via presigned URL, ingest from your bucket."
-                : "Opens the import dialog on Cases with case ID pre-filled."}
+                : enterprise
+                  ? "Configure bucket or presigned URL handoff before building the kit."
+                  : "Opens the import dialog on Cases with case ID pre-filled."}
           </p>
         </div>
       </div>

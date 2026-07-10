@@ -287,10 +287,24 @@ class CaseStore:
             summ = case_dir / "summary.json"
             if summ.is_file():
                 try:
-                    out.append(json.loads(summ.read_text()))
+                    row = json.loads(summ.read_text())
+                    if not row.get("storage_bytes"):
+                        row["storage_bytes"] = self._case_dir_bytes(case_dir)
+                    out.append(row)
                 except json.JSONDecodeError:
                     continue
         return out
+
+    @staticmethod
+    def _case_dir_bytes(case_dir: Path) -> int:
+        total = 0
+        try:
+            for path in case_dir.rglob("*"):
+                if path.is_file():
+                    total += path.stat().st_size
+        except OSError:
+            return 0
+        return total
 
     def case_dir(self, case_id: str) -> Path:
         d = self.root / case_id

@@ -167,13 +167,22 @@ export type Connection = {
   platform: string;
   alias?: string;
   auth_method?: string;
+  aws_access_key_id?: string;
+  aws_secret_access_key?: string;
+  aws_session_token?: string;
   profile_name?: string;
   role_arn?: string;
   aws_account_id?: string;
   project?: string;
   subscription?: string;
+  m365_domain?: string;
   azure_tenant_id?: string;
   azure_client_id?: string;
+  azure_client_secret?: string;
+  azure_client_certificate_content?: string;
+  gcp_service_account_json?: string;
+  k8s_context?: string;
+  kubeconfig_content?: string;
   created_at?: string;
   last_tested_at?: string;
   last_test_ok?: boolean;
@@ -237,6 +246,8 @@ export function testConnection(id: string): Promise<{
   tenant_id?: string;
   principal?: string;
   project_id?: string;
+  context?: string;
+  cluster?: string;
   error?: string;
 }> {
   return configRequest(`/config/connections/${encodeURIComponent(id)}/test`, { method: "POST" });
@@ -277,6 +288,12 @@ export function runEventsUrl(runId: string): string {
   return `/api/runs/${encodeURIComponent(runId)}/events`;
 }
 
+export function getRunEventLog(runId: string): Promise<{ events: Record<string, unknown>[] }> {
+  return get<{ events: Record<string, unknown>[] }>(
+    `/runs/${encodeURIComponent(runId)}/event-log`,
+  );
+}
+
 export async function startRun(body: AcquisitionBuild & { auto_ingest?: boolean; connection_id?: string }): Promise<{ run_id: string }> {
   const res = await apiFetch("/api/runs", {
     method: "POST",
@@ -299,8 +316,21 @@ export function getRun(runId: string): Promise<RunMeta> {
   return get<RunMeta>(`/runs/${encodeURIComponent(runId)}`);
 }
 
-export function getRunMatrix(runId: string): Promise<RunMatrix> {
-  return get<Record<string, unknown>>(`/runs/${encodeURIComponent(runId)}/matrix`).then((raw) => ({
+export async function cancelRun(runId: string): Promise<RunMeta> {
+  const res = await apiFetch(`/api/runs/${encodeURIComponent(runId)}/cancel`, {
+    method: "POST",
+    headers: { "X-Ventra-Role": "responder" },
+  });
+  throwIfBackendDown(res);
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(err.detail || "Failed to cancel run");
+  }
+  return res.json() as Promise<RunMeta>;
+}
+
+export function parseRunMatrix(runId: string, raw: Record<string, unknown>): RunMatrix {
+  return {
     run_id: runId,
     status: raw.status as RunMatrix["status"],
     complete: Number(raw.complete ?? 0),
@@ -317,7 +347,13 @@ export function getRunMatrix(runId: string): Promise<RunMatrix> {
       detail: c.detail,
       live_msg: c.live_msg,
     })),
-  }));
+  };
+}
+
+export function getRunMatrix(runId: string): Promise<RunMatrix> {
+  return get<Record<string, unknown>>(`/runs/${encodeURIComponent(runId)}/matrix`).then((raw) =>
+    parseRunMatrix(runId, raw),
+  );
 }
 
 export async function deleteCase(caseId: string): Promise<{ deleted: string }> {
@@ -397,7 +433,7 @@ import type { GcpLogBackendConfig } from "./gcp-log-backend";
 
 export type AcquisitionBuild = {
   cloud: string;
-  case_id: string;
+  case_id?: string;
   artifacts?: string[];
   pack?: string;
   include_iam?: boolean;
@@ -416,6 +452,7 @@ export type AcquisitionBuild = {
   gcp_log_backend?: GcpLogBackendConfig;
   bundle_wheel?: boolean;
   require_wheel?: boolean;
+  connection_id?: string;
 };
 
 export type AcquisitionPreview = {

@@ -59,7 +59,6 @@ def test_build_kit_gcp_requirements_exclude_aws_and_azure_sdks(tmp_path: Path) -
     with zipfile.ZipFile(out) as zf:
         reqs = zf.read("requirements.txt").decode().lower()
     assert "google-cloud-logging" in reqs
-    assert "google-cloud-bigquery" in reqs
     assert "google-cloud-storage" in reqs
     assert "boto3" not in reqs
     assert "azure-" not in reqs

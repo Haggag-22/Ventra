@@ -1,12 +1,15 @@
 "use client";
 
 import { CloudProviderIcon } from "@/components/cloud-provider-icon";
-import { Input } from "@/components/ui";
 import { cn } from "@/lib/utils";
 import type { CasePlatform } from "@/lib/catalog";
-import { Search } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Check, Lock } from "lucide-react";
+import { PROVIDER_META, PROVIDER_ORDER } from "./provider-meta";
 import { PROVIDER_PLATFORMS, type ProviderPlatform } from "./types";
+
+const COMING_SOON = new Set(
+  PROVIDER_PLATFORMS.filter((p) => "comingSoon" in p && p.comingSoon).map((p) => p.id),
+);
 
 export function ProviderStepLink({
   platform,
@@ -15,82 +18,72 @@ export function ProviderStepLink({
   platform: ProviderPlatform | "";
   onSelect: (platform: ProviderPlatform) => void;
 }) {
-  const [query, setQuery] = useState("");
-  const q = query.trim().toLowerCase();
-
-  const filtered = useMemo(() => {
-    if (!q) return PROVIDER_PLATFORMS;
-    return PROVIDER_PLATFORMS.filter(
-      (p) =>
-        p.label.toLowerCase().includes(q) ||
-        p.id.includes(q) ||
-        p.searchable.includes(q),
-    );
-  }, [q]);
-
   return (
     <div className="space-y-5">
       <div>
-        <h2 className="text-base font-semibold text-fg">Link a provider</h2>
-        <p className="mt-1 text-sm text-fg-subtle">
-          Select the cloud platform you want Ventra to collect from. Credentials are configured on
-          the Ventra server host — nothing sensitive is stored in the browser.
-        </p>
+        <h2 className="text-base font-semibold text-fg">Choose a cloud platform</h2>
       </div>
 
-      <div className="relative max-w-md">
-        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-fg-subtle" />
-        <Input
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          placeholder="Search providers…"
-          className="pl-9"
-        />
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        {filtered.map((p) => {
-          const selected = platform === p.id;
-          const disabled = "comingSoon" in p && p.comingSoon;
+      <div className="grid gap-3 lg:grid-cols-2">
+        {PROVIDER_ORDER.map((id) => {
+          const meta = PROVIDER_META[id];
+          const selected = platform === id;
+          const disabled = COMING_SOON.has(id);
           return (
             <button
-              key={p.id}
+              key={id}
               type="button"
               disabled={disabled}
-              onClick={() => onSelect(p.id)}
+              aria-pressed={selected}
+              onClick={() => onSelect(id)}
               className={cn(
-                "flex items-start gap-3 rounded-lg border p-4 text-left transition-colors",
-                disabled && "cursor-not-allowed opacity-60",
-                selected
-                  ? "border-accent/60 bg-accent/10 ring-1 ring-accent/30"
-                  : "border-border bg-surface hover:border-border-strong hover:bg-surface-2",
+                "group relative flex items-center gap-3.5 rounded-xl border p-4 text-left",
+                "transition-[transform,border-color,background-color,box-shadow] duration-150",
+                "focus-visible:outline-none",
+                disabled
+                  ? "cursor-not-allowed border-border bg-surface/40 opacity-60"
+                  : selected
+                    ? "border-ok-green/35 bg-ok-green/[0.06] shadow-[0_0_0_1px_rgb(var(--ok-green)/0.2),0_10px_30px_-18px_rgb(0_0_0/0.5)]"
+                    : "border-border bg-surface hover:-translate-y-0.5 hover:border-border-strong hover:bg-surface-2",
               )}
             >
               <span
                 className={cn(
-                  "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border",
-                  selected ? "border-accent bg-accent" : "border-border bg-surface",
+                  "flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border transition-colors",
+                  selected
+                    ? "border-ok-green/30 bg-bg"
+                    : "border-border bg-bg/60 group-hover:border-border-strong",
                 )}
               >
-                {selected && <span className="h-1.5 w-1.5 rounded-full bg-accent-fg" />}
+                <CloudProviderIcon cloud={id as CasePlatform} />
               </span>
+
               <span className="min-w-0 flex-1">
-                <span className="flex items-center gap-2">
-                  <CloudProviderIcon cloud={p.id as CasePlatform} />
-                  <span className="text-sm font-medium text-fg">{p.label}</span>
+                <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                  <span className="text-sm font-semibold leading-tight text-fg">{meta.label}</span>
+                  {disabled && (
+                    <span className="inline-flex items-center gap-1 rounded-full border border-border bg-surface-2 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-fg-faint">
+                      <Lock className="h-2.5 w-2.5" />
+                      Soon
+                    </span>
+                  )}
                 </span>
-                {disabled && (
-                  <span className="mt-1 inline-block text-xs text-fg-subtle">Coming soon</span>
+              </span>
+
+              <span
+                className={cn(
+                  "flex h-5 w-5 shrink-0 items-center justify-center rounded-full border transition-all",
+                  selected
+                    ? "scale-100 border-ok-green bg-ok-green text-white"
+                    : "scale-90 border-border bg-surface text-transparent group-hover:border-border-strong",
                 )}
+              >
+                <Check className="h-3 w-3" strokeWidth={3} />
               </span>
             </button>
           );
         })}
       </div>
-
-      {filtered.length === 0 && (
-        <p className="text-sm text-fg-subtle">No providers match your search.</p>
-      )}
     </div>
   );
 }

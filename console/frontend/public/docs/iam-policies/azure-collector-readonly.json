@@ -1,0 +1,48 @@
+{
+  "Name": "Ventra Collector (Read Only)",
+  "Description": "Read-only ARM permissions for Ventra Azure forensic collection. Pair with azure-collector-graph.json (Microsoft Graph) and azure-collector-m365.json (Exchange UAL search).",
+  "Actions": [
+    "Microsoft.Resources/subscriptions/read",
+    "Microsoft.Resources/subscriptions/locations/read",
+    "Microsoft.Resources/subscriptions/resourceGroups/read",
+    "Microsoft.Resources/subscriptions/resources/read",
+    "Microsoft.Insights/ActivityLogs/read",
+    "Microsoft.Insights/eventtypes/values/read",
+    "Microsoft.Insights/DiagnosticSettings/read",
+    "Microsoft.Network/networkWatchers/read",
+    "Microsoft.Network/networkWatchers/flowLogs/read",
+    "Microsoft.Network/networkSecurityGroups/read",
+    "Microsoft.Network/azureFirewalls/read",
+    "Microsoft.Network/applicationGateways/read",
+    "Microsoft.Network/frontDoors/read",
+    "Microsoft.Network/dnsZones/read",
+    "Microsoft.Network/privateDnsZones/read",
+    "Microsoft.Network/dnsResolverEndpoints/read",
+    "Microsoft.Cdn/profiles/read",
+    "Microsoft.Storage/storageAccounts/read",
+    "Microsoft.Storage/storageAccounts/blobServices/containers/read",
+    "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read",
+    "Microsoft.KeyVault/vaults/read",
+    "Microsoft.ContainerService/managedClusters/read",
+    "Microsoft.Authorization/roleAssignments/read",
+    "Microsoft.Authorization/roleDefinitions/read",
+    "Microsoft.Security/alerts/read",
+    "Microsoft.Security/locations/alerts/read",
+    "Microsoft.ResourceGraph/resources/read",
+    "Microsoft.OperationalInsights/workspaces/read",
+    "Microsoft.OperationalInsights/workspaces/query/action"
+  ],
+  "NotActions": [],
+  "DataActions": [
+    "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read"
+  ],
+  "NotDataActions": [],
+  "AssignableScopes": [
+    "/subscriptions/{subscription-id}"
+  ],
+  "Notes": [
+    "Activity Log collection uses the Monitor management API (eventtypes/values/read). ActivityLogs/read is included for compatibility with Reader-based custom roles.",
+    "Log Analytics collection (log_analytics) requires workspaces/query/action on each workspace that receives diagnostic logs.",
+    "Storage Blob Data Reader (or equivalent data action) is required to read diagnostic and flow log blobs from storage accounts."
+  ]
+}

@@ -27,11 +27,13 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(settings, "config_dir", cfg)
     import app.config_store as cs_mod
     import app.main as main_mod
+    import app.run_service as run_service_mod
     import app.run_store as rs_mod
 
     store = RunStore(runs)
     rs_mod.run_store = store
     main_mod.run_store = store
+    run_service_mod.run_store = store
     cs_mod.config_store = cs_mod.ConfigStore(cfg)
     main_mod.config_store = cs_mod.config_store
     return TestClient(app)
@@ -75,6 +77,54 @@ def test_matrix_shape(client: TestClient) -> None:
     data = res.json()
     assert data["rows"][0]["name"] == "cloudtrail"
     assert data["total"] == 1
+
+
+def test_cancel_inactive_run_finalizes_cancelled(client: TestClient) -> None:
+    """Cancelling a run with no live worker finalizes it to cancelled, in sync."""
+    import app.run_store as rs_mod
+
+    rec = rs_mod.run_store.create_run({"cloud": "aws", "case_id": "CASE-1", "status": "running"})
+    run_id = rec["run_id"]
+    rs_mod.run_store.update_matrix(
+        run_id,
+        {
+            "collectors": [
+                {"name": "cloudtrail", "status": "running", "live_msg": "collecting…"},
+                {"name": "iam", "status": "pending"},
+            ],
+            "complete": 0,
+            "total": 2,
+        },
+    )
+
+    res = client.post(
+        f"/api/runs/{run_id}/cancel", headers={"X-Ventra-Role": "responder"}
+    )
+    assert res.status_code == 200
+    # No worker thread is registered for this run, so it is finalized immediately.
+    assert res.json()["status"] == "cancelled"
+
+    matrix = client.get(
+        f"/api/runs/{run_id}/matrix", headers={"X-Ventra-Role": "investigator"}
+    ).json()
+    rows = {r["name"]: r for r in matrix["rows"]}
+    assert rows["cloudtrail"]["status"] == "fail"
+    assert rows["cloudtrail"]["live_msg"] == ""
+    assert rows["iam"]["status"] == "fail"
+    assert matrix["status"] == "cancelled"
+
+
+def test_cancel_terminal_run_is_noop(client: TestClient) -> None:
+    import app.run_store as rs_mod
+
+    rec = rs_mod.run_store.create_run({"cloud": "aws", "case_id": "CASE-1"})
+    run_id = rec["run_id"]
+    rs_mod.run_store.finalize(run_id, status="completed")
+    res = client.post(
+        f"/api/runs/{run_id}/cancel", headers={"X-Ventra-Role": "responder"}
+    )
+    assert res.status_code == 200
+    assert res.json()["status"] == "completed"
 
 
 def test_case_overview(client: TestClient, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:

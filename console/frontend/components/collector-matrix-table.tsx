@@ -1,40 +1,119 @@
 "use client";
 
+import { ArtifactIcon } from "@/components/artifact-icon";
+import { displayArtifactLabel } from "@/lib/artifact-icons";
+import { artifactIconCloud } from "@/lib/catalog";
 import { fmtNum } from "@/lib/format";
 import { gsap, matchMediaReduced, useGSAP } from "@/lib/gsap-client";
-import { rowPhase } from "@/lib/run-matrix-stats";
+import { effectiveRowStatus, rowPhase } from "@/lib/run-matrix-stats";
 import type { CollectorMatrixRow } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { Loader2 } from "lucide-react";
+import {
+  AlertCircle,
+  CheckCircle2,
+  Clock,
+  Database,
+  Loader2,
+  Minus,
+  PauseCircle,
+} from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
-
-const STATUS_STYLES: Record<string, string> = {
-  pending: "text-fg-subtle",
-  running: "text-warn-amber",
-  pass: "text-ok-green",
-  ok: "text-ok-green",
-  success: "text-ok-green",
-  collected: "text-ok-green",
-  partial: "text-warn-amber",
-  fail: "text-bad-red",
-  skipped: "text-fg-subtle",
-  error: "text-bad-red",
-  failed: "text-bad-red",
-};
-
-const ROW_BG: Record<string, string> = {
-  pass: "bg-ok-green/[0.04] hover:bg-ok-green/[0.07]",
-  partial: "bg-warn-amber/[0.05] hover:bg-warn-amber/[0.08]",
-  fail: "bg-bad-red/[0.04] hover:bg-bad-red/[0.07]",
-  running: "bg-warn-amber/[0.06] hover:bg-warn-amber/[0.09]",
-  pending: "bg-transparent hover:bg-surface-2/30",
-  other: "hover:bg-surface-2/30",
-};
+import { Tooltip } from "./ui";
 
 function fmtElapsed(ms?: number | null): string {
-  if (ms == null || ms < 0) return "—";
+  if (ms == null || ms < 0) return "";
   if (ms < 1000) return `${ms}ms`;
   return `${(ms / 1000).toFixed(1)}s`;
+}
+
+const STATUS_META: Record<
+  string,
+  { label: string; icon: LucideIcon; className: string; spin?: boolean }
+> = {
+  pass: {
+    label: "Pass",
+    icon: CheckCircle2,
+    className: "text-ok-green bg-ok-green/10 border-ok-green/30",
+  },
+  ok: {
+    label: "Pass",
+    icon: CheckCircle2,
+    className: "text-ok-green bg-ok-green/10 border-ok-green/30",
+  },
+  success: {
+    label: "Pass",
+    icon: CheckCircle2,
+    className: "text-ok-green bg-ok-green/10 border-ok-green/30",
+  },
+  collected: {
+    label: "Pass",
+    icon: CheckCircle2,
+    className: "text-ok-green bg-ok-green/10 border-ok-green/30",
+  },
+  partial: {
+    label: "Partial",
+    icon: AlertCircle,
+    className: "text-warn-amber bg-warn-amber/10 border-warn-amber/30",
+  },
+  fail: {
+    label: "Fail",
+    icon: AlertCircle,
+    className: "text-bad-red bg-bad-red/10 border-bad-red/30",
+  },
+  failed: {
+    label: "Fail",
+    icon: AlertCircle,
+    className: "text-bad-red bg-bad-red/10 border-bad-red/30",
+  },
+  error: {
+    label: "Fail",
+    icon: AlertCircle,
+    className: "text-bad-red bg-bad-red/10 border-bad-red/30",
+  },
+  skipped: {
+    label: "Skipped",
+    icon: Minus,
+    className: "text-fg-subtle bg-surface-2 border-border",
+  },
+  running: {
+    label: "Running",
+    icon: Loader2,
+    className: "text-warn-amber bg-warn-amber/10 border-warn-amber/30",
+    spin: true,
+  },
+  pending: {
+    label: "Pending",
+    icon: PauseCircle,
+    className: "text-fg-subtle bg-surface-2 border-border",
+  },
+};
+
+function statusMeta(status: string) {
+  const key = status.toLowerCase();
+  return (
+    STATUS_META[key] ?? {
+      label: status.replace(/_/g, " "),
+      icon: Minus,
+      className: "text-fg-subtle bg-surface-2 border-border",
+    }
+  );
+}
+
+function CollectorStatusBadge({ status }: { status: string }) {
+  const meta = statusMeta(status);
+  const Icon = meta.icon;
+  return (
+    <span
+      className={cn(
+        "inline-flex shrink-0 items-center gap-1.5 rounded-full border px-2.5 py-1 text-2xs font-semibold capitalize",
+        meta.className,
+      )}
+    >
+      <Icon className={cn("h-3 w-3", meta.spin && "animate-spin")} aria-hidden />
+      {meta.label}
+    </span>
+  );
 }
 
 function AnimatedRecords({ value, rowName }: { value: number | null | undefined; rowName: string }) {
@@ -59,7 +138,7 @@ function AnimatedRecords({ value, rowName }: { value: number | null | undefined;
           const obj = { val: reduceMotion ? to : from };
           gsap.to(obj, {
             val: to,
-            duration: reduceMotion ? 0 : 0.4,
+            duration: reduceMotion ? 0 : 0.35,
             snap: { val: 1 },
             ease: "power2.out",
             onUpdate: () => {
@@ -69,13 +148,6 @@ function AnimatedRecords({ value, rowName }: { value: number | null | undefined;
               prevRef.current = to;
             },
           });
-          if (!reduceMotion) {
-            gsap.fromTo(
-              ref.current,
-              { autoAlpha: 0.6, scale: 1.05 },
-              { autoAlpha: 1, scale: 1, duration: 0.3, ease: "power2.out" },
-            );
-          }
         },
       );
       return () => mm.revert();
@@ -83,7 +155,7 @@ function AnimatedRecords({ value, rowName }: { value: number | null | undefined;
     { scope: ref, dependencies: [value, rowName], revertOnUpdate: true },
   );
 
-  if (value == null) return <span className="text-fg-subtle">—</span>;
+  if (value == null) return null;
   return (
     <span ref={ref} className="mono tabular-nums text-fg">
       {fmtNum(value)}
@@ -91,56 +163,101 @@ function AnimatedRecords({ value, rowName }: { value: number | null | undefined;
   );
 }
 
-function StatusCell({ status, rowName }: { status: string; rowName: string }) {
-  const ref = useRef<HTMLSpanElement>(null);
-  const prevStatus = useRef(status);
+function CollectorRowCard({
+  row,
+  cloud,
+  isActive,
+  isSelected,
+  onSelect,
+  runCancelled = false,
+}: {
+  row: CollectorMatrixRow;
+  cloud: string;
+  isActive: boolean;
+  isSelected: boolean;
+  onSelect?: (name: string) => void;
+  runCancelled?: boolean;
+}) {
+  const displayStatus = effectiveRowStatus(row.status, runCancelled);
+  const phase = rowPhase(displayStatus);
+  const isRunning = phase === "running";
+  const liveMsg = row.live_msg?.trim();
+  const showSubtext = isRunning && liveMsg ? liveMsg : undefined;
 
-  useGSAP(
-    () => {
-      if (prevStatus.current === status) return;
-      const mm = gsap.matchMedia();
-      mm.add("(prefers-reduced-motion: no-preference)", () => {
-        gsap.fromTo(
-          ref.current,
-          { scale: 0.92, autoAlpha: 0.5 },
-          { scale: 1, autoAlpha: 1, duration: 0.25, ease: "power2.out" },
-        );
-      });
-      prevStatus.current = status;
-      return () => mm.revert();
-    },
-    { scope: ref, dependencies: [status, rowName], revertOnUpdate: true },
-  );
-
-  const tone = STATUS_STYLES[status.toLowerCase()] ?? "text-fg";
-  const isRunning = status.toLowerCase() === "running";
   return (
-    <span
-      ref={ref}
-      className={cn("inline-flex items-center gap-1.5 text-sm font-medium capitalize", tone)}
+    <article
+      role={onSelect ? "button" : undefined}
+      tabIndex={onSelect ? 0 : undefined}
+      onClick={onSelect ? () => onSelect(row.name) : undefined}
+      onKeyDown={
+        onSelect
+          ? (e) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.preventDefault();
+                onSelect(row.name);
+              }
+            }
+          : undefined
+      }
+      className={cn(
+        "collector-row-card collector-row-grid",
+        phase === "pass" && "is-pass",
+        phase === "partial" && "is-partial",
+        phase === "fail" && "is-fail",
+        isRunning && !runCancelled && "is-running",
+        isActive && "is-active",
+        isSelected && "is-selected",
+        onSelect && "is-clickable",
+      )}
     >
-      {isRunning && <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />}
-      {status.replace(/_/g, " ")}
-    </span>
+      <div className="collector-row-status">
+        <CollectorStatusBadge status={displayStatus} />
+      </div>
+      <div className="collector-row-icon">
+        <ArtifactIcon cloud={cloud} collector={row.name} size={24} />
+      </div>
+      <div className="collector-row-name">
+        <h3 className="truncate text-sm font-semibold leading-tight text-fg">
+          {displayArtifactLabel(row.name)}
+        </h3>
+        {showSubtext ? (
+          <Tooltip content={showSubtext}>
+            <p className="truncate text-2xs leading-tight text-fg-subtle">{showSubtext}</p>
+          </Tooltip>
+        ) : null}
+      </div>
+      <div className="collector-row-records">
+        <AnimatedRecords value={row.records} rowName={row.name} />
+      </div>
+      <div className="collector-row-time mono">{fmtElapsed(row.elapsed_ms)}</div>
+    </article>
   );
 }
 
 export function CollectorMatrixTable({
   rows,
+  cloud = "aws",
   activeCollector,
+  selectedCollector,
+  onSelectCollector,
   complete,
   total,
+  runCancelled = false,
   className,
 }: {
   rows: CollectorMatrixRow[];
+  cloud?: string;
   activeCollector?: string | null;
+  selectedCollector?: string | null;
+  onSelectCollector?: (name: string) => void;
   complete?: number;
   total?: number;
+  runCancelled?: boolean;
   className?: string;
 }) {
+  const iconCloud = artifactIconCloud(cloud);
   const containerRef = useRef<HTMLDivElement>(null);
-  const activeRef = useRef<HTMLTableRowElement | null>(null);
-  const runningPulseRef = useRef<gsap.core.Tween | null>(null);
+  const activeRef = useRef<HTMLDivElement | null>(null);
   const pct =
     complete != null && total != null && total > 0 ? (complete / total) * 100 : null;
 
@@ -154,10 +271,10 @@ export function CollectorMatrixTable({
         },
         (context) => {
           const reduceMotion = matchMediaReduced(context);
-          gsap.from(".matrix-row", {
+          gsap.from(".collector-row-card", {
             autoAlpha: reduceMotion ? 1 : 0,
-            y: reduceMotion ? 0 : 8,
-            duration: reduceMotion ? 0 : 0.3,
+            y: reduceMotion ? 0 : 10,
+            duration: reduceMotion ? 0 : 0.32,
             stagger: reduceMotion ? 0 : 0.04,
             ease: "power2.out",
           });
@@ -173,31 +290,6 @@ export function CollectorMatrixTable({
     },
   );
 
-  useGSAP(
-    () => {
-      runningPulseRef.current?.kill();
-      const runningRows = gsap.utils.toArray<HTMLElement>(".matrix-row-running", containerRef.current);
-      if (!runningRows.length) return;
-
-      const mm = gsap.matchMedia();
-      mm.add("(prefers-reduced-motion: no-preference)", () => {
-        runningPulseRef.current = gsap.to(runningRows, {
-          scale: 1.008,
-          duration: 0.9,
-          ease: "sine.inOut",
-          yoyo: true,
-          repeat: -1,
-          transformOrigin: "center center",
-        });
-      });
-      return () => {
-        runningPulseRef.current?.kill();
-        mm.revert();
-      };
-    },
-    { scope: containerRef, dependencies: [rows.map((r) => `${r.name}:${r.status}`).join("|")] },
-  );
-
   useEffect(() => {
     if (activeCollector && activeRef.current) {
       activeRef.current.scrollIntoView({ block: "nearest", behavior: "smooth" });
@@ -208,7 +300,7 @@ export function CollectorMatrixTable({
     return (
       <div
         className={cn(
-          "rounded-lg border border-border bg-surface px-4 py-10 text-center text-sm text-fg-subtle",
+          "glass-card rounded-lg px-4 py-10 text-center text-sm text-fg-subtle",
           className,
         )}
       >
@@ -218,73 +310,63 @@ export function CollectorMatrixTable({
   }
 
   return (
-    <div
-      ref={containerRef}
-      className={cn("ct-panel overflow-hidden rounded-lg border border-border", className)}
-    >
-      {pct != null && (
-        <div className="h-1 w-full bg-surface-2" role="progressbar" aria-valuenow={complete} aria-valuemax={total}>
-          <div
-            className="h-full bg-ok-green transition-[width] duration-500 ease-out"
-            style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
-          />
+    <div ref={containerRef} className={cn("collector-matrix-panel", className)}>
+      <div className="collector-matrix-header">
+        <h2 className="text-sm font-medium text-fg">Collectors</h2>
+        {pct != null && (
+          <div className="flex items-center gap-2">
+            <span className="text-2xs tabular-nums text-fg-subtle">
+              {complete}/{total}
+            </span>
+            <div
+              className="collector-progress-track"
+              role="progressbar"
+              aria-valuenow={complete}
+              aria-valuemax={total}
+            >
+              <div
+                className="collector-progress-fill"
+                style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
+              />
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="collector-row-list">
+        <div className="collector-row-columns-header collector-row-grid" aria-hidden>
+          <span />
+          <span />
+          <span />
+          <span className="collector-column-label">
+            <Database className="h-3 w-3" />
+            Records
+          </span>
+          <span className="collector-column-label">
+            <Clock className="h-3 w-3" />
+            Time
+          </span>
         </div>
-      )}
-      <div className="ct-table-wrap overflow-x-auto">
-        <table className="ct-table w-full border-collapse text-left text-sm">
-          <thead className="sticky top-0 z-10 bg-surface">
-            <tr>
-              <th className="w-[12%]">Status</th>
-              <th className="w-[24%]">Collector</th>
-              <th className="w-[10%]">Severity</th>
-              <th className="w-[10%]">Records</th>
-              <th className="w-[10%]">Time</th>
-              <th>Detail</th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => {
-              const phase = rowPhase(row.status);
-              const isActive = activeCollector === row.name;
-              const isRunning = phase === "running";
-              return (
-                <tr
-                  key={row.name}
-                  ref={isActive ? activeRef : undefined}
-                  className={cn(
-                    "matrix-row transition-colors duration-200",
-                    isRunning && "matrix-row-running",
-                    ROW_BG[phase] ?? ROW_BG.other,
-                    isActive &&
-                      "relative z-[1] shadow-[inset_3px_0_0_0_rgb(var(--warn-amber))] ring-1 ring-warn-amber/30",
-                  )}
-                >
-                  <td>
-                    <StatusCell status={row.status} rowName={row.name} />
-                  </td>
-                  <td className="font-medium text-fg">{row.name}</td>
-                  <td className="capitalize text-fg-subtle">{row.severity ?? "—"}</td>
-                  <td>
-                    <AnimatedRecords value={row.records} rowName={row.name} />
-                  </td>
-                  <td className="mono text-fg-subtle">{fmtElapsed(row.elapsed_ms)}</td>
-                  <td>
-                    {row.live_msg ? (
-                      <span className="font-medium text-warn-amber">{row.live_msg}</span>
-                    ) : (
-                      <span className="text-fg-subtle">{row.detail ?? "—"}</span>
-                    )}
-                    {row.live_msg && row.detail && (
-                      <span className="mt-0.5 block truncate text-2xs text-fg-subtle">
-                        {row.detail}
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+        {rows.map((row) => {
+          const displayStatus = effectiveRowStatus(row.status, runCancelled);
+          const isActive = runCancelled ? false : activeCollector === row.name;
+          const isSelected = selectedCollector === row.name;
+          return (
+            <div
+              key={row.name}
+              ref={isActive ? activeRef : undefined}
+            >
+              <CollectorRowCard
+                row={row}
+                cloud={iconCloud}
+                isActive={isActive}
+                isSelected={isSelected}
+                onSelect={onSelectCollector}
+                runCancelled={runCancelled}
+              />
+            </div>
+          );
+        })}
       </div>
     </div>
   );

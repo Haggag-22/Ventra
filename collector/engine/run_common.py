@@ -25,6 +25,7 @@ class RunReporter:
         artifact_labels: dict[str, str] | None = None,
         artifact_severities: dict[str, str] | None = None,
         preflight_lines: list[str] | None = None,
+        pipeline_steps: list[str] | None = None,
     ) -> None:
         """Called once after identity/regions are resolved. No-op by default; the CLI's
         matrix reporter overrides it to print the run header and pre-populate the matrix
@@ -38,6 +39,30 @@ class RunReporter:
 
     def event(self, name: str, msg: str) -> None:
         self.events.append((name, msg))
+
+    def raw_log(self, collector: str, message: str) -> None:
+        """Verbose collection line for the console run log (no-op in tests)."""
+        self.events.append((collector, message))
+
+    def start_step(self, name: str, msg: str = "") -> None:
+        self.events.append((name, "running"))
+
+    def step_event(self, name: str, msg: str) -> None:
+        self.events.append((name, msg))
+
+    def finish_step(
+        self,
+        name: str,
+        *,
+        success: bool,
+        detail: str,
+        records: int | None = None,
+    ) -> None:
+        self.events.append((name, "pass" if success else "fail"))
+
+    def should_cancel(self) -> bool:
+        """When True, runners stop scheduling further collectors."""
+        return False
 
     def _emit(self, name: str, status: str) -> None:  # overridden by CLI subclass
         self.events.append((name, status))

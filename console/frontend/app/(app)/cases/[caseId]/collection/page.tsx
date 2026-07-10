@@ -149,9 +149,7 @@ export default function CollectionPage() {
                 </ul>
               </div>
               <div className="flex flex-wrap gap-2">
-                {isEnterpriseProfile(pendingKit.deploymentProfile) &&
-                parseHandoffMode(pendingKit.handoffMode) !== "file" &&
-                pendingKit.transport ? (
+                {isEnterpriseProfile(pendingKit.deploymentProfile) && pendingKit.transport ? (
                   <Link href={`${CASES_HREF}?import_s3=1`}>
                     <Button variant="primary-dark" icon={CloudDownload} className="h-8 text-xs">
                       Import from S3

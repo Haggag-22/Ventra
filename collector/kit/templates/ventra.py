@@ -6,14 +6,18 @@ Bootstraps a local venv, installs the bundled ventra wheel (with dependencies), 
 
 Usage:
     python3 ventra.py --out ./ventra-evidence
+
+When the kit was built with an embedded connection, authentication is read from
+``acquisition.yaml`` and the ``credentials/`` directory — no extra flags required.
+Optional overrides:
     python3 ventra.py --profile my-aws-profile --out ./ventra-evidence
-    python3 ventra.py --subscription <azure-sub-id> --out ./evidence
-    python3 ventra.py --project my-gcp-project --credentials /path/to/sa-key.json --out ./evidence
+    python3 ventra.py --credentials /path/to/other-key.json --out ./evidence
 """
 
 from __future__ import annotations
 
 import argparse
+import json
 import os
 import re
 import shutil
@@ -120,6 +124,9 @@ def _acquisition_window_args() -> list[str]:
 _GCP_EXPORT_REQUIREMENTS = (
     "google-cloud-bigquery>=3.20",
     "google-cloud-storage>=2.16",
+    # DuckDB powers the fast SQL log-filter path; the collector falls back to pure Python if it
+    # is missing, so this is a performance dependency rather than a hard requirement.
+    "duckdb>=0.10",
 )
 
 
@@ -176,6 +183,7 @@ def _ensure_ventra(cloud: str) -> Path:
                 "google-cloud-bigquery>=3.20",
                 "google-cloud-storage>=2.16",
                 "protobuf>=4.25",
+                "duckdb>=0.10",
             ]
         _uv_pip_install(uv, py, *fallback)
 
@@ -193,27 +201,87 @@ def _ensure_ventra(cloud: str) -> Path:
 
 
 
+def _kit_relative_path(raw: str) -> Path | None:
+    value = (raw or "").strip()
+    if not value:
+        return None
+    path = (ROOT / value).resolve()
+    try:
+        path.relative_to(ROOT.resolve())
+    except ValueError:
+        return None
+    return path
+
+
+def _load_json_credentials(field: str) -> dict[str, str]:
+    rel = _read_acquisition_field(field).strip()
+    if not rel:
+        return {}
+    path = _kit_relative_path(rel)
+    if path is None or not path.is_file():
+        return {}
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {str(k): str(v) for k, v in data.items() if v is not None and str(v).strip()}
+
+
+def _apply_aws_env_from_kit() -> None:
+    creds = _load_json_credentials("aws_credentials")
+    if not creds:
+        return
+    for key in ("aws_access_key_id", "aws_secret_access_key", "aws_session_token"):
+        value = creds.get(key, "").strip()
+        if value:
+            os.environ[key.upper()] = value
+
+
 def _azure_auth_extra_args() -> list[str]:
-    """Pass SP tenant/client from acquisition.yaml; secret stays in env only."""
+    """Pass SP tenant/client from acquisition.yaml or embedded credentials; secret stays in env only."""
+    creds = _load_json_credentials("azure_credentials")
     extra: list[str] = []
-    tenant = _read_acquisition_field("azure_tenant_id").strip() or os.environ.get("AZURE_TENANT_ID", "").strip()
-    client = _read_acquisition_field("azure_client_id").strip() or os.environ.get("AZURE_CLIENT_ID", "").strip()
+    tenant = (
+        creds.get("azure_tenant_id", "").strip()
+        or _read_acquisition_field("azure_tenant_id").strip()
+        or os.environ.get("AZURE_TENANT_ID", "").strip()
+    )
+    client = (
+        creds.get("azure_client_id", "").strip()
+        or _read_acquisition_field("azure_client_id").strip()
+        or os.environ.get("AZURE_CLIENT_ID", "").strip()
+    )
     if tenant:
         extra.extend(["--tenant-id", tenant])
     if client:
         extra.extend(["--client-id", client])
-    secret = os.environ.get("AZURE_CLIENT_SECRET", "").strip()
+    secret = creds.get("azure_client_secret", "").strip() or os.environ.get("AZURE_CLIENT_SECRET", "").strip()
     if secret:
         extra.extend(["--client-secret", secret])
-    cert = os.environ.get("AZURE_CLIENT_CERTIFICATE_PATH", "").strip()
+    cert = creds.get("azure_client_certificate_content", "").strip() or os.environ.get(
+        "AZURE_CLIENT_CERTIFICATE_PATH", ""
+    ).strip()
     if cert:
         extra.extend(["--client-certificate", cert])
     return extra
 
 
+def _embedded_gcp_credentials() -> str:
+    rel = _read_acquisition_field("gcp_credentials").strip()
+    if not rel:
+        return ""
+    path = _kit_relative_path(rel)
+    if path is None or not path.is_file():
+        return ""
+    return str(path)
+
+
 def _cloud_extra_args(cloud: str, args: argparse.Namespace) -> list[str]:
     extra: list[str] = []
     if cloud == "aws":
+        _apply_aws_env_from_kit()
         profile = (
             (args.profile or "").strip()
             or _read_acquisition_field("aws_profile").strip()
@@ -240,6 +308,7 @@ def _cloud_extra_args(cloud: str, args: argparse.Namespace) -> list[str]:
             extra.extend(["--project", proj])
         creds = (
             (getattr(args, "credentials", "") or "").strip()
+            or _embedded_gcp_credentials()
             or os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "").strip()
         )
         if creds:
@@ -293,17 +362,19 @@ def main(argv: list[str] | None = None) -> int:
     cloud = _cloud()
     case_id = _case_id_from_kit()
     if cloud == "gcp":
+        auth_method = _read_acquisition_field("auth_method").strip().lower()
         creds = (
             (args.credentials or "").strip()
+            or _embedded_gcp_credentials()
             or os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "").strip()
         )
-        if not creds:
+        if auth_method != "adc" and not creds:
             raise SystemExit(
-                "error: GCP collection requires a service account key.\n"
-                "  python3 ventra.py --credentials /path/to/key.json --out ./gcp-evidence\n"
-                "  or: export GOOGLE_APPLICATION_CREDENTIALS=/path/to/key.json"
+                "error: GCP collection requires a service account key in this kit.\n"
+                "  Re-download the kit from Collection Kits with a GCP connection selected,\n"
+                "  or: python3 ventra.py --credentials /path/to/key.json --out ./gcp-evidence"
             )
-        if not Path(creds).expanduser().is_file():
+        if creds and not Path(creds).expanduser().is_file():
             raise SystemExit(f"error: credentials file not found: {creds}")
 
 

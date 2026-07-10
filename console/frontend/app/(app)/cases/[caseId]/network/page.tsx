@@ -268,13 +268,6 @@ export default function NetworkPage() {
           icon={Network}
           title={panelLabel(cloud, "network")}
           panel="network"
-          description={
-            selectedVpcEntry
-              ? `Showing flow logs for ${vpcLabel(selectedVpcEntry)}`
-              : vpcs.length > 1
-                ? `${vpcs.length} VPCs with flow logging`
-                : undefined
-          }
           actions={vpcDropdown}
         />
         <PanelBody>
@@ -292,13 +285,6 @@ export default function NetworkPage() {
         icon={Network}
         title={panelLabel(cloud, "network")}
         panel="network"
-        description={
-          selectedVpcEntry
-            ? `Showing flow logs for ${vpcLabel(selectedVpcEntry)}`
-            : vpcs.length > 1
-              ? `${vpcs.length} VPCs with flow logging`
-              : undefined
-        }
         actions={vpcDropdown}
       />
       <PanelBody className="space-y-6">

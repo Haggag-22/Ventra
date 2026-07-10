@@ -82,7 +82,7 @@ export function TopBar({
         {variant === "case" && caseId ? (
           <Link
             href={CASES_HREF}
-            className="flex items-center gap-2 rounded-md border border-border bg-surface px-2.5 py-1.5 transition-colors hover:border-accent/45 hover:bg-surface-2"
+            className="flex items-center gap-2 rounded-md border border-accent-cta/45 bg-accent-cta/10 px-2.5 py-1.5 transition-colors hover:border-accent-cta/60 hover:bg-accent-cta/15"
             title="Back to all cases"
           >
             <span className="text-2xs uppercase tracking-wide text-fg-subtle">Case</span>
