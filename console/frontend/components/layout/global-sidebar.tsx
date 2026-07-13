@@ -16,6 +16,8 @@ import {
 
   CONFIG_PROVIDERS_HREF,
 
+  EXPORT_HREF,
+
   SETTINGS_HREF,
 
 } from "@/lib/routes";
@@ -45,6 +47,8 @@ import {
   Cable,
 
   ChevronDown,
+
+  Download,
 
   FolderOpen,
 
@@ -123,6 +127,18 @@ const CONFIGURATION: NavItem[] = [
     icon: Cable,
 
     match: (p) => p.startsWith("/config/providers") || p.startsWith("/config/connections"),
+
+  },
+
+  {
+
+    href: EXPORT_HREF,
+
+    label: "Export",
+
+    icon: Download,
+
+    match: (p) => p.startsWith(EXPORT_HREF),
 
   },
 

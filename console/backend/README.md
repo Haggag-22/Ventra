@@ -20,6 +20,11 @@ parameterized path (`app/store.py`). RBAC is enforced here, server-side.
 | GET | `/api/cases/{id}/inventory/{source}` | Raw inventory snapshot |
 | POST | `/api/cases/import` | Ingest an uploaded package (RBAC: `import_case`) |
 | POST | `/api/cases/{id}/export/elastic` | Export NDJSON zip for Elastic/Logstash (RBAC: `export_report`) |
+| GET | `/api/cases/exportable` | Cases for the Export picker |
+| GET | `/api/cases/export/settings` | Drop-zone path availability |
+| POST | `/api/cases/export` | Batch export job (`delivery=download` \| `drop_zone`) |
+| GET | `/api/cases/export/{job_id}` | Poll export job |
+| GET | `/api/cases/export/{job_id}/download` | Download finished zip |
 
 ## Configuration (env)
 
@@ -28,6 +33,7 @@ parameterized path (`app/store.py`). RBAC is enforced here, server-side.
 | `VENTRA_CASE_STORE` | `./cases` | Root the ingester writes to. |
 | `VENTRA_UPLOAD_DIR` | `./.ventra-uploads` | Staging for uploaded packages. |
 | `VENTRA_CORS` | `localhost:3000,8080` | Allowed frontend origins. |
+| `VENTRA_EXPORT_DROP_DIR` | _(unset)_ | Optional SIEM drop zone — Export writes NDJSON here for Logstash/forwarders. |
 
 Telemetry is off and not configurable. The service makes no outbound calls.
 

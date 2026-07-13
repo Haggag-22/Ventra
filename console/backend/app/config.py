@@ -55,9 +55,15 @@ class Settings:
     config_dir: Path = Path(os.environ.get("VENTRA_CONFIG_DIR", "./.ventra-config")).resolve()
     # File-backed collection run state (matrix + SSE events).
     runs_dir: Path = Path(os.environ.get("VENTRA_RUNS_DIR", "./.ventra-runs")).resolve()
+    # Optional SIEM drop zone: export writes NDJSON here for Logstash/Filebeat/forwarders.
+    # Unset = download-only. Never holds SIEM credentials — shippers watch this path.
+    _export_drop = os.environ.get("VENTRA_EXPORT_DROP_DIR", "").strip()
+    export_drop_dir: Path | None = Path(_export_drop).resolve() if _export_drop else None
 
 
 settings = Settings()
 settings.upload_dir.mkdir(parents=True, exist_ok=True)
 settings.config_dir.mkdir(parents=True, exist_ok=True)
 settings.runs_dir.mkdir(parents=True, exist_ok=True)
+if settings.export_drop_dir is not None:
+    settings.export_drop_dir.mkdir(parents=True, exist_ok=True)

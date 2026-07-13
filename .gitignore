@@ -43,6 +43,10 @@ ventra-evidence/
 *.parquet
 !tests/fixtures/**/*.parquet
 
+# Ventra local state — connections store cloud credentials (AWS keys, GCP SA JSON, etc.)
+**/.ventra-config/
+**/.ventra-runs/
+
 # Keys & secrets
 *.pem
 *.key
@@ -50,6 +54,10 @@ ventra-evidence/
 secrets/
 credentials.json
 *.credentials
+*service-account*.json
+*service_account*.json
+kubeconfig
+kubeconfig.*
 .aws/
 
 # Terraform state & local vars (any provider)
@@ -84,3 +92,4 @@ obsidian/
 scratch/
 tmp/
 icons/
+Icons/

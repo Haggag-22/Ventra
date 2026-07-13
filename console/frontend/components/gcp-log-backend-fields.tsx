@@ -2,10 +2,7 @@
 
 import { GcpLogBackendIamDialog } from "@/components/gcp-log-backend-iam-dialog";
 import { GcpLogExportSetupDialog } from "@/components/gcp-log-export-setup-dialog";
-import { ArtifactIcon } from "@/components/artifact-icon";
 import { Button, Input } from "@/components/ui";
-import { displayArtifactLabel } from "@/lib/artifact-icons";
-import type { Cloud } from "@/lib/catalog";
 import {
   GCP_LOG_BACKEND_ACCENT_CLASS,
   GCP_LOG_BACKEND_BUTTON_CLASS,
@@ -19,20 +16,12 @@ import { AlertTriangle, BookOpen, ShieldCheck } from "lucide-react";
 import { useState } from "react";
 
 type Props = {
-  cloud: Cloud;
-  loggingCollectors: string[];
   form: GcpLogBackendFormState;
   onChange: (next: GcpLogBackendFormState) => void;
   required: boolean;
 };
 
-export function GcpLogBackendFields({
-  cloud,
-  loggingCollectors,
-  form,
-  onChange,
-  required,
-}: Props) {
+export function GcpLogBackendFields({ form, onChange, required }: Props) {
   const set = (patch: Partial<GcpLogBackendFormState>) => onChange({ ...form, ...patch });
   const [setupDialog, setSetupDialog] = useState<GcpLogExportSetupKind | null>(null);
   const [iamDialog, setIamDialog] = useState<GcpLogBackendMode | null>(null);
@@ -50,26 +39,6 @@ export function GcpLogBackendFields({
             collection.
           </p>
         </div>
-
-        {loggingCollectors.length > 0 && (
-          <div className="mb-4 rounded-md border border-border bg-surface-2 px-3 py-2.5">
-            <p className="mb-2 text-sm font-semibold text-accent">
-              Log collectors in this kit
-            </p>
-            <ul className="flex flex-wrap gap-2">
-              {loggingCollectors.map((collector) => (
-                <li
-                  key={collector}
-                  className="inline-flex items-center gap-1.5 rounded-md border border-border bg-surface px-2 py-1 text-xs text-fg"
-                  title={displayArtifactLabel(collector)}
-                >
-                  <ArtifactIcon cloud={cloud} collector={collector} size={18} />
-                  <span className="max-w-[9rem] truncate">{displayArtifactLabel(collector)}</span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        )}
 
         <div className="space-y-2">
           {GCP_LOG_BACKEND_OPTIONS.map((opt) => {

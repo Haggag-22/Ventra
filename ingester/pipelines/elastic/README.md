@@ -1,7 +1,9 @@
 # Elastic SIEM export (Track D4a)
 
-Ventra normalizes every source into one schema. After ingest, export NDJSON and forward it
-into the client's Elastic stack with Logstash.
+Ventra normalizes every source into one schema. After ingest, **Elastic export writes
+ECS-shaped NDJSON** (nested `event.*`, `cloud.*`, `source.*`, … — see
+`schemas/unified-event.schema.json`). Load it with bulk API, Filebeat, or Logstash.
+Customers who need a different layout remap in their own pipeline.
 
 ## Local Docker demo (free, no Elastic Cloud account)
 
@@ -22,6 +24,20 @@ Opens **Kibana** at http://localhost:5601. Create a data view `ventra-*` with ti
 `@timestamp`, then filter `ventra.case_id:"Test-AWS"`. Open **Security** for the SIEM UI.
 
 Stop: `docker compose -f docker-compose.yml down`
+
+## Drop zone (enterprise handoff)
+
+Set ``VENTRA_EXPORT_DROP_DIR`` on the console backend to a folder your Logstash/Filebeat
+watches. The Export page then offers **Write to drop zone** — Ventra writes NDJSON there
+(atomic rename from a ``.partial-`` staging folder). No SIEM credentials live in Ventra.
+
+```bash
+export VENTRA_EXPORT_DROP_DIR=/var/ventra/export
+# restart ventra-console / ventra dev
+```
+
+Point Logstash at ``$VENTRA_EXPORT_DROP_DIR/*/*.ndjson`` (or per-export subfolders) using
+``ventra-unified.conf``.
 
 ## 1. Ingest and export
 
@@ -44,18 +60,21 @@ curl -X PUT "$ELASTIC_HOSTS/_index_template/ventra-events" \
 Adjust shard/replica settings for your cluster. The template maps `ventra.case_id`,
 `ventra.source`, ECS-aligned fields, and `@timestamp`.
 
-## 3. Forward with Logstash
+## 3. Forward with Logstash (optional)
 
-All sources share the same field layout — use the unified pipeline:
+ECS shaping is already in the NDJSON — Logstash is only needed to ship files into
+Elasticsearch (or for customer-specific remaps). Minimal path:
 
 ```bash
 export ELASTIC_HOSTS=https://es.example.com:9200
 
 for f in export/*.ndjson; do
-  VENTRA_NDJSON="$f" logstash -f ingester/pipelines/logstash/ventra-common.conf \
-                              -f ingester/pipelines/logstash/ventra-unified.conf
+  VENTRA_NDJSON="$f" logstash -f ingester/pipelines/logstash/ventra-unified.conf
 done
 ```
+
+Legacy flat exports / custom field renames: also include `ventra-common.conf` before
+`ventra-unified.conf`.
 
 CloudTrail-only (legacy path):
 

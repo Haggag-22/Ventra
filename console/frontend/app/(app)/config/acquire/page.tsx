@@ -32,7 +32,6 @@ import {
   DEFAULT_GCP_LOG_BACKEND_FORM,
   cartNeedsGcpLogBackend,
   gcpConfigToForm,
-  GCP_LOGGING_COLLECTOR_IDS,
   validateGcpLogBackendForm,
   type GcpLogBackendFormState,
 } from "@/lib/gcp-log-backend";
@@ -352,10 +351,6 @@ function AcquireContent() {
   const collectors = useMemo(() => cartForCloud.map((a) => a.collector), [cartForCloud]);
 
   const needsGcpLogBackend = platform === "gcp" && cartNeedsGcpLogBackend(collectors);
-  const gcpLoggingCollectors = useMemo(
-    () => collectors.filter((c) => GCP_LOGGING_COLLECTOR_IDS.has(c)),
-    [collectors],
-  );
   const gcpLogBackendError = useMemo(
     () => validateGcpLogBackendForm(gcpLogBackend, needsGcpLogBackend),
     [gcpLogBackend, needsGcpLogBackend],
@@ -599,8 +594,6 @@ function AcquireContent() {
 
           {needsGcpLogBackend && (
             <GcpLogBackendFields
-              cloud={platform}
-              loggingCollectors={gcpLoggingCollectors}
               form={gcpLogBackend}
               onChange={setGcpLogBackend}
               required={needsGcpLogBackend}

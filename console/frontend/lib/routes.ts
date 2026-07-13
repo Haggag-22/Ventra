@@ -9,6 +9,7 @@ import {
 
 /** Canonical URL for the cases list (outside any open case). */
 export const CASES_HREF = "/cases";
+export const EXPORT_HREF = "/export";
 export const CONFIG_ACQUIRE_HREF = "/config/acquire";
 /** @deprecated Bookmarks — use CONFIG_ACQUIRE_HREF. */
 export const ACQUIRE_HREF = CONFIG_ACQUIRE_HREF;
@@ -86,6 +87,12 @@ export function breadcrumbsFromPath(pathname: string, caseId?: string): Breadcru
   const items: BreadcrumbItem[] = [{ label: "Cases", href: CASES_HREF }];
 
   if (pathname === CASES_HREF) return items;
+
+  if (pathname.startsWith(EXPORT_HREF)) {
+    items.push({ label: "Configuration" });
+    items.push({ label: "Export" });
+    return items;
+  }
 
   if (pathname.startsWith("/collection-kits")) {
     items.push({ label: "Configuration" });

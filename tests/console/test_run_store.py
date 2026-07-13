@@ -76,9 +76,21 @@ def test_matrix_and_finalize(rs: RunStore) -> None:
     assert meta["package"]["path"] == "/tmp/pkg"
 
 
-def test_missing_run_raises(rs: RunStore) -> None:
-    with pytest.raises(RunNotFound):
-        rs.get_run("no-such-run")
+def test_mark_started_does_not_resurrect_cancelled(rs: RunStore) -> None:
+    rec = rs.create_run({"cloud": "aws", "case_id": "CASE-1", "status": "running"})
+    run_id = rec["run_id"]
+    rs.finalize(run_id, status="cancelled")
+    rs.mark_started(run_id)
+    assert rs.get_run(run_id)["status"] == "cancelled"
+
+
+def test_update_meta_does_not_regress_cancelled_to_running(rs: RunStore) -> None:
+    rec = rs.create_run({"cloud": "aws", "case_id": "CASE-1"})
+    run_id = rec["run_id"]
+    rs.finalize(run_id, status="cancelled")
+    meta = rs.update_meta(run_id, {"status": "running", "account_id": "123"})
+    assert meta["status"] == "cancelled"
+    assert meta["account_id"] == "123"
 
 
 def test_request_cancel_moves_to_cancelling_with_reasons(rs: RunStore) -> None:

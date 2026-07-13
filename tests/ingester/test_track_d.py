@@ -37,7 +37,7 @@ def test_streaming_ingest_and_elastic_export(tmp_path: Path) -> None:
     assert written
     manifest = json.loads((export_dir / "export-manifest.json").read_text())
     assert manifest["case_id"] == "CASE-TRACK-D"
-    assert manifest["format"] == "elastic-ndjson"
+    assert manifest["format"] == "elastic-ecs-ndjson"
     assert manifest["total_events"] == result.event_count
     assert sum(manifest["event_counts"].values()) == result.event_count
     for path in written.values():
@@ -50,7 +50,14 @@ def test_streaming_ingest_and_elastic_export(tmp_path: Path) -> None:
     assert sample["ventra"]["source"]
     assert "case_id" not in sample
     assert "ventra_source" not in sample
-    assert isinstance(sample["event_category"], list)
+    assert "event_action" not in sample
+    assert "event_category" not in sample
+    assert isinstance(sample["event"]["category"], list)
+    assert "kind" in sample["event"]
+    assert "provider" in sample["cloud"]
+    assert "raw" in sample
+    template = json.loads((export_dir / "elastic-index-template.json").read_text())
+    assert template["template"]["mappings"]["properties"]["event"]["properties"]["action"]["type"] == "keyword"
 
 
 def test_elastic_export_cli(tmp_path: Path) -> None:

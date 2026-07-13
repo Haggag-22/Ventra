@@ -38,10 +38,6 @@ export function cartNeedsGcpLogBackend(collectors: string[]): boolean {
   return collectors.some((c) => GCP_LOGGING_COLLECTOR_IDS.has(c));
 }
 
-export function loggingCollectorsInCart(collectors: string[]): string[] {
-  return collectors.filter((c) => GCP_LOGGING_COLLECTOR_IDS.has(c));
-}
-
 export type GcpLogBackendFormState = {
   mode: GcpLogBackendMode | "";
   gcsBucket: string;

@@ -480,20 +480,39 @@ def _finalize_cancelled(run_id: str) -> dict[str, Any]:
     return run_store.finalize(run_id, status="cancelled")
 
 
-def cancel_run(run_id: str) -> dict[str, Any]:
-    """Request cancellation and keep meta, matrix, and rows in sync.
+def reclaim_orphaned_runs(*, run_id: str | None = None) -> None:
+    """Finalize cancelled/cancelling runs whose worker is gone so they never stick forever.
 
-    An active run is flagged and moved to ``cancelling``; its worker performs the real
-    finalization once the in-flight collector returns (so the operator watches it wrap up
-    live). A run with no live worker — already finished, or the worker died — is finalized
-    to ``cancelled`` here so it can never get stuck mid-cancel. Idempotent on terminal runs.
+    After a process restart ``_active_runs`` is empty, so a run left in ``cancelling`` would
+    otherwise sit there indefinitely. Call this from list/get so the UI self-heals.
+    """
+    try:
+        metas = [run_store.get_run(run_id)] if run_id else run_store.list_runs()
+    except RunNotFound:
+        return
+    for meta in metas:
+        rid = str(meta.get("run_id") or "")
+        status = str(meta.get("status") or "")
+        if not rid or status in _TERMINAL_STATUSES or is_run_active(rid):
+            continue
+        if status == "cancelling" or meta.get("cancel_requested"):
+            try:
+                _finalize_cancelled(rid)
+            except Exception:  # noqa: BLE001 — best-effort heal; never break list/get
+                pass
+
+
+def cancel_run(run_id: str) -> dict[str, Any]:
+    """Request cancellation and finalize to ``cancelled`` immediately.
+
+    Flags ``cancel_requested`` so any live worker stops collectors, then stamps meta + matrix
+    terminal right away so the UI never sits on ``cancelling`` waiting for a worker that may
+    already be dead (or hang for days). Idempotent on terminal runs.
     """
     meta = run_store.get_run(run_id)
     if str(meta.get("status") or "") in _TERMINAL_STATUSES:
         return meta
     run_store.request_cancel(run_id)
-    if is_run_active(run_id):
-        return run_store.get_run(run_id)
     return _finalize_cancelled(run_id)
 
 

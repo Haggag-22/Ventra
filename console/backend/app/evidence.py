@@ -73,6 +73,26 @@ def _classify_file(rel: str) -> str:
     return "other"
 
 
+# Sidecar / packaging kinds must not display a source-level inherited record_count.
+_NON_DATA_KINDS = frozenset(
+    {"config", "meta", "manifest", "signature", "collection_log", "error"}
+)
+
+
+def _record_count_for_file(kind: str, manifest_entry: dict[str, Any] | None) -> int | None:
+    if not manifest_entry:
+        return None
+    if kind in _NON_DATA_KINDS:
+        return None
+    raw = manifest_entry.get("record_count")
+    if raw is None:
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
 def ensure_evidence_extracted(case_dir: Path, case_id: str) -> Path:
     """Return the evidence directory, extracting from a retained package when missing."""
     root = _evidence_root(case_dir)
@@ -103,20 +123,26 @@ def list_evidence_files(case_dir: Path, manifest: dict[str, Any]) -> dict[str, A
         rel = path.relative_to(root).as_posix()
         size = path.stat().st_size
         total_bytes += size
-        manifest_entry = meta_by_path.get(rel) or meta_by_path.get(rel.split("/", 1)[0])
         source_name = ""
         if rel.startswith("sources/"):
             parts = rel.split("/")
             if len(parts) >= 2:
                 source_name = parts[1]
+        # Prefer exact path, then source name (collector-level entry), then first path segment.
+        manifest_entry = (
+            meta_by_path.get(rel)
+            or (meta_by_path.get(source_name) if source_name else None)
+            or meta_by_path.get(rel.split("/", 1)[0])
+        )
+        kind = _classify_file(rel)
         files.append(
             {
                 "path": rel,
                 "size": size,
-                "kind": _classify_file(rel),
+                "kind": kind,
                 "source": source_name or None,
                 "sha256": (manifest_entry or {}).get("sha256"),
-                "record_count": (manifest_entry or {}).get("record_count"),
+                "record_count": _record_count_for_file(kind, manifest_entry),
                 "status": (manifest_entry or {}).get("status"),
                 "notes": (manifest_entry or {}).get("notes"),
             }

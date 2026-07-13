@@ -10,7 +10,7 @@ import asyncio
 import json
 import re
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -22,7 +22,13 @@ from .config import settings
 from .rbac import Role, _check, current_role
 from .config_store import ConfigNotFound, config_store
 from .run_store import RunNotFound, run_store
-from .run_service import apply_relay_payload, cancel_run as cancel_run_service, start_run, test_connection
+from .run_service import (
+    apply_relay_payload,
+    cancel_run as cancel_run_service,
+    reclaim_orphaned_runs,
+    start_run,
+    test_connection,
+)
 from .store import CaseNotFound, EventQuery, store
 
 
@@ -53,6 +59,18 @@ class AcquisitionBuildRequest(BaseModel):
 
 class AcquisitionPreviewRequest(AcquisitionBuildRequest):
     """Same shape as build — used for IAM / metadata preview only."""
+
+
+class ExportBatchRequest(BaseModel):
+    """Body for POST /api/cases/export — one or more cases, one SIEM target."""
+
+    case_ids: list[str]
+    target: Literal["elastic", "splunk", "ndjson"] = "elastic"
+    # download = zip for the browser; drop_zone = write NDJSON under VENTRA_EXPORT_DROP_DIR.
+    delivery: Literal["download", "drop_zone"] = "download"
+    sources: list[str] = []
+    since: str = ""
+    until: str = ""
 
 
 
@@ -186,8 +204,13 @@ async def _run_not_found(_, exc: RunNotFound) -> JSONResponse:
 
 @app.get("/api/health")
 def health() -> dict[str, Any]:
-    return {"status": "ok", "version": __version__, "telemetry": settings.telemetry,
-            "case_store": str(settings.case_store)}
+    return {
+        "status": "ok",
+        "version": __version__,
+        "telemetry": settings.telemetry,
+        "case_store": str(settings.case_store),
+        "export_drop_dir": str(settings.export_drop_dir) if settings.export_drop_dir else None,
+    }
 
 
 @app.get("/api/me")
@@ -785,20 +808,22 @@ def export_case_elastic(
     """Export ingested case events as an NDJSON zip for Logstash pickup."""
     import shutil
     import tempfile
-    import zipfile
 
-    from ventra_ingester.exporters.elastic_ndjson import export_elastic_ndjson
+    from .export_jobs import run_export_in_subprocess
 
     case_dir = store.case_dir(case_id)
     tmp = Path(tempfile.mkdtemp(prefix="ventra-export-"))
+    zip_path = tmp / f"{case_id}-elastic-export.zip"
     try:
-        out_dir = tmp / "export"
-        export_elastic_ndjson(case_dir, out_dir)
-        zip_path = tmp / f"{case_id}-elastic-export.zip"
-        with zipfile.ZipFile(zip_path, "w", compression=zipfile.ZIP_DEFLATED) as zf:
-            for path in sorted(out_dir.rglob("*")):
-                if path.is_file():
-                    zf.write(path, arcname=path.relative_to(out_dir).as_posix())
+        # Child process keeps the API responsive during multi-million-event exports.
+        run_export_in_subprocess(
+            "single",
+            {
+                "case_dir": str(case_dir),
+                "zip_path": str(zip_path),
+                "target": "elastic",
+            },
+        )
     except Exception as exc:  # noqa: BLE001
         shutil.rmtree(tmp, ignore_errors=True)
         raise HTTPException(status_code=400, detail=f"Export failed: {exc}") from exc
@@ -810,6 +835,203 @@ def export_case_elastic(
     )
 
 
+@app.get("/api/cases/exportable")
+def list_exportable_cases(_: Role = Depends(_check("export_report"))) -> dict[str, Any]:
+    """Case list shaped for the Export picker — counts, date range, integrity, sources, size.
+
+    Everything here already lives in each case's summary.json (or is filled by
+    CaseStore.list_cases for storage_bytes), so this is a reshape, not a new
+    computation, and needs no per-case follow-up call.
+    """
+    rows: list[dict[str, Any]] = []
+    for c in store.list_cases():
+        span = c.get("event_span") or {}
+        rows.append(
+            {
+                "case_id": c.get("case_id", ""),
+                "cloud": c.get("cloud", ""),
+                "event_count": (c.get("totals") or {}).get("events", 0),
+                "date_range": {"first": span.get("first"), "last": span.get("last")},
+                "integrity": c.get("integrity", "unknown"),
+                "sources": sorted((c.get("by_source") or {}).keys()),
+                "by_source": dict(c.get("by_source") or {}),
+                "storage_bytes": c.get("storage_bytes") or 0,
+            }
+        )
+    return {"cases": rows}
+
+
+@app.get("/api/cases/export/settings")
+def export_settings(_: Role = Depends(_check("export_report"))) -> dict[str, Any]:
+    """Drop-zone availability for the Export page (admin sets VENTRA_EXPORT_DROP_DIR)."""
+    drop = settings.export_drop_dir
+    return {
+        "drop_zone": {
+            "configured": drop is not None,
+            "path": str(drop) if drop else None,
+        }
+    }
+
+
+@app.post("/api/cases/export")
+def export_cases_batch(
+    body: ExportBatchRequest,
+    _: Role = Depends(_check("export_report")),
+) -> dict[str, Any]:
+    """Start a normalized NDJSON export and return a job id.
+
+    * ``delivery=download`` (default): build a zip, poll, then
+      ``GET /api/cases/export/{job_id}/download``.
+    * ``delivery=drop_zone``: write NDJSON under ``VENTRA_EXPORT_DROP_DIR`` for a
+      forwarder; poll until ``ready`` and read ``drop_path`` (no download).
+
+    A single case_id produces a flat layout (per-source NDJSON + export-manifest.json).
+    Multiple case_ids produce one bundle with a subfolder per case plus a top-level manifest.
+    """
+    import tempfile
+    import uuid
+
+    from .export_jobs import create_export_job, drop_export_dirname
+
+    case_ids = [c.strip() for c in body.case_ids if c.strip()]
+    if not case_ids:
+        raise HTTPException(status_code=400, detail="case_ids must include at least one case.")
+
+    # Resolve every case directory up front (raises CaseNotFound -> 404 via the global handler)
+    # so a bad id anywhere in the batch fails clearly before any export work starts.
+    case_dirs = {cid: str(store.case_dir(cid)) for cid in case_ids}
+
+    sources = body.sources or None
+    since = body.since.strip() or None
+    until = body.until.strip() or None
+
+    if body.delivery == "drop_zone":
+        if settings.export_drop_dir is None:
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Drop zone is not configured. Set VENTRA_EXPORT_DROP_DIR on the backend "
+                    "to a folder your Logstash/Filebeat/forwarder watches."
+                ),
+            )
+        job_id = uuid.uuid4().hex
+        export_name = drop_export_dirname(
+            case_ids=case_ids, target=body.target, job_id=job_id
+        )
+        create_export_job(
+            "drop",
+            {
+                "case_dirs": case_dirs,
+                "drop_root": str(settings.export_drop_dir),
+                "export_name": export_name,
+                "target": body.target,
+                "sources": sources,
+                "since": since,
+                "until": until,
+            },
+            job_id=job_id,
+            delivery="drop_zone",
+        )
+        return {"job_id": job_id, "status": "pending", "delivery": "drop_zone"}
+
+    tmp = Path(tempfile.mkdtemp(prefix="ventra-export-"))
+    if len(case_ids) == 1:
+        zip_path = tmp / f"{case_ids[0]}-{body.target}-export.zip"
+    else:
+        zip_path = tmp / f"ventra-export-{body.target}-{len(case_ids)}-cases.zip"
+
+    job_id = create_export_job(
+        "batch",
+        {
+            "case_dirs": case_dirs,
+            "zip_path": str(zip_path),
+            "target": body.target,
+            "sources": sources,
+            "since": since,
+            "until": until,
+        },
+        tmp_dir=str(tmp),
+        zip_path=str(zip_path),
+        filename=zip_path.name,
+        delivery="download",
+    )
+    return {"job_id": job_id, "status": "pending", "delivery": "download"}
+
+
+@app.get("/api/cases/export/{job_id}")
+def get_export_job_status(
+    job_id: str, _: Role = Depends(_check("export_report"))
+) -> dict[str, Any]:
+    """Poll an export job: status is pending → running → ready | error | cancelled."""
+    from .export_jobs import get_export_job
+
+    job = get_export_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Unknown export job.")
+    return {
+        "job_id": job["job_id"],
+        "status": job["status"],
+        "delivery": job.get("delivery") or "download",
+        "error": job.get("error"),
+        "filename": job.get("filename"),
+        "drop_path": job.get("drop_path"),
+        "total_events": job.get("total_events"),
+    }
+
+
+@app.post("/api/cases/export/{job_id}/cancel")
+def cancel_export_job_endpoint(
+    job_id: str, _: Role = Depends(_check("export_report"))
+) -> dict[str, Any]:
+    """Cancel an in-flight export: stop the worker and unlock the Export UI."""
+    from .export_jobs import cancel_export_job, get_export_job
+
+    if get_export_job(job_id) is None:
+        raise HTTPException(status_code=404, detail="Unknown export job.")
+    job = cancel_export_job(job_id)
+    return {
+        "job_id": job["job_id"],
+        "status": job["status"],
+        "delivery": job.get("delivery") or "download",
+    }
+
+
+@app.get("/api/cases/export/{job_id}/download")
+def download_export_job(
+    job_id: str,
+    background_tasks: BackgroundTasks,
+    _: Role = Depends(_check("export_report")),
+) -> FileResponse:
+    """Download a finished export zip; cleans up the temp dir and job afterwards."""
+    import shutil
+
+    from .export_jobs import discard_export_job, get_export_job
+
+    job = get_export_job(job_id)
+    if job is None:
+        raise HTTPException(status_code=404, detail="Unknown export job.")
+    if job.get("delivery") == "drop_zone":
+        raise HTTPException(
+            status_code=400,
+            detail="This export was written to the drop zone; there is no zip to download.",
+        )
+    status = job["status"]
+    if status == "cancelled":
+        raise HTTPException(status_code=409, detail="Export was cancelled.")
+    if status == "error":
+        raise HTTPException(status_code=400, detail=f"Export failed: {job.get('error')}")
+    if status != "ready":
+        raise HTTPException(status_code=409, detail="Export is still being prepared.")
+
+    zip_path = Path(job["zip_path"])
+    if not zip_path.is_file():
+        raise HTTPException(status_code=410, detail="Export file is no longer available.")
+
+    background_tasks.add_task(shutil.rmtree, job["tmp_dir"], True)
+    background_tasks.add_task(discard_export_job, job_id)
+    return FileResponse(
+        zip_path, media_type="application/zip", filename=job.get("filename") or zip_path.name
+    )
 
 
 # -- configuration (connections + profiles) ----------------------------------------------
@@ -963,11 +1185,13 @@ def create_run(body: RunRequest, _: Role = Depends(_check("run_collection"))) ->
 
 @app.get("/api/runs")
 def list_runs(_: Role = Depends(_check("view_case"))) -> dict[str, Any]:
+    reclaim_orphaned_runs()
     return {"runs": run_store.list_runs()}
 
 
 @app.get("/api/runs/{run_id}")
 def get_run(run_id: str, _: Role = Depends(_check("view_case"))) -> dict[str, Any]:
+    reclaim_orphaned_runs(run_id=run_id)
     meta = run_store.get_run(run_id)
     matrix: dict[str, Any] | None = None
     try:
