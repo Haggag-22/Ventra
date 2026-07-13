@@ -102,6 +102,22 @@ export interface CaseSummary {
   inventory_loaded?: string[];
 }
 
+/** Row shape for GET /api/cases/exportable — reshaped from summary.json, no N+1 calls. */
+export interface ExportableCase {
+  case_id: string;
+  cloud: string;
+  event_count: number;
+  date_range: { first: string | null; last: string | null };
+  integrity: Integrity;
+  sources: string[];
+  /** Event counts keyed by ventra_source (from summary.json by_source). */
+  by_source?: Record<string, number>;
+  /** On-disk case store size (from summary.json or computed by CaseStore.list_cases). */
+  storage_bytes?: number;
+}
+
+export type ExportTarget = "elastic" | "splunk" | "ndjson";
+
 export interface IntegrityReport {
   case_id: string;
   overall: Integrity;

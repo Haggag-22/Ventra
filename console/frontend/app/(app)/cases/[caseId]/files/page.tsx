@@ -68,8 +68,34 @@ function groupTotalBytes(files: EvidenceFileEntry[]): number {
   return files.reduce((sum, f) => sum + f.size, 0);
 }
 
+/** Count real data rows for a collector — never sum config/meta that inherited the source count. */
 function groupRecordCount(files: EvidenceFileEntry[]): number {
-  return files.reduce((sum, f) => sum + (f.record_count ?? 0), 0);
+  const eventFiles = files.filter((f) => f.kind === "events");
+  if (eventFiles.length > 0) {
+    return eventFiles.reduce((sum, f) => sum + (f.record_count ?? 0), 0);
+  }
+  // Inventory-only collectors (snapshot, credential report, …).
+  return files
+    .filter(
+      (f) =>
+        f.kind !== "config" &&
+        f.kind !== "meta" &&
+        f.kind !== "manifest" &&
+        f.kind !== "signature" &&
+        f.kind !== "collection_log" &&
+        f.kind !== "error",
+    )
+    .reduce((sum, f) => sum + (f.record_count ?? 0), 0);
+}
+
+function fileShowsRecordCount(file: EvidenceFileEntry): boolean {
+  if (file.record_count == null) return false;
+  return (
+    file.kind === "events" ||
+    file.kind === "snapshot" ||
+    file.kind === "credential_report" ||
+    file.kind === "other"
+  );
 }
 
 function JsonPreview({ value }: { value: unknown }) {
@@ -236,6 +262,7 @@ function CollectorSection({
   onSelect: (file: EvidenceFileEntry) => void;
 }) {
   const records = groupRecordCount(group.files);
+  const hasEventFiles = group.files.some((f) => f.kind === "events");
   const hasSelected = group.files.some((f) => f.path === selected?.path);
 
   return (
@@ -264,7 +291,9 @@ function CollectorSection({
         <span className="min-w-0 flex-1 truncate text-sm font-medium text-fg">{group.label}</span>
         <span className="shrink-0 text-2xs text-fg-subtle">
           {group.files.length} file{group.files.length === 1 ? "" : "s"}
-          {records > 0 ? ` · ${fmtNum(records)} rec` : ""}
+          {records > 0
+            ? ` · ${fmtNum(records)} ${hasEventFiles ? "events" : "rec"}`
+            : ""}
           {" · "}
           {fmtBytes(groupTotalBytes(group.files))}
         </span>
@@ -291,7 +320,9 @@ function CollectorSection({
                     <span className="block truncate font-medium">{file.path.split("/").pop()}</span>
                     <span className="mono block truncate text-2xs text-fg-subtle">
                       {fmtBytes(file.size)}
-                      {file.record_count != null ? ` · ${fmtNum(file.record_count)} records` : ""}
+                      {fileShowsRecordCount(file)
+                        ? ` · ${fmtNum(file.record_count!)} ${file.kind === "events" ? "events" : "records"}`
+                        : ""}
                       {file.kind ? ` · ${file.kind}` : ""}
                     </span>
                   </span>
@@ -463,8 +494,11 @@ export default function FilesPage() {
                           <span className="chip">{selected.kind}</span>
                           {selected.status && <span className="chip">{selected.status}</span>}
                           <span>{fmtBytes(selected.size)}</span>
-                          {selected.record_count != null && (
-                            <span>{fmtNum(selected.record_count)} records</span>
+                          {fileShowsRecordCount(selected) && (
+                            <span>
+                              {fmtNum(selected.record_count!)}{" "}
+                              {selected.kind === "events" ? "events" : "records"}
+                            </span>
                           )}
                         </div>
                         {selected.sha256 && (

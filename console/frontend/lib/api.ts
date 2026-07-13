@@ -9,6 +9,8 @@ import type {
   CloudTrailCollection,
   CollectorMatrixRow,
   EventsResponse,
+  ExportableCase,
+  ExportTarget,
   Facets,
   IdentityResponse,
   DataAccessResponse,
@@ -80,6 +82,9 @@ export const BACKEND_UNREACHABLE =
 
 const API_TIMEOUT_MS = 15_000;
 
+/** Options for apiFetch. `timeoutMs: null` disables the default timeout (long downloads). */
+type ApiFetchInit = RequestInit & { timeoutMs?: number | null };
+
 function isProxyOrNetworkFailure(err: unknown): boolean {
   if (err instanceof DOMException && (err.name === "TimeoutError" || err.name === "AbortError")) {
     return true;
@@ -87,13 +92,21 @@ function isProxyOrNetworkFailure(err: unknown): boolean {
   return err instanceof TypeError;
 }
 
-async function apiFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+async function apiFetch(input: RequestInfo | URL, init?: ApiFetchInit): Promise<Response> {
+  const { timeoutMs = API_TIMEOUT_MS, signal: userSignal, ...fetchInit } = init ?? {};
   try {
-    return await fetch(input, {
-      ...init,
-      signal: AbortSignal.timeout(API_TIMEOUT_MS),
-    });
+    const opts: RequestInit = { ...fetchInit };
+    const signals: AbortSignal[] = [];
+    if (userSignal) signals.push(userSignal);
+    if (timeoutMs != null && timeoutMs > 0) {
+      signals.push(AbortSignal.timeout(timeoutMs));
+    }
+    if (signals.length === 1) opts.signal = signals[0];
+    else if (signals.length > 1) opts.signal = AbortSignal.any(signals);
+    return await fetch(input, opts);
   } catch (err) {
+    // User-initiated cancel must not be rewritten as "backend unreachable".
+    if (userSignal?.aborted) throw err;
     if (isProxyOrNetworkFailure(err)) throw new Error(BACKEND_UNREACHABLE);
     throw err;
   }
@@ -411,9 +424,11 @@ export async function importFromS3(s3Prefix?: string): Promise<S3ImportResult> {
 }
 
 export async function exportCaseElastic(caseId: string): Promise<void> {
+  // Large cases can take minutes to serialize; do not use the default 15s API timeout.
   const res = await apiFetch(`/api/cases/${encodeURIComponent(caseId)}/export/elastic`, {
     method: "POST",
     headers: { "X-Ventra-Role": "investigator" },
+    timeoutMs: null,
   });
   throwIfBackendDown(res);
   if (!res.ok) {
@@ -427,6 +442,144 @@ export async function exportCaseElastic(caseId: string): Promise<void> {
   a.download = `${caseId}-elastic-export.zip`;
   a.click();
   URL.revokeObjectURL(url);
+}
+
+export async function listExportableCases(): Promise<{ cases: ExportableCase[] }> {
+  const res = await apiFetch("/api/cases/exportable", {
+    headers: { "X-Ventra-Role": "investigator" },
+  });
+  throwIfBackendDown(res);
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({ detail: res.statusText }));
+    throw new Error(body.detail || "Failed to load cases");
+  }
+  return res.json();
+}
+
+export type ExportCasesBatchBody = {
+  case_ids: string[];
+  target: ExportTarget;
+  sources?: string[];
+  since?: string;
+  until?: string;
+  /** Abort cancels the server job and stops polling/download. */
+  signal?: AbortSignal;
+};
+
+type ExportJobStatus = {
+  job_id: string;
+  status: "pending" | "running" | "ready" | "error" | "cancelled";
+  error?: string | null;
+  filename?: string | null;
+};
+
+export class ExportCancelledError extends Error {
+  constructor(message = "Export cancelled") {
+    super(message);
+    this.name = "ExportCancelledError";
+  }
+}
+
+async function cancelExportJob(jobId: string): Promise<void> {
+  try {
+    await apiFetch(`/api/cases/export/${encodeURIComponent(jobId)}/cancel`, {
+      method: "POST",
+      headers: { "X-Ventra-Role": "investigator" },
+    });
+  } catch {
+    // Best-effort — UI unlocks either way.
+  }
+}
+
+/**
+ * Export one or more cases and download the resulting zip.
+ *
+ * The zip is built server-side as a job: large cases take minutes to serialize, and a single
+ * blocking request made the dev proxy/client reset the connection ("socket hang up") before
+ * the zip was ready. Here we start the job, poll until it is ready, then download the finished
+ * file (which streams immediately). Pass ``signal`` to cancel mid-flight.
+ */
+export async function exportCasesBatch(body: ExportCasesBatchBody): Promise<void> {
+  const { signal, ...payload } = body;
+  if (signal?.aborted) throw new ExportCancelledError();
+
+  const startRes = await apiFetch("/api/cases/export", {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "X-Ventra-Role": "investigator" },
+    body: JSON.stringify(payload),
+    signal,
+  });
+  throwIfBackendDown(startRes);
+  if (!startRes.ok) {
+    const err = await startRes.json().catch(() => ({ detail: startRes.statusText }));
+    throw new Error(err.detail || "Export failed");
+  }
+  const { job_id: jobId } = (await startRes.json()) as { job_id: string };
+
+  const onAbort = () => {
+    void cancelExportJob(jobId);
+  };
+  signal?.addEventListener("abort", onAbort);
+
+  try {
+    for (;;) {
+      if (signal?.aborted) {
+        await cancelExportJob(jobId);
+        throw new ExportCancelledError();
+      }
+      await new Promise((resolve) => setTimeout(resolve, 1500));
+      if (signal?.aborted) {
+        await cancelExportJob(jobId);
+        throw new ExportCancelledError();
+      }
+      const statusRes = await apiFetch(`/api/cases/export/${encodeURIComponent(jobId)}`, {
+        headers: { "X-Ventra-Role": "investigator" },
+        signal,
+      });
+      throwIfBackendDown(statusRes);
+      if (!statusRes.ok) {
+        const err = await statusRes.json().catch(() => ({ detail: statusRes.statusText }));
+        throw new Error(err.detail || "Export failed");
+      }
+      const job = (await statusRes.json()) as ExportJobStatus;
+      if (job.status === "cancelled") throw new ExportCancelledError();
+      if (job.status === "error") throw new Error(job.error || "Export failed");
+      if (job.status === "ready") break;
+    }
+
+    const res = await apiFetch(`/api/cases/export/${encodeURIComponent(jobId)}/download`, {
+      headers: { "X-Ventra-Role": "investigator" },
+      timeoutMs: null,
+      signal,
+    });
+    throwIfBackendDown(res);
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(err.detail || "Export failed");
+    }
+    const blob = await res.blob();
+    if (signal?.aborted) throw new ExportCancelledError();
+    const disposition = res.headers.get("Content-Disposition") || "";
+    const match = disposition.match(/filename="?([^"]+)"?/);
+    const filename = match?.[1] || `ventra-export-${body.target}.zip`;
+
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  } catch (e) {
+    if (signal?.aborted || (e instanceof DOMException && e.name === "AbortError")) {
+      await cancelExportJob(jobId);
+      throw new ExportCancelledError();
+    }
+    throw e;
+  } finally {
+    signal?.removeEventListener("abort", onAbort);
+  }
 }
 
 import type { GcpLogBackendConfig } from "./gcp-log-backend";

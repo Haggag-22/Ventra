@@ -51,6 +51,23 @@ class WrittenFile:
     record_count: int | None = None
 
 
+def _inherit_source_record_count(path: str) -> bool:
+    """Whether a sidecar without its own count may reuse the source-level record_count.
+
+    Event payloads can inherit. Config / meta / logs must not — otherwise Raw Evidence
+    double-counts when it sums every file under a collector.
+    """
+    name = path.rsplit("/", 1)[-1].lower()
+    if name in {
+        "config.json",
+        "_meta.json",
+        "manifest.json",
+        "collection.log",
+    } or name.endswith(".sig"):
+        return False
+    return name.startswith("events") or ".jsonl" in name
+
+
 @dataclass
 class SourceResult:
     """What a collector returns after it runs.
@@ -160,13 +177,17 @@ class Manifest:
 
     def add_source_result(self, result: SourceResult) -> None:
         for wf in result.files:
+            if wf.record_count is not None:
+                file_records = wf.record_count
+            elif _inherit_source_record_count(wf.path):
+                file_records = result.record_count
+            else:
+                file_records = None
             self.sources.append(
                 {
                     "name": result.name,
                     "path": wf.path,
-                    "record_count": wf.record_count
-                    if wf.record_count is not None
-                    else result.record_count,
+                    "record_count": file_records,
                     "bytes": wf.bytes,
                     "sha256": wf.sha256,
                     "status": result.status.value,
