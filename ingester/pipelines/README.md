@@ -8,6 +8,9 @@ client's existing tooling, not just the Ventra console.
 Export an ingested case to NDJSON, install the index template, then forward with Logstash.
 Full runbook: [`elastic/README.md`](elastic/README.md).
 
+For enterprise handoff, set ``VENTRA_EXPORT_DROP_DIR`` and use **Write to drop zone** on the
+Export page — Ventra writes NDJSON there; Logstash watches the folder.
+
 ```bash
 ventra-ingest case.tar.zst --case-store ./cases
 ventra-export --case-dir cases/<id> --out ./export

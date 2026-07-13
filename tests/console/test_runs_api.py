@@ -101,7 +101,7 @@ def test_cancel_inactive_run_finalizes_cancelled(client: TestClient) -> None:
         f"/api/runs/{run_id}/cancel", headers={"X-Ventra-Role": "responder"}
     )
     assert res.status_code == 200
-    # No worker thread is registered for this run, so it is finalized immediately.
+    # Cancel always finalizes immediately — UI never waits on a worker.
     assert res.json()["status"] == "cancelled"
 
     matrix = client.get(
@@ -112,6 +112,21 @@ def test_cancel_inactive_run_finalizes_cancelled(client: TestClient) -> None:
     assert rows["cloudtrail"]["live_msg"] == ""
     assert rows["iam"]["status"] == "fail"
     assert matrix["status"] == "cancelled"
+
+
+def test_list_runs_reclaims_stuck_cancelling(client: TestClient) -> None:
+    """Orphaned cancelling runs (dead worker) are finalized when listing."""
+    import app.run_store as rs_mod
+
+    rec = rs_mod.run_store.create_run({"cloud": "aws", "case_id": "CASE-1", "status": "running"})
+    run_id = rec["run_id"]
+    rs_mod.run_store.request_cancel(run_id)
+    assert rs_mod.run_store.get_run(run_id)["status"] == "cancelling"
+
+    res = client.get("/api/runs", headers={"X-Ventra-Role": "investigator"})
+    assert res.status_code == 200
+    listed = {r["run_id"]: r for r in res.json()["runs"]}
+    assert listed[run_id]["status"] == "cancelled"
 
 
 def test_cancel_terminal_run_is_noop(client: TestClient) -> None:

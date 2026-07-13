@@ -304,15 +304,15 @@ export function ProvidersTable({
         <div ref={tableRef}>
           <Card className="glass-card-glow overflow-hidden">
             <div className="overflow-x-auto">
-              <table className="w-full text-sm">
+              <table className="w-full text-left text-sm">
                 <thead>
                   <tr className="table-head-row">
-                    <th className="table-header-cell !font-semibold">Name</th>
-                    <th className="table-header-cell-center !font-semibold">Platform</th>
-                    <th className="table-header-cell-center !font-semibold">Status</th>
-                    <th className="table-header-cell !font-semibold">Last tested</th>
-                    <th className="table-header-cell !font-semibold">Added</th>
-                    <th className="table-header-cell-center !font-semibold">Actions</th>
+                    <th className="table-header-cell">Name</th>
+                    <th className="table-header-cell-center">Platform</th>
+                    <th className="table-header-cell-center">Status</th>
+                    <th className="table-header-cell">Last tested</th>
+                    <th className="table-header-cell">Added</th>
+                    <th className="table-header-cell-center">Actions</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -341,7 +341,7 @@ export function ProvidersTable({
                             )}
                           </div>
                         </td>
-                        <td className="table-cell-center font-medium">
+                        <td className="table-cell-center">
                           <span
                             className="inline-flex justify-center"
                             title={shortPlatformLabel(conn.platform)}
@@ -349,16 +349,16 @@ export function ProvidersTable({
                             <CloudProviderIcon cloud={conn.platform as CasePlatform} />
                           </span>
                         </td>
-                        <td className="table-cell-center font-medium">
+                        <td className="table-cell-center">
                           <StatusBadge status={status} />
                         </td>
-                        <td className="table-cell font-medium whitespace-nowrap tabular-nums">
+                        <td className="table-cell-muted mono whitespace-nowrap">
                           {lastTestedLabel(conn.last_tested_at)}
                         </td>
-                        <td className="table-cell font-medium whitespace-nowrap">
+                        <td className="table-cell-muted mono whitespace-nowrap">
                           {formatAddedDate(conn.created_at)}
                         </td>
-                        <td className="table-cell-center font-medium">
+                        <td className="table-cell-center">
                           <RowActions
                             testing={testingId === conn.id}
                             onEdit={() => onEdit(conn)}

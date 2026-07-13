@@ -9,33 +9,12 @@
       "dynamic": true,
       "properties": {
         "@timestamp": { "type": "date" },
-        "timestamp": { "type": "date" },
         "message": { "type": "text" },
         "ventra": {
           "properties": {
             "case_id": { "type": "keyword" },
             "source": { "type": "keyword" },
-            "severity": { "type": "keyword" },
-            "parser_version": { "type": "keyword" },
-            "resource": {
-              "properties": {
-                "type": { "type": "keyword" },
-                "id": { "type": "keyword" },
-                "arn": { "type": "keyword" }
-              }
-            },
-            "related": {
-              "properties": {
-                "ip": { "type": "keyword" },
-                "user": { "type": "keyword" },
-                "resource": { "type": "keyword" }
-              }
-            },
-            "user_agent": {
-              "properties": {
-                "category": { "type": "keyword" }
-              }
-            }
+            "parser_version": { "type": "keyword" }
           }
         },
         "event": {
@@ -44,6 +23,7 @@
             "category": { "type": "keyword" },
             "kind": { "type": "keyword" },
             "outcome": { "type": "keyword" },
+            "severity": { "type": "keyword" },
             "provider": { "type": "keyword" }
           }
         },
@@ -51,12 +31,8 @@
           "properties": {
             "name": { "type": "keyword" },
             "id": { "type": "keyword" },
-            "target": {
-              "properties": {
-                "id": { "type": "keyword" },
-                "type": { "type": "keyword" }
-              }
-            }
+            "arn": { "type": "keyword" },
+            "type": { "type": "keyword" }
           }
         },
         "source": {
@@ -77,7 +53,8 @@
         "destination": {
           "properties": {
             "ip": { "type": "ip" },
-            "port": { "type": "long" }
+            "port": { "type": "long" },
+            "bytes": { "type": "long" }
           }
         },
         "cloud": {
@@ -96,14 +73,24 @@
             }
           }
         },
-        "user_agent": {
+        "resource": {
           "properties": {
-            "original": { "type": "keyword" }
+            "type": { "type": "keyword" },
+            "id": { "type": "keyword" },
+            "arn": { "type": "keyword" }
           }
         },
-        "network": {
+        "user_agent": {
           "properties": {
-            "bytes": { "type": "long" }
+            "original": { "type": "keyword" },
+            "category": { "type": "keyword" }
+          }
+        },
+        "related": {
+          "properties": {
+            "ip": { "type": "keyword" },
+            "user": { "type": "keyword" },
+            "resource": { "type": "keyword" }
           }
         },
         "raw": { "type": "object", "enabled": false }
@@ -112,6 +99,6 @@
   },
   "priority": 200,
   "_meta": {
-    "description": "Ventra normalized IR events exported via ventra-export / Logstash"
+    "description": "Ventra Elastic export — ECS-shaped IR events (schemas/unified-event.schema.json). Remap in Logstash if your stack needs a different layout."
   }
 }

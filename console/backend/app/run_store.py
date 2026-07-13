@@ -14,6 +14,9 @@ def _now_iso() -> str:
     return datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")
 
 
+_TERMINAL_STATUSES = frozenset({"completed", "failed", "cancelled"})
+
+
 class RunNotFound(Exception):
     pass
 
@@ -70,11 +73,33 @@ class RunStore:
 
     def update_matrix(self, run_id: str, snapshot: dict[str, Any]) -> None:
         with self._lock:
+            # Late collector publishes must not resurrect rows or wipe cancel status after
+            # the operator has cancelled (or a reclaim finalized the run).
+            try:
+                meta = self.get_run(run_id)
+                st = str(meta.get("status") or "")
+                if meta.get("cancel_requested") or st in {"cancelling", "cancelled"}:
+                    matrix_status = "cancelled" if st == "cancelled" else "cancelling"
+                    self._apply_cancel_to_matrix(snapshot, status=matrix_status)
+            except RunNotFound:
+                pass
             self._write_json(self._run_dir(run_id) / "matrix.json", snapshot)
 
     def update_meta(self, run_id: str, patch: dict[str, Any]) -> dict[str, Any]:
         with self._lock:
             meta = self.get_run(run_id)
+            current = str(meta.get("status") or "")
+            # Never let a still-running worker regress terminal / in-flight cancel status
+            # back to pending/running (e.g. begin_run after an immediate cancel finalize).
+            if "status" in patch:
+                new_status = str(patch.get("status") or "")
+                if current in _TERMINAL_STATUSES and new_status not in _TERMINAL_STATUSES:
+                    patch = {k: v for k, v in patch.items() if k != "status"}
+                elif (
+                    (current == "cancelling" or meta.get("cancel_requested"))
+                    and new_status in {"pending", "running"}
+                ):
+                    patch = {k: v for k, v in patch.items() if k != "status"}
             meta.update(patch)
             self._write_json(self._run_dir(run_id) / "meta.json", meta)
             return meta
@@ -83,6 +108,12 @@ class RunStore:
         """Stamp when execution actually begins so elapsed/duration measure real run time."""
         with self._lock:
             meta = self.get_run(run_id)
+            current = str(meta.get("status") or "")
+            if current in _TERMINAL_STATUSES or meta.get("cancel_requested") or current == "cancelling":
+                if not meta.get("started_at"):
+                    meta["started_at"] = _now_iso()
+                    self._write_json(self._run_dir(run_id) / "meta.json", meta)
+                return
             patch: dict[str, Any] = {"status": "running"}
             if not meta.get("started_at"):
                 patch["started_at"] = _now_iso()
@@ -152,10 +183,10 @@ class RunStore:
     def request_cancel(self, run_id: str) -> dict[str, Any]:
         """Flag a run for cancellation and repaint the matrix immediately.
 
-        The worker thread owns finalization, so this never marks the run terminal — it
-        moves an active run to the transient ``cancelling`` state and folds the cancel into
-        the matrix so the UI updates instantly, even while the in-flight collector is still
-        wrapping up. ``cancel_requested`` is what the reporter's ``should_cancel()`` reads.
+        Sets ``cancel_requested`` (read by the reporter's ``should_cancel()``) and moves an
+        active run to the transient ``cancelling`` state so late collector publishes fold
+        into an aborted matrix. ``cancel_run`` in the service layer finalizes to
+        ``cancelled`` in the same request so the UI does not wait on the worker.
         """
         patch: dict[str, Any] = {
             "cancel_requested": True,

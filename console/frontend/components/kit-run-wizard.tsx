@@ -17,7 +17,6 @@ import { displayCaseId, validateCaseId } from "@/lib/case-id";
 import { downloadTextFile } from "@/lib/download";
 import {
   cartNeedsGcpLogBackend,
-  GCP_LOGGING_COLLECTOR_IDS,
   validateGcpLogBackendForm,
 } from "@/lib/gcp-log-backend";
 import { readLastConnection } from "@/lib/provider-storage";
@@ -216,10 +215,6 @@ export function KitRunWizard({ open, kit, onClose, onConfirm, running, error }: 
   const providerLabel = platformLabel(cloud);
   const collectors = kit?.artifacts ?? [];
   const needsGcpLogBackend = platform === "gcp" && cartNeedsGcpLogBackend(collectors);
-  const gcpLoggingCollectors = useMemo(
-    () => collectors.filter((c) => GCP_LOGGING_COLLECTOR_IDS.has(c)),
-    [collectors],
-  );
   const gcpLogBackendError = useMemo(
     () => validateGcpLogBackendForm(scope.gcpLogBackend, needsGcpLogBackend),
     [scope.gcpLogBackend, needsGcpLogBackend],
@@ -624,8 +619,6 @@ export function KitRunWizard({ open, kit, onClose, onConfirm, running, error }: 
 
                 {needsGcpLogBackend && (
                   <GcpLogBackendFields
-                    cloud={platform}
-                    loggingCollectors={gcpLoggingCollectors}
                     form={scope.gcpLogBackend}
                     onChange={(gcpLogBackend) => patchScope({ gcpLogBackend })}
                     required={needsGcpLogBackend}

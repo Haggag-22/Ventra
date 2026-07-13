@@ -1,6 +1,0 @@
-{"type": "begin_run", "account_id": "194722414229", "regions": ["ap-northeast-1", "ap-northeast-2", "ap-northeast-3", "ap-south-1", "ap-southeast-1", "ap-southeast-2", "ca-central-1", "eu-central-1", "eu-north-1", "eu-west-1", "eu-west-2", "eu-west-3", "sa-east-1", "us-east-1", "us-east-2", "us-west-1", "us-west-2"], "case_id": "Test-AWS", "collectors": ["account", "iam", "kms", "secrets", "log_posture"], "plan_label": "5 artifacts", "preflight_lines": [], "ts": "2026-07-04T02:59:33.833838Z"}
-{"type": "start", "collector": "account", "ts": "2026-07-04T02:59:33.992371Z"}
-{"type": "finish", "collector": "account", "status": "collected", "records": null, "ts": "2026-07-04T02:59:34.546696Z"}
-{"type": "start", "collector": "iam", "ts": "2026-07-04T02:59:34.546978Z"}
-{"type": "finish", "collector": "iam", "status": "collected", "records": 24, "ts": "2026-07-04T02:59:40.137688Z"}
-{"type": "start", "collector": "kms", "ts": "2026-07-04T02:59:40.138179Z"}

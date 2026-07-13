@@ -103,12 +103,13 @@ function RunRowActions({ run }: { run: RunMeta }) {
 
   const active = isActiveRun(run.status);
   const cancelling = run.status === "cancelling";
-  const loading = cancellingId === run.run_id;
+  const loading = cancellingId === run.run_id || cancelMut.isPending;
+  const canCancel = active || cancelling;
   const canRerun = !active && !cancelling;
 
   return (
     <div className="flex flex-wrap items-center justify-center gap-2">
-      {active && (
+      {canCancel && (
         <Button
           variant="primary"
           size="sm"
@@ -117,12 +118,7 @@ function RunRowActions({ run }: { run: RunMeta }) {
           disabled={loading}
           onClick={() => cancelMut.mutate()}
         >
-          Cancel
-        </Button>
-      )}
-      {cancelling && (
-        <Button variant="secondary" size="sm" icon={Ban} loading disabled>
-          Cancelling…
+          {cancelling || loading ? "Cancelling…" : "Cancel"}
         </Button>
       )}
       {canRerun && (

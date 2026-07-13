@@ -281,7 +281,7 @@ export default function RunDetailPage() {
 
           )}
 
-          {active && (
+          {(active || cancelling) && (
 
             <Button
 
@@ -289,7 +289,7 @@ export default function RunDetailPage() {
 
               icon={Ban}
 
-              loading={cancelMut.isPending}
+              loading={cancelMut.isPending || cancelling}
 
               disabled={cancelMut.isPending}
 
@@ -297,17 +297,7 @@ export default function RunDetailPage() {
 
             >
 
-              Cancel
-
-            </Button>
-
-          )}
-
-          {cancelling && (
-
-            <Button variant="secondary" icon={Ban} loading disabled>
-
-              Cancelling…
+              {cancelling || cancelMut.isPending ? "Cancelling…" : "Cancel"}
 
             </Button>
 

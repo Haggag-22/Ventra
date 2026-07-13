@@ -1,6 +1,0 @@
-{"type": "begin_run", "account_id": "ultimate-opus-500916-b2", "regions": ["ultimate-opus-500916-b2"], "case_id": "demoooooo", "collectors": ["project", "iam_policy", "cloud_audit_admin", "login_events", "cloud_monitoring"], "plan_label": "5 artifacts", "preflight_lines": [], "ts": "2026-07-05T23:43:03.253128Z"}
-{"type": "start", "collector": "project", "ts": "2026-07-05T23:43:03.315217Z"}
-{"type": "finish", "collector": "project", "status": "collected", "records": null, "ts": "2026-07-05T23:43:03.530702Z"}
-{"type": "start", "collector": "iam_policy", "ts": "2026-07-05T23:43:03.530984Z"}
-{"type": "finish", "collector": "iam_policy", "status": "collected", "records": 31, "ts": "2026-07-05T23:43:04.081715Z"}
-{"type": "start", "collector": "cloud_audit_admin", "ts": "2026-07-05T23:43:04.082052Z"}

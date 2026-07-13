@@ -10,8 +10,8 @@ import { Badge, Tooltip } from "./ui";
 /** Tone classes for collection/run status pills. */
 export function runStatusTone(status: RunStatus): string {
   if (status === "completed") return "text-ok-green bg-ok-green/10 border-ok-green/30";
-  if (status === "failed") return "text-bad-red bg-bad-red/10 border-bad-red/30";
-  if (status === "cancelled") return "text-fg-subtle bg-surface-2 border-border";
+  if (status === "failed") return "text-warn-amber bg-warn-amber/10 border-warn-amber/30";
+  if (status === "cancelled") return "text-bad-red bg-bad-red/10 border-bad-red/30";
   if (status === "cancelling") return "text-warn-amber bg-warn-amber/10 border-warn-amber/30";
   if (status === "running" || status === "pending")
     return "text-accent-cta bg-accent-cta/10 border-accent-cta/30";

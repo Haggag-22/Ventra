@@ -1,9 +1,0 @@
-{"type": "begin_run", "account_id": "ultimate-opus-500916-b2", "regions": ["ultimate-opus-500916-b2"], "case_id": "Cow-GCP", "collectors": ["project", "iam_policy", "cloud_audit_admin", "cloud_audit_system", "cloud_audit_data", "login_events", "vpc_flow", "firewall_logs", "cloud_nat", "network_posture", "load_balancer", "cloud_cdn", "api_gateway", "cloud_dns", "cloud_armor", "vm_logs", "gce", "cloud_functions", "gke_audit", "storage_access", "bigquery_audit", "cloud_sql", "secret_manager", "scc_findings", "cloud_monitoring"], "plan_label": "25 artifacts", "preflight_lines": ["BigQuery dataset: found \u2014 ultimate-opus-500916-b2.ventrabigquery (30 tables)"], "ts": "2026-07-06T20:17:55.767572Z"}
-{"type": "event", "collector": "strategy_resolver", "message": "Pre-flight resolution failed (400 ultimate-opus-500916-b2:ventrabigquery.cloudaudit_googleapis_com_system_event* does not match any table.; reason: invalid, message: ultimate-opus-500916-b2:ventrabigquery.cloudaudit_googleapis_com_system_event* does not match any table.\n\nLocation: US\nJob ID: 31c020e7-8ce7-4281-a757-c41d4b887c03\n); collecting without validation.", "ts": "2026-07-06T20:17:58.172967Z"}
-{"type": "start", "collector": "project", "ts": "2026-07-06T20:17:58.175457Z"}
-{"type": "finish", "collector": "project", "status": "collected", "records": null, "ts": "2026-07-06T20:17:58.352919Z"}
-{"type": "start", "collector": "iam_policy", "ts": "2026-07-06T20:17:58.354192Z"}
-{"type": "finish", "collector": "iam_policy", "status": "collected", "records": 31, "ts": "2026-07-06T20:17:58.927165Z"}
-{"type": "start", "collector": "cloud_audit_admin", "ts": "2026-07-06T20:17:58.929800Z"}
-{"type": "cancelling", "message": "Cancelling \u2014 stopping collectors\u2026", "ts": "2026-07-06T20:39:18.590892Z"}
-{"type": "cancelled", "message": "Cancelled by operator", "ts": "2026-07-06T20:39:18.591602Z"}
