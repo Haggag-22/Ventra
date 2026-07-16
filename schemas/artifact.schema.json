@@ -17,7 +17,7 @@
     },
     "cloud": {
       "type": "string",
-      "enum": ["aws", "azure", "gcp"]
+      "enum": ["aws", "azure", "gcp", "kubernetes"]
     },
     "category": {
       "type": "string",

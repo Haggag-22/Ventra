@@ -137,8 +137,9 @@ resource "aws_s3_object" "db_dump_marker" {
 }
 
 resource "aws_s3_bucket" "waf_logs" {
-  bucket = "${var.project}-waf-logs-${local.bucket_suffix}"
-  tags   = { Purpose = "waf-logs", Collector = "waf" }
+  # AWS requires this prefix for WAFv2 log delivery to S3.
+  bucket = "aws-waf-logs-${var.project}-${local.bucket_suffix}"
+  tags   = merge(local.common_tags, { Purpose = "waf-logs", Collector = "waf" })
 }
 
 resource "aws_s3_bucket_public_access_block" "waf_logs" {
@@ -184,7 +185,66 @@ resource "aws_s3_bucket_policy" "waf_logs" {
 
 resource "aws_s3_bucket" "config" {
   bucket = "${var.project}-config-${local.bucket_suffix}"
-  tags   = { Purpose = "aws-config-delivery-optional", Collector = "config" }
+  tags   = merge(local.common_tags, { Purpose = "aws-config-delivery", Collector = "config" })
+}
+
+resource "aws_s3_bucket" "cloudfront_logs" {
+  bucket = "${var.project}-cloudfront-logs-${local.bucket_suffix}"
+  tags   = merge(local.common_tags, { Purpose = "cloudfront-access-logs", Collector = "cloudfront" })
+}
+
+resource "aws_s3_bucket_public_access_block" "cloudfront_logs" {
+  bucket                  = aws_s3_bucket.cloudfront_logs.id
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
+}
+
+resource "aws_s3_bucket_ownership_controls" "cloudfront_logs" {
+  bucket = aws_s3_bucket.cloudfront_logs.id
+  rule {
+    object_ownership = "BucketOwnerPreferred"
+  }
+}
+
+resource "aws_s3_bucket_acl" "cloudfront_logs" {
+  depends_on = [aws_s3_bucket_ownership_controls.cloudfront_logs]
+  bucket     = aws_s3_bucket.cloudfront_logs.id
+  acl        = "private"
+}
+
+data "aws_iam_policy_document" "cloudfront_logs" {
+  statement {
+    sid    = "AllowCloudFrontLogDelivery"
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["delivery.logs.amazonaws.com"]
+    }
+    actions   = ["s3:PutObject"]
+    resources = ["${aws_s3_bucket.cloudfront_logs.arn}/*"]
+    condition {
+      test     = "StringEquals"
+      variable = "s3:x-amz-acl"
+      values   = ["bucket-owner-full-control"]
+    }
+  }
+  statement {
+    sid    = "AllowCloudFrontLogDeliveryAcl"
+    effect = "Allow"
+    principals {
+      type        = "Service"
+      identifiers = ["delivery.logs.amazonaws.com"]
+    }
+    actions   = ["s3:GetBucketAcl"]
+    resources = [aws_s3_bucket.cloudfront_logs.arn]
+  }
+}
+
+resource "aws_s3_bucket_policy" "cloudfront_logs" {
+  bucket = aws_s3_bucket.cloudfront_logs.id
+  policy = data.aws_iam_policy_document.cloudfront_logs.json
 }
 
 resource "aws_s3_bucket_public_access_block" "config" {

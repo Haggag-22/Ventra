@@ -1,6 +1,6 @@
 resource "aws_guardduty_detector" "lab" {
   enable = true
-  tags   = { Collector = "guardduty" }
+  tags   = merge(local.common_tags, { Collector = "guardduty" })
 }
 
 resource "aws_inspector2_enabler" "lab" {
@@ -13,8 +13,29 @@ resource "aws_inspector2_enabler" "lab" {
   }
 }
 
-# Security Hub and Macie are enabled at the account level in many orgs already.
-# Collectors read existing account state — no lab-specific enablement required.
+resource "aws_macie2_account" "lab" {
+  count = var.enable_macie ? 1 : 0
+
+  lifecycle {
+    # Macie may already be enabled in the account from a prior lab run.
+    ignore_changes = all
+  }
+}
+
+resource "aws_securityhub_account" "lab" {
+  count = var.enable_securityhub ? 1 : 0
+
+  lifecycle {
+    # Security Hub may already be subscribed in the account.
+    ignore_changes = all
+  }
+}
+
+resource "aws_securityhub_standards_subscription" "foundational" {
+  count         = var.enable_securityhub ? 1 : 0
+  standards_arn = "arn:${local.partition}:securityhub:${local.region}::standards/aws-foundational-security-best-practices/v/1.0.0"
+  depends_on    = [aws_securityhub_account.lab]
+}
 
 resource "aws_detective_graph" "lab" {
   count      = var.enable_detective ? 1 : 0
@@ -87,11 +108,17 @@ resource "aws_wafv2_web_acl" "lab" {
     sampled_requests_enabled   = true
   }
 
-  tags = { Collector = "waf" }
+  tags = merge(local.common_tags, { Collector = "waf" })
 }
 
-# WAF collector uses GetSampledRequests (visibility_config.sampled_requests_enabled).
-# Full WAF logging to S3 requires aws-waf-logs-* bucket naming; omitted here.
+resource "aws_wafv2_web_acl_logging_configuration" "lab" {
+  resource_arn            = aws_wafv2_web_acl.lab.arn
+  log_destination_configs = [aws_s3_bucket.waf_logs.arn]
+
+  depends_on = [aws_s3_bucket_policy.waf_logs]
+}
+
+# WAF collector also uses GetSampledRequests when full S3 logging is slow to appear.
 
 resource "aws_wafv2_web_acl_association" "alb" {
   resource_arn = aws_lb.lab.arn

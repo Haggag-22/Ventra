@@ -1,0 +1,25 @@
+name: Kubernetes.Memory.Checkpoint
+aliases:
+- k8s_checkpoint
+- kubernetes.k8s_checkpoint
+cloud: kubernetes
+category: Memory
+description: >-
+  Live container memory capture via the kubelet CRIU checkpoint API (on-prem exclusive,
+  impossible on managed clusters). Probes for capability first and degrades to NOT_SUPPORTED on
+  an unsupported runtime or GPU-backed container. The resulting archive contains full process
+  memory (credentials, keys, tokens) and is marked maximum sensitivity. Requires explicit
+  targets; never runs blanket.
+version: 1.0.0
+collector: k8s_checkpoint
+type: k8s_checkpoint
+required_actions: []
+parameters:
+  targets:
+    type: list
+    required: true
+sources:
+- type: k8s_checkpoint
+  format: json
+severity: optional
+estimated_volume: high

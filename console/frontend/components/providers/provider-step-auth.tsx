@@ -5,6 +5,7 @@ import { Input } from "@/components/ui";
 import {
   PROVIDER_IAM_POLICIES,
   docsSectionHref,
+  isDocProvider,
   type DocProvider,
 } from "@/lib/docs-routes";
 import { authWizardTemplates, deploymentTemplatesForProvider } from "@/lib/deployment-templates";
@@ -36,11 +37,11 @@ const LARGE_PASTE_TEXTAREA_CLASS = cn(
 
 function IamPolicyLinks({ platform }: { platform: string }) {
   const key = platform.toLowerCase();
+  if (!isDocProvider(key)) return null;
   const docKey = key as DocProvider;
   const policies = PROVIDER_IAM_POLICIES[docKey];
-  const templateProvider = docKey === "m365" ? "azure" : docKey;
-  const templates = deploymentTemplatesForProvider(templateProvider);
-  const iacTemplates = authWizardTemplates(templateProvider).filter(() => docKey !== "m365");
+  const templates = deploymentTemplatesForProvider(docKey);
+  const iacTemplates = authWizardTemplates(docKey);
 
   if (!policies?.length && !iacTemplates.length) return null;
 

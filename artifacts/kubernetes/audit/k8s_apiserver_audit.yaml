@@ -1,0 +1,24 @@
+name: Kubernetes.Audit.ApiServerLog
+aliases:
+- k8s_apiserver_audit
+- kubernetes.k8s_apiserver_audit
+cloud: kubernetes
+category: Audit
+description: >-
+  The API-server audit log read from disk (on-prem exclusive) — the only record of who did
+  what inside the cluster (pods/exec, secret reads, RBAC changes). Parses audit.k8s.io/v1
+  events and builds priority detections; a missing file is a critical LOGGING_NOT_CONFIGURED
+  gap cross-linked to k8s_audit_posture.
+version: 1.0.0
+collector: k8s_apiserver_audit
+type: k8s_apiserver_audit
+required_actions: []
+parameters:
+  admin_cidrs:
+    type: list
+    required: false
+sources:
+- type: k8s_apiserver_audit
+  format: jsonl
+severity: critical
+estimated_volume: high

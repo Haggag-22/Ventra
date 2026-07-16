@@ -1,0 +1,20 @@
+name: Kubernetes.ControlPlane.StaticPodLogs
+aliases:
+- k8s_control_plane_logs
+- kubernetes.k8s_control_plane_logs
+cloud: kubernetes
+category: ControlPlane
+description: >-
+  Static-pod logs (kube-apiserver, kube-scheduler, kube-controller-manager) and — critically —
+  the static pod manifests under /etc/kubernetes/manifests. A file written there creates a
+  privileged control-plane pod with no API call and no audit entry; manifests are hashed and
+  unexpected ones are flagged. On-prem exclusive.
+version: 1.0.0
+collector: k8s_control_plane_logs
+type: k8s_control_plane_logs
+required_actions: []
+sources:
+- type: k8s_control_plane_logs
+  format: json
+severity: extended
+estimated_volume: medium

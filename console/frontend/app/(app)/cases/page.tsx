@@ -320,7 +320,7 @@ function CaseCard({ c, authName }: { c: CaseSummary; authName?: string }) {
   const storage = formatCaseStorage(c);
 
   return (
-    <Link href={caseHref(c.case_id, "overview")} className="block">
+    <Link href={caseHref(c.case_id)} className="block">
       <Card
         className={cn(
           "group relative overflow-hidden p-0 transition-colors hover:border-accent/45",

@@ -1,0 +1,23 @@
+name: Kubernetes.Workloads.ContainerLogsNode
+aliases:
+- k8s_container_logs
+- kubernetes.k8s_container_logs
+cloud: kubernetes
+category: Workloads
+description: >-
+  Container logs read from the node filesystem (/var/log/pods). More complete than the API:
+  includes rotated logs and logs for pods that no longer exist. Follows /var/log/containers
+  symlinks without collecting the same content twice.
+version: 1.0.0
+collector: k8s_container_logs
+type: k8s_container_logs
+required_actions: []
+parameters:
+  namespaces:
+    type: list
+    required: false
+sources:
+- type: k8s_container_logs
+  format: json
+severity: extended
+estimated_volume: high

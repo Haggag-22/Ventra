@@ -16,7 +16,6 @@ export type Cloud = (typeof CLOUDS)[number];
 
 /**
  * Acquire page tabs (Configuration → Acquire).
- * M365 is temporarily hidden from Acquire selection; docs / providers may still use it.
  */
 export const ACQUIRE_PLATFORMS = ["aws", "azure", "gcp"] as const;
 export type AcquirePlatform = (typeof ACQUIRE_PLATFORMS)[number];
@@ -31,12 +30,10 @@ export const CLOUD_LABELS: Record<Cloud, string> = {
   gcp: "GCP",
 };
 
-/** Labels for Acquire tabs plus M365 for docs and other surfaces. */
-export const ACQUIRE_PLATFORM_LABELS: Record<AcquirePlatform | "m365", string> = {
+export const ACQUIRE_PLATFORM_LABELS: Record<AcquirePlatform, string> = {
   aws: "AWS",
   azure: "Azure",
   gcp: "GCP",
-  m365: "M365",
 };
 
 export const CASE_PLATFORM_LABELS: Record<CasePlatform, string> = {
@@ -88,6 +85,23 @@ export const EXTRA_COLLECTOR_LABELS: Record<string, string> = {
   network_posture: "Network posture",
   project: "Project context",
   iam_policy: "IAM snapshot",
+  // On-prem Kubernetes (standalone platform)
+  k8s_events: "Kubernetes Events",
+  k8s_audit_posture: "Audit logging posture",
+  k8s_apiserver_audit: "API-server audit log",
+  k8s_cluster_state: "Cluster inventory",
+  k8s_rbac: "RBAC snapshot",
+  k8s_pod_logs: "Pod logs (API)",
+  k8s_container_logs: "Container logs (node)",
+  k8s_container_fs: "Container filesystem",
+  k8s_kubelet_logs: "kubelet logs",
+  k8s_runtime_logs: "Container-runtime logs",
+  k8s_control_plane_logs: "Control-plane logs",
+  k8s_etcd: "etcd logs + posture",
+  k8s_node_os: "Host OS forensics",
+  k8s_cni_logs: "CNI plugin logs",
+  k8s_runtime_security: "Runtime security (Falco/Tetragon)",
+  k8s_checkpoint: "Container memory checkpoint",
 };
 
 // BEGIN GENERATED CATALOG — run: python scripts/generate-catalog-ts.py
@@ -219,7 +233,6 @@ export const COLLECTOR_CATEGORY_ORDER = [
   "Network",
   "DataStorage",
   "Workloads",
-  "M365",
 ] as const;
 
 export function compareCollectorCategories(a: string, b: string): number {

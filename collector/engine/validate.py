@@ -27,7 +27,7 @@ from .acquisition import _pack_collector_keys
 from .loader import ArtifactValidationError, load_artifact, load_artifacts_dir
 from .registry import registry_for_cloud
 
-_CLOUDS = ("aws", "azure", "gcp")
+_CLOUDS = ("aws", "azure", "gcp", "kubernetes")
 _VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
 _ALLOWED_KEYS = frozenset(
     {

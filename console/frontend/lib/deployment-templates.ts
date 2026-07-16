@@ -94,13 +94,6 @@ export const PROVIDER_DEPLOYMENT_TEMPLATES: Partial<Record<DocProvider, Deployme
       href: `${POLICIES}/azure-collector-graph.json`,
       filename: "azure-collector-graph.json",
     },
-    {
-      id: "azure-m365",
-      label: "M365 audit permissions",
-      kind: "policy",
-      href: `${POLICIES}/azure-collector-m365.json`,
-      filename: "azure-collector-m365.json",
-    },
   ],
 };
 
