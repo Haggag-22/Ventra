@@ -1,0 +1,15 @@
+# Dedicated engagement namespace for Ventra node-plane collection.
+#
+# Node-plane collection requires a privileged pod with hostPath mounts (and hostPID for some
+# collectors) — effectively cluster-admin-equivalent, and it WILL be rejected under the
+# 'restricted' Pod Security Admission profile. This namespace is labelled 'privileged' on
+# purpose. Create it for the engagement and DELETE it (and the ServiceAccount) afterwards.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: ventra-forensics
+  labels:
+    app.kubernetes.io/part-of: ventra
+    pod-security.kubernetes.io/enforce: privileged
+    pod-security.kubernetes.io/audit: privileged
+    pod-security.kubernetes.io/warn: privileged

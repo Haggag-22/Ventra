@@ -1,0 +1,15 @@
+# Example toggles for the AWS collector lab.
+# Copy to terraform.tfvars and adjust before apply.
+
+region = "us-east-1"
+case_id = "CASE-LAB-AWS"
+
+# Cost savers (set false to skip expensive resources)
+enable_eks           = true   # ~$75/mo — eks_audit collector
+enable_detective       = true   # ~$2/day — detective collector
+enable_log_posture     = true   # OpenSearch + Network Firewall — log_posture collector
+enable_macie           = true   # macie collector
+enable_securityhub     = true   # securityhub collector
+
+# Set false if this AWS account already has a Config recorder (limit 1 per region)
+enable_config = true

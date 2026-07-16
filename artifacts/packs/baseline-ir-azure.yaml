@@ -9,8 +9,6 @@ artifacts:
 - entra_directory
 - activity_log
 - rbac
-- unified_audit
-- unified_audit_search
 - oauth_consent
 - defender
 - vnet_flow

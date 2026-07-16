@@ -1,0 +1,19 @@
+name: Kubernetes.Node.KubeletLogs
+aliases:
+- k8s_kubelet_logs
+- kubernetes.k8s_kubelet_logs
+cloud: kubernetes
+category: Node
+description: >-
+  kubelet journal/log (journalctl -u kubelet or /var/log/kubelet.log): pod admission, image
+  pulls, container start/stop, volume mounts. Cross-check against the API audit log to detect
+  tampering (kubelet did something the API server was never asked to do).
+version: 1.0.0
+collector: k8s_kubelet_logs
+type: k8s_kubelet_logs
+required_actions: []
+sources:
+- type: k8s_kubelet_logs
+  format: jsonl
+severity: extended
+estimated_volume: medium

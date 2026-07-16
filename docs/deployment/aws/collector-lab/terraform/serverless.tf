@@ -7,7 +7,7 @@ resource "aws_cloudwatch_log_group" "lambda" {
 resource "aws_lambda_function" "processor" {
   function_name = "${var.project}-processor"
   role          = aws_iam_role.lambda.arn
-  handler       = "index.handler"
+  handler       = "lambda_processor.handler"
   runtime       = "python3.12"
   timeout       = 30
 
@@ -21,6 +21,10 @@ resource "aws_api_gateway_rest_api" "lab" {
   name        = "${var.project}-api"
   description = "Ventra collector lab REST API"
   tags        = { Collector = "apigateway" }
+
+  endpoint_configuration {
+    types = ["REGIONAL"]
+  }
 }
 
 resource "aws_api_gateway_resource" "admin" {
@@ -50,12 +54,24 @@ resource "aws_lambda_permission" "apigw" {
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.processor.function_name
   principal     = "apigateway.amazonaws.com"
-  source_arn    = "${aws_api_gateway_rest_api.lab.execution_arn}/*/*"
+  source_arn    = "${aws_api_gateway_rest_api.lab.execution_arn}/*/*/*"
 }
 
 resource "aws_api_gateway_deployment" "lab" {
   rest_api_id = aws_api_gateway_rest_api.lab.id
   depends_on  = [aws_api_gateway_integration.admin_lambda]
+
+  triggers = {
+    redeployment = sha1(jsonencode([
+      aws_api_gateway_resource.admin.id,
+      aws_api_gateway_method.admin_get.id,
+      aws_api_gateway_integration.admin_lambda.id,
+    ]))
+  }
+
+  lifecycle {
+    create_before_destroy = true
+  }
 }
 
 resource "aws_api_gateway_stage" "prod" {
@@ -76,6 +92,8 @@ resource "aws_api_gateway_stage" "prod" {
   }
 
   tags = { Collector = "apigateway" }
+
+  depends_on = [aws_api_gateway_account.lab]
 }
 
 resource "aws_cloudwatch_log_group" "apigw" {

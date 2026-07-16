@@ -143,8 +143,6 @@ const PANEL_COLLECTORS_AZURE: Record<PanelId, PanelCollectorDef> = {
       { id: "activity_log" },
       { id: "entra_signin", note: "sign-in logs" },
       { id: "entra_audit", note: "directory audit" },
-      { id: "unified_audit", note: "M365 UAL (Management API, ~7d)" },
-      { id: "unified_audit_search", note: "M365 UAL Search (90d default)" },
       { id: "oauth_consent", note: "standing OAuth grants" },
     ],
   },

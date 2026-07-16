@@ -44,7 +44,7 @@
     },
     "cloud": {
       "type": "string",
-      "enum": ["aws", "azure", "gcp"]
+      "enum": ["aws", "azure", "gcp", "kubernetes"]
     },
     "account_id": {
       "type": "string",
@@ -147,11 +147,15 @@
               "service_not_enabled",
               "logging_not_configured",
               "access_denied",
+              "rate_limited",
               "region_opted_out",
               "not_present",
               "collector_error",
               "log_integrity_failed",
-              "out_of_scope"
+              "out_of_scope",
+              "unparseable_timestamp",
+              "retention_expired",
+              "not_supported"
             ]
           },
           "detail": { "type": "string" }

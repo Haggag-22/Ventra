@@ -261,7 +261,6 @@ export function ProvidersTable({
           <option value="aws">AWS</option>
           <option value="azure">Azure</option>
           <option value="gcp">GCP</option>
-          <option value="m365">M365</option>
           <option value="kubernetes">Kubernetes</option>
         </FilterSelect>
         <FilterSelect

@@ -1,0 +1,19 @@
+name: Kubernetes.Network.CniLogs
+aliases:
+- k8s_cni_logs
+- kubernetes.k8s_cni_logs
+cloud: kubernetes
+category: Network
+description: >-
+  Detects the CNI plugin (Calico, Cilium, Flannel, Weave) and collects its logs and, where
+  supported, flow logs (e.g. Cilium Hubble) — the primary evidence for lateral movement and
+  exfiltration.
+version: 1.0.0
+collector: k8s_cni_logs
+type: k8s_cni_logs
+required_actions: []
+sources:
+- type: k8s_cni_logs
+  format: json
+severity: extended
+estimated_volume: medium

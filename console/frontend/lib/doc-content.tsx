@@ -246,7 +246,6 @@ const AZURE_AUTH: DocSectionContent = {
         "Create a client secret with an expiry that covers the engagement.",
         "Assign the read only role on the subscription, or deploy the Terraform module.",
         "Grant the Microsoft Graph application permissions and record tenant administrator consent.",
-        "For a long lookback M365 audit search, also assign the Exchange permissions.",
         "Open Config, Providers, add a connection, and select Microsoft Azure.",
         "Enter the Tenant ID, Client ID, client secret, and Subscription ID, then run Validate connection.",
       ],
@@ -263,14 +262,13 @@ const AZURE_PERMISSIONS: DocSectionContent = {
   blocks: [
     {
       type: "p",
-      text: "Azure access spans three areas: Resource Manager provider actions, Microsoft Graph application permissions, and optional Exchange application access for the extended M365 audit search. Every scope is read only.",
+      text: "Azure access spans Resource Manager provider actions and Microsoft Graph application permissions. Every scope is read only.",
     },
     {
       type: "ul",
       items: [
         "Resource Manager read only: subscriptions, activity logs, network watchers, storage metadata, Key Vault inventory, AKS clusters, Defender alerts, and Log Analytics query.",
-        "Microsoft Graph: AuditLog.Read.All, Directory.Read.All, User.Read.All, Group.Read.All, Application.Read.All, and ActivityFeed.Read.",
-        "Extended M365 search: the Exchange Administrator role plus Exchange.ManageAsApp for the unified audit search collector.",
+        "Microsoft Graph: AuditLog.Read.All, Directory.Read.All, User.Read.All, Group.Read.All, and Application.Read.All.",
       ],
     },
     {
@@ -296,84 +294,6 @@ const AZURE_CONNECTIONS: DocSectionContent = {
         ["Tenant ID", "Authenticate", "The Entra directory identifier"],
         ["Client ID", "Authenticate", "The application ID from the app registration"],
         ["Client secret", "Authenticate", "Created under Certificates and secrets, omitted on edit to keep the saved value"],
-      ],
-    },
-  ],
-};
-
-// ---- Microsoft 365 ---------------------------------------------------------------------
-
-const M365_AUTH: DocSectionContent = {
-  title: "Authentication",
-  blocks: [
-    {
-      type: "p",
-      text: "Microsoft 365 collection uses an Entra ID app registration authenticated with either a client secret or a certificate. Ventra acquires Microsoft Graph tokens on the server to read Entra audit, sign in, and Unified Audit Log data.",
-    },
-    {
-      type: "table",
-      headers: ["Method", "What you provide"],
-      rows: [
-        ["App Client Secret Credentials", "A client secret from the app registration"],
-        ["App Certificate Credentials", "A base64 certificate you paste on the Authenticate step"],
-      ],
-    },
-    {
-      type: "ol",
-      items: [
-        "Create an app registration in Entra ID and note the Tenant ID and Client ID.",
-        "Under Certificates and secrets, create a client secret or upload a certificate.",
-        "Grant the Microsoft Graph application permissions and record administrator consent.",
-        "For a long lookback Unified Audit search, also assign the Exchange permissions.",
-        "Open Config, Providers, add a connection, and select Microsoft 365.",
-        "Enter the Domain ID, for example contoso.onmicrosoft.com, then the Tenant ID and Client ID.",
-        "Provide the client secret, or paste the base64 certificate content, then run Validate connection.",
-      ],
-    },
-    {
-      type: "note",
-      text: "Ventra does not switch on M365 audit feeds. Confirm the Management Activity feed is active in the Microsoft 365 compliance center before collection runs.",
-    },
-  ],
-};
-
-const M365_PERMISSIONS: DocSectionContent = {
-  title: "Permissions",
-  blocks: [
-    {
-      type: "p",
-      text: "M365 access needs Microsoft Graph application permissions, plus optional Exchange application access for the extended Unified Audit search. Ventra never requests write scopes.",
-    },
-    {
-      type: "ul",
-      items: [
-        "Microsoft Graph: AuditLog.Read.All, Directory.Read.All, User.Read.All, Group.Read.All, Application.Read.All, and ActivityFeed.Read.",
-        "Unified Audit Log: the Management Activity feed must be enabled in the tenant.",
-        "Extended search: the Exchange Administrator role plus Exchange.ManageAsApp for the unified audit search collector.",
-      ],
-    },
-    {
-      type: "note",
-      text: "Every Graph permission ends in Read.All, so the app registration can read directory and audit data but cannot change it.",
-    },
-  ],
-};
-
-const M365_CONNECTIONS: DocSectionContent = {
-  title: "Connections",
-  blocks: [
-    {
-      type: "p",
-      text: "An M365 connection stores the app registration credentials on the server. The authentication method is a client secret or a certificate.",
-    },
-    {
-      type: "table",
-      headers: ["Field", "Step", "Purpose"],
-      rows: [
-        ["Domain ID", "Provider details", "The primary M365 domain, for example contoso.onmicrosoft.com"],
-        ["Tenant ID", "Authenticate", "The Entra directory identifier"],
-        ["Client ID", "Authenticate", "The application ID from the app registration"],
-        ["Client secret or certificate", "Authenticate", "Created under Certificates and secrets, omitted on edit to keep the saved value"],
       ],
     },
   ],
@@ -435,11 +355,6 @@ const CONTENT: Partial<Record<DocProvider, Partial<Record<DocSectionId, DocSecti
     authentication: AZURE_AUTH,
     permissions: AZURE_PERMISSIONS,
     connections: AZURE_CONNECTIONS,
-  },
-  m365: {
-    authentication: M365_AUTH,
-    permissions: M365_PERMISSIONS,
-    connections: M365_CONNECTIONS,
   },
   kubernetes: {
     authentication: K8S_AUTH,

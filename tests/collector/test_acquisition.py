@@ -39,7 +39,7 @@ def test_list_packs_filtered_by_cloud() -> None:
     gcp = list_packs("gcp", ARTIFACTS)
     assert [p["pack"] for p in gcp] == ["baseline-ir-gcp"]
     assert gcp[0]["artifacts"], "pack should carry its collector keys"
-    assert {p["cloud"] for p in list_packs(None, ARTIFACTS)} == {"aws", "azure", "gcp"}
+    assert {p["cloud"] for p in list_packs(None, ARTIFACTS)} == {"aws", "azure", "gcp", "kubernetes"}
 
 
 def test_load_acquisition_full_form(tmp_path: Path) -> None:

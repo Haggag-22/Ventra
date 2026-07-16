@@ -1,0 +1,23 @@
+name: kubernetes-baseline-ir
+description: >-
+  Baseline IR artifact pack for on-prem / self-managed Kubernetes. Runs in volatility order:
+  perishable Events first, then ephemeral pod/container evidence, node and control-plane logs,
+  the API-server audit log, and durable cluster/RBAC state. Excludes the opt-in, targeted
+  captures (k8s_container_fs, k8s_checkpoint) which require explicit implicated containers.
+cloud: kubernetes
+version: 1.0.0
+artifacts:
+- k8s_events
+- k8s_container_logs
+- k8s_pod_logs
+- k8s_runtime_logs
+- k8s_kubelet_logs
+- k8s_control_plane_logs
+- k8s_etcd
+- k8s_cni_logs
+- k8s_runtime_security
+- k8s_node_os
+- k8s_apiserver_audit
+- k8s_audit_posture
+- k8s_cluster_state
+- k8s_rbac

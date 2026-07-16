@@ -6,6 +6,7 @@ cloud: azure
 category: M365
 description: M365 Unified Audit Log (recent window) via Office 365 Management Activity
   API feeds.
+selectable: false
 version: 1.0.0
 collector: unified_audit
 type: unified_audit

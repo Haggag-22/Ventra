@@ -12,7 +12,7 @@ from ...lib.base import CollectorRegistry
 if TYPE_CHECKING:
     from types import ModuleType
 
-_CLOUDS = ("aws", "azure", "gcp")
+_CLOUDS = ("aws", "azure", "gcp", "kubernetes")
 _CLOUD_MODULES: dict[str, ModuleType] = {}
 
 AUTODETECT_COLLECTORS: dict[str, tuple[str, str]] = {}
@@ -30,6 +30,8 @@ def _cloud_module(cloud: str):
             from . import aws as mod
         elif cloud == "azure":
             from . import azure as mod
+        elif cloud == "kubernetes":
+            from . import kubernetes as mod
         else:
             from . import gcp as mod
         _CLOUD_MODULES[cloud] = mod
@@ -98,6 +100,10 @@ def __getattr__(name: str):
         return registry_for_cloud("gcp")
     if name == "GCP_COLLECTOR_ORDER":
         return collector_order_for_cloud("gcp")
+    if name == "KUBERNETES_REGISTRY":
+        return registry_for_cloud("kubernetes")
+    if name == "KUBERNETES_COLLECTOR_ORDER":
+        return collector_order_for_cloud("kubernetes")
     if name == "API_MODULE_BY_COLLECTOR":
         return _api_module_map()
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

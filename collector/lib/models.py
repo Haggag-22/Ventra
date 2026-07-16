@@ -39,6 +39,10 @@ class GapReason(enum.StrEnum):
     LOG_INTEGRITY_FAILED = "log_integrity_failed"
     OUT_OF_SCOPE = "out_of_scope"
     UNPARSEABLE_TIMESTAMP = "unparseable_timestamp"
+    # A perishable source aged out before collection (e.g. Kubernetes Events past --event-ttl).
+    RETENTION_EXPIRED = "retention_expired"
+    # A capability the collector needs is absent (e.g. CRIU checkpoint on an unsupported runtime).
+    NOT_SUPPORTED = "not_supported"
 
 
 @dataclass

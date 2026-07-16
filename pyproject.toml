@@ -53,12 +53,15 @@ dependencies = [
     "azure-mgmt-security>=7.0",
     "azure-mgmt-authorization>=4.0",
     "azure-storage-blob>=12.19",
+    # On-prem Kubernetes collectors (API plane). Node-plane collectors need only the stdlib.
+    "kubernetes>=29.0",
 ]
 
 [project.optional-dependencies]
 # Backward compatible — cloud SDKs ship in the base install.
 gcp = []
 azure = []
+kubernetes = []
 console = [
     "fastapi>=0.110",
     "uvicorn[standard]>=0.29",

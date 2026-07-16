@@ -5,7 +5,7 @@ import { cn } from "@/lib/utils";
 import type { CasePlatform } from "@/lib/catalog";
 import { Check, Lock } from "lucide-react";
 import { PROVIDER_META, PROVIDER_ORDER } from "./provider-meta";
-import { PROVIDER_PLATFORMS, type ProviderPlatform } from "./types";
+import { PROVIDER_PLATFORMS, type ProviderPlatform, type SelectableProviderPlatform } from "./types";
 
 const COMING_SOON = new Set(
   PROVIDER_PLATFORMS.filter((p) => "comingSoon" in p && p.comingSoon).map((p) => p.id),
@@ -16,7 +16,7 @@ export function ProviderStepLink({
   onSelect,
 }: {
   platform: ProviderPlatform | "";
-  onSelect: (platform: ProviderPlatform) => void;
+  onSelect: (platform: SelectableProviderPlatform) => void;
 }) {
   return (
     <div className="space-y-5">

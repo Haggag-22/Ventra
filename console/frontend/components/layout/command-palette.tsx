@@ -14,7 +14,6 @@ import {
   Gauge,
   Globe,
   Globe2,
-  LayoutDashboard,
   Network,
   ScrollText,
   Search,
@@ -38,7 +37,6 @@ const PANELS: {
   icon: typeof Gauge;
   label?: string;
 }[] = [
-  { href: "overview", icon: LayoutDashboard, label: "Overview" },
   { href: "cloudtrail", panel: "cloudtrail", icon: ScrollText },
   { href: "search", panel: "search", icon: ShieldAlert },
   { href: "identity", panel: "identity", icon: Fingerprint },

@@ -1313,6 +1313,101 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
       description: "WAF web ACL names as shown in the AWS WAF console.",
     },
   ],
+  k8s_cluster_state: [
+    {
+      key: "trusted_registries",
+      label: "Trusted registries",
+      type: "list",
+      description:
+        "Container registries considered trusted. Pods pulling images from anywhere else are flagged as suspicious. Common defaults (registry.k8s.io, etc.) are always included.",
+    },
+  ],
+  k8s_pod_logs: [
+    {
+      key: "namespaces",
+      label: "Namespaces",
+      type: "list",
+      description: "Limit pod-log collection to these namespaces. Empty = all namespaces.",
+    },
+    {
+      key: "pods",
+      label: "Pod names",
+      type: "list",
+      description: "Limit collection to these pod names. Empty = all pods in scope.",
+    },
+  ],
+  k8s_container_logs: [
+    {
+      key: "namespaces",
+      label: "Namespaces",
+      type: "list",
+      description: "Limit node-side container-log collection to these namespaces. Empty = all.",
+    },
+  ],
+  k8s_container_fs: [
+    {
+      key: "container_ids",
+      label: "Container IDs",
+      type: "list",
+      description:
+        "CRI container IDs of the implicated containers to capture. Overlay paths are resolved via crictl inspect.",
+    },
+    {
+      key: "namespaces",
+      label: "Namespaces",
+      type: "list",
+      description: "Restrict container enumeration to these namespaces.",
+    },
+    {
+      key: "pods",
+      label: "Pod names",
+      type: "list",
+      description: "Restrict container enumeration to these pods.",
+    },
+    {
+      key: "full_export",
+      label: "Full changed-layer export",
+      type: "boolean",
+      description:
+        "Also export a full tar of each container's changed (upper) layer, not just individual files. Larger evidence.",
+    },
+    {
+      key: "allow_docker",
+      label: "Allow legacy Docker runtime",
+      type: "boolean",
+      description:
+        "Permit collection on a legacy Docker runtime (dockershim was removed in Kubernetes v1.24). Off by default.",
+    },
+  ],
+  k8s_apiserver_audit: [
+    {
+      key: "admin_cidrs",
+      label: "Admin source CIDRs",
+      type: "list",
+      description:
+        "Expected admin source IP ranges. Audit requests from outside these ranges are flagged. Empty = detection disabled.",
+    },
+  ],
+  k8s_etcd: [
+    {
+      key: "dump_db",
+      label: "Dump etcd database",
+      type: "boolean",
+      description:
+        "MAXIMUM SENSITIVITY. Snapshot the etcd database — it contains every Secret in plaintext (unless encryption-at-rest is on). Off by default; enable only with explicit authorization.",
+    },
+  ],
+  k8s_checkpoint: [
+    {
+      key: "targets",
+      label: "Checkpoint targets",
+      type: "list",
+      required: true,
+      description:
+        "namespace/pod/container triples to checkpoint via the kubelet CRIU API. The archive contains full process memory (credentials, keys, tokens) and is treated as maximum sensitivity.",
+      placeholder: "prod/web-0/app",
+    },
+  ],
 };
 
 export function collectorParamSchema(collector: string): ParamFieldDef[] {
