@@ -1,10 +1,10 @@
 import type { AcquirePlatform } from "./catalog";
-import { ACQUIRE_PLATFORM_LABELS, CASE_PLATFORM_LABELS, isAcquirePlatform, type CasePlatform } from "./catalog";
+import { CASE_PLATFORM_LABELS, isAcquirePlatform, type CasePlatform } from "./catalog";
 
 export const DOCS_HREF = "/docs";
 
 /** Documentation providers — mirrors case platform tabs (includes Kubernetes roadmap). */
-export const DOC_PROVIDERS = ["aws", "azure", "gcp", "m365", "kubernetes"] as const;
+export const DOC_PROVIDERS = ["aws", "azure", "gcp", "kubernetes"] as const;
 export type DocProvider = (typeof DOC_PROVIDERS)[number];
 export const DEFAULT_DOC_PROVIDER: DocProvider = "aws";
 
@@ -12,7 +12,6 @@ export const DOC_PROVIDER_LABELS: Record<DocProvider, string> = {
   aws: CASE_PLATFORM_LABELS.aws,
   azure: CASE_PLATFORM_LABELS.azure,
   gcp: CASE_PLATFORM_LABELS.gcp,
-  m365: ACQUIRE_PLATFORM_LABELS.m365,
   kubernetes: CASE_PLATFORM_LABELS.kubernetes,
 };
 
@@ -60,7 +59,6 @@ export function docsCollectorsHref(provider: DocProvider | string): string {
 
 /** Artifact registry `cloud` query values to load for a documentation provider page. */
 export function artifactCloudsForProvider(provider: DocProvider): string[] {
-  if (provider === "azure" || provider === "m365") return ["azure", "m365"];
   return [provider];
 }
 
@@ -97,11 +95,6 @@ export const PROVIDER_IAM_POLICIES: Partial<Record<DocProvider, IamPolicyRef[]>>
       path: "docs/iam-policies/azure-collector-graph.json",
       publicPath: "/docs/iam-policies/azure-collector-graph.json",
     },
-    {
-      label: "M365 Unified Audit",
-      path: "docs/iam-policies/azure-collector-m365.json",
-      publicPath: "/docs/iam-policies/azure-collector-m365.json",
-    },
   ],
   gcp: [
     {
@@ -113,18 +106,6 @@ export const PROVIDER_IAM_POLICIES: Partial<Record<DocProvider, IamPolicyRef[]>>
       label: "Read-only policy JSON",
       path: "docs/iam-policies/gcp-collector-readonly.json",
       publicPath: "/docs/iam-policies/gcp-collector-readonly.json",
-    },
-  ],
-  m365: [
-    {
-      label: "Microsoft Graph Entra",
-      path: "docs/iam-policies/azure-collector-graph.json",
-      publicPath: "/docs/iam-policies/azure-collector-graph.json",
-    },
-    {
-      label: "M365 Unified Audit",
-      path: "docs/iam-policies/azure-collector-m365.json",
-      publicPath: "/docs/iam-policies/azure-collector-m365.json",
     },
   ],
 };

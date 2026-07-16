@@ -37,7 +37,25 @@ variable "enable_detective" {
 variable "enable_macie" {
   type        = bool
   default     = true
-  description = "Enable Amazon Macie."
+  description = "Enable Amazon Macie in the lab region."
+}
+
+variable "enable_securityhub" {
+  type        = bool
+  default     = true
+  description = "Enable Security Hub (aggregates GuardDuty/Inspector/Macie findings)."
+}
+
+variable "enable_config" {
+  type        = bool
+  default     = true
+  description = "Provision AWS Config recorder + delivery channel. Set false if the account already has a Config recorder (limit 1 per region)."
+}
+
+variable "enable_log_posture" {
+  type        = bool
+  default     = true
+  description = "OpenSearch domain, DynamoDB table with streams, and Network Firewall for log_posture collector targets (adds cost)."
 }
 
 variable "tags" {

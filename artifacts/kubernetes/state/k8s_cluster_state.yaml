@@ -1,0 +1,43 @@
+name: Kubernetes.State.ClusterInventory
+aliases:
+- k8s_cluster_state
+- kubernetes.k8s_cluster_state
+cloud: kubernetes
+category: ClusterState
+description: >-
+  All-namespace inventory of workloads (pods, deployments, daemonsets, statefulsets,
+  replicasets, jobs, cronjobs), identity (serviceaccounts, secret metadata, configmaps),
+  network (services, ingresses, networkpolicies), nodes/namespaces, CRDs, and mutating/
+  validating webhook configurations. Derives suspicious_pods. Secret values are never captured.
+version: 1.0.0
+collector: k8s_cluster_state
+type: k8s_cluster_state
+required_actions:
+- get pods
+- list pods
+- list deployments
+- list daemonsets
+- list statefulsets
+- list replicasets
+- list jobs
+- list cronjobs
+- list serviceaccounts
+- list secrets
+- list configmaps
+- list services
+- list ingresses
+- list networkpolicies
+- list nodes
+- list namespaces
+- list customresourcedefinitions
+- list mutatingwebhookconfigurations
+- list validatingwebhookconfigurations
+parameters:
+  trusted_registries:
+    type: list
+    required: false
+sources:
+- type: k8s_cluster_state
+  format: jsonl
+severity: extended
+estimated_volume: medium

@@ -1,0 +1,19 @@
+name: Kubernetes.Audit.Posture
+aliases:
+- k8s_audit_posture
+- kubernetes.k8s_audit_posture
+cloud: kubernetes
+category: Audit
+description: >-
+  API-server audit-logging posture: whether --audit-log-path / --audit-policy-file are set,
+  the policy contents, rotation settings, and webhook backend. Missing audit logging is
+  reported as a first-class critical gap, not a silent absence.
+version: 1.0.0
+collector: k8s_audit_posture
+type: k8s_audit_posture
+required_actions: []
+sources:
+- type: k8s_audit_posture
+  format: json
+severity: critical
+estimated_volume: low

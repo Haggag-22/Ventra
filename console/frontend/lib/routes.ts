@@ -56,7 +56,10 @@ export function collectionKitEditHref(profileId: string): string {
   return `${CONFIG_ACQUIRE_HREF}?profile=${encodeURIComponent(profileId)}`;
 }
 
-export function caseHref(caseId: string, panel = "overview"): string {
+/** Default panel when opening a case (audit / CloudTrail timeline). */
+export const DEFAULT_CASE_PANEL = "cloudtrail";
+
+export function caseHref(caseId: string, panel = DEFAULT_CASE_PANEL): string {
   return `/cases/${encodeURIComponent(caseId)}/${panel}`;
 }
 
@@ -67,7 +70,6 @@ export function runHref(runId: string): string {
 export type BreadcrumbItem = { label: string; href?: string };
 
 const PANEL_LABELS: Record<string, string> = {
-  overview: "Overview",
   cloudtrail: "CloudTrail",
   search: "Findings",
   identity: "Identity",

@@ -1,4 +1,4 @@
-Ventra AWS collectors — read-only permissions (you assign Resource ARNs)
+Ventra AWS collectors read-only permissions
 
 [Account Context]
 sts:GetCallerIdentity

@@ -1,0 +1,19 @@
+name: Kubernetes.Node.RuntimeLogs
+aliases:
+- k8s_runtime_logs
+- kubernetes.k8s_runtime_logs
+cloud: kubernetes
+category: Node
+description: >-
+  Container-runtime journal (containerd/crio) plus a live runtime-state snapshot via crictl
+  (ps -a, images, pods). Surfaces image pulls from unexpected registries, container lifecycle,
+  and CRI errors.
+version: 1.0.0
+collector: k8s_runtime_logs
+type: k8s_runtime_logs
+required_actions: []
+sources:
+- type: k8s_runtime_logs
+  format: jsonl
+severity: extended
+estimated_volume: medium

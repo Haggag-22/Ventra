@@ -1,4 +1,4 @@
-import type { ProviderPlatform } from "./types";
+import type { ProviderPlatform, SelectableProviderPlatform } from "./types";
 
 /**
  * Presentational metadata for the provider connection wizard. Kept separate from
@@ -51,7 +51,7 @@ export const PROVIDER_META: Record<ProviderPlatform, ProviderMeta> = {
 };
 
 /** Ordered platforms for the selection grid. */
-export const PROVIDER_ORDER: ProviderPlatform[] = ["aws", "gcp", "azure", "m365", "kubernetes"];
+export const PROVIDER_ORDER: SelectableProviderPlatform[] = ["aws", "gcp", "azure", "kubernetes"];
 
 // ---- Field validation ------------------------------------------------------------------
 // Validators treat an empty string as valid — required-ness is enforced by the step, so an

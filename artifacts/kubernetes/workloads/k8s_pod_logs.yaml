@@ -1,0 +1,29 @@
+name: Kubernetes.Workloads.PodLogs
+aliases:
+- k8s_pod_logs
+- kubernetes.k8s_pod_logs
+cloud: kubernetes
+category: Workloads
+description: >-
+  Container stdout/stderr through the API server, including --previous for crashed/restarted
+  containers. Works with nothing but a kubeconfig; the node-plane k8s_container_logs is the
+  more complete source for rotated and dead-pod logs.
+version: 1.0.0
+collector: k8s_pod_logs
+type: k8s_pod_logs
+required_actions:
+- get pods
+- list pods
+- get pods/log
+parameters:
+  namespaces:
+    type: list
+    required: false
+  pods:
+    type: list
+    required: false
+sources:
+- type: k8s_pod_logs
+  format: jsonl
+severity: extended
+estimated_volume: high

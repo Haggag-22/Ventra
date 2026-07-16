@@ -1,0 +1,20 @@
+name: Kubernetes.Node.HostForensics
+aliases:
+- k8s_node_os
+- kubernetes.k8s_node_os
+cloud: kubernetes
+category: Node
+description: >-
+  Host-level Linux forensics: auth.log/secure, syslog/messages, kernel ring buffer, account
+  files, cron and systemd persistence, SSH authorized_keys, and login records (wtmp/btmp).
+  /etc/shadow is recorded as presence + hash only. Where you see a container escape onto the
+  node.
+version: 1.0.0
+collector: k8s_node_os
+type: k8s_node_os
+required_actions: []
+sources:
+- type: k8s_node_os
+  format: json
+severity: extended
+estimated_volume: medium

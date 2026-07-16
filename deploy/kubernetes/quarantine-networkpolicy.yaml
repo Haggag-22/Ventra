@@ -1,0 +1,24 @@
+# Containment = ISOLATE, not destroy. Do NOT delete the compromised pod — that destroys all
+# container filesystem and memory evidence. Instead:
+#   1. Relabel the pod with `ventra.io/quarantine=true` (moves it out of its Service selector).
+#   2. Apply this deny-all NetworkPolicy (ingress + egress) scoped to the quarantine label.
+#   3. `kubectl cordon <node>` the node.
+# The pod keeps running; it just cannot talk to anything, so evidence stays intact for capture.
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: ventra-quarantine-deny-all
+  # Apply in the namespace of the compromised pod.
+  namespace: REPLACE_WITH_TARGET_NAMESPACE
+  labels:
+    app.kubernetes.io/part-of: ventra
+spec:
+  podSelector:
+    matchLabels:
+      ventra.io/quarantine: "true"
+  policyTypes:
+  - Ingress
+  - Egress
+  # Empty ingress/egress rule sets = deny everything.
+  ingress: []
+  egress: []

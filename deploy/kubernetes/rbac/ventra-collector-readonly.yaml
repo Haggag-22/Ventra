@@ -1,0 +1,77 @@
+# Ventra on-prem Kubernetes collector — minimal READ-ONLY ClusterRole (API plane).
+#
+# This is all the API-plane collectors need. Do NOT grant cluster-admin: it makes the tool a
+# lateral-movement target and will be rejected by security review. The collector verifies its
+# own permissions with a SelfSubjectAccessReview before collecting, and a missing verb becomes
+# an ACCESS_DENIED gap (the run continues).
+#
+# Secret VALUES are never read: the collector strips data/stringData in code. The get/list/watch
+# on secrets here is for metadata only.
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: ventra-collector
+  namespace: ventra-forensics
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: ventra-collector-readonly
+  labels:
+    app.kubernetes.io/name: ventra-collector
+    app.kubernetes.io/part-of: ventra
+rules:
+- apiGroups: [""]
+  resources:
+  - pods
+  - pods/log
+  - events
+  - nodes
+  - namespaces
+  - serviceaccounts
+  - configmaps
+  - services
+  - secrets            # metadata only — payloads are stripped in code
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apps"]
+  resources: ["deployments", "daemonsets", "statefulsets", "replicasets"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["batch"]
+  resources: ["jobs", "cronjobs"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["events.k8s.io"]
+  resources: ["events"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["networking.k8s.io"]
+  resources: ["networkpolicies", "ingresses"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["rbac.authorization.k8s.io"]
+  resources: ["roles", "clusterroles", "rolebindings", "clusterrolebindings"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["apiextensions.k8s.io"]
+  resources: ["customresourcedefinitions"]
+  verbs: ["get", "list", "watch"]
+- apiGroups: ["admissionregistration.k8s.io"]
+  resources: ["mutatingwebhookconfigurations", "validatingwebhookconfigurations"]
+  verbs: ["get", "list", "watch"]
+# Pre-flight: let the tool test its own permissions before collecting. This is a permission
+# PROBE that changes no cluster state (the sole non-get/list/watch verb the collector uses).
+- apiGroups: ["authorization.k8s.io"]
+  resources: ["selfsubjectaccessreviews"]
+  verbs: ["create"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: ventra-collector-readonly
+  labels:
+    app.kubernetes.io/name: ventra-collector
+    app.kubernetes.io/part-of: ventra
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: ventra-collector-readonly
+subjects:
+- kind: ServiceAccount
+  name: ventra-collector
+  namespace: ventra-forensics

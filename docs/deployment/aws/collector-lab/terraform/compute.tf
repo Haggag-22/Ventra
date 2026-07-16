@@ -8,10 +8,12 @@ data "aws_ami" "amazon_linux" {
 }
 
 resource "aws_instance" "web" {
-  ami                    = data.aws_ami.amazon_linux.id
-  instance_type          = "t3.micro"
-  subnet_id              = values(aws_subnet.private)[0].id
-  vpc_security_group_ids = [aws_security_group.web.id]
+  ami                         = data.aws_ami.amazon_linux.id
+  instance_type               = "t3.micro"
+  subnet_id                   = values(aws_subnet.private)[0].id
+  vpc_security_group_ids      = [aws_security_group.web.id]
+  iam_instance_profile        = aws_iam_instance_profile.app.name
+  associate_public_ip_address = false
   user_data = <<-EOF
               #!/bin/bash
               dnf install -y httpd
@@ -116,5 +118,13 @@ resource "aws_cloudfront_distribution" "lab" {
     cloudfront_default_certificate = true
   }
 
-  tags = { Collector = "cloudfront" }
+  logging_config {
+    include_cookies = false
+    bucket          = aws_s3_bucket.cloudfront_logs.bucket_domain_name
+    prefix          = "cloudfront/"
+  }
+
+  tags = merge(local.common_tags, { Collector = "cloudfront" })
+
+  depends_on = [aws_s3_bucket_policy.cloudfront_logs]
 }

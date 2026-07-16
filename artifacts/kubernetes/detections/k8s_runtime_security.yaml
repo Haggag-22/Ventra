@@ -1,0 +1,19 @@
+name: Kubernetes.Detections.RuntimeSecurity
+aliases:
+- k8s_runtime_security
+- kubernetes.k8s_runtime_security
+cloud: kubernetes
+category: Detections
+description: >-
+  eBPF runtime-sensor alerts and rulesets (Falco / Tetragon) when deployed as a DaemonSet.
+  Syscall-level detection of reverse shells, privilege escalation, and sensitive file reads —
+  often the best evidence available. Detected, not required.
+version: 1.0.0
+collector: k8s_runtime_security
+type: k8s_runtime_security
+required_actions: []
+sources:
+- type: k8s_runtime_security
+  format: json
+severity: extended
+estimated_volume: medium

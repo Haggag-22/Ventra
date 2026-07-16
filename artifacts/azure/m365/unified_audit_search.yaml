@@ -6,6 +6,7 @@ cloud: azure
 category: M365
 description: M365 Unified Audit Log (90-day default) via Search-UnifiedAuditLog +
   adaptive windows.
+selectable: false
 version: 1.0.0
 collector: unified_audit_search
 type: unified_audit_search

@@ -46,6 +46,9 @@ class RunLaunchRequest:
     gcp_service_account_json: str = ""
     k8s_context: str = ""
     kubeconfig_content: str = ""
+    kubeconfig_path: str = ""
+    node_root: str = ""
+    node_name: str = ""
     out_dir: Path | None = None
     engagement_id: str = ""
     key_path: Path | None = None
@@ -211,6 +214,32 @@ def launch_collection(req: RunLaunchRequest):
             pipeline_steps=req.pipeline_steps,
         )
         return run_gcp_collection(cfg)
+
+    if platform == "kubernetes":
+        from .api.kubernetes.runner import KubernetesRunConfig, run_kubernetes_collection
+
+        cfg = KubernetesRunConfig(
+            case_id=req.case_id,
+            collectors=collectors,
+            time_window=window,
+            out_dir=out_dir,
+            kubeconfig_content=req.kubeconfig_content,
+            kubeconfig_path=req.kubeconfig_path,
+            k8s_context=req.k8s_context,
+            node_root=req.node_root,
+            node_name=req.node_name,
+            engagement_id=req.engagement_id,
+            key_path=req.key_path,
+            reporter=req.reporter,
+            artifact_refs=artifact_refs,
+            max_records_per_source=req.max_records_per_source,
+            artifact_parameters=req.artifact_parameters,
+            plan_label=plan_label,
+            artifact_labels=artifact_labels,
+            artifact_severities=artifact_severities,
+            pipeline_steps=req.pipeline_steps,
+        )
+        return run_kubernetes_collection(cfg)
 
     raise ValueError(f"Unsupported cloud: {req.cloud!r}")
 

@@ -5,11 +5,12 @@ export const PROVIDER_PLATFORMS = [
   { id: "aws", label: "Amazon Web Services", searchable: "aws amazon web services" },
   { id: "gcp", label: "Google Cloud Platform", searchable: "gcp google cloud platform" },
   { id: "azure", label: "Microsoft Azure", searchable: "azure microsoft" },
-  { id: "m365", label: "M365", searchable: "m365 microsoft 365 office" },
   { id: "kubernetes", label: "Kubernetes", searchable: "kubernetes k8s" },
 ] as const;
 
-export type ProviderPlatform = (typeof PROVIDER_PLATFORMS)[number]["id"];
+export type SelectableProviderPlatform = (typeof PROVIDER_PLATFORMS)[number]["id"];
+/** Includes legacy M365 connections saved before the platform was hidden. */
+export type ProviderPlatform = SelectableProviderPlatform | "m365";
 
 export const WIZARD_STEPS = [
   { id: "link", label: "Link a provider", description: "Choose cloud platform" },
@@ -84,7 +85,7 @@ export function platformLabel(platform: string): string {
   if (platform in CASE_PLATFORM_LABELS) {
     return CASE_PLATFORM_LABELS[platform as CasePlatform];
   }
-  return platform;
+  return SHORT_PLATFORM_LABELS[platform] ?? platform;
 }
 
 function resolveAwsAuthMethod(conn: Connection): AwsAuthMethod {

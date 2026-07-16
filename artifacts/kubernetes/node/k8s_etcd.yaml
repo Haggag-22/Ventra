@@ -1,0 +1,25 @@
+name: Kubernetes.ControlPlane.Etcd
+aliases:
+- k8s_etcd
+- kubernetes.k8s_etcd
+cloud: kubernetes
+category: ControlPlane
+description: >-
+  etcd logs plus TLS/at-rest posture: client cert auth enforcement, non-loopback listen
+  addresses, encryption at rest. Never dumps the etcd database by default (it holds every
+  Secret in plaintext); a DB snapshot is an explicit, separately-confirmed, maximum-sensitivity
+  parameter. On-prem exclusive.
+version: 1.0.0
+collector: k8s_etcd
+type: k8s_etcd
+required_actions: []
+parameters:
+  dump_db:
+    type: bool
+    required: false
+    default: false
+sources:
+- type: k8s_etcd
+  format: json
+severity: extended
+estimated_volume: low
