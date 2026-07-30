@@ -1318,6 +1318,38 @@ body > * {
     @apply space-y-4;
   }
 
+  .cloudtrail-view .ct-source-header {
+    @apply space-y-4;
+  }
+
+  .cloudtrail-view .ct-source-metrics {
+    @apply grid gap-x-6 gap-y-3 border-t border-border pt-4 sm:grid-cols-3;
+  }
+
+  .cloudtrail-view .ct-source-metrics--2 {
+    @apply sm:grid-cols-2;
+  }
+
+  .cloudtrail-view .ct-source-metrics--4 {
+    @apply sm:grid-cols-2 lg:grid-cols-4;
+  }
+
+  .cloudtrail-view .ct-source-metrics--5 {
+    @apply sm:grid-cols-2 lg:grid-cols-5;
+  }
+
+  .cloudtrail-view .ct-source-metric {
+    @apply min-w-0;
+  }
+
+  .cloudtrail-view .ct-source-metric-label {
+    @apply text-2xs font-medium uppercase tracking-wide text-fg-subtle;
+  }
+
+  .cloudtrail-view .ct-source-metric-value {
+    @apply mt-1 text-xl font-semibold tabular-nums text-fg;
+  }
+
   .cloudtrail-view .ct-resource-stat {
     @apply rounded-lg border border-border bg-surface-2 p-3;
   }

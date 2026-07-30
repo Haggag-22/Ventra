@@ -45,6 +45,17 @@ def test_finish_pass_and_fail() -> None:
     assert gaps[0]["collector"] == "lambda"
 
 
+def test_event_updates_live_records_while_running() -> None:
+    state = MatrixState()
+    state.begin_run("acct", [], "CASE-1", ["cloudtrail"])
+    state.start("cloudtrail")
+    state.event("cloudtrail", "reading page 1", records=250)
+    assert state.rows["cloudtrail"].records == 250
+    assert state.rows["cloudtrail"].live_msg == "reading page 1"
+    state.event("cloudtrail", "reading page 2", records=500)
+    assert state.rows["cloudtrail"].records == 500
+
+
 def test_classify_collected_is_pass() -> None:
     assert classify(SourceStatus.COLLECTED, "High") == "PASS"
     assert classify(SourceStatus.SKIPPED, "High") == "FAIL"

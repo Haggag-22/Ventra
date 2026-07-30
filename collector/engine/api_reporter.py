@@ -169,14 +169,17 @@ class ApiReporter(RunReporter):
         self.matrix.start(name)
         self._log_event("start", collector=name)
 
-    def event(self, name: str, msg: str) -> None:
-        super().event(name, msg)
+    def event(self, name: str, msg: str, records: int | None = None) -> None:
+        super().event(name, msg, records=records)
         # Always surface the raw line so the per-collector panel reads like a terminal…
-        self._sink.append_event(self.run_id, {"type": "event", "collector": name, "message": msg})
+        payload: dict[str, Any] = {"type": "event", "collector": name, "message": msg}
+        if isinstance(records, int):
+            payload["records"] = records
+        self._sink.append_event(self.run_id, payload)
         # …but never let a late progress line repaint a "collecting…" state post-cancel.
         if self.should_cancel():
             return
-        self.matrix.event(name, msg)
+        self.matrix.event(name, msg, records=records)
         self._publish_matrix()
 
     def raw_log(self, collector: str, message: str) -> None:

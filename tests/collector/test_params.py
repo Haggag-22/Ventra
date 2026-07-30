@@ -18,9 +18,12 @@ from collector.lib.scoping import (
     filter_iam_bindings,
     filter_lambda_log_targets,
     filter_rds_log_targets,
+    filter_route53_query_log_configs,
     filter_scc_findings,
     filter_vpc_flow_logs,
     gcp_logging_filter_extension,
+    normalize_log_group_ref,
+    resolve_vpc_ids_from_names,
 )
 from collector.lib.models import CollectionContext, TimeWindow
 
@@ -56,6 +59,79 @@ def test_filter_vpc_flow_logs_by_vpc() -> None:
     filtered = filter_vpc_flow_logs(logs, {"vpc_ids": ["vpc-abc"]})
     assert len(filtered) == 1
     assert filtered[0]["ResourceId"] == "vpc-abc"
+
+
+def test_normalize_log_group_ref_accepts_name_and_arn() -> None:
+    assert normalize_log_group_ref("Cloud-IR-Demo-VPC-Flow-Logs") == "Cloud-IR-Demo-VPC-Flow-Logs"
+    assert (
+        normalize_log_group_ref(
+            "arn:aws:logs:us-east-2:910825235258:log-group:Cloud-IR-Demo-VPC-Flow-Logs:*"
+        )
+        == "Cloud-IR-Demo-VPC-Flow-Logs"
+    )
+    assert (
+        normalize_log_group_ref(
+            "arn:aws:logs:us-east-2:1:log-group:/aws/lambda/fn:log-stream:2024"
+        )
+        == "/aws/lambda/fn"
+    )
+
+
+def test_filter_vpc_flow_logs_by_log_group_arn() -> None:
+    logs = [
+        {
+            "FlowLogId": "fl-1",
+            "ResourceId": "vpc-abc",
+            "LogDestinationType": "cloud-watch-logs",
+            "LogGroupName": "",
+            "LogDestination": "arn:aws:logs:us-east-2:1:log-group:Cloud-IR-Demo-VPC-Flow-Logs:*",
+        },
+        {
+            "FlowLogId": "fl-2",
+            "ResourceId": "vpc-xyz",
+            "LogDestinationType": "cloud-watch-logs",
+            "LogGroupName": "other-group",
+        },
+    ]
+    filtered = filter_vpc_flow_logs(
+        logs,
+        {
+            "log_group_names": [
+                "arn:aws:logs:us-east-2:1:log-group:Cloud-IR-Demo-VPC-Flow-Logs:*"
+            ]
+        },
+    )
+    assert len(filtered) == 1
+    assert filtered[0]["FlowLogId"] == "fl-1"
+
+
+def test_resolve_vpc_ids_from_names() -> None:
+    vpcs = [
+        {"VpcId": "vpc-aaa", "Tags": [{"Key": "Name", "Value": "prod-vpc"}]},
+        {"VpcId": "vpc-bbb", "Tags": [{"Key": "Name", "Value": "dev-vpc"}]},
+    ]
+    params = resolve_vpc_ids_from_names(vpcs, {"vpc_names": ["prod-vpc"], "vpc_ids": ["vpc-ccc"]})
+    assert params["vpc_ids"] == ["vpc-ccc", "vpc-aaa"]
+
+
+def test_filter_route53_by_log_group() -> None:
+    configs = [
+        {
+            "Id": "rqlc-1",
+            "Name": "prod",
+            "DestinationArn": "arn:aws:logs:us-east-1:1:log-group:/aws/route53/prod:*",
+        },
+        {
+            "Id": "rqlc-2",
+            "Name": "dev",
+            "DestinationArn": "arn:aws:logs:us-east-1:1:log-group:/aws/route53/dev:*",
+        },
+    ]
+    filtered = filter_route53_query_log_configs(
+        configs, {"log_group_names": ["/aws/route53/prod"]}
+    )
+    assert len(filtered) == 1
+    assert filtered[0]["Id"] == "rqlc-1"
 
 
 def test_filter_eks_clusters() -> None:

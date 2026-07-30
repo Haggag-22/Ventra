@@ -1,0 +1,16 @@
+{
+    "AttachedPolicies": [
+        {
+            "PolicyName": "Ventra-Inventory-Read",
+            "PolicyArn": "arn:aws:iam::910825235258:policy/Ventra-Inventory-Read"
+        },
+        {
+            "PolicyName": "Ventra-Log-Retrieval",
+            "PolicyArn": "arn:aws:iam::910825235258:policy/Ventra-Log-Retrieval"
+        },
+        {
+            "PolicyName": "Ventra-Security-Telemetry",
+            "PolicyArn": "arn:aws:iam::910825235258:policy/Ventra-Security-Telemetry"
+        }
+    ]
+}

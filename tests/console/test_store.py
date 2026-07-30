@@ -131,6 +131,34 @@ def test_facets(store_case) -> None:
     assert all(f["count"] > 0 for f in facets["ventra_source"])
 
 
+def test_facets_include_every_distinct_event_action(store_case) -> None:
+    """Filter dropdowns must list every value present in the table, not only top-N."""
+    store, case_id = store_case
+    path = store._events_path(case_id)
+    con = store._connect()
+    try:
+        events = store._events_table(con, path)
+        expected: dict[str, set[str]] = {}
+        for col in ("event_action", "cloud_service", "cloud_region", "user_name"):
+            rows = con.execute(
+                f"SELECT DISTINCT {col} FROM {events} "
+                f"WHERE ventra_source = 'cloudtrail' AND {col} <> ''",
+                [path],
+            ).fetchall()
+            expected[col] = {r[0] for r in rows if r[0]}
+    finally:
+        con.close()
+
+    assert expected["event_action"], "demo case must include CloudTrail actions"
+
+    facets = store.facets(case_id, EventQuery(sources=["cloudtrail"]))
+    for col in ("event_action", "cloud_service", "cloud_region", "user_name"):
+        facet_vals = {f["value"] for f in facets[col]}
+        missing = expected[col] - facet_vals
+        assert not missing, f"{col} missing values present in events: {sorted(missing)[:20]}"
+        assert facet_vals == expected[col]
+
+
 def test_identity_role_graph(store_case) -> None:
     store, case_id = store_case
     graph = store.role_assumption_graph(case_id)
@@ -343,3 +371,15 @@ def test_cloudtrail_collection(store_case) -> None:
     ctc = store.cloudtrail_collection(case_id)
     assert "trails" in ctc
     assert "events" in ctc and "s3" in ctc["events"]
+
+
+def test_vpc_flow_collection(store_case) -> None:
+    store, case_id = store_case
+    summary = store.vpc_flow_collection(case_id)
+    assert "flow_logs" in summary
+    assert summary["flow_log_count"] >= 1
+    assert summary["records"] > 0
+    row = summary["flow_logs"][0]
+    assert row["destination_type"] == "cloud-watch-logs"
+    assert row["destination"]
+    assert row["vpc_id"].startswith("vpc-")

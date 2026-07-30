@@ -3,6 +3,11 @@
 import { ParamFieldLabel } from "@/components/param-field-info";
 import { Input } from "@/components/ui";
 import type { ParamFieldDef } from "@/lib/collector-param-definitions";
+import {
+  pruneHiddenParamValues,
+  visibleParamFields,
+  type ParamValueMap,
+} from "@/lib/collector-param-definitions";
 import { cn } from "@/lib/utils";
 import { Plus, X } from "lucide-react";
 
@@ -59,8 +64,16 @@ export function AcquireParamFields({
   };
 
   const setString = (key: string, val: string) => {
-    onChange({ ...values, [key]: val });
+    let next = { ...values, [key]: val };
+    if (key === "collection_source") {
+      next = pruneHiddenParamValues(fields, next);
+    }
+    onChange(next);
   };
+
+  const visibleFields = visibleParamFields(fields, values);
+
+  if (!visibleFields.length) return null;
 
   return (
     <div
@@ -71,7 +84,7 @@ export function AcquireParamFields({
         className,
       )}
     >
-      {fields.map((field) => (
+      {visibleFields.map((field) => (
         <div key={field.key} className="min-w-0 space-y-2.5">
           <ParamFieldLabel
             label={field.label}
@@ -91,6 +104,18 @@ export function AcquireParamFields({
               />
               Enable
             </label>
+          ) : field.type === "select" ? (
+            <select
+              className={cn(PARAM_INPUT_CLASS, "w-full")}
+              value={stringValue(values, field.key) || field.defaultValue || ""}
+              onChange={(e) => setString(field.key, e.target.value)}
+            >
+              {(field.options ?? []).map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
           ) : field.type === "string" ? (
             <Input
               className={cn(PARAM_INPUT_CLASS, "w-full")}
@@ -179,9 +204,26 @@ export function MultiValueInput({
 }
 
 /** Serialize UI values for the acquisition build API. */
-export function serializeParamValues(values: ParamValues): Record<string, unknown> {
+export function serializeParamValues(
+  values: ParamValues,
+  fields?: ParamFieldDef[],
+): Record<string, unknown> {
+  let scoped: ParamValueMap = { ...values };
+  if (fields) {
+    for (const field of fields) {
+      if (
+        field.type === "select" &&
+        field.defaultValue &&
+        (scoped[field.key] === undefined ||
+          (typeof scoped[field.key] === "string" && !String(scoped[field.key]).trim()))
+      ) {
+        scoped[field.key] = field.defaultValue;
+      }
+    }
+    scoped = pruneHiddenParamValues(fields, scoped);
+  }
   const out: Record<string, unknown> = {};
-  for (const [key, val] of Object.entries(values)) {
+  for (const [key, val] of Object.entries(scoped)) {
     if (typeof val === "boolean") {
       if (val) out[key] = true;
       continue;

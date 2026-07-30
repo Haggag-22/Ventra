@@ -116,7 +116,15 @@ function CollectorStatusBadge({ status }: { status: string }) {
   );
 }
 
-function AnimatedRecords({ value, rowName }: { value: number | null | undefined; rowName: string }) {
+function AnimatedRecords({
+  value,
+  rowName,
+  live = false,
+}: {
+  value: number | null | undefined;
+  rowName: string;
+  live?: boolean;
+}) {
   const ref = useRef<HTMLSpanElement>(null);
   const prevRef = useRef(value ?? null);
 
@@ -157,7 +165,10 @@ function AnimatedRecords({ value, rowName }: { value: number | null | undefined;
 
   if (value == null) return null;
   return (
-    <span ref={ref} className="mono tabular-nums text-fg">
+    <span
+      ref={ref}
+      className={cn("mono tabular-nums", live ? "text-warn-amber" : "text-fg")}
+    >
       {fmtNum(value)}
     </span>
   );
@@ -227,7 +238,7 @@ function CollectorRowCard({
         ) : null}
       </div>
       <div className="collector-row-records">
-        <AnimatedRecords value={row.records} rowName={row.name} />
+        <AnimatedRecords value={row.records} rowName={row.name} live={isRunning && !runCancelled} />
       </div>
       <div className="collector-row-time mono">{fmtElapsed(row.elapsed_ms)}</div>
     </article>

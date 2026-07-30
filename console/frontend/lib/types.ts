@@ -304,7 +304,7 @@ export interface CloudTrailManagementTrail {
 }
 
 export interface CloudTrailManagementCollection {
-  mode: "trails" | "event_history";
+  mode: "trails" | "event_history" | "lookup_events" | "bucket";
   trails: CloudTrailManagementTrail[];
   trails_total: number;
   trails_collected: number;
@@ -332,6 +332,21 @@ export interface CloudTrailCollection {
       by_bucket: CloudTrailBucketSummary[];
     };
   };
+  meta: Record<string, unknown>;
+}
+
+export interface CloudWatchLogGroupSummary {
+  name: string;
+  region: string;
+  records?: number;
+  arn?: string;
+}
+
+export interface CloudWatchCollection {
+  log_group_count: number;
+  log_groups: CloudWatchLogGroupSummary[];
+  records: number;
+  window?: { since?: string; until?: string };
   meta: Record<string, unknown>;
 }
 

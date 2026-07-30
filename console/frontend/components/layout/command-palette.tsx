@@ -6,6 +6,7 @@ import { caseCloud } from "@/lib/cloud-sources";
 import { panelLabel } from "@/lib/panel-labels";
 import { useQuery } from "@tanstack/react-query";
 import {
+  Cloud,
   Container,
   CornerDownLeft,
   Database,
@@ -38,6 +39,7 @@ const PANELS: {
   label?: string;
 }[] = [
   { href: "cloudtrail", panel: "cloudtrail", icon: ScrollText },
+  { href: "cloudwatch", panel: "cloudwatch", icon: Cloud },
   { href: "search", panel: "search", icon: ShieldAlert },
   { href: "identity", panel: "identity", icon: Fingerprint },
   { href: "network", panel: "network", icon: Network },
@@ -84,7 +86,9 @@ export function CommandPalette({
       router.push(`/cases/${caseId}/${path}`);
       onClose();
     };
-    const base: Item[] = PANELS.map((p) => ({
+    const base: Item[] = PANELS.filter(
+      (p) => p.href !== "cloudwatch" || cloud === "aws",
+    ).map((p) => ({
       id: `panel-${p.href}`,
       label: p.label ?? (p.panel ? panelLabel(cloud, p.panel) : p.href),
       hint: "Panel",

@@ -10,7 +10,8 @@ import abc
 import gzip
 import hashlib
 import json
-from collections.abc import Iterable, Iterator
+import time
+from collections.abc import Callable, Iterable, Iterator
 from pathlib import Path
 from typing import Any
 
@@ -69,11 +70,21 @@ READONLY_EXCEPTIONS = frozenset(
 class JsonlWriter:
     """Incremental gzip JSON-lines writer for streaming collection."""
 
-    def __init__(self, out_path: Path, *, relative_to: Path) -> None:
+    def __init__(
+        self,
+        out_path: Path,
+        *,
+        relative_to: Path,
+        on_progress: Callable[[int, bool], None] | None = None,
+        progress_every: int = 100,
+    ) -> None:
         self._path = out_path
         self._relative = relative_to
         self._gz: gzip.GzipFile | None = None
         self.count = 0
+        self._on_progress = on_progress
+        self._progress_every = max(1, progress_every)
+        self._last_progress_at = 0.0
 
     def __enter__(self) -> JsonlWriter:
         self._path.parent.mkdir(parents=True, exist_ok=True)
@@ -81,6 +92,8 @@ class JsonlWriter:
         return self
 
     def __exit__(self, *exc: object) -> None:
+        if self._on_progress is not None and self.count:
+            self._on_progress(self.count, True)
         if self._gz is not None:
             self._gz.close()
             self._gz = None
@@ -91,6 +104,16 @@ class JsonlWriter:
         line = json.dumps(rec, default=str, separators=(",", ":")) + "\n"
         self._gz.write(line.encode("utf-8"))
         self.count += 1
+        if self._on_progress is None:
+            return
+        now = time.monotonic()
+        if (
+            self.count == 1
+            or self.count % self._progress_every == 0
+            or now - self._last_progress_at >= 1.0
+        ):
+            self._last_progress_at = now
+            self._on_progress(self.count, False)
 
     def finalize(self) -> WrittenFile:
         # Close the gzip stream before hashing — the manifest must match the sealed file bytes
@@ -122,6 +145,9 @@ class Collector(abc.ABC):
 
     def __init__(self, ctx: CollectionContext) -> None:
         self.ctx = ctx
+        self._live_record_total = 0
+        self._last_progress_records = -1
+        self._last_progress_at = 0.0
 
     def max_records(self, default: int = DEFAULT_MAX_RECORDS) -> int:
         """Effective per-source record cap for this run.
@@ -144,7 +170,18 @@ class Collector(abc.ABC):
     def open_jsonl(self, filename: str) -> JsonlWriter:
         """Open a streaming JSON-lines writer under this collector's source directory."""
         out_path = self.ctx.source_dir(self.name) / filename
-        return JsonlWriter(out_path, relative_to=self.ctx.staging)
+        offset = self._live_record_total
+
+        def on_progress(writer_count: int, force: bool) -> None:
+            total = offset + writer_count
+            self._live_record_total = max(self._live_record_total, total)
+            self._progress(total, force=force)
+
+        return JsonlWriter(
+            out_path,
+            relative_to=self.ctx.staging,
+            on_progress=on_progress,
+        )
 
     def append_truncation_gap(
         self,
@@ -172,6 +209,23 @@ class Collector(abc.ABC):
         if self.ctx.logger:
             self.ctx.logger.event(self.name, msg)
 
+    def _progress(self, records: int, *, force: bool = False, msg: str | None = None) -> None:
+        """Publish a live record count to the run matrix (throttled unless ``force``)."""
+        if not self.ctx.logger:
+            return
+        now = time.monotonic()
+        if not force:
+            if records <= self._last_progress_records:
+                return
+            elapsed = now - self._last_progress_at
+            delta = records - max(self._last_progress_records, 0)
+            if records > 1 and delta < 100 and elapsed < 1.0:
+                return
+        self._last_progress_records = records
+        self._last_progress_at = now
+        text = msg or f"{records:,} records collected"
+        self.ctx.logger.event(self.name, text, records=records)
+
     def write_jsonl(self, records: Iterable[dict[str, Any]], filename: str) -> WrittenFile:
         """Write records as gzip JSON-lines and return integrity metadata.
 
@@ -190,9 +244,7 @@ class Collector(abc.ABC):
                 gz.write(line.encode("utf-8"))
                 count += 1
         data = out_path.read_bytes()
-        # Surface a live progress line (drives the console's per-collector log panel and the
-        # CLI live matrix). Cheap: one event per written file, not per record.
-        self._log(f"captured {count:,} records → {filename}")
+        self._progress(count, force=True, msg=f"captured {count:,} records → {filename}")
         return WrittenFile(
             path=out_path.relative_to(self.ctx.staging).as_posix(),
             sha256=hashlib.sha256(data).hexdigest(),

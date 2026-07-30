@@ -19,6 +19,10 @@ required_actions:
 - s3:ListBucket
 - s3:GetObject
 parameters:
+  collection_source:
+    type: string
+    required: false
+    description: "Event source — trail (default), bucket, or lookup_events."
   since:
     type: datetime
     required: false

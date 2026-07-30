@@ -9,6 +9,7 @@ from . import azure_entra  # noqa: F401
 from . import azure_nsg_flow  # noqa: F401
 from . import log_analytics  # noqa: F401
 from . import cloudtrail  # noqa: F401
+from . import cloudwatch  # noqa: F401
 from . import dns_logs  # noqa: F401
 from . import eks_audit  # noqa: F401
 from . import k8s_apiserver_audit  # noqa: F401

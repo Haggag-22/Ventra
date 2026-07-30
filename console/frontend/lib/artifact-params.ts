@@ -1,10 +1,29 @@
 import { displayArtifactLabel } from "./artifact-icons";
 import {
   collectorParamSchema,
+  isParamFieldVisible,
   type ParamFieldDef,
 } from "./collector-param-definitions";
 import type { Artifact } from "./types";
 import type { ParamValues } from "@/components/acquire-param-fields";
+
+export function artifactParamsFromProfile(
+  raw?: Record<string, Record<string, unknown>>,
+): Record<string, ParamValues> {
+  if (!raw) return {};
+  const out: Record<string, ParamValues> = {};
+  for (const [collector, params] of Object.entries(raw)) {
+    const values: ParamValues = {};
+    for (const [key, val] of Object.entries(params)) {
+      if (typeof val === "boolean") values[key] = val;
+      else if (typeof val === "string") values[key] = val;
+      else if (Array.isArray(val)) values[key] = val.map(String);
+      else if (val != null) values[key] = String(val);
+    }
+    out[collector] = values;
+  }
+  return out;
+}
 
 export type ParamSchema = Record<
   string,
@@ -19,8 +38,11 @@ export type ParamValidationError = {
 };
 
 /** Merge artifact YAML parameters with rich Acquire UI schemas. */
-export function resolvedParamFields(artifact: Artifact): ParamFieldDef[] {
-  const fromUi = collectorParamSchema(artifact.collector);
+export function resolvedParamFields(
+  artifact: Artifact,
+  cloud?: "aws" | "azure" | "gcp",
+): ParamFieldDef[] {
+  const fromUi = collectorParamSchema(artifact.collector, cloud ?? (artifact.cloud as "aws" | "azure" | "gcp" | undefined));
   if (fromUi.length) return fromUi;
 
   const schema = artifact.parameters as ParamSchema | undefined;
@@ -63,7 +85,7 @@ export function paramPlaceholder(schema: ParamSchema | undefined, key: string): 
   return "";
 }
 
-function paramHasValue(values: ParamValues | undefined, field: ParamFieldDef): boolean {
+function paramHasValue(values: ParamValues | undefined, field: ParamFieldDef, allFields?: ParamFieldDef[]): boolean {
   if (!values) return false;
   const v = values[field.key];
   if (field.type === "boolean") return v === true;
@@ -76,9 +98,10 @@ export function missingRequiredParams(
   artifact: Artifact,
   values: ParamValues | undefined,
 ): string[] {
-  return resolvedParamFields(artifact)
-    .filter((f) => f.required)
-    .filter((f) => !paramHasValue(values, f))
+  const fields = resolvedParamFields(artifact);
+  return fields
+    .filter((f) => f.required && isParamFieldVisible(f, values ?? {}, fields))
+    .filter((f) => !paramHasValue(values, f, fields))
     .map((f) => f.key);
 }
 
@@ -95,6 +118,27 @@ export function validateArtifactParams(
         param,
         message: `Required parameter "${paramLabel(param)}" is missing`,
       });
+    }
+    if (artifact.collector === "cloudtrail") {
+      const values = params[artifact.collector];
+      const source =
+        typeof values?.collection_source === "string"
+          ? values.collection_source.trim()
+          : "trail";
+      if (source === "bucket") {
+        const buckets = values?.s3_bucket_names;
+        const hasBucket =
+          (typeof buckets === "string" && buckets.trim().length > 0) ||
+          (Array.isArray(buckets) && buckets.some((b) => b.trim()));
+        if (!hasBucket) {
+          errors.push({
+            collector: artifact.collector,
+            label: displayArtifactLabel(artifact.collector),
+            param: "s3_bucket_names",
+            message: 'S3 bucket names are required when collection source is "S3 bucket"',
+          });
+        }
+      }
     }
   }
   return { ok: errors.length === 0, errors };

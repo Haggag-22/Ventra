@@ -168,6 +168,61 @@ def test_uses_event_history_when_no_trails_found(tmp_path: Path) -> None:
     assert collection["lookup_files"][0].record_count == 2
 
 
+def test_forces_lookup_events_when_collection_source_set(tmp_path: Path) -> None:
+    key, body = _mgmt_object()
+    cf = _Cf(s3_objects={key: body}, lookup=[{"EventId": "lookup-1"}])
+    collector = _collector(tmp_path)
+    gaps: list[Any] = []
+
+    records, _lookup_insight, collection = collector._collect_management_events(
+        cf,
+        {"trails": [_s3_trail()]},
+        gaps,
+        START,
+        END,
+        {},
+        collection_source="lookup_events",
+    )
+
+    assert collection["mode"] == "lookup_events"
+    assert collection["records"] == 1
+    assert records == []
+    assert len(collection.get("lookup_files") or []) == 1
+    assert not collection.get("s3_files")
+
+
+def test_collects_from_bucket_source_with_synthetic_trail(tmp_path: Path) -> None:
+    key, body = _mgmt_object()
+    cf = _Cf(s3_objects={key: body}, lookup=[{"EventId": "should-not-be-used"}])
+    collector = _collector(tmp_path)
+    gaps: list[Any] = []
+    synthetic = {
+        "Name": "ventra-bucket:trail-bucket",
+        "TrailARN": "ventra-synthetic://bucket/trail-bucket",
+        "S3BucketName": "trail-bucket",
+        "S3KeyPrefix": "",
+        "HomeRegion": "us-east-1",
+        "IsMultiRegionTrail": True,
+        "Status": {"IsLogging": True},
+    }
+
+    records, lookup_insight, collection = collector._collect_management_events(
+        cf,
+        {"trails": [synthetic]},
+        gaps,
+        START,
+        END,
+        {},
+        collection_source="bucket",
+    )
+
+    assert collection["mode"] == "bucket"
+    assert collection["records"] == 1
+    assert records == []
+    assert lookup_insight == []
+    assert len(collection.get("s3_files") or []) == 1
+
+
 def test_does_not_use_event_history_when_trail_not_logging_to_s3(tmp_path: Path) -> None:
     not_logging = _s3_trail()
     not_logging["Status"] = {"IsLogging": False}
