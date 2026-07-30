@@ -4,6 +4,7 @@ import type { Cloud } from "./catalog";
 
 export type NavPanelId =
   | "cloudtrail"
+  | "cloudwatch"
   | "search"
   | "identity"
   | "network"
@@ -17,6 +18,7 @@ export type NavPanelId =
 
 const DEFAULT_LABELS: Record<NavPanelId, string> = {
   cloudtrail: "CloudTrail Timeline",
+  cloudwatch: "CloudWatch Logs",
   search: "Security Findings",
   identity: "Identity & Access",
   network: "Network Activity",
@@ -35,11 +37,13 @@ const CLOUD_OVERRIDES: Record<Cloud, Partial<Record<NavPanelId, string>>> = {
   },
   azure: {
     cloudtrail: "Activity Log",
+    cloudwatch: "CloudWatch Logs",
     "kubernetes-audit": "AKS Audit Logs",
     "data-access": "Storage & Key Vault",
   },
   gcp: {
     cloudtrail: "Audit Log",
+    cloudwatch: "Cloud Logging",
     "kubernetes-audit": "GKE Audit Logs",
     search: "Security Command Center",
     identity: "Identity & IAM",

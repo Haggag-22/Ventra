@@ -358,6 +358,16 @@ def cloudtrail_collection(case_id: str, _: Role = Depends(_check("view_case"))) 
     return store.cloudtrail_collection(case_id)
 
 
+@app.get("/api/cases/{case_id}/cloudwatch/collection")
+def cloudwatch_collection(case_id: str, _: Role = Depends(_check("view_case"))) -> dict:
+    return store.cloudwatch_collection(case_id)
+
+
+@app.get("/api/cases/{case_id}/vpc-flow/collection")
+def vpc_flow_collection(case_id: str, _: Role = Depends(_check("view_case"))) -> dict:
+    return store.vpc_flow_collection(case_id)
+
+
 # -- findings ----------------------------------------------------------------------------
 
 @app.get("/api/cases/{case_id}/findings")

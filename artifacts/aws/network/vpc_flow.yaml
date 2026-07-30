@@ -21,6 +21,30 @@ parameters:
   until:
     type: datetime
     required: false
+  vpc_ids:
+    type: list
+    required: false
+    description: VPC IDs whose flow logs should be collected.
+  vpc_names:
+    type: list
+    required: false
+    description: VPC Name tags resolved to VPC IDs before collection.
+  flow_log_ids:
+    type: list
+    required: false
+    description: Specific VPC Flow Log configuration IDs (fl-…).
+  log_group_names:
+    type: list
+    required: false
+    description: CloudWatch log group names or ARNs used as flow-log destinations.
+  s3_bucket_names:
+    type: list
+    required: false
+    description: S3 buckets used as VPC Flow Log destinations.
+  destination_type:
+    type: list
+    required: false
+    description: Limit to cloud-watch-logs or s3 destinations.
 sources:
 - type: vpc_flow
   format: json

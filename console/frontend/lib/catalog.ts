@@ -114,6 +114,7 @@ const AWS_LOGS: CatalogGroup[] = [
       { id: "apigateway", label: "API Gateway Access Logs", description: "" },
       { id: "cloudfront", label: "CloudFront Access Logs", description: "" },
       { id: "cloudtrail", label: "CloudTrail (Management, Data Events, Insights)", description: "" },
+      { id: "cloudwatch", label: "CloudWatch Logs", description: "" },
       { id: "config", label: "AWS Config", description: "" },
       { id: "detective", label: "Detective", description: "" },
       { id: "dynamodb_streams", label: "DynamoDB Streams", description: "" },

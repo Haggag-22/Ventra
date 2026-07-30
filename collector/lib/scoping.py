@@ -8,7 +8,97 @@ from typing import Any
 
 from .params import matches_any, matches_prefix, param_int, param_raw, param_strings
 
+CLOUDTRAIL_SOURCE_TRAIL = "trail"
+CLOUDTRAIL_SOURCE_BUCKET = "bucket"
+CLOUDTRAIL_SOURCE_LOOKUP = "lookup_events"
+CLOUDTRAIL_SOURCES = frozenset(
+    {CLOUDTRAIL_SOURCE_TRAIL, CLOUDTRAIL_SOURCE_BUCKET, CLOUDTRAIL_SOURCE_LOOKUP}
+)
+
 _BLOB_HOUR_RE = re.compile(r"/y=(\d{4})/m=(\d{2})/d=(\d{2})/h=(\d{2})/")
+
+
+def normalize_log_group_ref(value: str) -> str:
+    """Accept a CloudWatch log group name or ARN; return the group name.
+
+    Examples::
+
+        Cloud-IR-Demo-VPC-Flow-Logs
+        arn:aws:logs:us-east-2:123:log-group:Cloud-IR-Demo-VPC-Flow-Logs:*
+    """
+    v = (value or "").strip()
+    if ":log-group:" not in v:
+        return v
+    _, _, tail = v.partition(":log-group:")
+    group = tail.removesuffix(":*")
+    if ":log-stream:" in group:
+        group = group.split(":log-stream:", 1)[0]
+    return group
+
+
+def normalize_log_group_refs(values: list[str]) -> list[str]:
+    return [normalize_log_group_ref(v) for v in values if normalize_log_group_ref(v)]
+
+
+def cloudtrail_collection_source(params: dict[str, Any]) -> str:
+    """Return how CloudTrail events should be collected: trail, bucket, or lookup_events."""
+    raw = param_strings(params, "collection_source")
+    if not raw:
+        return CLOUDTRAIL_SOURCE_TRAIL
+    val = raw[0].strip().lower().replace("-", "_")
+    if val in ("lookup", "lookup_events", "event_history", "events"):
+        return CLOUDTRAIL_SOURCE_LOOKUP
+    if val in ("s3", "s3_bucket", "bucket", "buckets"):
+        return CLOUDTRAIL_SOURCE_BUCKET
+    if val in ("trail", "trails"):
+        return CLOUDTRAIL_SOURCE_TRAIL
+    return CLOUDTRAIL_SOURCE_TRAIL
+
+
+def synthetic_cloudtrail_trails_from_buckets(
+    params: dict[str, Any],
+    regions: list[str],
+) -> list[dict[str, Any]]:
+    """Build pseudo-trail entries for direct S3 bucket/prefix collection."""
+    buckets = param_strings(params, "s3_bucket_names")
+    if not buckets:
+        return []
+    prefixes = param_strings(params, "s3_prefixes")
+    home = regions[0] if regions else "us-east-1"
+    trails: list[dict[str, Any]] = []
+    for idx, bucket in enumerate(buckets):
+        if len(prefixes) == 1:
+            prefix = prefixes[0]
+        elif idx < len(prefixes):
+            prefix = prefixes[idx]
+        else:
+            prefix = ""
+        trails.append(
+            {
+                "Name": f"ventra-bucket:{bucket}",
+                "TrailARN": f"ventra-synthetic://bucket/{bucket}",
+                "S3BucketName": bucket,
+                "S3KeyPrefix": prefix,
+                "HomeRegion": home,
+                "IsMultiRegionTrail": True,
+                "Status": {"IsLogging": True},
+                "EventSelectors": {
+                    "EventSelectors": [{"IncludeManagementEvents": True}],
+                    "AdvancedEventSelectors": [
+                        {
+                            "FieldSelectors": [
+                                {
+                                    "Field": "eventCategory",
+                                    "Equals": ["Management", "Data", "NetworkActivity"],
+                                },
+                            ]
+                        }
+                    ],
+                },
+                "InsightSelectors": {"InsightSelectors": [{"InsightType": "ApiCallRateInsight"}]},
+            }
+        )
+    return trails
 
 
 def filter_cloudtrail_trails(trails: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
@@ -66,7 +156,7 @@ def filter_vpc_flow_logs(
 ) -> list[dict[str, Any]]:
     vpc_ids = param_strings(params, "vpc_ids")
     flow_log_ids = param_strings(params, "flow_log_ids")
-    log_groups = param_strings(params, "log_group_names")
+    log_groups = normalize_log_group_refs(param_strings(params, "log_group_names"))
     s3_buckets = param_strings(params, "s3_bucket_names")
     dest_type = param_strings(params, "destination_type")
     if not (vpc_ids or flow_log_ids or log_groups or s3_buckets or dest_type):
@@ -75,8 +165,11 @@ def filter_vpc_flow_logs(
     for fl in flow_logs:
         rid = str(fl.get("ResourceId") or "")
         fid = str(fl.get("FlowLogId") or "")
-        group = str(fl.get("LogGroupName") or "")
+        group = normalize_log_group_ref(str(fl.get("LogGroupName") or ""))
         dest = str(fl.get("LogDestination") or "")
+        # CloudWatch destinations sometimes only appear as a destination ARN.
+        if not group and ":log-group:" in dest:
+            group = normalize_log_group_ref(dest)
         dtype = str(fl.get("LogDestinationType") or "")
         if vpc_ids and not matches_any(rid, vpc_ids):
             continue
@@ -92,6 +185,41 @@ def filter_vpc_flow_logs(
                 continue
         kept.append(fl)
     return kept
+
+
+def resolve_vpc_ids_from_names(
+    vpcs: list[dict[str, Any]],
+    params: dict[str, Any],
+) -> dict[str, Any]:
+    """Expand ``vpc_names`` (Name tags) into ``vpc_ids`` on a copy of params."""
+    names = param_strings(params, "vpc_names")
+    if not names:
+        return params
+    id_by_name: dict[str, str] = {}
+    for vpc in vpcs:
+        vid = str(vpc.get("VpcId") or "")
+        if not vid:
+            continue
+        tag_name = ""
+        for tag in vpc.get("Tags") or []:
+            if isinstance(tag, dict) and tag.get("Key") == "Name":
+                tag_name = str(tag.get("Value") or "").strip()
+                break
+        if tag_name:
+            id_by_name[tag_name] = vid
+        id_by_name[vid] = vid
+    resolved: list[str] = []
+    for name in names:
+        if name in id_by_name:
+            resolved.append(id_by_name[name])
+            continue
+        for tagged, vid in id_by_name.items():
+            if matches_any(tagged, [name]):
+                resolved.append(vid)
+    out = dict(params)
+    existing = param_strings(params, "vpc_ids")
+    out["vpc_ids"] = list(dict.fromkeys([*existing, *resolved]))
+    return out
 
 
 def filter_gke_clusters(clusters: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
@@ -118,7 +246,7 @@ def filter_gke_clusters(clusters: list[dict[str, Any]], params: dict[str, Any]) 
 def filter_eks_clusters(clusters: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
     names = param_strings(params, "cluster_names")
     arns = param_strings(params, "cluster_arns")
-    log_groups = param_strings(params, "log_group_names")
+    log_groups = normalize_log_group_refs(param_strings(params, "log_group_names"))
     if not (names or arns or log_groups):
         return clusters
     kept: list[dict[str, Any]] = []
@@ -230,7 +358,7 @@ def filter_apigateway_stages(stages: list[dict[str, Any]], params: dict[str, Any
     api_ids = param_strings(params, "api_ids")
     api_names = param_strings(params, "api_names")
     stage_names = param_strings(params, "stage_names")
-    log_groups = param_strings(params, "log_group_names")
+    log_groups = normalize_log_group_refs(param_strings(params, "log_group_names"))
     if not (api_ids or api_names or stage_names or log_groups):
         return stages
     kept: list[dict[str, Any]] = []
@@ -256,7 +384,7 @@ def filter_apigateway_stages(stages: list[dict[str, Any]], params: dict[str, Any
 def filter_lambda_log_targets(targets: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
     names = param_strings(params, "function_names")
     arns = param_strings(params, "function_arns")
-    log_groups = param_strings(params, "log_group_names")
+    log_groups = normalize_log_group_refs(param_strings(params, "log_group_names"))
     if not (names or arns or log_groups):
         return targets
     kept: list[dict[str, Any]] = []
@@ -277,7 +405,7 @@ def filter_lambda_log_targets(targets: list[dict[str, Any]], params: dict[str, A
 def filter_rds_log_targets(instances: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
     instance_ids = param_strings(params, "db_instance_ids")
     instance_arns = param_strings(params, "db_instance_arns")
-    log_groups = param_strings(params, "log_group_names")
+    log_groups = normalize_log_group_refs(param_strings(params, "log_group_names"))
     log_types = param_strings(params, "log_types")
     if not (instance_ids or instance_arns or log_groups or log_types):
         return instances
@@ -403,13 +531,19 @@ def filter_route53_query_log_configs(
 ) -> list[dict[str, Any]]:
     config_ids = param_strings(params, "query_log_config_ids")
     vpc_ids = param_strings(params, "vpc_ids")
-    if not (config_ids or vpc_ids):
+    log_groups = normalize_log_group_refs(param_strings(params, "log_group_names"))
+    if not (config_ids or vpc_ids or log_groups):
         return configs
     kept: list[dict[str, Any]] = []
     for cfg in configs:
         cid = str(cfg.get("Id") or "")
         if config_ids and not matches_any(cid, config_ids):
             continue
+        if log_groups:
+            dest = str(cfg.get("DestinationArn") or cfg.get("destination_arn") or "")
+            group = normalize_log_group_ref(dest) if ":log-group:" in dest else ""
+            if not group or not matches_any(group, log_groups):
+                continue
         if vpc_ids:
             cfg_vpcs = [str(v.get("VpcId") or v) for v in (cfg.get("DestinationArn") or cfg.get("vpcs") or [])]
             if isinstance(cfg.get("vpcs"), list):

@@ -26,6 +26,21 @@ class _MemorySink:
         return patch
 
 
+def test_api_reporter_event_updates_live_records() -> None:
+    sink = _MemorySink()
+    matrix = MatrixState(severity_resolver=lambda _n: "High")
+    reporter = ApiReporter(matrix, run_id="run-1", sink=sink)
+    reporter.begin_run("123456789012", ["us-east-1"], "CASE-1", ["cloudtrail"])
+    reporter.start("cloudtrail")
+    reporter.event("cloudtrail", "500 records collected", records=500)
+
+    last = sink.matrix_updates[-1]["matrix"]
+    row = last["collectors"][0]
+    assert row["status"] == "running"
+    assert row["records"] == 500
+    assert any(e.get("records") == 500 for e in sink.events)
+
+
 def test_api_reporter_writes_matrix_on_finish() -> None:
     sink = _MemorySink()
     matrix = MatrixState(severity_resolver=lambda _n: "High")

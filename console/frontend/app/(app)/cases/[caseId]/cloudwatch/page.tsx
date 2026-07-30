@@ -1,32 +1,33 @@
 "use client";
 
 import { useCase } from "@/components/case-context";
-import { CloudTrailCollectionSummary } from "@/components/cloudtrail-collection-summary";
+import { CloudWatchCollectionSummary } from "@/components/cloudwatch-collection-summary";
 import { CloudTrailTable } from "@/components/cloudtrail-table";
-import { CloudTrailToolbar,
+import {
+  CloudTrailToolbar,
   type CloudTrailFilters,
 } from "@/components/cloudtrail-toolbar";
 import { PanelBody, PanelHeader } from "@/components/panel";
+import { TablePager } from "@/components/table-pager";
 import { api, type EventParams } from "@/lib/api";
 import {
-  ALL_CLOUDTRAIL_COL_KEYS,
-  CLOUDTRAIL_VISIBLE_COLS_KEY,
-  loadVisibleCloudTrailCols,
+  CLOUDWATCH_VISIBLE_COLS_KEY,
+  DEFAULT_CLOUDWATCH_VISIBLE_COLS,
+  loadVisibleCloudWatchCols,
   type CloudTrailColKey,
 } from "@/lib/cloudtrail-columns";
-import { usePagination } from "@/lib/pagination";
-import { caseCloud, controlPlaneSources } from "@/lib/cloud-sources";
+import { caseCloud, cloudWatchSources } from "@/lib/cloud-sources";
 import { panelLabel } from "@/lib/panel-labels";
-import { TablePager } from "@/components/table-pager";
+import { usePagination } from "@/lib/pagination";
 import { useFilters } from "@/lib/useFilters";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { ScrollText } from "lucide-react";
+import { Cloud } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-const PAGE_SIZE_KEY = "ventra.cloudtrail.page-size";
+const PAGE_SIZE_KEY = "ventra.cloudwatch.page-size";
 
 function baseSources(cloud: ReturnType<typeof caseCloud>) {
-  return controlPlaneSources(cloud);
+  return cloudWatchSources(cloud);
 }
 
 function filtersFromParams(
@@ -48,14 +49,16 @@ function filtersFromParams(
     regions: params.regions,
     users: params.users,
     sources: narrowed ? src : undefined,
-    trailCategories: params.trail_category,
     order: params.order ?? "desc",
     user: params.user,
     ip: params.ip,
   };
 }
 
-function paramsFromFilters(filters: CloudTrailFilters, cloud: ReturnType<typeof caseCloud>): EventParams {
+function paramsFromFilters(
+  filters: CloudTrailFilters,
+  cloud: ReturnType<typeof caseCloud>,
+): EventParams {
   const all = baseSources(cloud);
   const selected = filters.sources?.length
     ? filters.sources.filter((s) => all.includes(s))
@@ -67,7 +70,6 @@ function paramsFromFilters(filters: CloudTrailFilters, cloud: ReturnType<typeof 
     services: filters.services,
     regions: filters.regions,
     users: filters.users,
-    trail_category: cloud === "aws" ? filters.trailCategories : undefined,
     user: filters.user,
     ip: filters.ip,
     sort: "timestamp",
@@ -75,23 +77,24 @@ function paramsFromFilters(filters: CloudTrailFilters, cloud: ReturnType<typeof 
   };
 }
 
-export default function CloudTrailPage() {
+export default function CloudWatchPage() {
   const { caseId, summary } = useCase();
   const cloud = caseCloud(summary?.cloud);
+  const sources = baseSources(cloud);
   const { params, write, clearAll } = useFilters();
   const { page, setPage, pageSize, setPageSize } = usePagination(PAGE_SIZE_KEY);
   const [visibleColumns, setVisibleColumns] = useState<CloudTrailColKey[]>(
-    ALL_CLOUDTRAIL_COL_KEYS,
+    DEFAULT_CLOUDWATCH_VISIBLE_COLS,
   );
 
   useEffect(() => {
-    setVisibleColumns(loadVisibleCloudTrailCols());
+    setVisibleColumns(loadVisibleCloudWatchCols());
   }, []);
 
   const handleColumnsChange = useCallback((cols: CloudTrailColKey[]) => {
     setVisibleColumns(cols);
     try {
-      localStorage.setItem(CLOUDTRAIL_VISIBLE_COLS_KEY, JSON.stringify(cols));
+      localStorage.setItem(CLOUDWATCH_VISIBLE_COLS_KEY, JSON.stringify(cols));
     } catch {
       /* ignore */
     }
@@ -100,25 +103,21 @@ export default function CloudTrailPage() {
   const filters = useMemo(() => filtersFromParams(params, cloud), [params, cloud]);
   const effective = useMemo(() => paramsFromFilters(filters, cloud), [filters, cloud]);
 
-  const totalQ = useQuery({
-    queryKey: ["ct-total", caseId, cloud],
-    queryFn: () => api.events(caseId, { source: baseSources(cloud), limit: 1, offset: 0 }),
-  });
-
   const eventsQ = useQuery({
-    queryKey: ["ct-events", caseId, effective, page, pageSize],
+    queryKey: ["cw-events", caseId, effective, page, pageSize],
     queryFn: () =>
       api.events(caseId, { ...effective, limit: pageSize, offset: page * pageSize }),
     placeholderData: keepPreviousData,
+    enabled: sources.length > 0,
   });
 
   const facetsQ = useQuery({
-    queryKey: ["ct-facets", caseId, cloud],
-    queryFn: () => api.facets(caseId, { source: baseSources(cloud) }),
+    queryKey: ["cw-facets", caseId, cloud],
+    queryFn: () => api.facets(caseId, { source: sources }),
+    enabled: sources.length > 0,
   });
 
   const matched = eventsQ.data?.total ?? 0;
-  const eventsFailed = totalQ.isError || eventsQ.isError;
 
   const handleChange = useCallback(
     (next: Partial<CloudTrailFilters>) => {
@@ -134,7 +133,6 @@ export default function CloudTrailPage() {
         services: merged.services,
         regions: merged.regions,
         users: merged.users,
-        trail_category: cloud === "aws" ? merged.trailCategories : undefined,
         user: merged.user,
         ip: merged.ip,
         order: merged.order ?? "desc",
@@ -142,40 +140,45 @@ export default function CloudTrailPage() {
       });
       setPage(0);
     },
-    [filters, write, cloud],
+    [filters, write, cloud, setPage],
   );
 
   const handleApply = useCallback(() => {
-    write({
-      user: filters.user,
-      ip: filters.ip,
-    });
+    write({ user: filters.user, ip: filters.ip });
     setPage(0);
-  }, [filters, write]);
+  }, [filters, write, setPage]);
 
   const handleReset = useCallback(() => {
     setPage(0);
     clearAll();
-  }, [clearAll]);
+  }, [clearAll, setPage]);
+
+  if (cloud !== "aws" || sources.length === 0) {
+    return (
+      <>
+        <PanelHeader icon={Cloud} title={panelLabel(cloud, "cloudwatch")} />
+        <PanelBody>
+          <div className="rounded-lg border border-border bg-surface-2/40 px-4 py-8 text-center text-sm text-fg-subtle">
+            CloudWatch Logs is an AWS investigation panel. Open an AWS case to browse collected
+            log groups.
+          </div>
+        </PanelBody>
+      </>
+    );
+  }
 
   return (
     <>
-      <PanelHeader icon={ScrollText} title={panelLabel(cloud, "cloudtrail")} panel="cloudtrail" />
+      <PanelHeader icon={Cloud} title={panelLabel(cloud, "cloudwatch")} />
       <PanelBody className="cloudtrail-view cloudtrail-events space-y-4">
-        {cloud === "aws" && <CloudTrailCollectionPanel caseId={caseId} />}
-
-        {eventsFailed && (
-          <div className="rounded-lg border border-bad-red/30 bg-bad-red/10 px-4 py-3 text-sm text-bad-red">
-            Could not load CloudTrail events from the case store. Restart the backend after upgrading,
-            or re-import the case with <span className="mono">make ingest</span>.
-          </div>
-        )}
+        <CloudWatchCollectionPanel caseId={caseId} />
 
         <CloudTrailToolbar
           facets={facetsQ.data}
           filters={filters}
           visibleColumns={visibleColumns}
           cloud={cloud}
+          showCategory={false}
           onChange={handleChange}
           onColumnsChange={handleColumnsChange}
           onApply={handleApply}
@@ -203,33 +206,29 @@ export default function CloudTrailPage() {
   );
 }
 
-function CloudTrailCollectionPanel({ caseId }: { caseId: string }) {
+function CloudWatchCollectionPanel({ caseId }: { caseId: string }) {
   const q = useQuery({
-    queryKey: ["ct-collection", caseId],
-    queryFn: () => api.cloudtrailCollection(caseId),
+    queryKey: ["cw-collection", caseId],
+    queryFn: () => api.cloudwatchCollection(caseId),
     retry: 1,
   });
 
   if (q.isLoading) {
     return (
-      <div className="ct-panel px-4 py-6 text-sm text-fg-subtle">Loading CloudTrail collection…</div>
+      <div className="ct-panel px-4 py-6 text-sm text-fg-subtle">
+        Loading CloudWatch collection…
+      </div>
     );
   }
 
-  if (q.isError || !q.data) {
-    return null;
-  }
+  if (q.isError || !q.data) return null;
 
-  const hasTrails = (q.data.trails?.length ?? 0) > 0;
-  const hasEvents =
-    (q.data.events?.lookup_api?.total ?? 0) > 0 || (q.data.events?.s3?.total ?? 0) > 0;
-  if (!hasTrails && !hasEvents) {
-    return null;
-  }
+  const hasGroups = (q.data.log_groups?.length ?? 0) > 0 || (q.data.records ?? 0) > 0;
+  if (!hasGroups) return null;
 
   return (
     <div className="ct-panel p-4">
-      <CloudTrailCollectionSummary data={q.data} />
+      <CloudWatchCollectionSummary data={q.data} />
     </div>
   );
 }

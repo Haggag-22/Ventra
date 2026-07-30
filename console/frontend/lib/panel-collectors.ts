@@ -4,6 +4,7 @@ import { catalogItemForId, type CatalogItem, type Cloud } from "./catalog";
 
 export type PanelId =
   | "cloudtrail"
+  | "cloudwatch"
   | "findings"
   | "identity"
   | "network"
@@ -68,6 +69,10 @@ export const PANEL_COLLECTORS: Record<PanelId, PanelCollectorDef> = {
   cloudtrail: {
     blurb: "API and control-plane activity across regions.",
     collectors: AWS_CLOUDTRAIL_ASPECTS,
+  },
+  cloudwatch: {
+    blurb: "CloudWatch Logs events from selected log groups.",
+    collectors: [{ id: "cloudwatch" }],
   },
   findings: {
     blurb: "Threat detections and compliance findings normalized to one view.",
@@ -146,6 +151,10 @@ const PANEL_COLLECTORS_AZURE: Record<PanelId, PanelCollectorDef> = {
       { id: "oauth_consent", note: "standing OAuth grants" },
     ],
   },
+  cloudwatch: {
+    blurb: "CloudWatch Logs is an AWS investigation panel.",
+    collectors: [],
+  },
   findings: {
     blurb: "Microsoft Defender for Cloud alerts.",
     collectors: [{ id: "defender" }],
@@ -207,6 +216,10 @@ const PANEL_COLLECTORS_GCP: Record<PanelId, PanelCollectorDef> = {
       ...GCP_CLOUD_AUDIT_ASPECTS,
       { id: "login_events", note: "Google Cloud console sign-ins" },
     ],
+  },
+  cloudwatch: {
+    blurb: "CloudWatch Logs is an AWS investigation panel.",
+    collectors: [],
   },
   findings: {
     blurb: "Security Command Center findings and Cloud Monitoring alert notifications.",

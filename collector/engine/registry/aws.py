@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collector.lib.base import CollectorRegistry
 from collector.engine.api.aws.control_plane.cloudtrail import CloudTrailCollector
+from collector.engine.api.aws.control_plane.cloudwatch import CloudWatchCollector
 from collector.engine.api.aws.control_plane.config import ConfigCollector
 from collector.engine.api.aws.control_plane.log_posture import LogPostureCollector
 from collector.engine.api.aws.detections.detective import DetectiveCollector
@@ -32,6 +33,7 @@ from collector.engine.api.aws.workloads.s3_access import S3AccessCollector
 _COLLECTOR_CLASSES = (
     AccountCollector,
     CloudTrailCollector,
+    CloudWatchCollector,
     IamCollector,
     VpcFlowCollector,
     WafCollector,

@@ -1,0 +1,137 @@
+{
+    "PolicyVersion": {
+        "Document": {
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Sid": "DenyProductionRegions",
+                    "Effect": "Deny",
+                    "Action": "*",
+                    "Resource": "*",
+                    "Condition": {
+                        "StringEquals": {
+                            "aws:RequestedRegion": [
+                                "us-west-2",
+                                "eu-west-2"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "Sid": "AccountContext",
+                    "Effect": "Allow",
+                    "Action": [
+                        "sts:GetCallerIdentity",
+                        "iam:ListAccountAliases",
+                        "organizations:DescribeOrganization",
+                        "ec2:DescribeRegions"
+                    ],
+                    "Resource": "*"
+                },
+                {
+                    "Sid": "IAM",
+                    "Effect": "Allow",
+                    "Action": [
+                        "iam:GetAccessKeyLastUsed",
+                        "iam:GetAccountAuthorizationDetails",
+                        "iam:GetAccountPasswordPolicy",
+                        "iam:GetCredentialReport",
+                        "iam:GetGroupPolicy",
+                        "iam:GetPolicy",
+                        "iam:GetPolicyVersion",
+                        "iam:GetRole",
+                        "iam:GetRolePolicy",
+                        "iam:GetUserPolicy",
+                        "iam:GenerateCredentialReport",
+                        "iam:ListAccessKeys",
+                        "iam:ListAttachedGroupPolicies",
+                        "iam:ListAttachedRolePolicies",
+                        "iam:ListAttachedUserPolicies",
+                        "iam:ListGroups",
+                        "iam:ListGroupsForUser",
+                        "iam:ListGroupPolicies",
+                        "iam:ListMFADevices",
+                        "iam:ListPolicies",
+                        "iam:ListRoles",
+                        "iam:ListRolePolicies",
+                        "iam:ListUsers",
+                        "iam:ListUserPolicies"
+                    ],
+                    "Resource": "*"
+                },
+                {
+                    "Sid": "InfrastructureInventory",
+                    "Effect": "Allow",
+                    "Action": [
+                        "kms:ListKeys",
+                        "kms:DescribeKey",
+                        "kms:GetKeyPolicy",
+                        "kms:ListGrants",
+                        "secretsmanager:ListSecrets",
+                        "secretsmanager:DescribeSecret",
+                        "cloudtrail:DescribeTrails",
+                        "cloudtrail:GetTrailStatus",
+                        "cloudtrail:GetEventSelectors",
+                        "cloudtrail:GetInsightSelectors",
+                        "config:DescribeConfigurationRecorders",
+                        "config:DescribeDeliveryChannels",
+                        "config:DescribeComplianceByConfigRule",
+                        "logs:DescribeLogGroups",
+                        "es:ListDomainNames",
+                        "es:DescribeDomain",
+                        "dynamodb:ListTables",
+                        "dynamodb:DescribeTable",
+                        "network-firewall:ListFirewalls",
+                        "network-firewall:DescribeLoggingConfiguration",
+                        "ec2:DescribeFlowLogs",
+                        "ec2:DescribeInstances",
+                        "ec2:DescribeInstanceAttribute",
+                        "ec2:DescribeVolumes",
+                        "ec2:DescribeSnapshots",
+                        "ec2:DescribeSnapshotAttribute",
+                        "ec2:DescribeNetworkInterfaces",
+                        "ec2:DescribeSecurityGroups",
+                        "ec2:DescribeImages",
+                        "ec2:DescribeLaunchTemplates",
+                        "ec2:DescribeVpcs",
+                        "elasticloadbalancing:DescribeLoadBalancers",
+                        "elasticloadbalancing:DescribeLoadBalancerAttributes",
+                        "cloudfront:ListDistributions",
+                        "cloudfront:GetDistributionConfig",
+                        "route53resolver:ListResolverQueryLogConfigs",
+                        "route53resolver:ListResolverQueryLogConfigAssociations",
+                        "wafv2:ListWebACLs",
+                        "wafv2:GetWebACL",
+                        "wafv2:GetLoggingConfiguration",
+                        "apigateway:GET",
+                        "s3:ListAllMyBuckets",
+                        "s3:GetBucketLocation",
+                        "s3:GetBucketPolicy",
+                        "s3:GetBucketPolicyStatus",
+                        "s3:GetBucketAcl",
+                        "s3:GetBucketLogging",
+                        "s3:GetBucketPublicAccessBlock",
+                        "s3:GetBucketObjectLockConfiguration",
+                        "lambda:ListFunctions",
+                        "lambda:GetFunction",
+                        "lambda:GetPolicy",
+                        "eks:ListClusters",
+                        "eks:DescribeCluster",
+                        "rds:DescribeDBInstances",
+                        "guardduty:ListDetectors",
+                        "guardduty:GetDetector",
+                        "guardduty:ListFilters",
+                        "guardduty:GetFilter",
+                        "securityhub:DescribeHub",
+                        "securityhub:GetEnabledStandards",
+                        "macie2:GetMacieSession"
+                    ],
+                    "Resource": "*"
+                }
+            ]
+        },
+        "VersionId": "v2",
+        "IsDefaultVersion": true,
+        "CreateDate": "2026-07-20T21:29:59+00:00"
+    }
+}

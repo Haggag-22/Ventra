@@ -7,6 +7,7 @@ import type {
   CaseOverview,
   CaseSummary,
   CloudTrailCollection,
+  CloudWatchCollection,
   CollectorMatrixRow,
   EventsResponse,
   ExportableCase,
@@ -151,6 +152,8 @@ export const api = {
     get<{ source: string; data: any }>(`/cases/${c}/inventory/${source}`),
   cloudtrailCollection: (c: string) =>
     get<CloudTrailCollection>(`/cases/${c}/cloudtrail/collection`),
+  cloudwatchCollection: (c: string) =>
+    get<CloudWatchCollection>(`/cases/${c}/cloudwatch/collection`),
   evidenceIndex: (c: string) => get<EvidenceIndex>(`/cases/${c}/evidence`),
   evidenceContent: (c: string, path: string, maxBytes?: number) =>
     get<EvidenceContent>(

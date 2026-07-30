@@ -13,7 +13,8 @@ import { StatCard } from "@/components/stat";
 import { TablePager } from "@/components/table-pager";
 import { Card, CardHeader, EmptyState, LoadingPanel } from "@/components/ui";
 import { api } from "@/lib/api";
-import { caseCloud } from "@/lib/cloud-sources";
+import { caseCloud, dnsSources, edgeSources } from "@/lib/cloud-sources";
+import type { Cloud } from "@/lib/catalog";
 import { fmtNum } from "@/lib/format";
 import { panelLabel } from "@/lib/panel-labels";
 import {
@@ -30,14 +31,17 @@ import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Globe2, Network, Route, Search, Server, ShieldAlert } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-const BASE_EDGE_SOURCES = ["elb_alb", "cloudfront"];
-
 const SOURCE_LABEL: Record<string, string> = EDGE_SOURCE_LABEL;
 
 /** Colored chips for edge-source breakdown in section headers. */
 const EDGE_SOURCE_CHIP_STYLE: Record<string, { chip: string; dot: string }> = {
   elb_alb: { chip: EDGE_SOURCE_CHIP.elb_alb, dot: "bg-accent" },
   cloudfront: { chip: EDGE_SOURCE_CHIP.cloudfront, dot: "bg-ok-green" },
+  app_gateway: { chip: EDGE_SOURCE_CHIP.app_gateway, dot: "bg-accent" },
+  front_door: { chip: EDGE_SOURCE_CHIP.front_door, dot: "bg-ok-green" },
+  load_balancer: { chip: EDGE_SOURCE_CHIP.load_balancer, dot: "bg-accent" },
+  cloud_cdn: { chip: EDGE_SOURCE_CHIP.cloud_cdn, dot: "bg-ok-green" },
+  api_gateway: { chip: EDGE_SOURCE_CHIP.api_gateway, dot: "bg-warn-amber" },
 };
 
 function EdgeSourceChips({ sources }: { sources: { source: string; count: number }[] }) {
@@ -75,15 +79,16 @@ const STATUS_TONE: Record<string, string> = {
   other: "bg-surface-3",
 };
 
-function DnsQueryLog({ caseId }: { caseId: string }) {
+function DnsQueryLog({ caseId, cloud }: { caseId: string; cloud: Cloud }) {
   const [q, setQ] = useState("");
   const { page, setPage, pageSize, setPageSize } = usePagination("ventra.dns-queries.page-size");
+  const sources = dnsSources(cloud);
 
   const eventsQ = useQuery({
-    queryKey: ["dns-queries", caseId, q, page, pageSize],
+    queryKey: ["dns-queries", caseId, cloud, q, page, pageSize],
     queryFn: () =>
       api.events(caseId, {
-        source: ["route53_resolver"],
+        source: sources,
         q: q || undefined,
         sort: "timestamp",
         order: "desc",
@@ -180,12 +185,13 @@ function StatusBar({ classes }: { classes: { cls: string; count: number }[] }) {
   );
 }
 
-function EdgeRequestLog({ caseId }: { caseId: string }) {
+function EdgeRequestLog({ caseId, cloud }: { caseId: string; cloud: Cloud }) {
   const [filters, setFilters] = useState<EdgeRequestFilters>({});
   const [visibleColumns, setVisibleColumns] = useState<EdgeRequestColKey[]>(
     ALL_EDGE_REQUEST_COL_KEYS,
   );
   const { page, setPage, pageSize, setPageSize } = usePagination("ventra.edge-requests.page-size");
+  const baseEdgeSources = edgeSources(cloud);
 
   useEffect(() => {
     setVisibleColumns(loadVisibleEdgeRequestCols());
@@ -200,7 +206,7 @@ function EdgeRequestLog({ caseId }: { caseId: string }) {
     }
   }, []);
 
-  const effectiveSources = filters.sources?.length ? filters.sources : BASE_EDGE_SOURCES;
+  const effectiveSources = filters.sources?.length ? filters.sources : baseEdgeSources;
 
   const eventParams = useMemo(
     () => ({
@@ -209,6 +215,7 @@ function EdgeRequestLog({ caseId }: { caseId: string }) {
       actions: filters.methods,
       resources: filters.resources,
       http_status: filters.statuses,
+      regions: filters.regions,
       sort: "timestamp" as const,
       order: "desc" as const,
     }),
@@ -216,7 +223,7 @@ function EdgeRequestLog({ caseId }: { caseId: string }) {
   );
 
   const eventsQ = useQuery({
-    queryKey: ["edge-requests", caseId, eventParams, page, pageSize],
+    queryKey: ["edge-requests", caseId, cloud, eventParams, page, pageSize],
     queryFn: () =>
       api.events(caseId, {
         ...eventParams,
@@ -227,8 +234,8 @@ function EdgeRequestLog({ caseId }: { caseId: string }) {
   });
 
   const facetsQ = useQuery({
-    queryKey: ["edge-facets", caseId],
-    queryFn: () => api.facets(caseId, { source: BASE_EDGE_SOURCES }),
+    queryKey: ["edge-facets", caseId, cloud],
+    queryFn: () => api.facets(caseId, { source: baseEdgeSources }),
   });
 
   const matched = eventsQ.data?.total ?? 0;
@@ -249,14 +256,19 @@ function EdgeRequestLog({ caseId }: { caseId: string }) {
     setPage(0);
   }, [setPage]);
 
+  const requestLogBlurb =
+    cloud === "azure"
+      ? "Every Application Gateway and Front Door access-log line"
+      : cloud === "gcp"
+        ? "Every Load Balancer, Cloud CDN, and API Gateway access-log line"
+        : "Every ELB/ALB and CloudFront access-log line";
+
   return (
     <div className="cloudtrail-view edge-requests-log mt-8">
       <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h2 className="text-sm font-semibold text-fg">Request log</h2>
-          <p className="mt-0.5 text-xs text-fg-subtle">
-            Every ELB/ALB and CloudFront access-log line
-          </p>
+          <p className="mt-0.5 text-xs text-fg-subtle">{requestLogBlurb}</p>
         </div>
         <span className="mono text-xs text-fg-subtle">{fmtNum(matched)} requests</span>
       </div>
@@ -265,6 +277,7 @@ function EdgeRequestLog({ caseId }: { caseId: string }) {
         facets={facetsQ.data}
         filters={filters}
         visibleColumns={visibleColumns}
+        sourceIds={baseEdgeSources}
         onChange={handleChange}
         onColumnsChange={handleColumnsChange}
         onReset={handleReset}
@@ -513,7 +526,7 @@ export default function WebDnsPage() {
             </Card>
           )}
 
-          <EdgeRequestLog caseId={caseId} />
+          <EdgeRequestLog caseId={caseId} cloud={cloud} />
         </div>
 
         {/* -- DNS + WAF -------------------------------------------------------------------- */}
@@ -521,7 +534,7 @@ export default function WebDnsPage() {
           <Card className="overflow-hidden p-0">
             <CardHeader title="DNS resolver queries" icon={Server} className="px-4 py-3" />
             <div className="cloudtrail-view dns-queries-log">
-              <DnsQueryLog caseId={caseId} />
+              <DnsQueryLog caseId={caseId} cloud={cloud} />
             </div>
           </Card>
 

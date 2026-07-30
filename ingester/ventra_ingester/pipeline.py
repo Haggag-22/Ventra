@@ -140,6 +140,12 @@ def _ingest_open_package(
                     store.write_inventory("cloudtrail", snapshot)
                     inventory_loaded.append("cloudtrail")
 
+            if source == "cloudwatch":
+                snapshot = _load_cloudtrail_artifacts(pkg, files)  # config + meta shape
+                if snapshot is not None:
+                    store.write_inventory("cloudwatch", snapshot)
+                    inventory_loaded.append("cloudwatch")
+
             if source in ("vpc_flow", "nsg_flow"):
                 snapshot = _load_vpc_flow_inventory(pkg, files)
                 if snapshot is not None:

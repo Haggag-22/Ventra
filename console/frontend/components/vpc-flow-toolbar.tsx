@@ -20,6 +20,7 @@ export interface VpcFlowFilters {
   actions?: string[];
   outcomes?: string[];
   regions?: string[];
+  sources?: string[];
   sourceIps?: string[];
   destIps?: string[];
   destPorts?: string[];
@@ -30,6 +31,7 @@ export function VpcFlowToolbar({
   facets,
   filters,
   visibleColumns,
+  sourceIds,
   onChange,
   onColumnsChange,
   onReset,
@@ -37,6 +39,8 @@ export function VpcFlowToolbar({
   facets?: Facets;
   filters: VpcFlowFilters;
   visibleColumns: VpcFlowColKey[];
+  /** Cloud-scoped flow collector IDs (vpc_flow, nsg_flow, firewall_logs, …). */
+  sourceIds?: string[];
   onChange: (next: Partial<VpcFlowFilters>) => void;
   onColumnsChange: (cols: VpcFlowColKey[]) => void;
   onReset: () => void;
@@ -61,6 +65,11 @@ export function VpcFlowToolbar({
     count: f.count,
   }));
 
+  const sourceOptions = (sourceIds ?? []).map((value) => ({
+    value,
+    count: facets?.ventra_source?.find((f) => f.value === value)?.count ?? 0,
+  }));
+
   const sourceIpOptions = (facets?.source_ip ?? []).map((f) => ({
     value: f.value,
     count: f.count,
@@ -75,6 +84,8 @@ export function VpcFlowToolbar({
     value: f.value,
     count: f.count,
   }));
+
+  const showSources = (sourceIds?.length ?? 0) > 1;
 
   const columnOptions = VPC_FLOW_COLS.map((c) => ({
     value: c.key,
@@ -93,7 +104,10 @@ export function VpcFlowToolbar({
   };
 
   const toggleList = (
-    key: keyof Pick<VpcFlowFilters, "actions" | "outcomes" | "regions" | "sourceIps" | "destIps" | "destPorts">,
+    key: keyof Pick<
+      VpcFlowFilters,
+      "actions" | "outcomes" | "regions" | "sources" | "sourceIps" | "destIps" | "destPorts"
+    >,
     value: string,
   ) => {
     const cur = filters[key] ?? [];
@@ -136,6 +150,18 @@ export function VpcFlowToolbar({
           onClear={() => onChange({ outcomes: undefined })}
           variant="cloudtrail"
         />
+
+        {showSources ? (
+          <MultiSelect
+            label="Sources"
+            icon={Filter}
+            options={sourceOptions}
+            selected={filters.sources ?? []}
+            onToggle={(v) => toggleList("sources", v)}
+            onClear={() => onChange({ sources: undefined })}
+            variant="cloudtrail"
+          />
+        ) : null}
 
         <MultiSelect
           label="Region"

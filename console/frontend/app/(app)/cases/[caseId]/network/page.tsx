@@ -81,7 +81,7 @@ function VpcFlowLog({
 
   const eventParams = useMemo(
     () => ({
-      source: sources,
+      source: filters.sources?.length ? filters.sources : sources,
       q: filters.q,
       actions: filters.actions,
       outcomes: filters.outcomes,
@@ -151,6 +151,7 @@ function VpcFlowLog({
         facets={facetsQ.data}
         filters={filters}
         visibleColumns={visibleColumns}
+        sourceIds={sources}
         onChange={handleChange}
         onColumnsChange={handleColumnsChange}
         onReset={handleReset}

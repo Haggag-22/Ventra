@@ -17,14 +17,14 @@ export interface EdgeRequestFilters {
   sources?: string[];
   resources?: string[];
   statuses?: string[];
+  regions?: string[];
 }
-
-const EDGE_SOURCE_OPTIONS = ["elb_alb", "cloudfront"] as const;
 
 export function EdgeRequestToolbar({
   facets,
   filters,
   visibleColumns,
+  sourceIds,
   onChange,
   onColumnsChange,
   onReset,
@@ -32,6 +32,8 @@ export function EdgeRequestToolbar({
   facets?: Facets;
   filters: EdgeRequestFilters;
   visibleColumns: EdgeRequestColKey[];
+  /** Cloud-scoped edge collector IDs (ALB/CloudFront, App Gateway, LB/CDN, …). */
+  sourceIds: string[];
   onChange: (next: Partial<EdgeRequestFilters>) => void;
   onColumnsChange: (cols: EdgeRequestColKey[]) => void;
   onReset: () => void;
@@ -45,7 +47,7 @@ export function EdgeRequestToolbar({
     count: f.count,
   }));
 
-  const sourceOptions = EDGE_SOURCE_OPTIONS.map((value) => ({
+  const sourceOptions = sourceIds.map((value) => ({
     value,
     label: EDGE_SOURCE_LABEL[value] ?? value,
     count: facets?.ventra_source?.find((f) => f.value === value)?.count ?? 0,
@@ -57,6 +59,11 @@ export function EdgeRequestToolbar({
   }));
 
   const statusOptions = (facets?.http_status ?? []).map((f) => ({
+    value: f.value,
+    count: f.count,
+  }));
+
+  const regionOptions = (facets?.cloud_region ?? []).map((f) => ({
     value: f.value,
     count: f.count,
   }));
@@ -146,6 +153,20 @@ export function EdgeRequestToolbar({
             onChange({ statuses: next.length ? next : undefined });
           }}
           onClear={() => onChange({ statuses: undefined })}
+          variant="cloudtrail"
+        />
+
+        <MultiSelect
+          label="Regions"
+          icon={Filter}
+          options={regionOptions}
+          selected={filters.regions ?? []}
+          onToggle={(v) => {
+            const cur = filters.regions ?? [];
+            const next = cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v];
+            onChange({ regions: next.length ? next : undefined });
+          }}
+          onClear={() => onChange({ regions: undefined })}
           variant="cloudtrail"
         />
 
