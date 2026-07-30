@@ -13,6 +13,13 @@ export const CONTROL_PLANE_SOURCES: Record<Cloud, string[]> = {
   ],
 };
 
+/** CloudWatch Logs investigation panel (AWS). */
+export const CLOUDWATCH_SOURCES: Record<Cloud, string[]> = {
+  aws: ["cloudwatch"],
+  azure: [],
+  gcp: [],
+};
+
 export const FLOW_SOURCES: Record<Cloud, string[]> = {
   aws: ["vpc_flow"],
   azure: ["vnet_flow", "nsg_flow", "azure_firewall"],
@@ -29,6 +36,20 @@ export const WEB_SOURCES: Record<Cloud, string[]> = {
   aws: ["elb_alb", "cloudfront", "waf", "route53_resolver"],
   azure: ["app_gateway", "front_door", "dns", "log_analytics"],
   gcp: ["load_balancer", "cloud_cdn", "api_gateway", "cloud_dns", "cloud_armor"],
+};
+
+/** L7 edge / CDN / gateway access logs (excludes WAF and DNS). */
+export const EDGE_SOURCES: Record<Cloud, string[]> = {
+  aws: ["elb_alb", "cloudfront"],
+  azure: ["app_gateway", "front_door"],
+  gcp: ["load_balancer", "cloud_cdn", "api_gateway"],
+};
+
+/** DNS query log sources for the Web & DNS panel. */
+export const DNS_SOURCES: Record<Cloud, string[]> = {
+  aws: ["route53_resolver"],
+  azure: ["dns"],
+  gcp: ["cloud_dns"],
 };
 
 export const DATA_ACCESS_SOURCES: Record<Cloud, string[]> = {
@@ -48,6 +69,10 @@ export function controlPlaneSources(cloud: Cloud): string[] {
   return CONTROL_PLANE_SOURCES[cloud] ?? CONTROL_PLANE_SOURCES.aws;
 }
 
+export function cloudWatchSources(cloud: Cloud): string[] {
+  return CLOUDWATCH_SOURCES[cloud] ?? [];
+}
+
 export function flowSources(cloud: Cloud): string[] {
   return FLOW_SOURCES[cloud] ?? FLOW_SOURCES.aws;
 }
@@ -58,6 +83,14 @@ export function findingSources(cloud: Cloud): string[] {
 
 export function webSources(cloud: Cloud): string[] {
   return WEB_SOURCES[cloud] ?? WEB_SOURCES.aws;
+}
+
+export function edgeSources(cloud: Cloud): string[] {
+  return EDGE_SOURCES[cloud] ?? EDGE_SOURCES.aws;
+}
+
+export function dnsSources(cloud: Cloud): string[] {
+  return DNS_SOURCES[cloud] ?? DNS_SOURCES.aws;
 }
 
 export function dataAccessSources(cloud: Cloud): string[] {

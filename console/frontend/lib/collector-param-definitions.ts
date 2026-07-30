@@ -1,6 +1,12 @@
 /** Auto-generated collector parameter schemas for Acquire UI. */
 
-export type ParamFieldType = "string" | "list" | "boolean";
+export type ParamFieldType = "string" | "list" | "boolean" | "select";
+
+export interface ParamFieldOption {
+  value: string;
+  label: string;
+  description?: string;
+}
 
 export interface ParamFieldDef {
   key: string;
@@ -10,6 +16,58 @@ export interface ParamFieldDef {
   docUrl?: string;
   required?: boolean;
   placeholder?: string;
+  options?: ParamFieldOption[];
+  defaultValue?: string;
+  /** Limit this field to specific clouds (Acquire UI). Omit = all clouds. */
+  clouds?: Array<"aws" | "azure" | "gcp">;
+  /** Show this field only when another param equals one of the listed values. */
+  visibleWhen?: {
+    key: string;
+    values: string[];
+  };
+}
+
+export type ParamValueMap = Record<string, string | string[] | boolean | undefined>;
+
+function paramStringValue(values: ParamValueMap, key: string, fallback = ""): string {
+  const v = values[key];
+  if (typeof v === "string") return v.trim() || fallback;
+  return fallback;
+}
+
+export function isParamFieldVisible(
+  field: ParamFieldDef,
+  values: ParamValueMap,
+  allFields?: ParamFieldDef[],
+): boolean {
+  if (!field.visibleWhen) return true;
+  let current = paramStringValue(values, field.visibleWhen.key);
+  if (!current && field.visibleWhen.key === "collection_source") {
+    const sourceField = allFields?.find((f) => f.key === "collection_source");
+    current = sourceField?.defaultValue || "trail";
+  }
+  return field.visibleWhen.values.includes(current);
+}
+
+export function visibleParamFields(
+  fields: ParamFieldDef[],
+  values: ParamValueMap,
+): ParamFieldDef[] {
+  return fields.filter((field) => isParamFieldVisible(field, values, fields));
+}
+
+/** Drop values for fields hidden by visibleWhen (e.g. after switching collection source). */
+export function pruneHiddenParamValues(
+  fields: ParamFieldDef[],
+  values: ParamValueMap,
+): ParamValueMap {
+  const next = { ...values };
+  for (const field of fields) {
+    if (!isParamFieldVisible(field, next, fields)) {
+      delete next[field.key];
+    }
+  }
+  return next;
 }
 
 const AZURE_ACTIVITY_LOG =
@@ -284,7 +342,7 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
     },
     {
       key: "log_group_names",
-      label: "Log group names",
+      label: "CloudWatch log group",
       type: "list",
       description: "CloudWatch Logs log group names where API Gateway access logs are delivered.",
     },
@@ -305,9 +363,35 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
   ],
   cloudtrail: [
     {
+      key: "collection_source",
+      label: "Collection source",
+      type: "select",
+      defaultValue: "trail",
+      description:
+        "Where to pull CloudTrail events from. Trail uses discovered trails and their S3 delivery buckets. Bucket reads log files directly from the S3 buckets you specify. Lookup events uses the CloudTrail Event History API (about 90 days, no S3 access required).",
+      options: [
+        {
+          value: "trail",
+          label: "Trail (S3 delivery)",
+          description: "Discover trails and collect from their S3 log files.",
+        },
+        {
+          value: "bucket",
+          label: "S3 bucket",
+          description: "Collect directly from delivery buckets and prefixes below.",
+        },
+        {
+          value: "lookup_events",
+          label: "Lookup events (Event History)",
+          description: "Use cloudtrail:LookupEvents instead of S3 log files.",
+        },
+      ],
+    },
+    {
       key: "trail_arns",
       label: "Trail ARNs",
       type: "list",
+      visibleWhen: { key: "collection_source", values: ["trail"] },
       description:
         "CloudTrail trail ARNs to collect from. Use when you know the exact trail resource in the account or organization.",
     },
@@ -315,18 +399,21 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
       key: "trail_names",
       label: "Trail names",
       type: "list",
+      visibleWhen: { key: "collection_source", values: ["trail"] },
       description: "Trail name as shown in the CloudTrail console. Matches trails in the current account or region scope.",
     },
     {
       key: "s3_bucket_names",
       label: "S3 bucket names",
       type: "list",
-      description: "S3 buckets where CloudTrail log files are delivered. Useful when collecting directly from delivery storage.",
+      visibleWhen: { key: "collection_source", values: ["bucket"] },
+      description: "S3 buckets where CloudTrail log files are stored. Required when collecting directly from bucket delivery storage.",
     },
     {
       key: "s3_prefixes",
       label: "S3 prefixes",
       type: "list",
+      visibleWhen: { key: "collection_source", values: ["bucket"] },
       description: "S3 key prefix under the delivery bucket where trail objects are stored (e.g. AWSLogs/123456789012/CloudTrail/).",
     },
     {
@@ -515,7 +602,7 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
     },
     {
       key: "log_group_names",
-      label: "Log group names",
+      label: "CloudWatch log group",
       type: "list",
       description: "CloudWatch Logs log group names where EKS audit logs are stored, if not using the default naming pattern.",
     },
@@ -789,7 +876,7 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
     },
     {
       key: "log_group_names",
-      label: "Log group names",
+      label: "CloudWatch log group",
       type: "list",
       description: "CloudWatch Logs group names (typically /aws/lambda/<name>) to collect from directly.",
     },
@@ -986,7 +1073,7 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
     },
     {
       key: "log_group_names",
-      label: "Log group names",
+      label: "CloudWatch log group",
       type: "list",
       description: "CloudWatch Logs group names (/aws/rds/instance/<id>/<type>) to collect from directly.",
     },
@@ -997,6 +1084,14 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
       label: "Query log config IDs",
       type: "list",
       description: "Route 53 Resolver query logging configuration IDs.",
+    },
+    {
+      key: "log_group_names",
+      label: "CloudWatch log group",
+      type: "list",
+      description:
+        "CloudWatch Logs group names or ARNs used as Route 53 Resolver query log destinations.",
+      placeholder: "arn:aws:logs:us-east-1:123:log-group:resolver-query-logs:*",
     },
     {
       key: "vpc_ids",
@@ -1268,35 +1363,114 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
   ],
   vpc_flow: [
     {
+      key: "vpc_ids",
+      label: "VPC IDs",
+      type: "list",
+      clouds: ["aws"],
+      description: "VPC IDs (e.g. vpc-0abc123) whose flow logs should be collected.",
+      placeholder: "vpc-0abc123def456",
+    },
+    {
+      key: "vpc_names",
+      label: "VPC names",
+      type: "list",
+      clouds: ["aws"],
+      description: "VPC Name tags to resolve to VPC IDs before collecting flow logs.",
+      placeholder: "prod-vpc",
+    },
+    {
+      key: "flow_log_ids",
+      label: "Flow log IDs",
+      type: "list",
+      clouds: ["aws"],
+      description: "Specific VPC Flow Log configuration IDs (fl-…).",
+    },
+    {
+      key: "log_group_names",
+      label: "CloudWatch log group",
+      type: "list",
+      clouds: ["aws"],
+      description:
+        "CloudWatch Logs group names or ARNs where VPC Flow Logs are delivered (e.g. Cloud-IR-Demo-VPC-Flow-Logs or arn:aws:logs:region:acct:log-group:NAME:*).",
+      placeholder: "Cloud-IR-Demo-VPC-Flow-Logs",
+    },
+    {
+      key: "s3_bucket_names",
+      label: "S3 bucket names",
+      type: "list",
+      clouds: ["aws"],
+      description: "S3 buckets used as VPC Flow Log destinations.",
+    },
+    {
+      key: "destination_type",
+      label: "Destination type",
+      type: "list",
+      clouds: ["aws"],
+      description: "Limit to flow logs delivering to cloud-watch-logs or s3.",
+      placeholder: "cloud-watch-logs",
+    },
+    {
       key: "subnetwork_names",
       label: "Subnetwork names",
       type: "list",
+      clouds: ["gcp"],
       description: "GCP VPC subnetwork names to filter VPC Flow Logs.",
     },
     {
       key: "regions",
       label: "Regions",
       type: "list",
+      clouds: ["gcp"],
       description: "GCP regions to scope VPC Flow Log collection.",
     },
     {
       key: "zones",
       label: "Zones",
       type: "list",
+      clouds: ["gcp"],
       description: "GCP zones to further narrow flow log sources.",
     },
     {
       key: "dest_ip",
       label: "Destination IP",
       type: "list",
+      clouds: ["gcp"],
       description: "Destination IP addresses to filter flow log records (useful for C2 or lateral movement hunts).",
     },
     {
       key: "action",
       label: "Action",
       type: "list",
+      clouds: ["gcp"],
       description: "Filter flow records by disposition: ALLOW or DENY.",
       docUrl: GCP_VPC_FLOW,
+    },
+  ],
+  cloudwatch: [
+    {
+      key: "log_group_names",
+      label: "CloudWatch log group",
+      type: "list",
+      clouds: ["aws"],
+      required: false,
+      description:
+        "Log group names or full ARNs to collect (e.g. /aws/lambda/my-fn or arn:aws:logs:us-east-2:123:log-group:NAME:*).",
+      placeholder: "Cloud-IR-Demo-VPC-Flow-Logs",
+    },
+    {
+      key: "log_group_name_prefix",
+      label: "Log group name prefix",
+      type: "list",
+      clouds: ["aws"],
+      description: "Discover and collect groups matching this prefix (e.g. /aws/lambda/).",
+      placeholder: "/aws/",
+    },
+    {
+      key: "log_stream_name_prefix",
+      label: "Log stream name prefix",
+      type: "list",
+      clouds: ["aws"],
+      description: "Optional FilterLogEvents stream name prefix within each group.",
     },
   ],
   waf: [
@@ -1410,8 +1584,13 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
   ],
 };
 
-export function collectorParamSchema(collector: string): ParamFieldDef[] {
-  return COLLECTOR_PARAM_SCHEMAS[collector] ?? [];
+export function collectorParamSchema(
+  collector: string,
+  cloud?: "aws" | "azure" | "gcp",
+): ParamFieldDef[] {
+  const fields = COLLECTOR_PARAM_SCHEMAS[collector] ?? [];
+  if (!cloud) return fields;
+  return fields.filter((f) => !f.clouds || f.clouds.includes(cloud));
 }
 
 export function hasCollectorParams(collector: string): boolean {

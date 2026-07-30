@@ -51,7 +51,10 @@ DATA_ACCESS_SCOPE = (
     "(ventra_source='s3_access' OR (ventra_source='cloudtrail' "
     "AND json_extract_string(raw, '$.eventCategory')='Data' "
     "AND json_extract_string(raw, '$.eventSource')='s3.amazonaws.com') "
-    "OR ventra_source IN ('storage_access', 'bigquery_audit', 'cloud_sql', 'secret_manager'))"
+    "OR ventra_source IN ("
+    "'storage_access', 'bigquery_audit', 'cloud_sql', 'secret_manager', "
+    "'key_vault', 'log_analytics', 'cloud_audit_data'"
+    "))"
 )
 
 DATA_ACCESS_PRINCIPAL_SQL = "COALESCE(NULLIF(user_arn,''), NULLIF(user_name,''), '')"
@@ -80,6 +83,9 @@ FINDING_CLASS_SQL = (
     "  THEN 'Threat' "
     "WHEN ventra_source = 'defender' "
     "  OR json_extract_string(raw, '$.properties.alertType') IS NOT NULL "
+    "  THEN 'Threat' "
+    "WHEN ventra_source = 'scc_findings' "
+    "  OR ventra_source = 'cloud_monitoring' "
     "  THEN 'Threat' "
     "WHEN json_extract_string(raw, '$.Types[0]') LIKE 'Software and Configuration Checks%' "
     "  THEN 'Configuration' "
@@ -209,6 +215,28 @@ def _vpc_names_from_config(config: dict[str, Any] | None) -> dict[str, str]:
         if vid:
             names[vid] = _vpc_name_from_inventory(vpc)
     return names
+
+
+def _flow_log_destination(flow_log: dict[str, Any]) -> tuple[str, str]:
+    """Return ``(destination_type, destination)`` for a VPC Flow Log config row."""
+    dtype = str(flow_log.get("LogDestinationType") or flow_log.get("destination_type") or "").strip()
+    dtype_norm = dtype.lower().replace("_", "-")
+    dest_arn = str(flow_log.get("LogDestination") or flow_log.get("destination") or "").strip()
+    group = str(flow_log.get("LogGroupName") or "").strip()
+    if not group and ":log-group:" in dest_arn:
+        _, _, tail = dest_arn.partition(":log-group:")
+        group = tail.removesuffix(":*")
+        if ":log-stream:" in group:
+            group = group.split(":log-stream:", 1)[0]
+    if dtype_norm in {"cloud-watch-logs", "cloudwatch-logs", "cloudwatch"} or group:
+        return "cloud-watch-logs", group or dest_arn
+    if dtype_norm == "s3" or dest_arn.startswith("arn:aws:s3:::"):
+        path = dest_arn
+        if path.startswith("arn:aws:s3:::"):
+            path = path[len("arn:aws:s3:::") :]
+        bucket, _, prefix = path.partition("/")
+        return "s3", f"{bucket}/{prefix}" if prefix else bucket
+    return dtype_norm or "unknown", dest_arn or group or "—"
 
 
 def network_vpc_filter_clause(
@@ -588,22 +616,19 @@ class CaseStore:
         ]}
 
     def facets(self, case_id: str, q: EventQuery) -> dict[str, Any]:
-        """Aggregations for the filter rail, respecting the current filters."""
+        """Aggregations for the filter rail, respecting the current filters.
+
+        Returns every distinct non-empty value (ordered by frequency). Filter dropdowns
+        must be able to select rare values that still appear in the events table — a
+        top-N cap previously hid those (e.g. ``GetUser`` missing from Event Names).
+        """
         path = self._events_path(case_id)
         where, params = self._build_where(q, case_id)
         con = self._connect()
         try:
             events = self._events_table(con, path)
             def agg(col: str) -> list[dict]:
-                rows = con.execute(
-                    f"SELECT {col} AS k, count(*) AS c FROM {events} {where} "
-                    f"AND {col} <> '' GROUP BY 1 ORDER BY c DESC LIMIT 25"
-                    if where
-                    else f"SELECT {col} AS k, count(*) AS c FROM {events} "
-                    f"WHERE {col} <> '' GROUP BY 1 ORDER BY c DESC LIMIT 25",
-                    [path, *params],
-                ).fetchall()
-                return [{"value": r[0], "count": r[1]} for r in rows]
+                return self._facet_agg(con, events, col, where, params, path)
 
             return {
                 "ventra_source": agg("ventra_source"),
@@ -628,6 +653,31 @@ class CaseStore:
         finally:
             con.close()
 
+    def _facet_agg(
+        self,
+        con: duckdb.DuckDBPyConnection,
+        events: str,
+        col: str,
+        where: str,
+        params: list[Any],
+        path: str,
+        *,
+        expr: str | None = None,
+        extra_where: str = "",
+    ) -> list[dict[str, Any]]:
+        """GROUP BY every distinct value for a facet column (no top-N truncation)."""
+        key = expr or col
+        if where:
+            clause = f"{where} AND {key} <> ''{extra_where}"
+        else:
+            clause = f" WHERE {key} <> ''{extra_where}"
+        rows = con.execute(
+            f"SELECT {key} AS k, count(*) AS c FROM {events}{clause} "
+            "GROUP BY 1 ORDER BY c DESC, k ASC",
+            [path, *params],
+        ).fetchall()
+        return [{"value": r[0], "count": r[1]} for r in rows if r[0] is not None and r[0] != ""]
+
     def _dest_port_facets(
         self,
         con: duckdb.DuckDBPyConnection,
@@ -643,7 +693,7 @@ class CaseStore:
         )
         rows = con.execute(
             f"SELECT cast(dest_port AS VARCHAR) AS k, count(*) AS c FROM {events}{port_where} "
-            "GROUP BY 1 ORDER BY c DESC LIMIT 25",
+            "GROUP BY 1 ORDER BY c DESC, k ASC",
             [path, *params],
         ).fetchall()
         return [{"value": r[0], "count": r[1]} for r in rows]
@@ -657,17 +707,15 @@ class CaseStore:
         path: str,
     ) -> list[dict[str, Any]]:
         """Aggregate HTTP status codes from access-log message text."""
-        status_where = (
-            f"{where} AND {HTTP_STATUS_SQL} <> ''"
-            if where
-            else f" WHERE {HTTP_STATUS_SQL} <> ''"
+        return self._facet_agg(
+            con,
+            events,
+            "http_status",
+            where,
+            params,
+            path,
+            expr=HTTP_STATUS_SQL,
         )
-        rows = con.execute(
-            f"SELECT {HTTP_STATUS_SQL} AS k, count(*) AS c FROM {events}{status_where} "
-            "GROUP BY 1 ORDER BY c DESC LIMIT 25",
-            [path, *params],
-        ).fetchall()
-        return [{"value": r[0], "count": r[1]} for r in rows]
 
     def _principal_facets(
         self,
@@ -678,17 +726,15 @@ class CaseStore:
         path: str,
     ) -> list[dict[str, Any]]:
         """Aggregate principals (ARN or username) for data-access filter dropdowns."""
-        pr_where = (
-            f"{where} AND {DATA_ACCESS_PRINCIPAL_SQL} <> ''"
-            if where
-            else f" WHERE {DATA_ACCESS_PRINCIPAL_SQL} <> ''"
+        return self._facet_agg(
+            con,
+            events,
+            "principal",
+            where,
+            params,
+            path,
+            expr=DATA_ACCESS_PRINCIPAL_SQL,
         )
-        rows = con.execute(
-            f"SELECT {DATA_ACCESS_PRINCIPAL_SQL} AS k, count(*) AS c FROM {events}{pr_where} "
-            "GROUP BY 1 ORDER BY c DESC LIMIT 25",
-            [path, *params],
-        ).fetchall()
-        return [{"value": r[0], "count": r[1]} for r in rows]
 
     def _trail_category_facets(
         self,
@@ -706,7 +752,7 @@ class CaseStore:
         )
         rows = con.execute(
             f"SELECT {TRAIL_CATEGORY_SQL} AS k, count(*) AS c FROM {events}{ct_where} "
-            "GROUP BY 1 ORDER BY c DESC",
+            "GROUP BY 1 ORDER BY c DESC, k ASC",
             [path, *params],
         ).fetchall()
         return [{"value": r[0], "count": r[1]} for r in rows]
@@ -727,7 +773,7 @@ class CaseStore:
         )
         rows = con.execute(
             f"SELECT {FINDING_CLASS_SQL} AS k, count(*) AS c FROM {events}{f_where} "
-            "GROUP BY 1 ORDER BY c DESC",
+            "GROUP BY 1 ORDER BY c DESC, k ASC",
             [path, *params],
         ).fetchall()
         return [{"value": r[0], "count": r[1]} for r in rows]
@@ -902,7 +948,13 @@ class CaseStore:
         # api_gateway rows carry no HTTP status in `message` (still normalized via the audit
         # path), so they count toward totals/by-source/methods but won't populate
         # edge_status/edge_paths below — acceptable partial coverage.
-        edge = "ventra_source IN ('elb_alb', 'cloudfront', 'load_balancer', 'cloud_cdn', 'api_gateway')"
+        edge = (
+            "ventra_source IN ("
+            "'elb_alb', 'cloudfront', "
+            "'app_gateway', 'front_door', "
+            "'load_balancer', 'cloud_cdn', 'api_gateway'"
+            ")"
+        )
         fail = "sum(CASE WHEN event_outcome='failure' THEN 1 ELSE 0 END)"
         try:
             events = self._events_table(con, path)
@@ -978,7 +1030,7 @@ class CaseStore:
             # cloud_dns has no ingester normalizer registered yet (separate pre-existing gap,
             # tracked outside this change) — included here so the panel picks it up for free
             # once that normalizer lands; currently a no-op since no rows carry that source.
-            dns = "ventra_source IN ('route53_resolver', 'cloud_dns')"
+            dns = "ventra_source IN ('route53_resolver', 'cloud_dns', 'dns')"
             dns_totals = con.execute(
                 f"SELECT count(*), count(DISTINCT NULLIF(resource_id,'')), {fail} "
                 f"FROM {events} WHERE {dns}",
@@ -1185,6 +1237,140 @@ class CaseStore:
                 },
             },
             "meta": meta,
+        }
+
+    def cloudwatch_collection(self, case_id: str) -> dict[str, Any]:
+        """CloudWatch Logs collection summary — log groups and live event counts."""
+        inv = self.inventory(case_id, "cloudwatch") or {}
+        config = inv.get("config") or {}
+        meta = inv.get("meta") or {}
+        summary = config.get("collection_summary") or meta.get("collection_summary") or {}
+        groups = summary.get("log_groups") or []
+        if not groups:
+            for row in config.get("collection") or []:
+                if isinstance(row, dict) and row.get("log_group"):
+                    groups.append(
+                        {
+                            "name": row.get("log_group", ""),
+                            "region": row.get("region", ""),
+                            "records": row.get("records", 0),
+                            "arn": row.get("arn", ""),
+                        }
+                    )
+        live_by_group = self._cloudwatch_live_counts(case_id)
+        # Prefer live parquet counts when available.
+        if live_by_group.get("by_group"):
+            live_map = {
+                (g["name"], g["region"]): g["count"] for g in live_by_group["by_group"]
+            }
+            merged = []
+            for g in groups:
+                key = (g.get("name", ""), g.get("region", ""))
+                merged.append({**g, "records": live_map.get(key, g.get("records", 0))})
+            # Include groups that only appear in live data.
+            known = {(g.get("name", ""), g.get("region", "")) for g in groups}
+            for g in live_by_group["by_group"]:
+                key = (g["name"], g["region"])
+                if key not in known:
+                    merged.append(
+                        {
+                            "name": g["name"],
+                            "region": g["region"],
+                            "records": g["count"],
+                            "arn": "",
+                        }
+                    )
+            groups = merged
+        return {
+            "log_group_count": summary.get("log_group_count", len(groups)),
+            "log_groups": groups,
+            "records": live_by_group.get("total") or summary.get("records", 0),
+            "window": (config.get("window") or meta.get("window") or {}),
+            "meta": meta,
+        }
+
+    def vpc_flow_collection(self, case_id: str) -> dict[str, Any]:
+        """VPC Flow Logs collection summary — configs, destinations, gaps, record counts."""
+        inv = self.inventory(case_id, "vpc_flow") or {}
+        config = inv.get("_config") if isinstance(inv.get("_config"), dict) else {}
+        meta = inv.get("meta") if isinstance(inv.get("meta"), dict) else {}
+        vpc_names = _vpc_names_from_config(config)
+        flow_logs_out: list[dict[str, Any]] = []
+        for fl in config.get("flow_logs") or []:
+            if not isinstance(fl, dict):
+                continue
+            rid = str(fl.get("ResourceId") or fl.get("target") or "").strip()
+            dtype, dest = _flow_log_destination(fl)
+            flow_logs_out.append(
+                {
+                    "flow_log_id": str(fl.get("FlowLogId") or fl.get("id") or ""),
+                    "vpc_id": rid if rid.startswith("vpc-") else "",
+                    "vpc_name": vpc_names.get(rid, "") if rid.startswith("vpc-") else "",
+                    "resource_id": rid,
+                    "region": str(fl.get("_ventra_region") or fl.get("region") or ""),
+                    "destination_type": dtype,
+                    "destination": dest,
+                    "status": str(fl.get("FlowLogStatus") or ("ACTIVE" if _flow_log_active(fl) else "")),
+                }
+            )
+        uncovered = [
+            str(v)
+            for v in (config.get("vpcs_without_flow_logs") or [])
+            if str(v).strip()
+        ]
+        live_total = self._vpc_flow_live_count(case_id)
+        records = live_total or int(meta.get("records") or 0)
+        return {
+            "flow_log_count": len(flow_logs_out),
+            "vpc_count": len(config.get("vpcs") or []),
+            "flow_logs": flow_logs_out,
+            "vpcs_without_flow_logs": [
+                {"id": vid, "name": vpc_names.get(vid) or vid} for vid in uncovered
+            ],
+            "records": records,
+            "cloudwatch_records": int(meta.get("cloudwatch_records") or 0),
+            "s3_records": int(meta.get("s3_records") or 0),
+            "window": config.get("window") or meta.get("window") or {},
+            "meta": meta,
+        }
+
+    def _vpc_flow_live_count(self, case_id: str) -> int:
+        path = self._events_path(case_id)
+        con = self._connect()
+        try:
+            events = self._events_table(con, path)
+            total = con.execute(
+                f"SELECT count(*) FROM {events} WHERE ventra_source = 'vpc_flow'",
+                [path],
+            ).fetchone()[0]
+        finally:
+            con.close()
+        return int(total or 0)
+
+    def _cloudwatch_live_counts(self, case_id: str) -> dict[str, Any]:
+        path = self._events_path(case_id)
+        con = self._connect()
+        try:
+            events = self._events_table(con, path)
+            total = con.execute(
+                f"SELECT count(*) FROM {events} WHERE ventra_source = 'cloudwatch'",
+                [path],
+            ).fetchone()[0]
+            rows = con.execute(
+                "SELECT COALESCE(NULLIF(json_extract_string(raw, '$._ventra_log_group'), ''), "
+                "NULLIF(resource_id, ''), '(unknown)') AS grp, "
+                "COALESCE(NULLIF(cloud_region, ''), '') AS region, count(*) AS c "
+                f"FROM {events} WHERE ventra_source = 'cloudwatch' "
+                "GROUP BY 1, 2 ORDER BY c DESC",
+                [path],
+            ).fetchall()
+        finally:
+            con.close()
+        return {
+            "total": int(total or 0),
+            "by_group": [
+                {"name": r[0], "region": r[1], "count": int(r[2] or 0)} for r in rows
+            ],
         }
 
     def _cloudtrail_live_counts(self, case_id: str) -> dict[str, Any]:

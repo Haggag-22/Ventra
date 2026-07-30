@@ -1,359 +1,322 @@
 "use client";
 
 import { fmtNum } from "@/lib/format";
-import type { CloudTrailManagementCollection, CloudTrailCollection } from "@/lib/types";
-import { cn } from "@/lib/utils";
-import {
-  AlertTriangle,
-  Archive,
-  Cloud,
-  Database,
-  FolderOpen,
-  Info,
-  CloudOff,
-  Route,
-  ScrollText,
-} from "lucide-react";
+import type {
+  CloudTrailCollection,
+  CloudTrailManagementTrail,
+  CloudTrailTrailSummary,
+} from "@/lib/types";
+import { Archive, Cloud, Route } from "lucide-react";
+
+type CollectionMode = "lookup" | "s3" | "mixed" | "none";
+
+type EventCategoryCounts = {
+  total: number;
+  management: number;
+  insight: number;
+  data: number;
+  network: number;
+};
+
+function eventCategoryCounts(data: CloudTrailCollection): EventCategoryCounts {
+  const meta = data.meta ?? {};
+  const lookup = data.events?.lookup_api ?? { management: 0, insight: 0, total: 0 };
+  const s3 = data.events?.s3 ?? {};
+
+  return {
+    total: Number(meta.records ?? lookup.total + (s3.total ?? 0)),
+    management: Number(meta.management_events ?? lookup.management + (s3.management ?? 0)),
+    insight: Number(meta.insight_events ?? lookup.insight + (s3.insight ?? 0)),
+    data: Number(meta.data_events ?? s3.data ?? 0),
+    network: Number(meta.network_activity_events ?? s3.network_activity ?? 0),
+  };
+}
+
+function resolveCollectionMode(data: CloudTrailCollection): CollectionMode {
+  const lookupTotal = data.events?.lookup_api?.total ?? 0;
+  const s3Total = data.events?.s3?.total ?? 0;
+  const mgmt = data.management_collection;
+  const metaSource = String(data.meta?.collection_source ?? "").toLowerCase();
+  const mgmtSource = (data.management_source ?? "").toLowerCase();
+
+  const explicitLookup =
+    metaSource === "lookup_events" ||
+    mgmtSource === "lookup_events" ||
+    mgmt?.mode === "lookup_events" ||
+    mgmt?.fallback_reason === "collection_source=lookup_events";
+
+  if (explicitLookup) return "lookup";
+  if (s3Total > 0 && lookupTotal > 0) return "mixed";
+  if (s3Total > 0) return "s3";
+  if (lookupTotal > 0) return "lookup";
+  return "none";
+}
 
 export function CloudTrailCollectionSummary({ data }: { data: CloudTrailCollection }) {
-  const trails = data.trails ?? [];
   const lookup = data.events?.lookup_api ?? { management: 0, insight: 0, total: 0 };
   const s3 = data.events?.s3 ?? { total: 0, by_bucket: [] };
   const buckets = s3.by_bucket ?? [];
-  const logValidation = data.log_validation;
-  const validationTrails = logValidation?.trails ?? [];
   const mgmt = data.management_collection;
+  const mode = resolveCollectionMode(data);
+  const counts = eventCategoryCounts(data);
+  const showTrailInventory = mode === "s3" || mode === "mixed";
 
-  // Index validation results by trail ARN and name so each trail in the flow below can show
-  // its integrity status inline (instead of a separate, bulky section).
-  const validationByKey = new Map<string, (typeof validationTrails)[number]>();
-  for (const v of validationTrails) {
-    if (v.trail_arn) validationByKey.set(v.trail_arn, v);
-    if (v.trail_name) validationByKey.set(v.trail_name, v);
-  }
-
-  // Index management-collection status (Collected / events / log objects) by trail.
-  const mgmtTrails = mgmt?.trails ?? [];
-  const mgmtByKey = new Map<string, (typeof mgmtTrails)[number]>();
-  for (const t of mgmtTrails) {
+  const bucketByName = new Map(buckets.map((b) => [b.bucket, b]));
+  const mgmtByKey = new Map<string, CloudTrailManagementTrail>();
+  for (const t of mgmt?.trails ?? []) {
     if (t.trail_arn) mgmtByKey.set(t.trail_arn, t);
     if (t.trail_name) mgmtByKey.set(t.trail_name, t);
   }
 
-  // Index S3-event totals by destination bucket name.
-  const bucketByName = new Map<string, (typeof buckets)[number]>();
-  for (const b of buckets) bucketByName.set(b.bucket, b);
-
   return (
     <div className="ct-collection-summary space-y-4">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <SummaryStat
-          icon={Route}
-          label="Trails collected"
-          value={fmtNum(data.trail_count ?? trails.length)}
-        />
-        <SummaryStat
-          icon={Database}
-          label="LookupEvents API"
-          value={fmtNum(lookup.total)}
-        />
-        <SummaryStat icon={Archive} label="Trail events" value={fmtNum(s3.total)} />
-        <SummaryStat
-          icon={FolderOpen}
-          label="S3 buckets"
-          value={fmtNum(buckets.length || new Set(trails.map((t) => t.s3_bucket).filter(Boolean)).size)}
-        />
-      </div>
+      <CollectionSourceHeader
+        mode={mode}
+        counts={counts}
+        lookup={lookup}
+        s3={s3}
+        mgmt={mgmt}
+        bucketCount={buckets.length}
+      />
 
-      {mgmt && (mgmt.trails_total > 0 || mgmt.fallback_reason === "no_s3_trail") && (
-        <ManagementCollectionSection mgmt={mgmt} />
+      {showTrailInventory && (data.trails?.length ?? 0) > 0 && (
+        <>
+          <div className="border-t border-border" />
+          <TrailS3Inventory
+          trails={data.trails ?? []}
+          bucketByName={bucketByName}
+          mgmtByKey={mgmtByKey}
+          logValidation={data.log_validation}
+        />
+        </>
       )}
-
-      {trails.length > 0 && (
-        <section className="ct-resource-section">
-          <h3 className="ct-resource-heading">
-            <Route className="h-4 w-4" />
-            Trails ({trails.length})
-          </h3>
-          {logValidation?.any_invalid && (
-            <p className="text-xs text-danger">
-              One or more trails failed digest/log validation, indicating possible tampering or gaps
-              in the digest chain. Treat as a forensic finding.
-            </p>
-          )}
-          <div className="grid gap-3">
-            {trails.map((trail) => {
-              const v =
-                (trail.arn && validationByKey.get(trail.arn)) ||
-                (trail.name && validationByKey.get(trail.name)) ||
-                undefined;
-              const m =
-                (trail.arn && mgmtByKey.get(trail.arn)) ||
-                (trail.name && mgmtByKey.get(trail.name)) ||
-                undefined;
-              const b = trail.s3_bucket ? bucketByName.get(trail.s3_bucket) : undefined;
-              return (
-              // Visual delivery mapping: trail → S3 bucket (arrow only when a bucket exists)
-              <div key={trail.arn || trail.name} className="ct-flow">
-                <div className="ct-flow-node">
-                  <div className="ct-flow-node-label">
-                    <Route className="h-3.5 w-3.5 shrink-0" />
-                    Trail
-                  </div>
-                  <div className="ct-flow-node-value mono">{trail.name || "Unnamed trail"}</div>
-                  {trail.arn && (
-                    <div className="ct-flow-node-sub mono break-all">{trail.arn}</div>
-                  )}
-                  {trail.home_region && (
-                    <div className="ct-flow-node-sub">{trail.home_region}</div>
-                  )}
-                  {(v || m) && (
-                    <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                      {m && <TrailCollectStatus status={m.status} />}
-                      {v && <ValidationStatusBadge status={v.status} />}
-                    </div>
-                  )}
-                  {(v?.status === "valid" || v?.status === "invalid") && (
-                    <div className="ct-flow-stats">
-                      {v?.status === "valid" ? (
-                        <>
-                          <FlowStat
-                            label="Digest files valid"
-                            value={`${fmtNum(v.digest_valid ?? 0)}/${fmtNum(v.digest_total ?? 0)}`}
-                          />
-                          <FlowStat
-                            label="Log files valid"
-                            value={`${fmtNum(v.log_valid ?? 0)}/${fmtNum(v.log_total ?? 0)}`}
-                          />
-                        </>
-                      ) : null}
-                      {v?.status === "invalid" ? (
-                        <>
-                          <FlowStat
-                            label="Digest files invalid"
-                            value={`${fmtNum(v.digest_invalid ?? 0)}/${fmtNum(v.digest_total ?? 0)}`}
-                          />
-                          <FlowStat
-                            label="Log files invalid"
-                            value={`${fmtNum(v.log_invalid ?? 0)}/${fmtNum(v.log_total ?? 0)}`}
-                          />
-                        </>
-                      ) : null}
-                    </div>
-                  )}
-                  {v?.status === "error" && v.skip_reason && (
-                    <div className="ct-flow-node-sub">{v.skip_reason}</div>
-                  )}
-                </div>
-
-                {trail.s3_bucket ? (
-                  <>
-                    <div className="ct-flow-arrow" title="delivers logs to" aria-hidden="true">
-                      <span className="ct-flow-arrow-line" />
-                    </div>
-                    <div className="ct-flow-node ct-flow-node--dest">
-                      <div className="ct-flow-node-label">
-                        <Archive className="h-3.5 w-3.5 shrink-0" />
-                        S3 bucket
-                      </div>
-                      <div className="ct-flow-node-value mono break-all">{trail.s3_bucket}</div>
-                      <div className="ct-flow-node-sub mono break-all">
-                        {`arn:aws:s3:::${trail.s3_bucket}`}
-                      </div>
-                      {trail.s3_key_prefix && (
-                        <div className="ct-flow-node-sub mono break-all">
-                          prefix: {trail.s3_key_prefix}
-                        </div>
-                      )}
-                      {b && (
-                        <div className="ct-flow-stats">
-                          <FlowStat label="Events from S3" value={fmtNum(b.events?.total ?? 0)} />
-                          {b.events?.management ? (
-                            <FlowStat
-                              label="Management events"
-                              value={fmtNum(b.events.management)}
-                            />
-                          ) : null}
-                          {b.events?.data ? (
-                            <FlowStat label="Data Events" value={fmtNum(b.events.data)} />
-                          ) : null}
-                          {b.events?.insight ? (
-                            <FlowStat label="Insight events" value={fmtNum(b.events.insight)} />
-                          ) : null}
-                          {b.events?.network_activity ? (
-                            <FlowStat
-                              label="Network activity events"
-                              value={fmtNum(b.events.network_activity)}
-                            />
-                          ) : null}
-                          {b.objects_read != null && b.objects_read > 0 ? (
-                            <FlowStat
-                              label={b.truncated ? "Log objects read (truncated)" : "Log objects read"}
-                              value={fmtNum(b.objects_read)}
-                            />
-                          ) : null}
-                        </div>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <div className="ct-flow-empty">
-                    <CloudOff className="h-3.5 w-3.5 shrink-0" />
-                    No S3 delivery (Event History only)
-                  </div>
-                )}
-              </div>
-              );
-            })}
-          </div>
-        </section>
-      )}
-
-      <section className="ct-resource-section">
-        <h3 className="ct-resource-heading">
-          <ScrollText className="h-4 w-4" />
-          Event sources
-        </h3>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <article className="ct-resource-block">
-            <div className="flex items-center gap-2">
-              <Cloud className="h-4 w-4 text-accent" />
-              <div className="ct-resource-block-title">CloudTrail LookupEvents API</div>
-            </div>
-            <div className="mt-2 text-2xl font-semibold tabular-nums text-fg">
-              {fmtNum(lookup.total)}
-            </div>
-            <div className="ct-flow-node-stats">
-              <span>{fmtNum(lookup.management)} Management events</span>
-              <span>{fmtNum(lookup.insight)} Insight events</span>
-            </div>
-          </article>
-          <article className="ct-resource-block">
-            <div className="flex items-center gap-2">
-              <Archive className="h-4 w-4 text-accent" />
-              <div className="ct-resource-block-title">Trail events</div>
-            </div>
-            <div className="mt-2 text-2xl font-semibold tabular-nums text-fg">
-              {fmtNum(s3.total)}
-            </div>
-            {buckets.length > 0 && (
-              <div className="mt-2 text-2xs text-fg-subtle">
-                Across {fmtNum(buckets.length)} bucket{buckets.length === 1 ? "" : "s"}
-              </div>
-            )}
-          </article>
-        </div>
-      </section>
     </div>
   );
 }
 
-function fallbackMessage(reason?: string): string {
-  if (reason === "access_denied") return "Access to the trail S3 bucket(s) was denied.";
-  if (reason === "no_logs")
-    return "No log objects were found in the trail bucket(s) for this window.";
-  if (reason === "no_s3_trail") return "No trail delivers logs to S3.";
-  return "Trail S3 logs were unavailable.";
-}
+function CollectionSourceHeader({
+  mode,
+  counts,
+  lookup,
+  s3,
+  mgmt,
+  bucketCount,
+}: {
+  mode: CollectionMode;
+  counts: EventCategoryCounts;
+  lookup: { management: number; insight: number; total: number };
+  s3: {
+    total: number;
+    management?: number;
+    data?: number;
+    insight?: number;
+    network_activity?: number;
+  };
+  mgmt?: CloudTrailCollection["management_collection"];
+  bucketCount: number;
+}) {
+  if (mode === "lookup") {
+    return (
+      <section className="ct-source-header">
+        <div className="flex items-start gap-3">
+          <Cloud className="mt-0.5 h-5 w-5 shrink-0 text-accent" aria-hidden />
+          <div className="min-w-0 flex-1 space-y-4">
+            <div>
+              <h3 className="text-sm font-semibold text-fg">Collected from CloudTrail Event History</h3>
+              <p className="mt-1 text-xs leading-relaxed text-fg-subtle">
+                Events in this case came from the <span className="mono">LookupEvents</span> API
+                (~90-day lookback). Trail configuration and S3 delivery buckets were not read for
+                event data in this run.
+              </p>
+            </div>
+            <EventCategoryMetrics counts={counts} />
+          </div>
+        </div>
+      </section>
+    );
+  }
 
-function TrailCollectStatus({ status }: { status: string }) {
-  const label =
-    status === "collected" ? "Collected" : status === "denied" ? "Access denied" : "No logs";
-  return (
-    <span className={cn("ct-resource-badge", status === "collected" ? "is-on" : "is-off")}>
-      {label}
-    </span>
-  );
-}
+  if (mode === "s3") {
+    const trailsCollected = mgmt?.trails_collected ?? 0;
+    const bucketsRead = bucketsFromMgmt(mgmt) || bucketCount;
+    return (
+      <section className="ct-source-header">
+        <div className="flex items-start gap-3">
+          <Archive className="mt-0.5 h-5 w-5 shrink-0 text-accent" aria-hidden />
+          <div className="min-w-0 flex-1 space-y-4">
+            <div>
+              <h3 className="text-sm font-semibold text-fg">Collected from trail S3 log files</h3>
+              <p className="mt-1 text-xs leading-relaxed text-fg-subtle">
+                Events were read from CloudTrail log objects in the delivery buckets configured on
+                your trails. This is the authoritative copy and can extend beyond the Event History
+                API window.
+              </p>
+              <p className="mt-2 text-2xs text-fg-subtle">
+                {fmtNum(trailsCollected)} trail{trailsCollected === 1 ? "" : "s"} read ·{" "}
+                {fmtNum(bucketsRead)} bucket{bucketsRead === 1 ? "" : "s"} read
+              </p>
+            </div>
+            <EventCategoryMetrics counts={counts} />
+          </div>
+        </div>
+      </section>
+    );
+  }
 
-function ManagementCollectionSection({ mgmt }: { mgmt: CloudTrailManagementCollection }) {
-  const collectedFromTrails = mgmt.mode === "trails";
-  const noS3Trail = mgmt.fallback_reason === "no_s3_trail";
-
-  // The per-trail collection status is now shown inline in the Trails flow above, so the
-  // success summary ("All trails collected") is redundant. Only surface the fallback states.
-  if (collectedFromTrails) return null;
-
-  return (
-    <section className="ct-resource-section">
-      {noS3Trail ? (
-        <>
-          <h3 className="ct-resource-heading">
-            <Info className="h-4 w-4 text-accent" />
-            Collected from Event History
-          </h3>
-          <p className="mb-3 text-xs text-fg-subtle">
-            No trail delivers logs to S3, so management events were collected from CloudTrail
-            Event History (LookupEvents, ~90-day API lookback).
+  if (mode === "mixed") {
+    return (
+      <section className="ct-source-header space-y-4">
+        <div>
+          <h3 className="text-sm font-semibold text-fg">Collected from two sources</h3>
+          <p className="mt-1 text-xs leading-relaxed text-fg-subtle">
+            Some events came from trail S3 logs; others were filled in from CloudTrail Event
+            History when S3 collection was incomplete or unavailable.
           </p>
-        </>
-      ) : (
-        <>
-          <h3 className="ct-resource-heading">
-            <AlertTriangle className="h-4 w-4 text-warn-amber" />
-            Trail collection failed, using Event History
-          </h3>
-          <p className="mb-3 text-xs text-warn-amber">
-            {fallbackMessage(mgmt.fallback_reason)} Management events were collected from
-            CloudTrail Event History (LookupEvents, ~90-day API lookback) instead.
-          </p>
-        </>
-      )}
+        </div>
+        <EventCategoryMetrics counts={counts} />
+        <div className="ct-source-metrics ct-source-metrics--2 border-t border-border pt-4">
+          <div className="ct-source-metric">
+            <div className="flex items-center gap-2 text-xs font-medium text-fg-subtle">
+              <Archive className="h-3.5 w-3.5 text-accent" aria-hidden />
+              Trail S3 logs
+            </div>
+            <div className="mt-1 text-xl font-semibold tabular-nums text-fg">{fmtNum(s3.total)}</div>
+            <p className="mt-0.5 text-2xs text-fg-subtle">
+              {fmtNum(mgmt?.trails_collected ?? 0)} trail
+              {(mgmt?.trails_collected ?? 0) === 1 ? "" : "s"} ·{" "}
+              {fmtNum(bucketsFromMgmt(mgmt) || bucketCount)} bucket
+              {(bucketsFromMgmt(mgmt) || bucketCount) === 1 ? "" : "s"}
+            </p>
+          </div>
+          <div className="ct-source-metric">
+            <div className="flex items-center gap-2 text-xs font-medium text-fg-subtle">
+              <Cloud className="h-3.5 w-3.5 text-accent" aria-hidden />
+              Event History (LookupEvents)
+            </div>
+            <div className="mt-1 text-xl font-semibold tabular-nums text-fg">{fmtNum(lookup.total)}</div>
+            <p className="mt-0.5 text-2xs text-fg-subtle">
+              {fmtNum(lookup.management)} management · {fmtNum(lookup.insight)} insight
+            </p>
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className="ct-source-header">
+      <p className="text-sm text-fg-subtle">No CloudTrail events were collected for this case.</p>
     </section>
   );
 }
 
-function ValidationStatusBadge({ status }: { status: string }) {
-  const label =
-    status === "valid"
-      ? "Validated"
-      : status === "invalid"
-        ? "Integrity failure"
-        : status === "error"
-          ? "Validation error"
-          : "Skipped";
+function EventCategoryMetrics({ counts }: { counts: EventCategoryCounts }) {
   return (
-    <span
-      className={cn(
-        "ct-resource-badge",
-        status === "valid" && "is-on",
-        status === "invalid" && "is-off",
-        (status === "error" || status === "skipped") && "is-off",
-      )}
-    >
-      {label}
-    </span>
-  );
-}
-
-function FlowStat({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="ct-flow-stat">
-      <span className="ct-flow-stat-value">{value}</span>
-      <span className="ct-flow-stat-label">{label}</span>
+    <div className="ct-source-metrics ct-source-metrics--5">
+      <SourceMetric label="Total events" value={fmtNum(counts.total)} />
+      <SourceMetric label="Management events" value={fmtNum(counts.management)} />
+      <SourceMetric label="Insight events" value={fmtNum(counts.insight)} />
+      <SourceMetric label="Data events" value={fmtNum(counts.data)} />
+      <SourceMetric label="Network events" value={fmtNum(counts.network)} />
     </div>
   );
 }
 
-function SummaryStat({
-  icon: Icon,
-  label,
-  value,
-  sub,
+function bucketsFromMgmt(mgmt?: CloudTrailCollection["management_collection"]): number {
+  return mgmt?.buckets?.length ?? 0;
+}
+
+function SourceMetric({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="ct-source-metric">
+      <div className="ct-source-metric-label">{label}</div>
+      <div className="ct-source-metric-value">{value}</div>
+    </div>
+  );
+}
+
+function TrailS3Inventory({
+  trails,
+  bucketByName,
+  mgmtByKey,
+  logValidation,
 }: {
-  icon: typeof Route;
-  label: string;
-  value: string;
-  sub?: string;
+  trails: CloudTrailTrailSummary[];
+  bucketByName: Map<string, NonNullable<CloudTrailCollection["events"]["s3"]["by_bucket"]>[number]>;
+  mgmtByKey: Map<string, CloudTrailManagementTrail>;
+  logValidation?: CloudTrailCollection["log_validation"];
 }) {
   return (
-    <div className="ct-resource-stat">
-      <div className="flex items-center justify-between">
-        <span className="stat-label">{label}</span>
-        <Icon className="h-4 w-4 text-fg-subtle" />
+    <section className="ct-resource-section">
+      <h3 className="ct-resource-heading">
+        <Route className="h-4 w-4" aria-hidden />
+        Trails and buckets read
+      </h3>
+      {logValidation?.any_invalid && (
+        <p className="text-xs text-danger">
+          One or more trails failed digest or log validation. Treat as a possible integrity issue.
+        </p>
+      )}
+      <div className="grid gap-3">
+        {trails.map((trail) => {
+          const m =
+            (trail.arn && mgmtByKey.get(trail.arn)) ||
+            (trail.name && mgmtByKey.get(trail.name)) ||
+            undefined;
+          const b = trail.s3_bucket ? bucketByName.get(trail.s3_bucket) : undefined;
+          const validation = logValidation?.trails?.find(
+            (v) => v.trail_arn === trail.arn || v.trail_name === trail.name,
+          );
+
+          return (
+            <div key={trail.arn || trail.name} className="ct-flow">
+              <div className="ct-flow-node">
+                <div className="ct-flow-node-label">
+                  <Route className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                  Trail
+                </div>
+                <div className="ct-flow-node-value mono">{trail.name || "Unnamed trail"}</div>
+                {trail.home_region && <div className="ct-flow-node-sub">{trail.home_region}</div>}
+                {m && (
+                  <div className="ct-flow-node-sub">
+                    {m.status === "collected"
+                      ? `${fmtNum(m.records)} events · ${fmtNum(m.objects_read ?? 0)} log objects read`
+                      : m.status === "denied"
+                        ? "S3 access denied for this trail"
+                        : "No log objects in window"}
+                  </div>
+                )}
+                {validation?.status === "invalid" && (
+                  <div className="ct-flow-node-sub text-danger">
+                    Log integrity check failed ({fmtNum(validation.log_invalid ?? 0)} invalid files)
+                  </div>
+                )}
+              </div>
+
+              {trail.s3_bucket ? (
+                <>
+                  <div className="ct-flow-arrow" title="logs delivered to" aria-hidden="true">
+                    <span className="ct-flow-arrow-line" />
+                  </div>
+                  <div className="ct-flow-node ct-flow-node--dest">
+                    <div className="ct-flow-node-label">
+                      <Archive className="h-3.5 w-3.5 shrink-0" aria-hidden />
+                      S3 bucket
+                    </div>
+                    <div className="ct-flow-node-value mono break-all">{trail.s3_bucket}</div>
+                    {b && (
+                      <div className="ct-flow-node-sub">
+                        {fmtNum(b.events?.total ?? 0)} events from this bucket
+                        {b.objects_read ? ` · ${fmtNum(b.objects_read)} objects read` : ""}
+                      </div>
+                    )}
+                  </div>
+                </>
+              ) : null}
+            </div>
+          );
+        })}
       </div>
-      <div className="mt-2 text-xl font-semibold tabular-nums text-fg">{value}</div>
-      {sub && <div className="mt-0.5 text-2xs text-fg-subtle">{sub}</div>}
-    </div>
+    </section>
   );
 }

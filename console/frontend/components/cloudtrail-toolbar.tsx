@@ -21,6 +21,7 @@ export interface CloudTrailFilters {
   services?: string[];
   regions?: string[];
   users?: string[];
+  sources?: string[];
   trailCategories?: string[];
   order?: string;
   user?: string;
@@ -33,6 +34,8 @@ export function CloudTrailToolbar({
   facets,
   filters,
   visibleColumns,
+  cloud = "aws",
+  showCategory = true,
   onChange,
   onColumnsChange,
   onApply,
@@ -41,6 +44,9 @@ export function CloudTrailToolbar({
   facets?: Facets;
   filters: CloudTrailFilters;
   visibleColumns: CloudTrailColKey[];
+  cloud?: "aws" | "azure" | "gcp";
+  /** CloudTrail Management/Data/Insight/Network filter (AWS CloudTrail page only). */
+  showCategory?: boolean;
   onChange: (next: Partial<CloudTrailFilters>) => void;
   onColumnsChange: (cols: CloudTrailColKey[]) => void;
   onApply: () => void;
@@ -70,10 +76,16 @@ export function CloudTrailToolbar({
     value: f.value,
     count: f.count,
   }));
+  const sourceOptions = (facets?.ventra_source ?? []).map((f) => ({
+    value: f.value,
+    count: f.count,
+  }));
   const categoryOptions = TRAIL_CATEGORY_OPTIONS.map((value) => ({
     value,
     count: facets?.trail_category?.find((f) => f.value === value)?.count ?? 0,
   }));
+  const showTrailCategory = cloud === "aws" && showCategory;
+  const showSources = cloud !== "aws" && sourceOptions.length > 1;
 
   const columnOptions = CLOUDTRAIL_COLS.map((c) => ({
     value: c.key,
@@ -135,6 +147,22 @@ export function CloudTrailToolbar({
           variant="cloudtrail"
         />
 
+        {showSources ? (
+          <MultiSelect
+            label="Sources"
+            icon={Filter}
+            options={sourceOptions}
+            selected={filters.sources ?? []}
+            onToggle={(v) => {
+              const cur = filters.sources ?? [];
+              const next = cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v];
+              onChange({ sources: next.length ? next : undefined });
+            }}
+            onClear={() => onChange({ sources: undefined })}
+            variant="cloudtrail"
+          />
+        ) : null}
+
         <MultiSelect
           label="Regions"
           icon={Filter}
@@ -149,19 +177,21 @@ export function CloudTrailToolbar({
           variant="cloudtrail"
         />
 
-        <MultiSelect
-          label="Category"
-          icon={Filter}
-          options={categoryOptions}
-          selected={filters.trailCategories ?? []}
-          onToggle={(v) => {
-            const cur = filters.trailCategories ?? [];
-            const next = cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v];
-            onChange({ trailCategories: next.length ? next : undefined });
-          }}
-          onClear={() => onChange({ trailCategories: undefined })}
-          variant="cloudtrail"
-        />
+        {showTrailCategory ? (
+          <MultiSelect
+            label="Category"
+            icon={Filter}
+            options={categoryOptions}
+            selected={filters.trailCategories ?? []}
+            onToggle={(v) => {
+              const cur = filters.trailCategories ?? [];
+              const next = cur.includes(v) ? cur.filter((x) => x !== v) : [...cur, v];
+              onChange({ trailCategories: next.length ? next : undefined });
+            }}
+            onClear={() => onChange({ trailCategories: undefined })}
+            variant="cloudtrail"
+          />
+        ) : null}
 
         <MultiSelect
           label="Principals"

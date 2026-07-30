@@ -87,9 +87,9 @@ export function CloudPlatformLabel({
     ?? cloud.toUpperCase();
 
   return (
-    <span className={cn("inline-flex items-center gap-1.5", className)}>
+    <span className={cn("inline-flex items-center gap-2", className)}>
       <CloudProviderIcon cloud={cloud} />
-      <span className="text-fg">{label}</span>
+      <span className="font-semibold text-fg">{label}</span>
     </span>
   );
 }

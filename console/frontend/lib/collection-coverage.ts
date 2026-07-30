@@ -84,6 +84,7 @@ export function catalogItems(cloud: Cloud): CatalogItem[] {
 export const IMPLEMENTED_LOG_COLLECTORS = new Set([
   "apigateway",
   "cloudtrail",
+  "cloudwatch",
   "config",
   "vpc_flow",
   "guardduty",
@@ -441,6 +442,7 @@ const FAMILY_ORDER: SourceFamily[] = [
 const FAMILY_BY_ID: Record<string, SourceFamily> = {
   // control plane / audit
   cloudtrail: "control",
+  cloudwatch: "control",
   config: "control",
   activity_log: "control",
   cloud_audit_admin: "control",

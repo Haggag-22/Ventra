@@ -16,10 +16,14 @@ from datetime import UTC, datetime, timedelta
 from collector.lib.base import Collector
 from collector.lib.limits import DEFAULT_MAX_RECORDS, records_unlimited
 from collector.lib.models import GapReason, SourceResult, SourceStatus
-from collector.lib.params import effective_window
-from collector.lib.scoping import filter_vpc_flow_logs
+from collector.lib.params import effective_window, param_strings
+from collector.lib.scoping import (
+    filter_vpc_flow_logs,
+    normalize_log_group_ref,
+    resolve_vpc_ids_from_names,
+)
 from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
-from ..common.cw_logs import collect_cw_log_events
+from ..common.cw_logs import collect_cw_log_events, parse_log_group_arn
 from .vpc_flow_s3 import collect_s3_flow_records, flow_log_s3_target, _flow_scope_tags
 
 MAX_CW_RECORDS = DEFAULT_MAX_RECORDS
@@ -64,16 +68,36 @@ class VpcFlowCollector(Collector):
             except (AccessDenied, ServiceNotEnabled):
                 pass
 
-        params = self.artifact_params()
+        params = resolve_vpc_ids_from_names(vpcs, self.artifact_params())
         flow_configs = filter_vpc_flow_logs(flow_configs, params)
         cw_log_groups = set()
         cw_log_tags = {}
         for fl in flow_configs:
-            if fl.get("LogDestinationType") == "cloud-watch-logs" and fl.get("LogGroupName"):
+            if fl.get("LogDestinationType") == "cloud-watch-logs":
                 region = fl.get("_ventra_region", "")
-                entry = f"{region}::{fl['LogGroupName']}"
+                group = normalize_log_group_ref(
+                    str(fl.get("LogGroupName") or fl.get("LogDestination") or "")
+                )
+                if not group:
+                    continue
+                entry = f"{region}::{group}"
                 cw_log_groups.add(entry)
                 cw_log_tags[entry] = _flow_scope_tags(fl)
+
+        # Explicit Acquire CloudWatch log group params — still pull when DescribeFlowLogs
+        # missed the destination (denied, lag, or name-only tip from the analyst).
+        for raw in param_strings(params, "log_group_names"):
+            group = normalize_log_group_ref(raw)
+            if not group:
+                continue
+            parsed = parse_log_group_arn(raw) if ":log-group:" in raw else None
+            regions = [parsed[0]] if parsed and parsed[0] else list(self.ctx.regions)
+            for region in regions:
+                entry = f"{region}::{group}"
+                if entry in cw_log_groups:
+                    continue
+                cw_log_groups.add(entry)
+                cw_log_tags.setdefault(entry, {})
 
         # VPCs with no VPC-level flow log are themselves evidence of a visibility gap.
         # (Subnet/ENI-level logs may still cover parts of them — recorded for the analyst.)
@@ -82,7 +106,7 @@ class VpcFlowCollector(Collector):
             v["VpcId"] for v in vpcs if v.get("VpcId") and v["VpcId"] not in logged_resources
         )
 
-        if not flow_configs:
+        if not flow_configs and not cw_log_groups:
             return SourceResult(
                 name=self.name,
                 status=SourceStatus.EMPTY,

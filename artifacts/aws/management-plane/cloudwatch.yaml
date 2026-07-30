@@ -1,0 +1,41 @@
+name: AWS.ManagementPlane.CloudWatch
+aliases:
+- cloudwatch
+- aws.cloudwatch
+- cw_logs
+cloud: aws
+category: ManagementPlane
+description: >
+  CloudWatch Logs events from selected log groups (by name, ARN, or name prefix).
+  Prefer domain collectors (vpc_flow, lambda_logs, eks_audit) when the source
+  service is known; use this for custom or cross-service CloudWatch evidence.
+version: 1.0.0
+collector: cloudwatch
+type: cloudwatch
+required_actions:
+- logs:DescribeLogGroups
+- logs:FilterLogEvents
+parameters:
+  since:
+    type: datetime
+    required: false
+  until:
+    type: datetime
+    required: false
+  log_group_names:
+    type: list
+    required: false
+    description: CloudWatch log group names or ARNs to collect from.
+  log_group_name_prefix:
+    type: list
+    required: false
+    description: Prefix filter when discovering log groups (e.g. /aws/lambda/).
+  log_stream_name_prefix:
+    type: list
+    required: false
+    description: Optional log stream name prefix passed to FilterLogEvents.
+sources:
+- type: cloudwatch
+  format: json
+severity: critical
+estimated_volume: high

@@ -72,6 +72,10 @@ export const AWS_COLLECTOR_PERMISSION_GROUPS: AwsPermissionGroup[] = [
     ],
   },
   {
+    label: "CloudWatch Logs",
+    actions: ["logs:DescribeLogGroups", "logs:FilterLogEvents"],
+  },
+  {
     label: "AWS Config",
     actions: [
       "config:DescribeConfigurationRecorders",

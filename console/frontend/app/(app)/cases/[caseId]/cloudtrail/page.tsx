@@ -29,13 +29,25 @@ function baseSources(cloud: ReturnType<typeof caseCloud>) {
   return controlPlaneSources(cloud);
 }
 
-function filtersFromParams(params: EventParams): CloudTrailFilters {
+function filtersFromParams(
+  params: EventParams,
+  cloud: ReturnType<typeof caseCloud>,
+): CloudTrailFilters {
+  const all = baseSources(cloud);
+  const src = params.source ?? [];
+  const allSet = new Set(all);
+  const isFullDefault =
+    src.length === 0 ||
+    (src.length === all.length && all.every((s) => src.includes(s)));
+  const narrowed =
+    !isFullDefault && src.length > 0 && src.every((s) => allSet.has(s));
   return {
     q: params.q,
     actions: params.actions,
     services: params.services,
     regions: params.regions,
     users: params.users,
+    sources: narrowed ? src : undefined,
     trailCategories: params.trail_category,
     order: params.order ?? "desc",
     user: params.user,
@@ -44,14 +56,18 @@ function filtersFromParams(params: EventParams): CloudTrailFilters {
 }
 
 function paramsFromFilters(filters: CloudTrailFilters, cloud: ReturnType<typeof caseCloud>): EventParams {
+  const all = baseSources(cloud);
+  const selected = filters.sources?.length
+    ? filters.sources.filter((s) => all.includes(s))
+    : all;
   return {
     q: filters.q,
-    source: baseSources(cloud),
+    source: selected.length ? selected : all,
     actions: filters.actions,
     services: filters.services,
     regions: filters.regions,
     users: filters.users,
-    trail_category: filters.trailCategories,
+    trail_category: cloud === "aws" ? filters.trailCategories : undefined,
     user: filters.user,
     ip: filters.ip,
     sort: "timestamp",
@@ -81,7 +97,7 @@ export default function CloudTrailPage() {
     }
   }, []);
 
-  const filters = useMemo(() => filtersFromParams(params), [params]);
+  const filters = useMemo(() => filtersFromParams(params, cloud), [params, cloud]);
   const effective = useMemo(() => paramsFromFilters(filters, cloud), [filters, cloud]);
 
   const totalQ = useQuery({
@@ -107,14 +123,18 @@ export default function CloudTrailPage() {
   const handleChange = useCallback(
     (next: Partial<CloudTrailFilters>) => {
       const merged = { ...filters, ...next };
+      const all = baseSources(cloud);
+      const selected = merged.sources?.length
+        ? merged.sources.filter((s) => all.includes(s))
+        : undefined;
       write({
         q: merged.q,
-        source: baseSources(cloud),
+        source: selected?.length ? selected : all,
         actions: merged.actions,
         services: merged.services,
         regions: merged.regions,
         users: merged.users,
-        trail_category: merged.trailCategories,
+        trail_category: cloud === "aws" ? merged.trailCategories : undefined,
         user: merged.user,
         ip: merged.ip,
         order: merged.order ?? "desc",
@@ -155,6 +175,7 @@ export default function CloudTrailPage() {
           facets={facetsQ.data}
           filters={filters}
           visibleColumns={visibleColumns}
+          cloud={cloud}
           onChange={handleChange}
           onColumnsChange={handleColumnsChange}
           onApply={handleApply}

@@ -1,19 +1,10 @@
 "use client";
 
-import { AccessLogFields, WrappedLogLine } from "@/components/access-log-fields";
 import {
   highlightJsonSegments,
   type JsonHighlightKind,
 } from "@/lib/cloudtrail-json";
-import { fmtTime } from "@/lib/format";
-import {
-  vpcFlowAction,
-  vpcFlowActionTone,
-  vpcFlowProtocol,
-} from "@/lib/vpc-flow-columns";
-import { vpcFlowFields } from "@/lib/vpc-flow-format";
 import type { UnifiedEvent } from "@/lib/types";
-import { cn } from "@/lib/utils";
 import { X } from "lucide-react";
 import { useEffect } from "react";
 
@@ -63,64 +54,26 @@ export function VpcFlowDrawer({
 
   if (!event) return null;
 
-  const action = vpcFlowAction(event);
-  const raw = (event.raw ?? {}) as Record<string, unknown>;
-  const parsedFields = vpcFlowFields(raw);
-  const rawLine = String(raw.message ?? "");
+  const title = event.event_action || event.message || "Flow record";
 
   return (
     <>
       <div className="ct-drawer-backdrop open" onClick={onClose} aria-hidden />
-      <aside className="ct-drawer open" role="dialog" aria-label="VPC flow log">
+      <aside className="ct-drawer open" role="dialog" aria-label={title}>
         <div className="ct-drawer-head">
-          <div className="min-w-0 flex-1">
-            <p className="text-2xs font-semibold uppercase tracking-wide text-fg-subtle">VPC Flow Log</p>
-            <p className="mt-1 truncate text-sm font-semibold text-fg">{event.message || "Flow record"}</p>
-            <p className="mt-0.5 mono text-xs text-fg-subtle">{fmtTime(event.timestamp)}</p>
-          </div>
-          <button type="button" onClick={onClose} className="ct-drawer-close" aria-label="Close">
-            <X className="h-4 w-4" />
+          <div className="ct-drawer-title">{title}</div>
+          <button
+            type="button"
+            className="ct-icon-btn"
+            onClick={onClose}
+            title="Close"
+            aria-label="Close"
+          >
+            <X className="h-3.5 w-3.5" strokeWidth={2} />
           </button>
         </div>
-
-        <div className="ct-drawer-body space-y-5">
-          <dl className="ct-drawer-meta">
-            <div>
-              <dt>Action</dt>
-              <dd className={cn("font-semibold uppercase", vpcFlowActionTone(action))}>{action}</dd>
-            </div>
-            <div>
-              <dt>Protocol</dt>
-              <dd>{vpcFlowProtocol(event)}</dd>
-            </div>
-            <div>
-              <dt>Region</dt>
-              <dd>{event.cloud_region || "—"}</dd>
-            </div>
-          </dl>
-
-          {parsedFields.length > 0 ? (
-            <section>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-subtle">
-                Parsed fields
-              </h3>
-              <AccessLogFields fields={parsedFields} />
-            </section>
-          ) : rawLine ? (
-            <section>
-              <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-subtle">
-                Raw line
-              </h3>
-              <WrappedLogLine line={rawLine} />
-            </section>
-          ) : null}
-
-          <section>
-            <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-subtle">
-              Raw JSON
-            </h3>
-            <JsonBlock value={raw} />
-          </section>
+        <div className="ct-drawer-body">
+          <JsonBlock value={event.raw ?? event} />
         </div>
       </aside>
     </>

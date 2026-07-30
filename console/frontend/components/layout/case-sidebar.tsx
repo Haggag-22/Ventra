@@ -7,6 +7,7 @@ import { panelLabel } from "@/lib/panel-labels";
 import { CASES_HREF } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import {
+  Cloud,
   Container,
   Database,
   FileText,
@@ -33,6 +34,7 @@ type NavEntry = {
 
 const INVESTIGATE: NavEntry[] = [
   { href: "cloudtrail", panel: "cloudtrail", icon: ScrollText },
+  { href: "cloudwatch", panel: "cloudwatch", icon: Cloud },
   { href: "search", panel: "search", icon: ShieldAlert },
   { href: "identity", panel: "identity", icon: Fingerprint },
   { href: "network", panel: "network", icon: Network },
@@ -100,7 +102,8 @@ export function CaseSidebar({ caseId }: { caseId: string }) {
 
       <nav className="sb-nav">
         <div className="sb-nav-section">Investigate</div>
-        {INVESTIGATE.map((item) => (
+        {INVESTIGATE.filter((item) => item.href !== "cloudwatch" || cloud === "aws").map(
+          (item) => (
           <NavItem
             key={item.href}
             caseId={caseId}
@@ -108,7 +111,8 @@ export function CaseSidebar({ caseId }: { caseId: string }) {
             pathname={pathname}
             cloud={cloud}
           />
-        ))}
+        ),
+        )}
 
         <div className="sb-nav-section">Package</div>
         {PACKAGE.map((item) => (

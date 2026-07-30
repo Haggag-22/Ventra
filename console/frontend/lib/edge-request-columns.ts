@@ -49,11 +49,21 @@ export const ALL_EDGE_REQUEST_COL_KEYS: EdgeRequestColKey[] = EDGE_REQUEST_COLS.
 export const EDGE_SOURCE_LABEL: Record<string, string> = {
   elb_alb: "ELB / ALB",
   cloudfront: "CloudFront",
+  app_gateway: "App Gateway",
+  front_door: "Front Door",
+  load_balancer: "Load Balancer",
+  cloud_cdn: "Cloud CDN",
+  api_gateway: "API Gateway",
 };
 
 export const EDGE_SOURCE_CHIP: Record<string, string> = {
   elb_alb: "border-accent/35 bg-accent/10 text-accent",
   cloudfront: "border-ok-green/35 bg-ok-green/10 text-ok-green",
+  app_gateway: "border-accent/35 bg-accent/10 text-accent",
+  front_door: "border-ok-green/35 bg-ok-green/10 text-ok-green",
+  load_balancer: "border-accent/35 bg-accent/10 text-accent",
+  cloud_cdn: "border-ok-green/35 bg-ok-green/10 text-ok-green",
+  api_gateway: "border-warn-amber/35 bg-warn-amber/10 text-warn-amber",
 };
 
 export function loadEdgeRequestWidths(): Record<EdgeRequestColKey, number> {

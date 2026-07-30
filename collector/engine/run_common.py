@@ -37,7 +37,8 @@ class RunReporter:
     def finish(self, name: str, result: SourceResult) -> None:
         self._emit(name, result.status.value)
 
-    def event(self, name: str, msg: str) -> None:
+    def event(self, name: str, msg: str, records: int | None = None) -> None:
+        del records
         self.events.append((name, msg))
 
     def raw_log(self, collector: str, message: str) -> None:

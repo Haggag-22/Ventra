@@ -22,8 +22,8 @@ function MetaSegment({
   children: React.ReactNode;
 }) {
   return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className={cn("text-2xs uppercase tracking-wide text-fg-subtle", labelClassName)}>
+    <span className="inline-flex items-center gap-2">
+      <span className={cn("text-xs font-medium uppercase tracking-wide text-fg-subtle", labelClassName)}>
         {label}
       </span>
       {children}
@@ -32,7 +32,7 @@ function MetaSegment({
 }
 
 function MetaDivider() {
-  return <span className="h-3 w-px bg-border" aria-hidden />;
+  return <span className="h-4 w-px bg-border" aria-hidden />;
 }
 
 function ThemeToggle() {
@@ -96,17 +96,17 @@ export function TopBar({
 
       <div className="flex min-w-0 items-center gap-3">
         {variant === "case" && summary && (
-          <div className="hidden shrink-0 items-center gap-3 text-xs md:flex">
+          <div className="hidden shrink-0 items-center gap-4 text-sm md:flex">
             <MetaSegment label="Platform">
-              <CloudPlatformLabel cloud={summary.cloud} />
+              <CloudPlatformLabel cloud={summary.cloud} className="text-sm font-semibold" />
             </MetaSegment>
             <MetaDivider />
             <MetaSegment label="Time range">
-              <span className="font-bold text-fg">{windowLabel}</span>
+              <span className="text-sm font-semibold text-fg">{windowLabel}</span>
             </MetaSegment>
             <MetaDivider />
             <MetaSegment label="Account ID">
-              <span className="mono text-fg">{accountId}</span>
+              <span className="mono text-sm font-semibold text-fg">{accountId}</span>
             </MetaSegment>
           </div>
         )}

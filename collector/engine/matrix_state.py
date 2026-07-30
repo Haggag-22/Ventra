@@ -12,6 +12,7 @@ from ..lib.models import GapReason, SourceResult, SourceStatus
 _SEVERITY: dict[str, str] = {
     "account": "Low",
     "cloudtrail": "High",
+    "cloudwatch": "High",
     "iam": "High",
     "vpc_flow": "High",
     "waf": "Medium",
@@ -181,10 +182,12 @@ class MatrixState:
         row.live_msg = "collecting…"
         self._started_at[name] = time.monotonic()
 
-    def event(self, name: str, msg: str) -> None:
+    def event(self, name: str, msg: str, records: int | None = None) -> None:
         row = self.rows.get(name)
         if row is not None and row.status in ("pending", "running"):
             row.live_msg = msg
+            if isinstance(records, int):
+                row.records = records
 
     def start_step(self, name: str, msg: str = "") -> None:
         row = self.rows.get(name)

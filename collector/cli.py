@@ -604,7 +604,9 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
                     glyph = self._spinner
                     msg = row.live_msg or "collecting…"
                     detail = f"[yellow]{escape(msg)}[/yellow]"
-                    records = "[dim]·[/dim]"
+                    records = (
+                        f"{row.records:,}" if isinstance(row.records, int) else "[dim]·[/dim]"
+                    )
                     started = self._matrix._started_at.get(name)
                     live = _fmt_dur(time.monotonic() - started) if started else ""
                     time_cell = f"[dim]{live}[/dim]"
@@ -639,9 +641,9 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
             if not self._silent:
                 self._refresh()
 
-        def event(self, name: str, msg: str) -> None:
-            super().event(name, msg)
-            self._matrix.event(name, msg)
+        def event(self, name: str, msg: str, records: int | None = None) -> None:
+            super().event(name, msg, records=records)
+            self._matrix.event(name, msg, records=records)
             if not self._silent:
                 self._refresh()
 

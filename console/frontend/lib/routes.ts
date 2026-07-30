@@ -71,6 +71,7 @@ export type BreadcrumbItem = { label: string; href?: string };
 
 const PANEL_LABELS: Record<string, string> = {
   cloudtrail: "CloudTrail",
+  cloudwatch: "CloudWatch Logs",
   search: "Findings",
   identity: "Identity",
   network: "Network",

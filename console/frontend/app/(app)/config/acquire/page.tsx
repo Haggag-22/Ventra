@@ -13,6 +13,7 @@ import {
   type HandoffMode,
 } from "@/lib/handoff-modes";
 import {
+  artifactParamsFromProfile,
   missingRequiredParams,
   resolvedParamFields,
   validateArtifactParams,
@@ -128,24 +129,6 @@ function KitOptionCard({
       </span>
     </button>
   );
-}
-
-function artifactParamsFromProfile(
-  raw?: Record<string, Record<string, unknown>>,
-): Record<string, ParamValues> {
-  if (!raw) return {};
-  const out: Record<string, ParamValues> = {};
-  for (const [collector, params] of Object.entries(raw)) {
-    const values: ParamValues = {};
-    for (const [key, val] of Object.entries(params)) {
-      if (typeof val === "boolean") values[key] = val;
-      else if (typeof val === "string") values[key] = val;
-      else if (Array.isArray(val)) values[key] = val.map(String);
-      else if (val != null) values[key] = String(val);
-    }
-    out[collector] = values;
-  }
-  return out;
 }
 
 function applyProfileToState(
@@ -636,7 +619,7 @@ function AcquireContent() {
                   <div className="space-y-2">
                     {items.map((a) => {
                       const selected = cart.has(a.collector);
-                      const fields = resolvedParamFields(a);
+                      const fields = resolvedParamFields(a, platform);
                       const hasParams = fields.length > 0;
                       const paramsExpanded = expanded.has(a.collector);
                       const missing = selected ? missingRequiredParams(a, artifactParams[a.collector]) : [];

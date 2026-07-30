@@ -51,6 +51,10 @@ cloudtrail:LookupEvents
 s3:ListBucket
 s3:GetObject
 
+[CloudWatch Logs]
+logs:DescribeLogGroups
+logs:FilterLogEvents
+
 [AWS Config]
 config:DescribeConfigurationRecorders
 config:DescribeDeliveryChannels

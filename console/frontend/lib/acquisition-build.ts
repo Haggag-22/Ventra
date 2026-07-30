@@ -1,6 +1,8 @@
 import type { ParamValues } from "@/components/acquire-param-fields";
 import { serializeParamValues } from "@/components/acquire-param-fields";
 import type { AcquisitionBuild, CollectionProfile } from "@/lib/api";
+import { artifactParamsFromProfile } from "@/lib/artifact-params";
+import { collectorParamSchema } from "@/lib/collector-param-definitions";
 import { normalizeCaseId } from "@/lib/case-id";
 import type { AcquirePlatform } from "@/lib/catalog";
 import type { DeploymentProfile } from "@/lib/deployment-profiles";
@@ -66,6 +68,21 @@ export function parseMaxRecords(raw: string): number | undefined {
   return n;
 }
 
+export function normalizeArtifactParameters(
+  collectors: string[],
+  raw?: Record<string, Record<string, unknown>>,
+): Record<string, Record<string, unknown>> | undefined {
+  if (!raw || !collectors.length) return undefined;
+  const out: Record<string, Record<string, unknown>> = {};
+  for (const collector of collectors) {
+    const fields = collectorParamSchema(collector);
+    const values = artifactParamsFromProfile({ [collector]: raw[collector] ?? {} })[collector] ?? {};
+    const serialized = serializeParamValues(values, fields.length ? fields : undefined);
+    if (Object.keys(serialized).length) out[collector] = serialized;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
 export function buildRequestBody(
   platform: AcquirePlatform,
   caseId: string,
@@ -93,7 +110,7 @@ export function buildRequestBody(
   for (const a of cartForCloud) {
     const p = artifactParams[a.collector];
     if (!p) continue;
-    const serialized = serializeParamValues(p);
+    const serialized = serializeParamValues(p, collectorParamSchema(a.collector, platform));
     if (Object.keys(serialized).length) {
       params[a.collector] = serialized;
     }
@@ -150,6 +167,9 @@ export function buildKitRunRequest(
   return {
     ...profileToRunBody(profile),
     case_id: normalizeCaseId(caseId),
+    artifact_parameters:
+      normalizeArtifactParameters(profile.artifacts ?? [], profile.artifact_parameters) ??
+      profile.artifact_parameters,
     since: scope.since.trim() || undefined,
     until: scope.until.trim() || undefined,
     regions: regionList.length ? regionList : undefined,

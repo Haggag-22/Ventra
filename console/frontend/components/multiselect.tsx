@@ -51,8 +51,18 @@ export function MultiSelect({
     return () => document.removeEventListener("mousedown", onDoc);
   }, [open]);
 
-  const shown = q
-    ? options.filter((o) => o.value.toLowerCase().includes(q.toLowerCase()))
+  const qLower = q.trim().toLowerCase();
+  const shown = qLower
+    ? options
+        .filter((o) => (o.label ?? o.value).toLowerCase().includes(qLower))
+        .sort((a, b) => {
+          const al = (a.label ?? a.value).toLowerCase();
+          const bl = (b.label ?? b.value).toLowerCase();
+          const ap = al.startsWith(qLower) ? 0 : 1;
+          const bp = bl.startsWith(qLower) ? 0 : 1;
+          if (ap !== bp) return ap - bp;
+          return al.localeCompare(bl);
+        })
     : options;
 
   const ct = variant === "cloudtrail";

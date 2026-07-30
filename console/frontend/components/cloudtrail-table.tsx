@@ -114,6 +114,12 @@ export function CloudTrailTable({
             {e.event_action || e.message}
           </td>
         );
+      case "message":
+        return (
+          <td key={key} className="truncate text-fg" title={e.message || undefined}>
+            <span className="mono text-xs">{e.message || "—"}</span>
+          </td>
+        );
       case "user_name":
         return (
           <td key={key} className="mono truncate text-fg" title={e.user_name || undefined}>
