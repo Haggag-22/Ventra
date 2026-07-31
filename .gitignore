@@ -60,6 +60,10 @@ kubeconfig
 kubeconfig.*
 .aws/
 
+# IBM / customer account metadata (local IR notes — never commit)
+docs/ibm-aws-permissions.md
+docs/keys/ibm-policy-raw/
+
 # Terraform state & local vars (any provider)
 **/.terraform/
 **/*.tfstate
