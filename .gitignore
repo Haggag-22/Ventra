@@ -60,6 +60,7 @@ kubeconfig
 kubeconfig.*
 .aws/
 
+
 # Terraform state & local vars (any provider)
 **/.terraform/
 **/*.tfstate
