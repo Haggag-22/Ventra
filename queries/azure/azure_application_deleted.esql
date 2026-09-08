@@ -1,0 +1,1 @@
+from * metadata _id, _index, _version | where azure.auditlogs.operation_name in ("Delete application", "Hard Delete application", "Delete administrative unit")

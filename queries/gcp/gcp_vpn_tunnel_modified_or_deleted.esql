@@ -1,0 +1,1 @@
+from gcp-* metadata _id, _index, _version | where gcp.audit.method_name in ("compute.vpnTunnels.insert", "compute.vpnTunnels.delete")

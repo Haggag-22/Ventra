@@ -1,0 +1,1 @@
+from * metadata _id, _index, _version | where azure.auditlogs.properties.logged_by_service=="AAD Management UX" and azure.auditlogs.properties.category=="Policy" and azure.auditlogs.operation_name=="Update User Risk and MFA Registration Policy"

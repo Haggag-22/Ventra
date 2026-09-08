@@ -1,0 +1,1 @@
+from * metadata _id, _index, _version | where gcp.audit.method_name like "v*.Compute.Firewalls.Delete" or gcp.audit.method_name like "v*.Compute.Firewalls.Patch" or gcp.audit.method_name like "v*.Compute.Firewalls.Update" or gcp.audit.method_name like "v*.Compute.Firewalls.Insert"

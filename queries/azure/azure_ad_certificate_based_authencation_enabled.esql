@@ -1,0 +1,1 @@
+from * metadata _id, _index, _version | where azure.auditlogs.operation_name=="Authentication Methods Policy Update" and azure.auditlogs.properties.target_resources.modified_properties.display_name like "*AuthenticationMethodsPolicy*"

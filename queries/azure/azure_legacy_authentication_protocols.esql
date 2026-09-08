@@ -1,0 +1,1 @@
+from * metadata _id, _index, _version | where azure.signinlogs.properties.client_app_used in ("Other client", "IMAP", "POP3", "MAPI", "SMTP", "Exchange ActiveSync", "Exchange Web Services")

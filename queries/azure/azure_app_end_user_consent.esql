@@ -1,0 +1,1 @@
+from * metadata _id, _index, _version | where azure.auditlogs.properties.consent_context.is_admin_consent=="false"

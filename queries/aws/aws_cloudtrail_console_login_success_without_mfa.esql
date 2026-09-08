@@ -1,0 +1,1 @@
+from * metadata _id, _index, _version | where aws.cloudtrail.event_name=="ConsoleLogin" and aws.cloudtrail.flattened.additional_eventdata like "*MFAUsed\":\"NO*" and aws.cloudtrail.flattened.response_elements like "*ConsoleLogin\":\"Success*"

@@ -1,0 +1,1 @@
+from * metadata _id, _index, _version | where aws.cloudtrail.event_source=="securityhub.amazonaws.com" and (aws.cloudtrail.event_name in ("BatchUpdateFindings", "DeleteInsight", "UpdateFindings", "UpdateInsight"))

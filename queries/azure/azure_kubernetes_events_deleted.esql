@@ -1,0 +1,1 @@
+from * metadata _id, _index, _version | where azure.activitylogs.operation_name=="MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/EVENTS.K8S.IO/EVENTS/DELETE"

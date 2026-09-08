@@ -1,0 +1,1 @@
+from * metadata _id, _index, _version | where aws.cloudtrail.event_source=="iam.amazonaws.com" and aws.cloudtrail.event_name=="UpdateLoginProfile" and aws.cloudtrail.flattened.request_parameters like "*userName*" | dissect aws.cloudtrail.flattened.request_parameters "\"userName\":\"%{target_user}\"" | where target_user is not null and target_user != user.name

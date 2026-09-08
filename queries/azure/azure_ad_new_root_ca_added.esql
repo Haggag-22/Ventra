@@ -1,0 +1,1 @@
+from * metadata _id, _index, _version | where azure.auditlogs.operation_name=="Set Company Information" and azure.auditlogs.properties.target_resources.modified_properties.new_value like "*TrustedCAsForPasswordlessAuth*"
