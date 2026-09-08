@@ -1,0 +1,1 @@
+from * metadata _id, _index, _version | where aws.cloudtrail.user_identity.arn rlike ".+:assumed-role/aws:.+" and not (aws.cloudtrail.event_source=="ssm.amazonaws.com" or aws.cloudtrail.event_name=="RegisterManagedInstance" or source.address=="AWS Internal")

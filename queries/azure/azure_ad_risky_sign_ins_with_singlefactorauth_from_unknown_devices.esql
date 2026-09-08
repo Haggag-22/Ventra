@@ -1,0 +1,1 @@
+from * metadata _id, _index, _version | where azure.signinlogs.result_type=="Success" and azure.signinlogs.properties.authentication_requirement=="singleFactorAuthentication" and azure.signinlogs.properties.risk_state=="atRisk" and (azure.signinlogs.properties.device_detail.trust_type=="" or azure.signinlogs.properties.device_detail.trust_type is null)

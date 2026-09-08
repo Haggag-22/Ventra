@@ -1,0 +1,1 @@
+from * metadata _id, _index, _version | where aws.cloudtrail.event_name=="DeleteFlowLogs" and (aws.cloudtrail.error_code=="Success" or aws.cloudtrail.error_code is null)

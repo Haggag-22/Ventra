@@ -1,0 +1,1 @@
+from * metadata _id, _index, _version | where azure.auditlogs.properties.target_resources.type=="Service Principal" and (azure.auditlogs.properties.activity_display_name in ("Add member to role", "Add eligible member to role", "Add scoped member to role"))

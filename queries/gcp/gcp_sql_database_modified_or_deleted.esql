@@ -1,0 +1,1 @@
+from * metadata _id, _index, _version | where gcp.audit.method_name in ("cloudsql.instances.create", "cloudsql.instances.delete", "cloudsql.users.update", "cloudsql.users.delete")

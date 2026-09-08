@@ -1,0 +1,1 @@
+from * metadata _id, _index, _version | where (starts_with(azure.activitylogs.operation_name, "MICROSOFT.NETWORK/VIRTUALNETWORKGATEWAYS/") or starts_with(azure.activitylogs.operation_name, "MICROSOFT.NETWORK/VIRTUALNETWORKS/")) and (ends_with(azure.activitylogs.operation_name, "/WRITE") or ends_with(azure.activitylogs.operation_name, "/DELETE"))

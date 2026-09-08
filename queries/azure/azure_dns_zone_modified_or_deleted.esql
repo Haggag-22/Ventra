@@ -1,0 +1,1 @@
+from * metadata _id, _index, _version | where starts_with(azure.activitylogs.operation_name, "MICROSOFT.NETWORK/DNSZONES") and (ends_with(azure.activitylogs.operation_name, "/WRITE") or ends_with(azure.activitylogs.operation_name, "/DELETE"))
