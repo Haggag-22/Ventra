@@ -1,0 +1,1 @@
+from * metadata _id, _index, _version | where aws.cloudtrail.event_source=="lambda.amazonaws.com" and (starts_with(aws.cloudtrail.event_name, "CreateFunction") or starts_with(aws.cloudtrail.event_name, "UpdateFunctionCode"))

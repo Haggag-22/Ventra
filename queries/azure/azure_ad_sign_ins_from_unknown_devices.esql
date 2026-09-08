@@ -1,0 +1,1 @@
+from * metadata _id, _index, _version | where azure.signinlogs.properties.authentication_requirement=="singleFactorAuthentication" and azure.signinlogs.result_type=="0" and azure.signinlogs.properties.network_location_details=="[]" and azure.signinlogs.properties.device_detail.device_id==""

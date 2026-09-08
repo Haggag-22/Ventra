@@ -1,0 +1,1 @@
+from * metadata _id, _index, _version | where aws.cloudtrail.user_identity.type=="AssumedRole" and aws.cloudtrail.user_identity.session_context like "*\"sessionIssuer\":{\"type\":\"Role\"*"

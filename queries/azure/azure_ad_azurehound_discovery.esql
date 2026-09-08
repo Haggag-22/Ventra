@@ -1,0 +1,1 @@
+from * metadata _id, _index, _version | where user_agent.original like "*azurehound*" and azure.signinlogs.result_type=="0"

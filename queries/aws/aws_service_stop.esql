@@ -1,0 +1,1 @@
+from * metadata _id, _index, _version | where aws.cloudtrail.event_source=="ec2.amazonaws.com" and aws.cloudtrail.event_name=="StopInstances" or aws.cloudtrail.event_source=="rds.amazonaws.com" and (aws.cloudtrail.event_name in ("StopDBInstance", "StopDBCluster")) or aws.cloudtrail.event_source=="ecs.amazonaws.com" and (aws.cloudtrail.event_name in ("DeleteService", "StopTask"))

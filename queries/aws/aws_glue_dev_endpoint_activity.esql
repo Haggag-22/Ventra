@@ -1,0 +1,1 @@
+from * metadata _id, _index, _version | where aws.cloudtrail.event_source=="glue.amazonaws.com" and (aws.cloudtrail.event_name in ("CreateDevEndpoint", "DeleteDevEndpoint", "UpdateDevEndpoint"))

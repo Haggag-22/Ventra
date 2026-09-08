@@ -1,0 +1,1 @@
+from * metadata _id, _index, _version | where azure.signinlogs.result_type=="Success" and azure.signinlogs.properties.authentication_requirement=="singleFactorAuthentication"

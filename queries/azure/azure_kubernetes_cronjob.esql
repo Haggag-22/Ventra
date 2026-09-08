@@ -1,0 +1,1 @@
+from * metadata _id, _index, _version | where (starts_with(azure.activitylogs.operation_name, "MICROSOFT.KUBERNETES/CONNECTEDCLUSTERS/BATCH") or starts_with(azure.activitylogs.operation_name, "MICROSOFT.CONTAINERSERVICE/MANAGEDCLUSTERS/BATCH")) and (ends_with(azure.activitylogs.operation_name, "/CRONJOBS/WRITE") or ends_with(azure.activitylogs.operation_name, "/JOBS/WRITE"))

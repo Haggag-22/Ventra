@@ -1,0 +1,1 @@
+from * metadata _id, _index, _version | where (aws.cloudtrail.event_source in ("sso-directory.amazonaws.com", "sso.amazonaws.com")) and (aws.cloudtrail.event_name in ("AssociateDirectory", "DisableExternalIdPConfigurationForDirectory", "DisassociateDirectory", "EnableExternalIdPConfigurationForDirectory"))
