@@ -1,1 +1,0 @@
-from * metadata _id, _index, _version | where azure.auditlogs.properties.result_reason=="Microsoft.online.Security.userConsentBlockedForRiskyAppsExceptions"

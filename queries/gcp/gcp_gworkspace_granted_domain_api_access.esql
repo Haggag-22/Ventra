@@ -1,1 +1,0 @@
-from * metadata _id, _index, _version | where service.name=="admin.googleapis.com" and event.action=="AUTHORIZE_API_CLIENT_ACCESS"

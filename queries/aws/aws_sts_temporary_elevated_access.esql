@@ -1,1 +1,0 @@
-from * metadata _id, _index, _version | where aws.cloudtrail.event_source=="sts.amazonaws.com" and (aws.cloudtrail.event_name in ("GetFederationToken", "AssumeRoleWithWebIdentity")) or aws.cloudtrail.event_name=="PassRole"

@@ -1,1 +1,0 @@
-from * metadata _id, _index, _version | where azure.signinlogs.properties.authentication_requirement=="multiFactorAuthentication" and azure.signinlogs.result_type like "*MFA Denied*"

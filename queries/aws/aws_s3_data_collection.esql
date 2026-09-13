@@ -1,1 +1,0 @@
-from * metadata _id, _index, _version | where aws.cloudtrail.event_source=="s3.amazonaws.com" and (aws.cloudtrail.event_name in ("GetObject", "ListObjects", "ListObjectsV2", "GetBucketAcl", "GetBucketPolicy", "GetObjectAcl"))

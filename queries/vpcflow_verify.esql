@@ -1,1 +1,0 @@
-from netflow-* metadata _id, _index, _version | where aws.vpcflow.interface_id is not null | stats flow_count = count(*) by aws.vpcflow.action, aws.vpcflow.log_status | sort flow_count desc

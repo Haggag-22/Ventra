@@ -1,1 +1,0 @@
-from * metadata _id, _index, _version | where gcp.audit.method_name like "io.k8s.api.batch.v*.Job" or gcp.audit.method_name like "io.k8s.api.batch.v*.CronJob"
