@@ -1,1 +1,0 @@
-from * metadata _id, _index, _version | where azure.activitylogs.category=="Administrative" and azure.resource.provider=="Microsoft.ADHybridHealthService" and azure.resource.id like "*AdFederationService*" and azure.activitylogs.operation_name=="Microsoft.ADHybridHealthService/services/delete"

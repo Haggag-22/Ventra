@@ -1,3 +1,0 @@
-from * metadata _id, _index, _version | where aws.cloudtrail.user_identity.type=="IAMUser" and not (aws.cloudtrail.user_identity.invoked_by like "*cloudtrail.amazonaws.com*" or aws.cloudtrail.user_identity.invoked_by like "*signin.amazonaws.com*" or user_agent.original like "*lambda.amazonaws.com*" or user_agent.original like "*ec2.amazonaws.com*" or user_agent.original like "*ecs-tasks.amazonaws.com*" or user_agent.original like "*elasticmapreduce.amazonaws.com*")
-| eval timebucket=date_trunc(1hours, @timestamp) | stats value_count=count_distinct(source.address) by timebucket, aws.cloudtrail.user_identity.arn
-| where value_count >= 2

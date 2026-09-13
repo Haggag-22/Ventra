@@ -1,1 +1,0 @@
-from * metadata _id, _index, _version | where azure.auditlogs.operation_name=="Add member to role" and (azure.auditlogs.flattened.target_resources like "*Admins*" or azure.auditlogs.flattened.target_resources like "*Administrator*")

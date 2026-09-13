@@ -1,1 +1,0 @@
-from * metadata _id, _index, _version | where azure.auditlogs.properties.category=="UserManagement" and azure.auditlogs.operation_name=="Invite external user" and not azure.auditlogs.flattened.initiated_by like "*<approved guest inviter use OR for multiple>*"

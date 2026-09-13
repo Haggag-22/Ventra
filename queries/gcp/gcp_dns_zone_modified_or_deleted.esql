@@ -1,1 +1,0 @@
-from * metadata _id, _index, _version | where gcp.audit.method_name in ("Dns.ManagedZones.Delete", "Dns.ManagedZones.Update", "Dns.ManagedZones.Patch")

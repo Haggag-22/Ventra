@@ -1,1 +1,0 @@
-from * metadata _id, _index, _version | where aws.cloudtrail.event_source=="codebuild.amazonaws.com" and aws.cloudtrail.event_name=="StartBuild" and (aws.cloudtrail.flattened.request_parameters like "*buildspecOverride*" or aws.cloudtrail.flattened.request_parameters like "*environmentVariablesOverride*")

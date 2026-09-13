@@ -1,1 +1,0 @@
-from * metadata _id, _index, _version | where azure.signinlogs.result_type=="50074" and azure.signinlogs.result_description like "*Strong Auth required*" or azure.signinlogs.result_type=="500121" and azure.signinlogs.result_description like "*Authentication failed during strong authentication request*"

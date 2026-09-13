@@ -1,1 +1,0 @@
-from * metadata _id, _index, _version | where aws.cloudtrail.event_source=="ecs.amazonaws.com" and (aws.cloudtrail.event_name in ("DescribeTaskDefinition", "RegisterTaskDefinition", "RunTask")) and aws.cloudtrail.flattened.request_parameters like "*$AWS_CONTAINER_CREDENTIALS_RELATIVE_URI*"

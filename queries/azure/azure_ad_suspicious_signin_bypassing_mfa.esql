@@ -1,1 +1,0 @@
-from * metadata _id, _index, _version | where azure.signinlogs.result_type=="Success" and (user_agent.original like "*BAV2ROPC*" or user_agent.original like "*CBAinPROD*" or user_agent.original like "*CBAinTAR*")

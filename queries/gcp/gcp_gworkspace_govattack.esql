@@ -1,1 +1,0 @@
-from gcp-* metadata _id, _index, _version | where gcp.audit.service_name=="login.googleapis.com" and event.action=="gov_attack_warning"

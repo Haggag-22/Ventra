@@ -1,1 +1,0 @@
-from * metadata _id, _index, _version | where aws.cloudtrail.event_source=="dynamodb.amazonaws.com" and aws.cloudtrail.event_name=="UpdateTable" and (aws.cloudtrail.flattened.request_parameters like "*\"deletionProtectionEnabled\":false*" or aws.cloudtrail.flattened.request_parameters like "*\"deletionProtectionEnabled\": false*")

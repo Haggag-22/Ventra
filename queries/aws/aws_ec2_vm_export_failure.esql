@@ -1,1 +1,0 @@
-from * metadata _id, _index, _version | where aws.cloudtrail.event_name=="CreateInstanceExportTask" and aws.cloudtrail.event_source=="ec2.amazonaws.com" and not (starts_with(aws.cloudtrail.error_message, "") or starts_with(aws.cloudtrail.error_code, "") or aws.cloudtrail.flattened.response_elements like "*Failure*")

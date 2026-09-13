@@ -1,1 +1,0 @@
-"""Azure detection / findings collectors."""
