@@ -1,1 +1,0 @@
-from * metadata _id, _index, _version | where (aws.cloudtrail.event_name in ("RunInstances", "CreateFunction", "CreateBucket", "ImportKeyPair", "CreateKeyPair")) and not (cloud.region in ("us-east-1", "us-east-2", "us-west-1", "us-west-2"))

@@ -1,1 +1,0 @@
-from * metadata _id, _index, _version | where azure.riskdetection.risk_event_type=="invalidLicenseAlertIncident"

@@ -1,1 +1,0 @@
-from * metadata _id, _index, _version | where azure.signinlogs.properties.resource_display_name=="Device Registration Service" and azure.signinlogs.properties.conditional_access_status=="success" and not azure.signinlogs.properties.authentication_requirement=="multiFactorAuthentication"

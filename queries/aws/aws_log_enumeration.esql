@@ -1,1 +1,0 @@
-from * metadata _id, _index, _version | where aws.cloudtrail.event_source=="cloudtrail.amazonaws.com" and (aws.cloudtrail.event_name in ("LookupEvents", "GetTrailStatus", "DescribeTrails")) or aws.cloudtrail.event_source=="logs.amazonaws.com" and (aws.cloudtrail.event_name in ("GetLogEvents", "FilterLogEvents", "DescribeLogGroups", "DescribeLogStreams"))

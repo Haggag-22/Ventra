@@ -1,1 +1,0 @@
-from * metadata _id, _index, _version | where gcp.audit.method_name in ("storage.buckets.delete", "storage.buckets.insert", "storage.buckets.update", "storage.buckets.patch")

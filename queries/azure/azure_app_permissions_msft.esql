@@ -1,1 +1,0 @@
-from * metadata _id, _index, _version | where azure.auditlogs.properties.activity_display_name in ("Add delegated permission grant", "Add app role assignment to service principal")

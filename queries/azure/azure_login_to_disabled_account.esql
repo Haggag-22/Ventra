@@ -1,1 +1,0 @@
-from * metadata _id, _index, _version | where azure.signinlogs.result_type=="50057" and azure.signinlogs.result_description=="User account is disabled. The account has been disabled by an administrator."

@@ -1,1 +1,0 @@
-from * metadata _id, _index, _version | where azure.activitylogs.properties.message in ("Delete device", "Delete device configuration", "Update device", "Update device configuration")

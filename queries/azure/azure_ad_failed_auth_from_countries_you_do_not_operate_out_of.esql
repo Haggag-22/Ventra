@@ -1,1 +1,0 @@
-from * metadata _id, _index, _version | where not azure.signinlogs.result_type=="Success" and not azure.signinlogs.location like "*<Countries you DO operate out of e,g GB, use OR for multiple>*"

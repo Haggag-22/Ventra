@@ -1,1 +1,0 @@
-from * metadata _id, _index, _version | where azure.activitylogs.operation_name in ("MICROSOFT.NETWORK/VPNGATEWAYS/VPNCONNECTIONS/WRITE", "MICROSOFT.NETWORK/VPNGATEWAYS/VPNCONNECTIONS/DELETE")

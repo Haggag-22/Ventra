@@ -1,1 +1,0 @@
-from * metadata _id, _index, _version | where aws.cloudtrail.event_source=="ec2.amazonaws.com" and aws.cloudtrail.event_name=="RunInstances"
