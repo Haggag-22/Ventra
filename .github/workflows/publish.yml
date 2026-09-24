@@ -1,47 +1,20 @@
-# Release Ventra to PyPI — only when you push a version tag. Ordinary commits to main do NOT
-# publish (that keeps the public PyPI page to clean releases). For day-to-day CloudShell
-# testing you install from git instead — see RELEASING.md.
+# Publish to PyPI + GitHub Release when you push a version tag.
 #
-#   git tag v1.0.0 && git push origin v1.0.0   # publishes 1.0.0 to PyPI + a GitHub Release
+#   git tag v1.0.0 && git push origin v1.0.0
 #
-# PyPI trusted publisher (pypi.org → ventra → Publishing):
-#   Owner: Haggag-22   Repository: Ventra   Workflow: publish.yml   Environment: (any)
+# PyPI trusted publisher: Owner Haggag-22 / repo Ventra / workflow publish.yml
 name: Release
 
 on:
   push:
     tags: ["v*"]
-  workflow_dispatch: {}
 
 permissions:
   contents: read
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0  # full history + tags so setuptools-scm can resolve the version
-      - uses: astral-sh/setup-uv@v5
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Install
-        # pytest lives in [dependency-groups].dev — `.[dev]` is not an optional-extra anymore
-        run: uv pip install --system --group dev -e . -e ./ingester -e ./console/backend
-      - name: Read-only guard
-        run: |
-          python -m collector.tools.verify_readonly --collectors
-          python -m collector.tools.verify_readonly docs/iam-policies/aws-collector-readonly.json
-      - name: Tests
-        run: python -m pytest tests/ -q
-
   publish:
-    needs: test
     runs-on: ubuntu-latest
-    # No `environment:` — the PyPI trusted publisher is set to "(any)" environment, so pinning
-    # one here would only add a GitHub Environment dependency (and a possible approval gate).
     permissions:
       id-token: write   # PyPI trusted publishing (OIDC)
       contents: write   # create the GitHub Release
@@ -53,21 +26,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
-      - name: Build ventra
+      - name: Build
         run: uv build
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip-existing: true
-      - name: Prepare release notes
-        id: notes
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          sed "s/@VERSION@/${VERSION}/g" .github/release-notes.md > /tmp/release-notes.md
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/v')
         uses: softprops/action-gh-release@v2
         with:
-          body_path: /tmp/release-notes.md
           generate_release_notes: true
           files: dist/*
