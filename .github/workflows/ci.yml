@@ -1,0 +1,80 @@
+# Pull-request / main-branch checks: lint, tests, forensic guards, and a fresh-install smoke test.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: astral-sh/setup-uv@v10
+        with:
+          python-version: "3.12"
+          enable-cache: true
+      - name: Install (locked)
+        run: uv sync --locked
+      - name: ruff check
+        run: uv run ruff check
+      - name: ruff format --check
+        run: uv run ruff format --check
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ["3.11", "3.12", "3.13", "3.14"]
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # hatch-vcs derives the version from git tags
+      - uses: astral-sh/setup-uv@v10
+        with:
+          python-version: ${{ matrix.python-version }}
+          enable-cache: true
+      - name: Install (locked)
+        run: uv sync --locked
+      - name: pytest
+        run: uv run pytest -q
+      - name: Read-only guard (collectors + IAM policies)
+        run: |
+          uv run python -m collector.tools.verify_readonly --collectors
+          uv run python -m collector.tools.verify_readonly docs/iam-policies/aws-collector-readonly.json
+      - name: Artifact catalog
+        run: uv run ventra artifacts validate --strict
+
+  package:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: astral-sh/setup-uv@v10
+        with:
+          python-version: "3.12"
+      - name: Build sdist + wheel
+        run: uv build
+      - name: Check distribution metadata
+        run: uvx twine check --strict dist/*
+      - name: Fresh-install smoke test (what `uvx ventra` users get)
+        run: |
+          wheel="$(ls dist/*.whl)"
+          cd "$(mktemp -d)"
+          uvx --from "$wheel" ventra --help
+          uvx --from "$wheel" ventra --version
+          uv tool install "$wheel"
+          bin="$(uv tool dir --bin)"
+          "$bin/ventra" collect aws --list-packs | grep baseline-ir-aws >/dev/null
+          "$bin/ventra" artifacts validate --strict
+          "$bin/ventra-verify" --help >/dev/null

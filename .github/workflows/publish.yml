@@ -1,8 +1,10 @@
-# Publish to PyPI + GitHub Release when you push a version tag.
+# Publish Ventra to PyPI + GitHub Release when you push a version tag.
 #
 #   git tag v1.0.0 && git push origin v1.0.0
 #
-# PyPI trusted publisher: Owner Haggag-22 / repo Ventra / workflow publish.yml
+# PyPI Trusted Publishing (OIDC — no API tokens stored anywhere):
+#   owner Haggag-22 / repo Ventra / workflow publish.yml / environment (any).
+# Keep this filename: the PyPI trusted-publisher entry is bound to it.
 name: Release
 
 on:
@@ -13,27 +15,74 @@ permissions:
   contents: read
 
 jobs:
-  publish:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0   # hatch-vcs derives the version from the tag
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: console/frontend/package-lock.json
+      - name: Build static console (bundled into the wheel)
+        run: bash scripts/build-console-static.sh
+      - uses: astral-sh/setup-uv@v10
+        with:
+          python-version: "3.12"
+      - name: Build sdist + wheel
+        run: uv build
+      - name: Version must match the tag
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          for f in dist/*; do
+            case "$(basename "$f")" in
+              "ventra-${tag}.tar.gz"|"ventra-${tag}-py3-none-any.whl") ;;
+              *) echo "::error::$(basename "$f") does not match tag v${tag}"; exit 1 ;;
+            esac
+          done
+      - name: Check distribution metadata
+        run: uvx twine check --strict dist/*
+      - name: Fresh-install smoke test
+        run: |
+          wheel="$(ls dist/*.whl)"
+          cd "$(mktemp -d)"
+          uvx --from "$wheel" ventra --version
+          uvx --from "$wheel" ventra artifacts validate --strict
+      - uses: actions/upload-artifact@v7
+        with:
+          name: dist
+          path: dist/
+          if-no-files-found: error
+
+  pypi:
+    needs: build
     runs-on: ubuntu-latest
     permissions:
       id-token: write   # PyPI trusted publishing (OIDC)
-      contents: write   # create the GitHub Release
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v8
         with:
-          fetch-depth: 0
-      - uses: astral-sh/setup-uv@v5
-      - uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
-      - name: Build
-        run: uv build
+          name: dist
+          path: dist/
       - name: Publish to PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
           skip-existing: true
+
+  github-release:
+    needs: pypi
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # create the GitHub Release
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: dist
+          path: dist/
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3
         with:
           generate_release_notes: true
           files: dist/*

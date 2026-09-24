@@ -39,6 +39,10 @@ yarn-error.log*
 *.tar.gz
 !tests/fixtures/**/*.tar.zst
 ventra-evidence/
+# `ventra run` writes here by default (--out evidence).
+/evidence/
+# Collection kits can embed short-lived cloud credentials (credentials/*.json) — never commit.
+*.kit
 *.duckdb
 *.parquet
 !tests/fixtures/**/*.parquet
@@ -122,3 +126,7 @@ override.tf.json
 # Local package metadata / OS junk already partly covered
 *.egg-info/
 .Python
+
+# iCloud Drive / Finder conflict copies ("cli 2.py", "deployment 2/") — never source.
+* [0-9].*
+* [0-9]

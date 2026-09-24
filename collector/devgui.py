@@ -520,5 +520,64 @@ def _repair_next_dev_build(frontend_dir: Path, *, force: bool = False) -> None:
 
 
 def cmd_gui(args: Namespace) -> int:
-    """Open the Ventra console GUI (hot reload). Alias: ``ventra dev``."""
+    """Open the Ventra console GUI.
+
+    Packaged (pipx/PyPI) installs serve the bundled static console from one uvicorn process.
+    Source checkouts keep the hot-reload Next.js + FastAPI dev stack.
+    """
+    from collector.paths import bundled_console_static, is_source_checkout
+
+    if getattr(args, "dev_source", False):
+        return cmd_dev(args)
+    if bundled_console_static() is not None and not is_source_checkout():
+        return _cmd_gui_packaged(args)
+    # pipx/site-packages always prefer the bundled UI when present.
+    static = bundled_console_static()
+    if static is not None and "site-packages" in str(static):
+        return _cmd_gui_packaged(args)
     return cmd_dev(args)
+
+
+def _cmd_gui_packaged(args: Namespace) -> int:
+    """Single-process console: FastAPI serves /api and the bundled static UI."""
+    import threading
+
+    import uvicorn
+
+    from collector.paths import bundled_console_static, user_data_root
+
+    static = bundled_console_static()
+    assert static is not None
+    data = user_data_root()
+    port = int(getattr(args, "backend_port", None) or 8000)
+    port = _pick_port(port, bind_host="127.0.0.1")
+
+    env_defaults = {
+        "VENTRA_HOME": str(data),
+        "VENTRA_CASE_STORE": str(data / "cases"),
+        "VENTRA_UPLOAD_DIR": str(data / ".ventra-uploads"),
+        "VENTRA_CONFIG_DIR": str(data / ".ventra-config"),
+        "VENTRA_RUNS_DIR": str(data / ".ventra-runs"),
+        "VENTRA_CONSOLE_STATIC": str(static),
+        "VENTRA_CORS": f"http://127.0.0.1:{port},http://localhost:{port}",
+    }
+    for key, value in env_defaults.items():
+        os.environ.setdefault(key, value)
+
+    url = f"http://127.0.0.1:{port}"
+    print()
+    print("Ventra console (packaged)")
+    print(f"  UI + API:  {url}")
+    print(f"  Cases:     {os.environ['VENTRA_CASE_STORE']}")
+    print()
+
+    if not args.no_open:
+
+        def _open() -> None:
+            if _wait_for_http(f"{url}/api/health", timeout=30):
+                webbrowser.open(url)
+
+        threading.Thread(target=_open, daemon=True).start()
+
+    uvicorn.run("app.main:app", host="127.0.0.1", port=port, reload=False)
+    return 0

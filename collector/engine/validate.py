@@ -54,7 +54,9 @@ _VOLUME = frozenset({"low", "medium", "high"})
 
 
 def _schema_path() -> Path:
-    return Path(__file__).resolve().parents[2] / "schemas" / "artifact.schema.json"
+    from collector.paths import default_schema_path
+
+    return default_schema_path("artifact.schema.json")
 
 
 def _check_schema_builtin(raw: dict[str, Any], rel: str) -> list[str]:
