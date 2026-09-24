@@ -1,6 +1,6 @@
 [build-system]
-requires = ["setuptools>=68", "wheel"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling>=1.27"]
+build-backend = "hatchling.build"
 
 [project]
 name = "ventra-console-backend"
@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Ventra analyst console backend — a thin query layer over the case store."
 readme = "README.md"
 requires-python = ">=3.11"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
 authors = [{ name = "Ventra contributors" }]
 dependencies = [
     "fastapi>=0.110",
@@ -27,10 +27,9 @@ ventra-console = "app.main:run"
 ventra = { workspace = true }
 ventra-ingester = { workspace = true }
 
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["app*"]
+[tool.hatch.build.targets.wheel]
+packages = ["app"]
 
+# Lint with the repo-wide settings (the root pyproject.toml).
 [tool.ruff]
-line-length = 110
-target-version = "py311"
+extend = "../../pyproject.toml"

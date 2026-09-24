@@ -6,6 +6,23 @@ All notable changes to Ventra are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed (packaging)
+- Build backend is now **hatchling** + **hatch-vcs** (version still comes from git tags, same
+  version strings). `hatch_build.py` replaces the setuptools `build_py` hook and stages the
+  artifact catalog, schemas, IAM policies, and static console into the wheel.
+- The sdist is an explicit allow-list; it no longer ships every tracked file (which included
+  local `.kit` files and run output).
+- Wheels and sdists no longer ship iCloud/Finder conflict copies (`cli 2.py`,
+  `k8s_container_logs 2.yaml`, …); the latter showed up as a duplicate catalog artifact.
+- `ventra collect <cloud> --list-packs`, `ventra artifacts validate`, and `ventra artifacts diff`
+  use the bundled catalog instead of `./artifacts`, so they work from any directory.
+- Extras: `aws`, `azure`, `gcp`, `kubernetes`, `all` (mirroring the base install), plus `sftp`
+  (paramiko) and `enrich` (geoip2); `dev` extra for pytest/ruff. Removed the unused
+  `azure-mgmt-security` dependency.
+- Added the `ventra-ingest-watch` console script to the `ventra` wheel.
+- CI: pull-request workflow (ruff, pytest on 3.11–3.14, read-only guard, catalog validation,
+  fresh-install smoke test); tag release workflow split into build → PyPI (OIDC) → GitHub Release.
+
 ### Added
 - Project foundation: README, license (Apache-2.0), security policy, contributing guide.
 - **Evidence Package Format (EPF) v1** specification and JSON Schemas (manifest, package,

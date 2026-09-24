@@ -44,17 +44,12 @@ List collectors: `ventra collect aws --list-collectors`
 
 ### Analyst console
 
-The PyPI package ships the **collector only**. The investigation console runs from a source
-clone on your IR workstation:
-
 ```bash
-git clone https://github.com/Haggag-22/Ventra.git
-cd Ventra
-make install && ventra gui
+ventra gui
 ```
 
-Import the sealed package from the Cases screen, or run `ventra-ingest` after installing
-[`ventra-ingester`](https://github.com/Haggag-22/Ventra/tree/main/ingester) from the repo.
+Opens the bundled investigation UI (same PyPI install). Import a sealed package from the Cases
+screen, or run `ventra import` / `ventra-ingest`.
 
 ---
 

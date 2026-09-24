@@ -356,17 +356,22 @@ def build_parser(*, prog: str = "ventra") -> argparse.ArgumentParser:
 
     def _add_gui_args(parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--port", type=int, default=8080, help="Frontend port (default: 8080).")
-        parser.add_argument("--backend-port", type=int, default=8000, help="Backend port (default: 8000).")
+        parser.add_argument("--backend-port", type=int, default=8000, help="Backend/UI port (default: 8000).")
         parser.add_argument("--no-open", action="store_true", help="Do not open a browser tab.")
         parser.add_argument(
             "--setup",
             action="store_true",
-            help="Re-run pip/npm install even if dependencies look current.",
+            help="Re-run pip/npm install even if dependencies look current (source checkout only).",
+        )
+        parser.add_argument(
+            "--dev-source",
+            action="store_true",
+            help="Force hot-reload mode from a git checkout (ignore bundled console).",
         )
 
     gui = sub.add_parser(
         "gui",
-        help="Open the Ventra console GUI locally (hot reload). No Docker.",
+        help="Open the Ventra console GUI (works after pipx install; hot-reload in a checkout).",
     )
     _add_gui_args(gui)
 
@@ -953,13 +958,9 @@ def _resolve_collectors(requested: str, all_names: list[str], registry) -> list[
 
 def _default_artifacts_root() -> Path:
     """Bundled wheel catalog, repo checkout, or cwd fallback."""
-    bundled = Path(__file__).resolve().parent / "_artifacts"
-    if bundled.is_dir():
-        return bundled
-    repo = Path(__file__).resolve().parents[1] / "artifacts"
-    if repo.is_dir():
-        return repo
-    return Path("artifacts")
+    from .paths import default_artifacts_root
+
+    return default_artifacts_root()
 
 
 def _artifacts_root_from_args(args) -> Path:
@@ -1064,7 +1065,7 @@ def _regions_from_args(args, spec) -> list[str] | None:
 def _print_packs(cloud: str) -> int:
     from .engine.acquisition import list_packs
 
-    packs = list_packs(cloud)
+    packs = list_packs(cloud, _default_artifacts_root())
     if not packs:
         print(f"No artifact packs found for {cloud}.")
         return 0
@@ -1544,7 +1545,7 @@ def _run_artifacts(args) -> int:
     cloud = (getattr(args, "cloud", "") or "").strip().lower() or None
 
     if cmd == "list":
-        arts = load_artifacts_dir(Path("artifacts"), cloud=cloud)
+        arts = load_artifacts_dir(_default_artifacts_root(), cloud=cloud)
         if getattr(args, "json_output", False):
             import json as _json
 
@@ -1557,7 +1558,9 @@ def _run_artifacts(args) -> int:
         return 0
 
     if cmd == "validate":
-        errors = validate_artifacts(cloud=cloud, strict=getattr(args, "strict", False))
+        errors = validate_artifacts(
+            _default_artifacts_root(), cloud=cloud, strict=getattr(args, "strict", False)
+        )
         if errors:
             print(f"Artifact validation FAILED — {len(errors)} error(s):", file=sys.stderr)
             for e in errors:
@@ -1567,7 +1570,7 @@ def _run_artifacts(args) -> int:
         return 0
 
     if cmd == "diff":
-        diff = diff_artifacts()
+        diff = diff_artifacts(_default_artifacts_root())
         if getattr(args, "json_output", False):
             import json as _json
 
@@ -1795,7 +1798,7 @@ def _run_kit(args) -> int:
     from .kit.build import build_kit
 
     cloud = args.cloud.strip().lower()
-    artifacts_root = Path("artifacts")
+    artifacts_root = _default_artifacts_root()
     try:
         if args.pack:
             names = load_pack(args.pack, artifacts_root)
@@ -1809,8 +1812,10 @@ def _run_kit(args) -> int:
 
     iam_paths = None
     if not args.no_iam:
-        iam = Path("docs/iam-policies") / f"{cloud}-collector-readonly.json"
-        if iam.is_file():
+        from .paths import default_iam_policy
+
+        iam = default_iam_policy(cloud)
+        if iam is not None:
             iam_paths = [iam]
 
     try:

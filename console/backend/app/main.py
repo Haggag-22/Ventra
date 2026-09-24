@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import re
 from pathlib import Path
 from typing import Any, Literal
@@ -1442,6 +1443,63 @@ def _normalize_case_id(raw: str | None) -> str | None:
             detail="Invalid case ID. Use letters, numbers, dashes, dots, or underscores.",
         )
     return cid
+
+
+def _console_static_root() -> Path | None:
+    env = os.environ.get("VENTRA_CONSOLE_STATIC", "").strip()
+    if env:
+        p = Path(env).expanduser().resolve()
+        if (p / "index.html").is_file():
+            return p
+    try:
+        from collector.paths import bundled_console_static
+
+        return bundled_console_static()
+    except Exception:
+        return None
+
+
+def _rewrite_spa_path(path: str) -> str:
+    """Map dynamic URLs onto the static-export placeholder shells."""
+    parts = [p for p in path.strip("/").split("/") if p]
+    if not parts:
+        return "index.html"
+    if parts[0] == "cases" and len(parts) >= 2 and parts[1] != "_":
+        parts[1] = "_"
+    elif parts[0] == "runs" and len(parts) >= 2 and parts[1] not in {"_", "new"}:
+        parts[1] = "_"
+    elif parts[0] == "docs" and len(parts) >= 4 and parts[2] == "collectors" and parts[3] != "_":
+        parts[3] = "_"
+    rel = "/".join(parts)
+    return rel if rel.endswith(".html") else f"{rel}/index.html"
+
+
+def _mount_packaged_console() -> None:
+    """Serve the bundled Next static export from the same origin as /api (pipx installs)."""
+    root = _console_static_root()
+    if root is None:
+        return
+
+    @app.get("/{full_path:path}")
+    async def _spa(full_path: str) -> FileResponse:
+        if full_path.startswith("api/") or full_path == "api":
+            raise HTTPException(status_code=404, detail="Not found")
+        # Exact static asset (JS/CSS/icons)
+        direct = root / full_path
+        if direct.is_file():
+            return FileResponse(direct)
+        if (direct / "index.html").is_file():
+            return FileResponse(direct / "index.html")
+        rewritten = root / _rewrite_spa_path(full_path)
+        if rewritten.is_file():
+            return FileResponse(rewritten)
+        index = root / "index.html"
+        if index.is_file():
+            return FileResponse(index)
+        raise HTTPException(status_code=404, detail="Not found")
+
+
+_mount_packaged_console()
 
 
 def run() -> None:  # console-script entry point

@@ -8,7 +8,7 @@ fetch any push with one command.
 |-----|------|------|
 | **You** | the repo | `ventra gui` (hot reload) + run the collector locally or from git in CloudShell |
 | **Client** | `ventra` in CloudShell | the latest **tagged** release from PyPI |
-| **Analyst (v1+)** | a packaged desktop app | the console GUI (not built here yet) |
+| **Analyst** | IR workstation | `uv tool install ventra` (or `pipx install ventra`) then `ventra gui` (console bundled in the wheel) |
 
 ## How versioning works
 
@@ -71,6 +71,18 @@ That publishes `1.0.0` to PyPI and creates a GitHub Release. Then a client gets 
 
 ## The console GUI
 
-No Docker. Today the console runs from a clone with `ventra gui` (hot reload). The **v1
-distribution will be a packaged desktop app** that analysts install; the collector keeps
-shipping via PyPI / CloudShell (a desktop app can't run inside a client's cloud shell).
+`pipx install ventra` ships the collector **and** a pre-built console UI. `ventra gui` serves
+both from one process — no Docker, no Node.js, no git clone.
+
+Developers still use a checkout for hot reload (`ventra gui --dev-source` or run from the repo
+without a static `console/frontend/out`). Release builds run `scripts/build-console-static.sh`
+before `uv build` so the wheel includes the UI.
+
+## CI
+
+- **Pull requests / `main`** — [`.github/workflows/ci.yml`](.github/workflows/ci.yml): `ruff check`,
+  `ruff format --check`, `pytest` on Python 3.11–3.14, the read-only guard, artifact catalog
+  validation, and a build + fresh `uvx` / `uv tool install` smoke test of the wheel.
+- **Tags `v*`** — [`.github/workflows/publish.yml`](.github/workflows/publish.yml): builds the
+  static console, `uv build`, checks the built version equals the tag, `twine check`, then
+  publishes via PyPI Trusted Publishing (OIDC) and creates the GitHub Release.

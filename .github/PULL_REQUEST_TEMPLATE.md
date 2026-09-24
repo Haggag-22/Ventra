@@ -21,4 +21,6 @@
 ## Tests
 
 - [ ] Added/updated tests (parser round-trip, collector moto test, or console e2e).
-- [ ] `pytest`, `ruff`, and the frontend `build` all pass locally.
+- [ ] `uv run pytest`, `uv run ruff check`, and `uv run ruff format --check` pass locally.
+- [ ] Console changes: the frontend `build` passes (`cd console/frontend && npm run build`).
+- [ ] New dependencies are declared in `pyproject.toml` (and the matching cloud extra), and `uv.lock` is updated.
