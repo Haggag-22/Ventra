@@ -9,19 +9,17 @@ from __future__ import annotations
 
 from typing import Any
 
+from collector.clouds.gcp.client_factory import GcpAccessDenied, GcpServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.limits import DEFAULT_MAX_RECORDS as MAX_RECORDS
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import logging_window
 from collector.lib.scoping import filter_gke_clusters, gcp_logging_filter_extension
-from collector.clouds.gcp.client_factory import GcpAccessDenied, GcpServiceNotEnabled
 
 DEFAULT_WINDOW_DAYS = 7
 # Kubernetes API-server audit stream — its own logName/table, not a view over the
 # cloudaudit activity stream (GKE control-plane admin actions live there instead).
-GKE_AUDIT_LOG_FILTER = (
-    'logName:"container.googleapis.com%2Fapiserver" AND resource.type="k8s_cluster"'
-)
+GKE_AUDIT_LOG_FILTER = 'logName:"container.googleapis.com%2Fapiserver" AND resource.type="k8s_cluster"'
 
 
 def _audit_logging_enabled(cluster: dict[str, Any]) -> bool:
@@ -55,8 +53,7 @@ class GkeAuditCollector(Collector):
             return SourceResult(
                 name=self.name,
                 status=SourceStatus.EMPTY,
-                gaps=gaps
-                or [("gke_audit", GapReason.NOT_PRESENT, "No GKE clusters in scope.")],
+                gaps=gaps or [("gke_audit", GapReason.NOT_PRESENT, "No GKE clusters in scope.")],
                 notes="No GKE clusters found.",
             )
 
@@ -68,8 +65,7 @@ class GkeAuditCollector(Collector):
                 (
                     "gke_audit",
                     GapReason.LOGGING_NOT_CONFIGURED,
-                    f"API-server logging disabled on {len(unaudited)}/{len(clusters)} "
-                    f"cluster(s): {names}.",
+                    f"API-server logging disabled on {len(unaudited)}/{len(clusters)} cluster(s): {names}.",
                 )
             )
 
@@ -102,13 +98,9 @@ class GkeAuditCollector(Collector):
                     if len(records) >= cap:
                         break
             except GcpAccessDenied as exc:
-                gaps.append(
-                    ("gke_audit", GapReason.ACCESS_DENIED, f"{cluster['name']}: {exc.message}")
-                )
+                gaps.append(("gke_audit", GapReason.ACCESS_DENIED, f"{cluster['name']}: {exc.message}"))
             except GcpServiceNotEnabled as exc:
-                gaps.append(
-                    ("gke_audit", GapReason.SERVICE_NOT_ENABLED, f"{cluster['name']}: {exc.message}")
-                )
+                gaps.append(("gke_audit", GapReason.SERVICE_NOT_ENABLED, f"{cluster['name']}: {exc.message}"))
             per_cluster.append({**cluster, "records": len(records) - before})
 
         if len(records) >= cap:

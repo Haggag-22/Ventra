@@ -20,7 +20,15 @@ sys.path.insert(0, str(REPO / "console" / "backend"))
 
 from generate_demo_case import generate  # noqa: E402
 
-from app.store import CaseNotFound, CaseStore, EventQuery, _cloudtrail_s3_log_prefix, _s3_flow_bucket_prefix, _vpc_ids_from_flow_config, network_vpc_filter_clause  # noqa: E402
+from app.store import (  # noqa: E402
+    CaseNotFound,
+    CaseStore,
+    EventQuery,
+    _cloudtrail_s3_log_prefix,
+    _s3_flow_bucket_prefix,
+    _vpc_ids_from_flow_config,
+    network_vpc_filter_clause,
+)
 from ventra_ingester.pipeline import ingest_package  # noqa: E402
 
 
@@ -34,6 +42,7 @@ def store_case(tmp_path_factory) -> tuple[CaseStore, str]:
 
 
 # -- discovery / sidecars ----------------------------------------------------------------
+
 
 def test_list_cases_and_summary(store_case) -> None:
     store, case_id = store_case
@@ -53,6 +62,7 @@ def test_missing_case_raises(store_case) -> None:
 
 
 # -- events ------------------------------------------------------------------------------
+
 
 def test_query_events_basic_paging(store_case) -> None:
     store, case_id = store_case
@@ -122,6 +132,7 @@ def test_severity_sort_ranks_not_alphabetical(store_case) -> None:
 
 # -- aggregations ------------------------------------------------------------------------
 
+
 def test_facets(store_case) -> None:
     store, case_id = store_case
     facets = store.facets(case_id, EventQuery())
@@ -141,8 +152,7 @@ def test_facets_include_every_distinct_event_action(store_case) -> None:
         expected: dict[str, set[str]] = {}
         for col in ("event_action", "cloud_service", "cloud_region", "user_name"):
             rows = con.execute(
-                f"SELECT DISTINCT {col} FROM {events} "
-                f"WHERE ventra_source = 'cloudtrail' AND {col} <> ''",
+                f"SELECT DISTINCT {col} FROM {events} WHERE ventra_source = 'cloudtrail' AND {col} <> ''",
                 [path],
             ).fetchall()
             expected[col] = {r[0] for r in rows if r[0]}
@@ -357,6 +367,7 @@ def test_data_access_event_query(store_case) -> None:
 
 
 # -- inventory ---------------------------------------------------------------------------
+
 
 def test_inventory_summary(store_case) -> None:
     store, case_id = store_case

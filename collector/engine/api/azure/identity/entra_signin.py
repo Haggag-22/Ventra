@@ -10,11 +10,11 @@ rejects the endpoint. That is recorded as a gap (a visibility limit is evidence)
 
 from __future__ import annotations
 
+from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import effective_window
 from collector.lib.scoping import graph_entra_signin_filter
-from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 
 # Graph sign-in logs retain ~30 days on Entra P1.
 DEFAULT_WINDOW_DAYS = 30

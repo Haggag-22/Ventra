@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
-from collector.engine.api.aws.runner import AwsRunConfig, run_aws_collection
 from collector.clouds.azure.client_factory import AzureAccessDenied, AzureClientFactory
+from collector.engine.api.aws.runner import AwsRunConfig, run_aws_collection
 from collector.engine.api.azure.runner import AzureRunConfig, run_azure_collection
 from collector.lib.auth import azure_factory_kwargs, manifest_profile_overrides
 from collector.lib.models import AzureAuthOptions, TimeWindow
@@ -49,7 +49,9 @@ def test_aws_run_uses_named_profile(tmp_path) -> None:
         def caller_identity(self):
             from collector.clouds.aws.client_factory import CallerIdentity
 
-            return CallerIdentity(account_id="123", arn="arn:aws:iam::123:user/x", user_id="A", partition="aws")
+            return CallerIdentity(
+                account_id="123", arn="arn:aws:iam::123:user/x", user_id="A", partition="aws"
+            )
 
         def enabled_regions(self):
             return ["us-east-1"]
@@ -100,7 +102,9 @@ def test_azure_run_passes_auth_to_factory(tmp_path) -> None:
     )
     with patch("collector.engine.api.azure.runner.AzureClientFactory", _FakeFactory):
         with patch("collector.engine.run_finalize.finalize_and_seal_package") as seal:
-            seal.return_value = MagicMock(path=tmp_path / "pkg.tar.zst", compression="zst", bytes=1, sha256="0" * 64)
+            seal.return_value = MagicMock(
+                path=tmp_path / "pkg.tar.zst", compression="zst", bytes=1, sha256="0" * 64
+            )
             run_azure_collection(cfg)
     assert captured["tenant_id"] == "tenant"
     assert captured["client_id"] == "client"

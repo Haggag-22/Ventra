@@ -28,9 +28,7 @@ class UnrecognizedFilterAtom(ValueError):
 
     def __init__(self, clause: str) -> None:
         self.clause = clause
-        super().__init__(
-            f"Unrecognized filter clause: {clause!r}. Check for typos in field names."
-        )
+        super().__init__(f"Unrecognized filter clause: {clause!r}. Check for typos in field names.")
 
 
 def normalize_gcs_bucket(raw: str) -> str:
@@ -180,7 +178,7 @@ def _eval_atom(entry: dict[str, Any], expr: str) -> bool:
         return True
 
     # logName:("a" OR "b") or logName:"fragment"
-    m = re.match(r'^logName:\((.+)\)$', text, re.DOTALL)
+    m = re.match(r"^logName:\((.+)\)$", text, re.DOTALL)
     if m:
         inner = m.group(1)
         options = re.findall(r'"([^"]+)"', inner)
@@ -197,7 +195,7 @@ def _eval_atom(entry: dict[str, Any], expr: str) -> bool:
     if m:
         return _nested(entry, "protoPayload", "serviceName") == m.group(1)
 
-    m = re.match(r'^protoPayload\.methodName=\((.+)\)$', text)
+    m = re.match(r"^protoPayload\.methodName=\((.+)\)$", text)
     if m:
         options = re.findall(r'"([^"]+)"', m.group(1))
         method = _nested(entry, "protoPayload", "methodName")

@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collector.lib.base import Collector
 from collector.lib.models import SourceResult
+
 from .flow_common import collect_flow_logs, flatten_nsg_record
 
 

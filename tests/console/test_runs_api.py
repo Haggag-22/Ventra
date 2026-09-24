@@ -97,16 +97,12 @@ def test_cancel_inactive_run_finalizes_cancelled(client: TestClient) -> None:
         },
     )
 
-    res = client.post(
-        f"/api/runs/{run_id}/cancel", headers={"X-Ventra-Role": "responder"}
-    )
+    res = client.post(f"/api/runs/{run_id}/cancel", headers={"X-Ventra-Role": "responder"})
     assert res.status_code == 200
     # Cancel always finalizes immediately — UI never waits on a worker.
     assert res.json()["status"] == "cancelled"
 
-    matrix = client.get(
-        f"/api/runs/{run_id}/matrix", headers={"X-Ventra-Role": "investigator"}
-    ).json()
+    matrix = client.get(f"/api/runs/{run_id}/matrix", headers={"X-Ventra-Role": "investigator"}).json()
     rows = {r["name"]: r for r in matrix["rows"]}
     assert rows["cloudtrail"]["status"] == "fail"
     assert rows["cloudtrail"]["live_msg"] == ""
@@ -135,9 +131,7 @@ def test_cancel_terminal_run_is_noop(client: TestClient) -> None:
     rec = rs_mod.run_store.create_run({"cloud": "aws", "case_id": "CASE-1"})
     run_id = rec["run_id"]
     rs_mod.run_store.finalize(run_id, status="completed")
-    res = client.post(
-        f"/api/runs/{run_id}/cancel", headers={"X-Ventra-Role": "responder"}
-    )
+    res = client.post(f"/api/runs/{run_id}/cancel", headers={"X-Ventra-Role": "responder"})
     assert res.status_code == 200
     assert res.json()["status"] == "completed"
 

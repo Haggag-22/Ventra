@@ -62,9 +62,7 @@ def _run_export(client: TestClient, payload: dict, *, role: str = "investigator"
         return start
     job_id = start.json()["job_id"]
     for _ in range(400):
-        status = client.get(
-            f"/api/cases/export/{job_id}", headers={"X-Ventra-Role": role}
-        ).json()
+        status = client.get(f"/api/cases/export/{job_id}", headers={"X-Ventra-Role": role}).json()
         if status["status"] == "ready":
             break
         if status["status"] == "error":
@@ -72,9 +70,7 @@ def _run_export(client: TestClient, payload: dict, *, role: str = "investigator"
         time.sleep(0.05)
     else:
         raise AssertionError("export job did not finish in time")
-    return client.get(
-        f"/api/cases/export/{job_id}/download", headers={"X-Ventra-Role": role}
-    )
+    return client.get(f"/api/cases/export/{job_id}/download", headers={"X-Ventra-Role": role})
 
 
 def test_exportable_cases_lists_ingested_cases(client: TestClient, case_ids: list[str]) -> None:
@@ -133,15 +129,13 @@ def test_export_batch_multiple_cases_produces_per_case_subfolders(
 
 
 def test_export_batch_respects_source_and_date_filters(client: TestClient, case_ids: list[str]) -> None:
-    exportable = client.get(
-        "/api/cases/exportable", headers={"X-Ventra-Role": "investigator"}
-    ).json()["cases"]
+    exportable = client.get("/api/cases/exportable", headers={"X-Ventra-Role": "investigator"}).json()[
+        "cases"
+    ]
     row = next(r for r in exportable if r["case_id"] == case_ids[0])
     one_source = row["sources"][0]
 
-    res = _run_export(
-        client, {"case_ids": [case_ids[0]], "target": "ndjson", "sources": [one_source]}
-    )
+    res = _run_export(client, {"case_ids": [case_ids[0]], "target": "ndjson", "sources": [one_source]})
     assert res.status_code == 200
     with zipfile.ZipFile(io.BytesIO(res.content)) as zf:
         manifest = json.loads(zf.read("export-manifest.json"))
@@ -236,9 +230,7 @@ def test_export_drop_zone_writes_ndjson(
 
     drop_path = None
     for _ in range(400):
-        status = client.get(
-            f"/api/cases/export/{job_id}", headers={"X-Ventra-Role": "investigator"}
-        ).json()
+        status = client.get(f"/api/cases/export/{job_id}", headers={"X-Ventra-Role": "investigator"}).json()
         if status["status"] == "ready":
             drop_path = status["drop_path"]
             assert status["delivery"] == "drop_zone"
@@ -260,9 +252,7 @@ def test_export_drop_zone_writes_ndjson(
     assert not any(drop.glob(".partial-*"))
 
     # Drop-zone jobs have no zip download
-    dl = client.get(
-        f"/api/cases/export/{job_id}/download", headers={"X-Ventra-Role": "investigator"}
-    )
+    dl = client.get(f"/api/cases/export/{job_id}/download", headers={"X-Ventra-Role": "investigator"})
     assert dl.status_code == 400
 
 
@@ -285,9 +275,7 @@ def test_export_drop_zone_batch_layout(
 
     drop_path = None
     for _ in range(400):
-        status = client.get(
-            f"/api/cases/export/{job_id}", headers={"X-Ventra-Role": "investigator"}
-        ).json()
+        status = client.get(f"/api/cases/export/{job_id}", headers={"X-Ventra-Role": "investigator"}).json()
         if status["status"] == "ready":
             drop_path = status["drop_path"]
             break
@@ -321,11 +309,7 @@ def test_export_job_can_be_cancelled(client: TestClient, case_ids: list[str]) ->
     assert cancel.json()["status"] == "cancelled"
 
     # Poll should report cancelled; download must not succeed.
-    status = client.get(
-        f"/api/cases/export/{job_id}", headers={"X-Ventra-Role": "investigator"}
-    ).json()
+    status = client.get(f"/api/cases/export/{job_id}", headers={"X-Ventra-Role": "investigator"}).json()
     assert status["status"] == "cancelled"
-    dl = client.get(
-        f"/api/cases/export/{job_id}/download", headers={"X-Ventra-Role": "investigator"}
-    )
+    dl = client.get(f"/api/cases/export/{job_id}/download", headers={"X-Ventra-Role": "investigator"})
     assert dl.status_code == 409

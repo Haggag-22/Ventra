@@ -7,10 +7,10 @@ for the console Resources panel.
 
 from __future__ import annotations
 
+from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import param_raw
-from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 
 INVENTORY_QUERY = """
 Resources
@@ -44,9 +44,7 @@ class ResourceGraphCollector(Collector):
         custom = param_raw(artifact_params, "query")
         query = custom.strip() if isinstance(custom, str) and custom.strip() else INVENTORY_QUERY.strip()
         try:
-            resources = cf.resource_graph_query(
-                query, subscriptions, max_records=cap
-            )
+            resources = cf.resource_graph_query(query, subscriptions, max_records=cap)
         except AzureAccessDenied as exc:
             return SourceResult(
                 name=self.name,
@@ -62,7 +60,12 @@ class ResourceGraphCollector(Collector):
                 notes="Resource Graph unavailable.",
             )
 
-        snapshot = {"resources": resources, "subscriptions": subscriptions, "query": query, "artifact_parameters": artifact_params}
+        snapshot = {
+            "resources": resources,
+            "subscriptions": subscriptions,
+            "query": query,
+            "artifact_parameters": artifact_params,
+        }
         wf = self.write_json(snapshot, "snapshot.json")
         self.write_meta(
             {

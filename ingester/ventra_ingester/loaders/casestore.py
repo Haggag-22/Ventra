@@ -31,12 +31,40 @@ from ..normalizer.base import UnifiedEvent
 
 # Column order for events.parquet (all strings except the few typed numerics).
 _COLUMNS = [
-    "timestamp", "event_kind", "event_category", "event_action", "event_outcome",
-    "event_severity", "event_provider", "cloud_provider", "cloud_account", "cloud_region",
-    "cloud_service", "user_name", "user_id", "user_arn", "user_type", "source_ip",
-    "source_country", "source_asn", "dest_ip", "dest_port", "dest_bytes", "resource_type",
-    "resource_id", "resource_arn", "ua_original", "ua_category", "related_ip", "related_user",
-    "related_resource", "message", "case_id", "ventra_source", "parser_version", "raw",
+    "timestamp",
+    "event_kind",
+    "event_category",
+    "event_action",
+    "event_outcome",
+    "event_severity",
+    "event_provider",
+    "cloud_provider",
+    "cloud_account",
+    "cloud_region",
+    "cloud_service",
+    "user_name",
+    "user_id",
+    "user_arn",
+    "user_type",
+    "source_ip",
+    "source_country",
+    "source_asn",
+    "dest_ip",
+    "dest_port",
+    "dest_bytes",
+    "resource_type",
+    "resource_id",
+    "resource_arn",
+    "ua_original",
+    "ua_category",
+    "related_ip",
+    "related_user",
+    "related_resource",
+    "message",
+    "case_id",
+    "ventra_source",
+    "parser_version",
+    "raw",
 ]
 
 _INT_COLUMNS = {"dest_port", "dest_bytes"}
@@ -70,8 +98,7 @@ class CaseStore:
             if c in _INT_COLUMNS:
                 arrays[c] = pa.array(columns[c], type=pa.int64())
             else:
-                arrays[c] = pa.array([("" if v is None else str(v)) for v in columns[c]],
-                                     type=pa.string())
+                arrays[c] = pa.array([("" if v is None else str(v)) for v in columns[c]], type=pa.string())
         table = pa.table(arrays)
         pq.write_table(table, self.case_dir / "events.parquet", compression="zstd")
         return count
@@ -115,8 +142,7 @@ class EventParquetWriter:
             if c in _INT_COLUMNS:
                 arrays[c] = pa.array(columns[c], type=pa.int64())
             else:
-                arrays[c] = pa.array([("" if v is None else str(v)) for v in columns[c]],
-                                     type=pa.string())
+                arrays[c] = pa.array([("" if v is None else str(v)) for v in columns[c]], type=pa.string())
         table = pa.table(arrays)
         if self._writer is None:
             self._writer = pq.ParquetWriter(self._path, table.schema, compression="zstd")
@@ -176,9 +202,7 @@ class SummaryAccumulator:
     ) -> dict[str, Any]:
         timestamps = sorted(self.timestamps)
         collected = {
-            s["name"]
-            for s in manifest.get("sources", [])
-            if s.get("status") in ("collected", "partial")
+            s["name"] for s in manifest.get("sources", []) if s.get("status") in ("collected", "partial")
         }
         gaps = manifest.get("gaps", [])
         return {
@@ -251,9 +275,7 @@ def build_summary(
     timestamps.sort()
     # Collection completeness: expected sources from manifest vs gaps.
     collected = {
-        s["name"]
-        for s in manifest.get("sources", [])
-        if s.get("status") in ("collected", "partial")
+        s["name"] for s in manifest.get("sources", []) if s.get("status") in ("collected", "partial")
     }
     gaps = manifest.get("gaps", [])
 

@@ -7,9 +7,9 @@ than aborting the run, which is exactly the behaviour we want in the field.
 
 from __future__ import annotations
 
+import io
 import json
 import tarfile
-import io
 from pathlib import Path
 
 import boto3
@@ -19,12 +19,12 @@ moto = pytest.importorskip("moto")
 from moto import mock_aws  # noqa: E402
 
 from collector.clouds.aws.client_factory import AwsClientFactory  # noqa: E402
-from collector.engine.registry import AWS_COLLECTOR_ORDER  # noqa: E402
 from collector.engine.api.aws.runner import (  # noqa: E402
     AwsRunConfig,
     parse_window,
     run_aws_collection,
 )
+from collector.engine.registry import AWS_COLLECTOR_ORDER  # noqa: E402
 
 
 def _read_member(archive: Path, name: str) -> bytes:
@@ -47,7 +47,9 @@ def test_full_collection_produces_valid_package(tmp_path: Path) -> None:
     iam = boto3.client("iam", region_name="us-east-1")
     iam.create_user(UserName="alice")
     iam.create_access_key(UserName="alice")
-    iam.create_role(RoleName="app-role", AssumeRolePolicyDocument=json.dumps({"Version": "2012-10-17", "Statement": []}))
+    iam.create_role(
+        RoleName="app-role", AssumeRolePolicyDocument=json.dumps({"Version": "2012-10-17", "Statement": []})
+    )
 
     cfg = AwsRunConfig(
         case_id="CASE-TEST-0001",

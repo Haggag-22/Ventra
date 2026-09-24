@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+from collector.lib.models import CollectionContext, TimeWindow
 from collector.lib.params import (
     effective_window,
     param_bool,
@@ -25,7 +26,6 @@ from collector.lib.scoping import (
     normalize_log_group_ref,
     resolve_vpc_ids_from_names,
 )
-from collector.lib.models import CollectionContext, TimeWindow
 
 
 def test_param_strings_from_list_and_scalar() -> None:
@@ -64,15 +64,11 @@ def test_filter_vpc_flow_logs_by_vpc() -> None:
 def test_normalize_log_group_ref_accepts_name_and_arn() -> None:
     assert normalize_log_group_ref("Cloud-IR-Demo-VPC-Flow-Logs") == "Cloud-IR-Demo-VPC-Flow-Logs"
     assert (
-        normalize_log_group_ref(
-            "arn:aws:logs:us-east-2:910825235258:log-group:Cloud-IR-Demo-VPC-Flow-Logs:*"
-        )
+        normalize_log_group_ref("arn:aws:logs:us-east-2:910825235258:log-group:Cloud-IR-Demo-VPC-Flow-Logs:*")
         == "Cloud-IR-Demo-VPC-Flow-Logs"
     )
     assert (
-        normalize_log_group_ref(
-            "arn:aws:logs:us-east-2:1:log-group:/aws/lambda/fn:log-stream:2024"
-        )
+        normalize_log_group_ref("arn:aws:logs:us-east-2:1:log-group:/aws/lambda/fn:log-stream:2024")
         == "/aws/lambda/fn"
     )
 
@@ -95,11 +91,7 @@ def test_filter_vpc_flow_logs_by_log_group_arn() -> None:
     ]
     filtered = filter_vpc_flow_logs(
         logs,
-        {
-            "log_group_names": [
-                "arn:aws:logs:us-east-2:1:log-group:Cloud-IR-Demo-VPC-Flow-Logs:*"
-            ]
-        },
+        {"log_group_names": ["arn:aws:logs:us-east-2:1:log-group:Cloud-IR-Demo-VPC-Flow-Logs:*"]},
     )
     assert len(filtered) == 1
     assert filtered[0]["FlowLogId"] == "fl-1"
@@ -127,9 +119,7 @@ def test_filter_route53_by_log_group() -> None:
             "DestinationArn": "arn:aws:logs:us-east-1:1:log-group:/aws/route53/dev:*",
         },
     ]
-    filtered = filter_route53_query_log_configs(
-        configs, {"log_group_names": ["/aws/route53/prod"]}
-    )
+    filtered = filter_route53_query_log_configs(configs, {"log_group_names": ["/aws/route53/prod"]})
     assert len(filtered) == 1
     assert filtered[0]["Id"] == "rqlc-1"
 
@@ -210,8 +200,16 @@ def test_filter_iam_bindings() -> None:
 
 def test_filter_scc_findings() -> None:
     findings = [
-        {"severity": "HIGH", "state": "ACTIVE", "resourceName": "//cloudresourcemanager.googleapis.com/projects/p1"},
-        {"severity": "LOW", "state": "INACTIVE", "resourceName": "//cloudresourcemanager.googleapis.com/projects/p2"},
+        {
+            "severity": "HIGH",
+            "state": "ACTIVE",
+            "resourceName": "//cloudresourcemanager.googleapis.com/projects/p1",
+        },
+        {
+            "severity": "LOW",
+            "state": "INACTIVE",
+            "resourceName": "//cloudresourcemanager.googleapis.com/projects/p2",
+        },
     ]
     filtered = filter_scc_findings(findings, {"severity": ["HIGH"], "project_ids": ["p1"]})
     assert len(filtered) == 1

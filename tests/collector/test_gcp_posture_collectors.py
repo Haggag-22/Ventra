@@ -8,15 +8,15 @@ from unittest.mock import MagicMock
 
 from collector.engine.api.gcp.control_plane.logging_posture import LoggingPostureCollector
 from collector.engine.api.gcp.identity.iam_policy import IamPolicyCollector
-from collector.engine.api.gcp.network.network_posture import NetworkPostureCollector
-from collector.engine.api.gcp.workloads.gce import GceCollector
-from collector.engine.api.gcp.workloads.bigquery_audit import BigQueryAuditCollector
-from collector.engine.api.gcp.workloads.cloud_sql import CloudSqlCollector
-from collector.engine.api.gcp.workloads.secret_manager import SecretManagerCollector
 from collector.engine.api.gcp.network.cloud_armor import CloudArmorCollector
 from collector.engine.api.gcp.network.cloud_dns import CloudDnsCollector
 from collector.engine.api.gcp.network.cloud_nat import CloudNatCollector
+from collector.engine.api.gcp.network.network_posture import NetworkPostureCollector
+from collector.engine.api.gcp.workloads.bigquery_audit import BigQueryAuditCollector
+from collector.engine.api.gcp.workloads.cloud_sql import CloudSqlCollector
+from collector.engine.api.gcp.workloads.gce import GceCollector
 from collector.engine.api.gcp.workloads.gke_audit import GkeAuditCollector
+from collector.engine.api.gcp.workloads.secret_manager import SecretManagerCollector
 from collector.lib.models import CollectionContext, GapReason, SourceStatus, TimeWindow
 
 
@@ -136,9 +136,7 @@ def test_network_posture_collector(tmp_path: Path) -> None:
     cf = MagicMock()
     cf.compute_firewalls.return_value = [{"name": "allow-ssh", "direction": "INGRESS"}]
     cf.compute_networks.return_value = [{"name": "default", "peerings": []}]
-    cf.compute_subnetworks.return_value = [
-        {"name": "default-us-central1", "logConfig": {"enable": True}}
-    ]
+    cf.compute_subnetworks.return_value = [{"name": "default-us-central1", "logConfig": {"enable": True}}]
     cf.compute_routes.return_value = [{"name": "default-route"}]
     cf.compute_packet_mirrorings.return_value = [{"name": "mirror-1"}]
 
@@ -147,9 +145,7 @@ def test_network_posture_collector(tmp_path: Path) -> None:
     result = NetworkPostureCollector(ctx).collect()
 
     assert result.status == SourceStatus.COLLECTED
-    payload = json.loads(
-        (tmp_path / "staging" / "sources" / "network_posture" / "snapshot.json").read_text()
-    )
+    payload = json.loads((tmp_path / "staging" / "sources" / "network_posture" / "snapshot.json").read_text())
     assert len(payload["firewall_rules"]) == 1
     assert len(payload["subnetworks"]) == 1
     assert payload["subnetworks"][0]["_ventra_project_id"] == "demo-project"
@@ -275,7 +271,7 @@ def test_cloud_nat_collector(tmp_path: Path) -> None:
     assert result.record_count == 1
     _, kwargs = cf.list_log_entries_for_backend.call_args
     assert 'resource.type="nat_gateway"' in kwargs["log_filter"]
-    assert 'compute.googleapis.com%2Fnat_flows' in kwargs["log_filter"]
+    assert "compute.googleapis.com%2Fnat_flows" in kwargs["log_filter"]
     assert 'resource.labels.gateway_name="egress-nat"' in kwargs["log_filter"]
     assert 'jsonPayload.connection.dest_ip="203.0.113.1"' in kwargs["log_filter"]
 
@@ -284,7 +280,10 @@ def test_bigquery_audit_collector(tmp_path: Path) -> None:
     cf = MagicMock()
     cf.list_log_entries_for_backend.return_value = [
         {
-            "protoPayload": {"serviceName": "bigquery.googleapis.com", "methodName": "jobservice.jobcompleted"},
+            "protoPayload": {
+                "serviceName": "bigquery.googleapis.com",
+                "methodName": "jobservice.jobcompleted",
+            },
             "logName": "projects/demo/logs/cloudaudit.googleapis.com%2Fdata_access",
         }
     ]
@@ -304,7 +303,7 @@ def test_bigquery_audit_collector(tmp_path: Path) -> None:
     _, kwargs = cf.list_log_entries_for_backend.call_args
     assert 'protoPayload.serviceName="bigquery.googleapis.com"' in kwargs["log_filter"]
     # A strict serviceName view over data_access — subset of the broad stream for dedup.
-    assert 'cloudaudit.googleapis.com%2Fdata_access' in kwargs["log_filter"]
+    assert "cloudaudit.googleapis.com%2Fdata_access" in kwargs["log_filter"]
     assert 'resource.labels.dataset_id="customer_data"' in kwargs["log_filter"]
     assert 'resource.labels.table_id="events"' in kwargs["log_filter"]
 
@@ -351,7 +350,7 @@ def test_secret_manager_collector(tmp_path: Path) -> None:
     assert result.record_count == 1
     _, kwargs = cf.list_log_entries_for_backend.call_args
     assert 'protoPayload.serviceName="secretmanager.googleapis.com"' in kwargs["log_filter"]
-    assert 'cloudaudit.googleapis.com%2Fdata_access' in kwargs["log_filter"]
+    assert "cloudaudit.googleapis.com%2Fdata_access" in kwargs["log_filter"]
     assert 'resource.labels.secret_id="api-key"' in kwargs["log_filter"]
 
 

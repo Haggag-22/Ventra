@@ -6,7 +6,7 @@ kms, secrets, account, waf, lambda) are kept as snapshots for the console's Reso
 Identity panels — see :mod:`ventra_ingester.normalizer.inventory`.
 """
 
-from .base import UnifiedEvent, SOURCE_NORMALIZERS, normalize_source
 from . import sources  # noqa: F401  (registers all source normalizers)
+from .base import SOURCE_NORMALIZERS, UnifiedEvent, normalize_source
 
 __all__ = ["UnifiedEvent", "SOURCE_NORMALIZERS", "normalize_source"]

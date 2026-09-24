@@ -12,12 +12,13 @@ from typing import Any
 
 from botocore.exceptions import ClientError
 
+from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.limits import DEFAULT_MAX_RECORDS, records_unlimited
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import effective_window, param_strings
 from collector.lib.scoping import normalize_log_group_ref, normalize_log_group_refs
-from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
+
 from ..common.cw_logs import collect_cw_log_events, parse_log_group_arn
 
 DEFAULT_WINDOW_DAYS = 14
@@ -165,9 +166,7 @@ class CloudWatchCollector(Collector):
             files=files,
             record_count=record_count,
             gaps=gaps,
-            notes=(
-                f"{record_count:,} event(s) from {len(targets)} CloudWatch log group(s)."
-            ),
+            notes=(f"{record_count:,} event(s) from {len(targets)} CloudWatch log group(s)."),
         )
 
     def _discover_log_groups(
@@ -210,9 +209,7 @@ class CloudWatchCollector(Collector):
                             }
                         )
                 except AccessDenied as exc:
-                    gaps.append(
-                        ("cloudwatch", GapReason.ACCESS_DENIED, f"{region}: {exc.message}")
-                    )
+                    gaps.append(("cloudwatch", GapReason.ACCESS_DENIED, f"{region}: {exc.message}"))
                 except (ServiceNotEnabled, ClientError):
                     continue
         return out

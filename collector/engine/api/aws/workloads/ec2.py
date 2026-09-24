@@ -10,11 +10,11 @@ Note: this is metadata only. Disk *images* and OS internals are out of scope (Ve
 
 from __future__ import annotations
 
+from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import param_bool
 from collector.lib.scoping import filter_ec2_inventory
-from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
 # Per-resource attribute lookups are one API call each; bound them so accounts with
 # thousands of snapshots/instances stay collectable from a CloudShell.
@@ -58,25 +58,37 @@ class Ec2Collector(Collector):
                     for inst in res.get("Instances", []):
                         inst["_ventra_region"] = region
                         inventory["instances"].append(inst)
-                inventory["volumes"].extend(self._tag_region(
-                    cf.paginate("ec2", region, "describe_volumes", "Volumes"), region))
+                inventory["volumes"].extend(
+                    self._tag_region(cf.paginate("ec2", region, "describe_volumes", "Volumes"), region)
+                )
                 # Snapshots owned by this account only.
-                inventory["snapshots"].extend(self._tag_region(
-                    cf.paginate("ec2", region, "describe_snapshots", "Snapshots",
-                                OwnerIds=["self"]), region))
-                inventory["network_interfaces"].extend(self._tag_region(
-                    cf.paginate("ec2", region, "describe_network_interfaces", "NetworkInterfaces"),
-                    region))
-                inventory["security_groups"].extend(self._tag_region(
-                    cf.paginate("ec2", region, "describe_security_groups", "SecurityGroups"),
-                    region))
+                inventory["snapshots"].extend(
+                    self._tag_region(
+                        cf.paginate("ec2", region, "describe_snapshots", "Snapshots", OwnerIds=["self"]),
+                        region,
+                    )
+                )
+                inventory["network_interfaces"].extend(
+                    self._tag_region(
+                        cf.paginate("ec2", region, "describe_network_interfaces", "NetworkInterfaces"), region
+                    )
+                )
+                inventory["security_groups"].extend(
+                    self._tag_region(
+                        cf.paginate("ec2", region, "describe_security_groups", "SecurityGroups"), region
+                    )
+                )
                 # Owners=self is load-bearing: without it this returns every public AMI.
-                inventory["images"].extend(self._tag_region(
-                    cf.paginate("ec2", region, "describe_images", "Images",
-                                Owners=["self"]), region))
-                inventory["launch_templates"].extend(self._tag_region(
-                    cf.paginate("ec2", region, "describe_launch_templates", "LaunchTemplates"),
-                    region))
+                inventory["images"].extend(
+                    self._tag_region(
+                        cf.paginate("ec2", region, "describe_images", "Images", Owners=["self"]), region
+                    )
+                )
+                inventory["launch_templates"].extend(
+                    self._tag_region(
+                        cf.paginate("ec2", region, "describe_launch_templates", "LaunchTemplates"), region
+                    )
+                )
             except AccessDenied as exc:
                 gaps.append(("ec2", GapReason.ACCESS_DENIED, f"{region}: {exc.message}"))
             except ServiceNotEnabled:
@@ -117,8 +129,7 @@ class Ec2Collector(Collector):
         notes = f"{len(inventory['instances'])} instances, {len(inventory['snapshots'])} snapshots"
         if shared or public:
             notes += (
-                f"; {len(shared)} snapshot(s) shared cross-account, "
-                f"{len(public)} public — review for exfil"
+                f"; {len(shared)} snapshot(s) shared cross-account, {len(public)} public — review for exfil"
             )
         return SourceResult(
             name=self.name,
@@ -166,8 +177,11 @@ class Ec2Collector(Collector):
             try:
                 stats["looked_up"] += 1
                 perms = cf.call(
-                    "ec2", region, "describe_snapshot_attribute",
-                    SnapshotId=sid, Attribute="createVolumePermission",
+                    "ec2",
+                    region,
+                    "describe_snapshot_attribute",
+                    SnapshotId=sid,
+                    Attribute="createVolumePermission",
                 ).get("CreateVolumePermissions", [])
             except AccessDenied as exc:
                 if not denied_once:
@@ -183,9 +197,7 @@ class Ec2Collector(Collector):
                 snap["_ventra_public"] = True
         return stats
 
-    def _enrich_user_data(
-        self, cf, instances: list[dict], gaps: list[tuple[str, GapReason, str]]
-    ) -> int:
+    def _enrich_user_data(self, cf, instances: list[dict], gaps: list[tuple[str, GapReason, str]]) -> int:
         """Attach base64 user-data to each instance where readable."""
         captured = 0
         looked_up = 0
@@ -196,8 +208,7 @@ class Ec2Collector(Collector):
                     (
                         "ec2_user_data",
                         GapReason.COLLECTOR_ERROR,
-                        f"User-data lookups capped at {MAX_USER_DATA_LOOKUPS} "
-                        f"of {len(instances)} instances.",
+                        f"User-data lookups capped at {MAX_USER_DATA_LOOKUPS} of {len(instances)} instances.",
                     )
                 )
                 break
@@ -207,10 +218,17 @@ class Ec2Collector(Collector):
                 continue
             try:
                 looked_up += 1
-                value = cf.call(
-                    "ec2", region, "describe_instance_attribute",
-                    InstanceId=iid, Attribute="userData",
-                ).get("UserData", {}).get("Value")
+                value = (
+                    cf.call(
+                        "ec2",
+                        region,
+                        "describe_instance_attribute",
+                        InstanceId=iid,
+                        Attribute="userData",
+                    )
+                    .get("UserData", {})
+                    .get("Value")
+                )
             except AccessDenied as exc:
                 if not denied_once:
                     denied_once = True

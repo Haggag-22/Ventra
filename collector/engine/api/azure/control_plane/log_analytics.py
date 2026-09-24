@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from collector.lib.base import Collector
 from collector.lib.models import SourceResult
+
 from ..common.log_analytics import collect_log_analytics
 
 

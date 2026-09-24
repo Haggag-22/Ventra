@@ -74,14 +74,17 @@ def lookup_collector(tmp_path: Path) -> CloudTrailCollector:
 def test_lookup_mode_collect_skips_s3_and_validation(lookup_collector: CloudTrailCollector) -> None:
     cf: _Cf = lookup_collector.ctx.client_factory  # type: ignore[assignment]
 
-    with patch.object(
-        lookup_collector,
-        "_validate_trail_logs",
-        side_effect=AssertionError("validate_trail_logs must not run in lookup mode"),
-    ), patch.object(
-        lookup_collector,
-        "_collect_s3_category",
-        side_effect=AssertionError("_collect_s3_category must not run in lookup mode"),
+    with (
+        patch.object(
+            lookup_collector,
+            "_validate_trail_logs",
+            side_effect=AssertionError("validate_trail_logs must not run in lookup mode"),
+        ),
+        patch.object(
+            lookup_collector,
+            "_collect_s3_category",
+            side_effect=AssertionError("_collect_s3_category must not run in lookup mode"),
+        ),
     ):
         result = lookup_collector.collect()
 

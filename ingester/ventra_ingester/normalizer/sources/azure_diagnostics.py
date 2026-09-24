@@ -80,8 +80,16 @@ def _normalize_web(rec: dict, ctx: NormalizeContext, source: str, service: str) 
     if ip:
         msg = f"{ip} {msg}"
     return _diag_event(
-        rec, ctx, source=source, service=service, category=["web"],
-        action=action, message=msg, source_ip=ip, severity=severity, outcome=outcome,
+        rec,
+        ctx,
+        source=source,
+        service=service,
+        category=["web"],
+        action=action,
+        message=msg,
+        source_ip=ip,
+        severity=severity,
+        outcome=outcome,
     )
 
 
@@ -92,10 +100,15 @@ def _normalize_dns(rec: dict, ctx: NormalizeContext) -> UnifiedEvent:
     src = str(p.get("SourceIp") or p.get("clientIP") or "")
     outcome = "failure" if rcode.upper() in {"NXDOMAIN", "SERVFAIL", "REFUSED"} else "success"
     return _diag_event(
-        rec, ctx, source="dns", service="dns", category=["network"],
+        rec,
+        ctx,
+        source="dns",
+        service="dns",
+        category=["network"],
         action=f"dns-query:{p.get('QueryType', p.get('queryType', ''))}",
         message=f"{qname} → {rcode}" if qname else "DNS query",
-        source_ip=src, outcome=outcome,
+        source_ip=src,
+        outcome=outcome,
     )
 
 
@@ -108,9 +121,16 @@ def _normalize_storage(rec: dict, ctx: NormalizeContext) -> UnifiedEvent:
     status = str(p.get("statusCode") or p.get("statusText") or "")
     outcome = "failure" if status.startswith(("4", "5")) else "success"
     return _diag_event(
-        rec, ctx, source="storage_access", service="storage", category=["data"],
-        action=op, message=f"{op} {uri}".strip() or op,
-        source_ip=caller, user_name=auth, outcome=outcome,
+        rec,
+        ctx,
+        source="storage_access",
+        service="storage",
+        category=["data"],
+        action=op,
+        message=f"{op} {uri}".strip() or op,
+        source_ip=caller,
+        user_name=auth,
+        outcome=outcome,
     )
 
 
@@ -118,13 +138,22 @@ def _normalize_key_vault(rec: dict, ctx: NormalizeContext) -> UnifiedEvent:
     p = _props(rec)
     op = str(p.get("operationName") or "AuditEvent")
     caller = str(p.get("callerIpAddress") or p.get("clientIp") or "")
-    identity = str(p.get("identity", {}).get("claim", {}).get("upn", "") if isinstance(p.get("identity"), dict) else "")
+    identity = str(
+        p.get("identity", {}).get("claim", {}).get("upn", "") if isinstance(p.get("identity"), dict) else ""
+    )
     result = str(p.get("resultSignature") or p.get("resultType") or "")
     outcome = "failure" if result.lower() in {"unauthorized", "failure"} else "success"
     return _diag_event(
-        rec, ctx, source="key_vault", service="keyvault", category=["data"],
-        action=op, message=f"Key Vault {op}" + (f" by {identity}" if identity else ""),
-        source_ip=caller, user_name=identity, outcome=outcome,
+        rec,
+        ctx,
+        source="key_vault",
+        service="keyvault",
+        category=["data"],
+        action=op,
+        message=f"Key Vault {op}" + (f" by {identity}" if identity else ""),
+        source_ip=caller,
+        user_name=identity,
+        outcome=outcome,
     )
 
 
@@ -137,9 +166,15 @@ def normalize_azure_firewall(records: list[dict], ctx: NormalizeContext) -> Iter
         dst = str(p.get("destIp") or p.get("destinationIp") or "")
         action = str(p.get("action") or "flow")
         yield _diag_event(
-            rec, ctx, source="azure_firewall", service="firewall", category=["network"],
-            action=action, message=f"{src} → {dst}: {msg}" if src else msg,
-            source_ip=src, outcome="failure" if action.lower() == "deny" else "success",
+            rec,
+            ctx,
+            source="azure_firewall",
+            service="firewall",
+            category=["network"],
+            action=action,
+            message=f"{src} → {dst}: {msg}" if src else msg,
+            source_ip=src,
+            outcome="failure" if action.lower() == "deny" else "success",
         )
 
 

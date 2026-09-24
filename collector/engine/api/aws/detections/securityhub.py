@@ -9,13 +9,12 @@ from __future__ import annotations
 
 from botocore.exceptions import ClientError
 
+from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from collector.lib.base import Collector
+from collector.lib.limits import records_unlimited
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import effective_window
 from collector.lib.scoping import filter_securityhub_findings
-from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
-
-from collector.lib.limits import records_unlimited
 
 
 class SecurityHubCollector(Collector):
@@ -50,22 +49,24 @@ class SecurityHubCollector(Collector):
                 continue
             try:
                 standards.extend(
-                    cf.call("securityhub", region, "get_enabled_standards").get(
-                        "StandardsSubscriptions", []
-                    )
+                    cf.call("securityhub", region, "get_enabled_standards").get("StandardsSubscriptions", [])
                 )
                 for f in cf.paginate(
-                    "securityhub", region, "get_findings", "Findings",
+                    "securityhub",
+                    region,
+                    "get_findings",
+                    "Findings",
                     Filters={"RecordState": [{"Value": "ACTIVE", "Comparison": "EQUALS"}]},
                     MaxResults=100,
                 ):
                     if not records_unlimited(cap) and len(findings) >= cap:
                         truncated = True
                         break
-                    updated = (f.get("UpdatedAt") or f.get("CreatedAt") or "")
+                    updated = f.get("UpdatedAt") or f.get("CreatedAt") or ""
                     if updated:
                         try:
                             from datetime import datetime
+
                             ts = datetime.fromisoformat(str(updated).replace("Z", "+00:00"))
                             if ts < start or ts > end:
                                 continue

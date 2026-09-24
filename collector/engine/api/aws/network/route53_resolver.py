@@ -3,17 +3,18 @@
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
 from botocore.exceptions import ClientError
 
+from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.limits import DEFAULT_MAX_RECORDS
 from collector.lib.models import GapReason, SourceResult, SourceStatus
-from collector.lib.params import effective_window, param_strings
+from collector.lib.params import effective_window
 from collector.lib.scoping import filter_route53_query_log_configs
-from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
+
 from ..common.s3_logs import bucket_region, collect_s3_line_records, slash_day_prefixes
 
 DEFAULT_WINDOW_DAYS = 7
@@ -42,7 +43,15 @@ class Route53ResolverCollector(Collector):
 
         configs, associations = self._discover(cf, gaps)
         configs = filter_route53_query_log_configs(
-            [{**c, "associations": [a for a in associations if a.get("ResolverQueryLogConfigId") == c.get("Id")]} for c in configs],
+            [
+                {
+                    **c,
+                    "associations": [
+                        a for a in associations if a.get("ResolverQueryLogConfigId") == c.get("Id")
+                    ],
+                }
+                for c in configs
+            ],
             params,
         )
         if not configs:
@@ -87,9 +96,7 @@ class Route53ResolverCollector(Collector):
                 if dest.startswith("arn:aws:s3"):
                     self._from_s3(cf, dest, vpcs, start, end, gaps, writer=writer, max_records=cap)
                 elif ":logs:" in dest:
-                    self._from_cloudwatch(
-                        cf, config, dest, start, end, gaps, writer=writer, max_records=cap
-                    )
+                    self._from_cloudwatch(cf, config, dest, start, end, gaps, writer=writer, max_records=cap)
                 else:
                     gaps.append(
                         (
@@ -163,9 +170,7 @@ class Route53ResolverCollector(Collector):
                 ):
                     associations.append(a)
             except AccessDenied as exc:
-                gaps.append(
-                    ("route53_resolver", GapReason.ACCESS_DENIED, f"{region}: {exc.message}")
-                )
+                gaps.append(("route53_resolver", GapReason.ACCESS_DENIED, f"{region}: {exc.message}"))
             except (ServiceNotEnabled, ClientError):
                 continue
         return configs, associations

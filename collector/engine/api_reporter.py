@@ -201,15 +201,11 @@ class ApiReporter(RunReporter):
         self.matrix.start_step(name, msg)
         self._log_event("start", collector=name)
         if msg:
-            self._sink.append_event(
-                self.run_id, {"type": "event", "collector": name, "message": msg}
-            )
+            self._sink.append_event(self.run_id, {"type": "event", "collector": name, "message": msg})
 
     def step_event(self, name: str, msg: str) -> None:
         super().step_event(name, msg)
-        self._sink.append_event(
-            self.run_id, {"type": "event", "collector": name, "message": msg}
-        )
+        self._sink.append_event(self.run_id, {"type": "event", "collector": name, "message": msg})
         if self.should_cancel():
             return
         self.matrix.event(name, msg)
@@ -281,9 +277,7 @@ class ApiReporter(RunReporter):
         path = out / "collection_matrix.csv"
         with path.open("w", newline="", encoding="utf-8") as fh:
             w = csv.writer(fh)
-            w.writerow(
-                ["status", "account", "scope", "check", "severity", "records", "elapsed_s", "detail"]
-            )
+            w.writerow(["status", "account", "scope", "check", "severity", "records", "elapsed_s", "detail"])
             for r in self.matrix.finished_csv_rows:
                 w.writerow(
                     [

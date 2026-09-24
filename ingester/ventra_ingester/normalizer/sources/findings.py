@@ -81,7 +81,7 @@ def normalize_guardduty(records: list[dict], ctx: NormalizeContext) -> Iterator[
         )
         ip = remote.get("IpAddressV4", "")
         resource = f.get("Resource", {}) or {}
-        access_key = (resource.get("AccessKeyDetails", {}) or {})
+        access_key = resource.get("AccessKeyDetails", {}) or {}
         user = access_key.get("UserName", "") or access_key.get("PrincipalId", "")
         yield UnifiedEvent(
             timestamp=f.get("UpdatedAt", f.get("CreatedAt", "")),

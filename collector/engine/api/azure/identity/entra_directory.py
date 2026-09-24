@@ -9,13 +9,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 from collector.lib.base import Collector
+from collector.lib.limits import DEFAULT_MAX_RECORDS as MAX_RECORDS
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import param_strings
 from collector.lib.scoping import matches_any
-from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
-
-from collector.lib.limits import DEFAULT_MAX_RECORDS as MAX_RECORDS
 
 
 class EntraDirectoryCollector(Collector):
@@ -49,23 +48,23 @@ class EntraDirectoryCollector(Collector):
         )
         for key, path in endpoints:
             try:
-                snapshot[key] = list(
-                    cf.graph_paginate(path, params={"$top": 999}, max_records=cap)
-                )
+                snapshot[key] = list(cf.graph_paginate(path, params={"$top": 999}, max_records=cap))
             except AzureAccessDenied as exc:
                 gaps.append(("entra_directory", GapReason.ACCESS_DENIED, f"{path}: {exc.message}"))
             except AzureServiceNotEnabled as exc:
-                gaps.append(
-                    ("entra_directory", GapReason.SERVICE_NOT_ENABLED, f"{path}: {exc.message}")
-                )
+                gaps.append(("entra_directory", GapReason.SERVICE_NOT_ENABLED, f"{path}: {exc.message}"))
 
         user_ids = param_strings(artifact_params, "user_ids")
         group_ids = param_strings(artifact_params, "group_ids")
         app_ids = param_strings(artifact_params, "app_ids")
         if user_ids:
-            snapshot["users"] = [u for u in snapshot["users"] if matches_any(str(u.get("id") or ""), user_ids)]
+            snapshot["users"] = [
+                u for u in snapshot["users"] if matches_any(str(u.get("id") or ""), user_ids)
+            ]
         if group_ids:
-            snapshot["groups"] = [g for g in snapshot["groups"] if matches_any(str(g.get("id") or ""), group_ids)]
+            snapshot["groups"] = [
+                g for g in snapshot["groups"] if matches_any(str(g.get("id") or ""), group_ids)
+            ]
         if app_ids:
             snapshot["applications"] = [
                 a for a in snapshot["applications"] if matches_any(str(a.get("id") or ""), app_ids)

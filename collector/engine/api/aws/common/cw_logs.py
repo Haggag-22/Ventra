@@ -10,10 +10,10 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from collector.lib.base import JsonlWriter
 from collector.lib.limits import DEFAULT_MAX_RECORDS, records_unlimited
 from collector.lib.models import GapReason
-from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
 MAX_CW_RECORDS = DEFAULT_MAX_RECORDS
 
@@ -90,7 +90,5 @@ def collect_cw_log_events(
     except AccessDenied as exc:
         gaps.append((gap_name, GapReason.ACCESS_DENIED, f"{log_group}: {exc.message}"))
     except ServiceNotEnabled as exc:
-        gaps.append(
-            (gap_name, GapReason.NOT_PRESENT, f"{log_group}: log group not found ({exc.message})")
-        )
+        gaps.append((gap_name, GapReason.NOT_PRESENT, f"{log_group}: log group not found ({exc.message})"))
     return events, stats

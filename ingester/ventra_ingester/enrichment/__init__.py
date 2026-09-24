@@ -5,6 +5,6 @@ IP / known-cloud classifier and optional GeoIP/ASN if a local database is provid
 matching runs against a per-case list supplied by the analyst.
 """
 
-from .enrich import enrich_events, Enricher
+from .enrich import Enricher, enrich_events
 
 __all__ = ["enrich_events", "Enricher"]

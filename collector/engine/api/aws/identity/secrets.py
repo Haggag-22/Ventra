@@ -7,10 +7,10 @@ CloudTrail; this inventory tells the analyst what was reachable.
 
 from __future__ import annotations
 
+from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.scoping import filter_secrets
-from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
 
 class SecretsCollector(Collector):

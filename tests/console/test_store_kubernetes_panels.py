@@ -40,9 +40,14 @@ def test_case_summary_identifies_the_cluster(k8s_store_case) -> None:
     assert summary["account_alias"] == "v1.30.2"  # server version
     # Every collector that produced events is represented, so the case header counts match.
     assert set(summary["by_source"]) >= {
-        "k8s_apiserver_audit", "k8s_events", "k8s_cluster_state", "k8s_rbac",
-        "k8s_kubelet_logs", "k8s_runtime_logs",
-        "k8s_etcd", "k8s_audit_posture",
+        "k8s_apiserver_audit",
+        "k8s_events",
+        "k8s_cluster_state",
+        "k8s_rbac",
+        "k8s_kubelet_logs",
+        "k8s_runtime_logs",
+        "k8s_etcd",
+        "k8s_audit_posture",
     }
     assert summary["by_severity"].get("critical", 0) >= 1
     assert summary["integrity"]
@@ -67,8 +72,11 @@ def test_cluster_timeline_reconstructs_the_attack_sequence(k8s_store_case) -> No
 
     # The miner pod's own state event sits on the same timeline as the audit entry that
     # created it, which is what makes the two correlatable.
-    miner = [r for r in rows if r["resource_id"] == "kube-system/kube-proxy-metrics"
-             and r["event_action"] == "PodSnapshot"]
+    miner = [
+        r
+        for r in rows
+        if r["resource_id"] == "kube-system/kube-proxy-metrics" and r["event_action"] == "PodSnapshot"
+    ]
     assert miner and miner[0]["timestamp"]
 
 
@@ -86,8 +94,7 @@ def test_resource_inventory_uses_the_kubernetes_rollups(k8s_store_case) -> None:
     store, case_id = k8s_store_case
     inv = store.inventory_summary(case_id)
     names = [c["name"] for c in inv["categories"]]
-    assert names == ["Workloads", "Cluster & storage", "Identity & admission",
-                     "Flagged for review"]
+    assert names == ["Workloads", "Cluster & storage", "Identity & admission", "Flagged for review"]
     # No AWS rows leak into a Kubernetes case.
     ids = {i["id"] for c in inv["categories"] for i in c["items"]}
     assert all(i.startswith("k8s_") for i in ids)
@@ -162,8 +169,11 @@ def test_event_facets_let_an_analyst_pivot_on_the_cluster(k8s_store_case) -> Non
 
     # Subjects: the human, the compromised ServiceAccount, and the anonymous probe.
     users = {f["value"] for f in facets.get("user_name", [])}
-    assert {"mallory@contractor.example", "system:serviceaccount:prod:web-runner",
-            "system:anonymous"} <= users
+    assert {
+        "mallory@contractor.example",
+        "system:serviceaccount:prod:web-runner",
+        "system:anonymous",
+    } <= users
 
     # Where it came from, and which node the node-plane evidence belongs to.
     assert "203.0.113.66" in {f["value"] for f in facets.get("source_ip", [])}

@@ -31,13 +31,16 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from . import __version__
-from .lib.models import GapReason, SourceStatus, utcnow_iso
 from .engine.matrix_state import (
     ARTIFACT_SEVERITY as _ARTIFACT_SEV,
-    DEFAULT_SEVERITY as _SEVERITY,
-    MatrixState,
-    classify as _classify,
 )
+from .engine.matrix_state import (
+    DEFAULT_SEVERITY as _SEVERITY,
+)
+from .engine.matrix_state import (
+    MatrixState,
+)
+from .lib.models import utcnow_iso
 from .lib.transport import get_transport
 
 if TYPE_CHECKING:
@@ -353,9 +356,7 @@ def build_parser(*, prog: str = "ventra") -> argparse.ArgumentParser:
 
     def _add_gui_args(parser: argparse.ArgumentParser) -> None:
         parser.add_argument("--port", type=int, default=8080, help="Frontend port (default: 8080).")
-        parser.add_argument(
-            "--backend-port", type=int, default=8000, help="Backend port (default: 8000)."
-        )
+        parser.add_argument("--backend-port", type=int, default=8000, help="Backend port (default: 8000).")
         parser.add_argument("--no-open", action="store_true", help="Do not open a browser tab.")
         parser.add_argument(
             "--setup",
@@ -649,10 +650,7 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
             )
             self._order = list(self._matrix.order)
             self._regions = list(regions)
-            region_str = (
-                ", ".join(regions) if regions and len(regions) <= 6
-                else f"{len(regions)} region(s)"
-            )
+            region_str = ", ".join(regions) if regions and len(regions) <= 6 else f"{len(regions)} region(s)"
             ts = utcnow_iso()
 
             if self._json:
@@ -679,9 +677,7 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
                     f"   [bright_black]Started[/] [bold]{ts}[/]"
                 )
                 if plan_label:
-                    self._console.print(
-                        f"  [bright_black]Plan[/] [bold]{escape(plan_label)}[/]"
-                    )
+                    self._console.print(f"  [bright_black]Plan[/] [bold]{escape(plan_label)}[/]")
                 for line in preflight_lines or []:
                     self._console.print(f"  {line}")
                 self._console.print()
@@ -714,9 +710,7 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
                     glyph = self._spinner
                     msg = row.live_msg or "collecting…"
                     detail = f"[yellow]{escape(msg)}[/yellow]"
-                    records = (
-                        f"{row.records:,}" if isinstance(row.records, int) else "[dim]·[/dim]"
-                    )
+                    records = f"{row.records:,}" if isinstance(row.records, int) else "[dim]·[/dim]"
                     started = self._matrix._started_at.get(name)
                     live = _fmt_dur(time.monotonic() - started) if started else ""
                     time_cell = f"[dim]{live}[/dim]"
@@ -724,16 +718,12 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
                     done += 1
                     glyph = _PASS if status == "pass" else _FAIL
                     detail = escape(row.detail or "")
-                    records = (
-                        f"{row.records:,}" if isinstance(row.records, int) else "[dim]-[/dim]"
-                    )
+                    records = f"{row.records:,}" if isinstance(row.records, int) else "[dim]-[/dim]"
                     elapsed_s = row.elapsed_ms / 1000 if row.elapsed_ms is not None else None
                     time_cell = f"[bright_black]{_fmt_dur(elapsed_s)}[/]"
                 sev = row.severity
                 sev_cell = f"[{_SEV_COLOR.get(sev, 'white')}]{sev}[/]"
-                name_cell = (
-                    f"[dim]{name.upper()}[/dim]" if status == "pending" else name.upper()
-                )
+                name_cell = f"[dim]{name.upper()}[/dim]" if status == "pending" else name.upper()
                 table.add_row(glyph, name_cell, sev_cell, records, time_cell, detail)
             total = len(self._matrix.order)
             cap = f"[bright_black]{done}/{total} complete[/]"
@@ -827,10 +817,7 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
             else:
                 print(f"[+] Complete: {passed} pass, {failed} fail")
                 for g in gaps:
-                    print(
-                        f"    GAP {g['severity']:<6} {g['collector'].upper():<16} "
-                        f"{g['detail'] or ''}"
-                    )
+                    print(f"    GAP {g['severity']:<6} {g['collector'].upper():<16} {g['detail'] or ''}")
 
         def write_matrix_csv(self, out_dir) -> Path:
             import csv
@@ -841,13 +828,20 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
             with path.open("w", newline="", encoding="utf-8") as fh:
                 w = csv.writer(fh)
                 w.writerow(
-                    ["status", "account", "scope", "check", "severity", "records",
-                     "elapsed_s", "detail"]
+                    ["status", "account", "scope", "check", "severity", "records", "elapsed_s", "detail"]
                 )
                 for r in self._matrix.finished_csv_rows:
                     w.writerow(
-                        [r["label"], self._matrix.account_id, r["scope"], r["check"],
-                         r["severity"], r["tag"], r["elapsed"], r["desc"]]
+                        [
+                            r["label"],
+                            self._matrix.account_id,
+                            r["scope"],
+                            r["check"],
+                            r["severity"],
+                            r["tag"],
+                            r["elapsed"],
+                            r["desc"],
+                        ]
                     )
             return path
 
@@ -855,17 +849,10 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
             self, label: str, name: str, severity: str, records: str, elapsed: str, detail: str
         ) -> None:
             if not self._plain_header:
-                print(
-                    f"{'STATUS':<6} {'COLLECTOR':<16} {'SEVERITY':<8} {'RECORDS':>10} "
-                    f"{'TIME':>7}  DETAIL"
-                )
+                print(f"{'STATUS':<6} {'COLLECTOR':<16} {'SEVERITY':<8} {'RECORDS':>10} {'TIME':>7}  DETAIL")
                 print("─" * 88)
                 self._plain_header = True
-            print(
-                f"{label:<6} {name.upper():<16} {severity:<8} {records:>10} "
-                f"{elapsed:>7}  {detail}"
-            )
-
+            print(f"{label:<6} {name.upper():<16} {severity:<8} {records:>10} {elapsed:>7}  {detail}")
 
     return MatrixReporter(), console
 
@@ -922,8 +909,7 @@ def _azure_auth_from_args(args) -> AzureAuthOptions:
             getattr(args, "client_secret", "") or os.environ.get("AZURE_CLIENT_SECRET", "")
         ).strip(),
         client_certificate_path=(
-            getattr(args, "client_certificate", "")
-            or os.environ.get("AZURE_CLIENT_CERTIFICATE_PATH", "")
+            getattr(args, "client_certificate", "") or os.environ.get("AZURE_CLIENT_CERTIFICATE_PATH", "")
         ).strip(),
     )
 
@@ -959,8 +945,7 @@ def _resolve_collectors(requested: str, all_names: list[str], registry) -> list[
     unknown = [n for n in wanted if n not in known]
     if unknown:
         raise ValueError(
-            f"Unknown collector(s): {', '.join(unknown)}. "
-            f"Use --list-collectors to see valid names."
+            f"Unknown collector(s): {', '.join(unknown)}. Use --list-collectors to see valid names."
         )
     order = {name: i for i, name in enumerate(all_names)}
     return sorted(wanted, key=lambda n: order.get(n, len(all_names)))
@@ -1048,9 +1033,7 @@ def _plan_collection(args, cloud: str, all_names: list[str], registry):
     if getattr(args, "acquisition", ""):
         spec = load_acquisition(Path(args.acquisition))
         if spec.cloud and spec.cloud != cloud:
-            raise ValueError(
-                f"acquisition cloud {spec.cloud!r} does not match `collect {cloud}`."
-            )
+            raise ValueError(f"acquisition cloud {spec.cloud!r} does not match `collect {cloud}`.")
         names, refs = resolve_collectors_from_acquisition(spec, artifacts_root)
         return names, refs, spec.case_id, spec.engagement_id, spec
     if getattr(args, "pack", ""):
@@ -1394,9 +1377,7 @@ def _gcp_project_from_args(args) -> str | None:
 def _gcp_credentials_from_args(args) -> str | None:
     import os
 
-    raw = (
-        getattr(args, "credentials", "") or os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "")
-    ).strip()
+    raw = (getattr(args, "credentials", "") or os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "")).strip()
     return raw or None
 
 

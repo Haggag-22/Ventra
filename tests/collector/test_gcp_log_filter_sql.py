@@ -13,6 +13,7 @@ import json
 from datetime import UTC, datetime
 
 import pytest
+
 from collector.engine import gcp_strategy_resolver as resolver
 from collector.engine.gcp_log_backend import _SHARED_GROUP_FILTERS
 from collector.engine.gcp_log_export import (
@@ -33,6 +34,7 @@ from collector.engine.gcp_log_filter_sql import (
 )
 
 # --- corpus -------------------------------------------------------------------------------
+
 
 def _corpus() -> list[dict]:
     """Raw (un-normalised) entries spanning every atom the real filters touch, plus edge shapes."""
@@ -138,8 +140,8 @@ def _real_filters() -> list[str]:
 
 _EXTRA_FILTERS = [
     "",  # empty -> everything
-    'severity>=WARNING',
-    'severity>=ERROR',
+    "severity>=WARNING",
+    "severity>=ERROR",
     'resource.type="global" AND severity>=WARNING',
     'protoPayload.methodName=("storage.objects.get" OR "v1.compute.instances.insert")',
     'protoPayload.serviceName="storage.googleapis.com"',
@@ -225,10 +227,7 @@ def test_nanosecond_timestamps_under_window_match_python() -> None:
             and matches_gcp_log_filter(e, f)
         ):
             expected.append(e)
-    got = [
-        normalize_log_entry(e)
-        for e in duckdb_filter_raw_entries(corpus, f, start=start, end=end)
-    ]
+    got = [normalize_log_entry(e) for e in duckdb_filter_raw_entries(corpus, f, start=start, end=end)]
     assert got == expected
 
 
@@ -249,7 +248,7 @@ def test_matcher_disabled_by_env(monkeypatch) -> None:
 
 def test_matcher_untranslatable_atom_falls_back() -> None:
     # boolean truthiness form is intentionally not translated -> Python path, same result.
-    f = 'jsonPayload.cacheHit=true'
+    f = "jsonPayload.cacheHit=true"
     m = GcpEntryMatcher(f)
     assert m.using_duckdb is False
     assert m.filter_batch(_corpus()) == _py_reference(_corpus(), f)
@@ -286,6 +285,7 @@ def test_missing_fields_and_null_presence() -> None:
 
 
 # --- spool replay -------------------------------------------------------------------------
+
 
 def _write_spool(tmp_path, entries: list[dict]):
     path = tmp_path / "spool.jsonl.gz"
@@ -355,6 +355,7 @@ def test_build_entry_where_is_true_for_trivial() -> None:
 
 # --- Task 1: unknown filter atoms fail loud on BOTH paths --------------------------------
 
+
 @pytest.mark.parametrize("f", _UNKNOWN_ATOM_FILTERS)
 def test_unknown_atom_raises_on_python_path(f: str) -> None:
     # Entry satisfies the leading clause so AND-evaluation isn't short-circuited before the
@@ -406,6 +407,7 @@ def test_boolean_form_is_recognised_not_unknown() -> None:
 
 
 # --- Task 2: unparseable/missing timestamps fail closed + counted ------------------------
+
 
 def _windowed_corpus() -> list[dict]:
     return [

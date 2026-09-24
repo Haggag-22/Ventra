@@ -219,9 +219,7 @@ def build_kit(
             entry["parameters"] = dict(params)
         acq["artifacts"].append(entry)
 
-    (staging / "acquisition.yaml").write_text(
-        yaml.safe_dump(acq, sort_keys=False), encoding="utf-8"
-    )
+    (staging / "acquisition.yaml").write_text(yaml.safe_dump(acq, sort_keys=False), encoding="utf-8")
 
     art_dir = staging / "artifacts"
     art_dir.mkdir()

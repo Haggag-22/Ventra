@@ -5,12 +5,12 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 from typing import Any, Iterator
 
+from collector.clouds.gcp.client_factory import GcpAccessDenied, GcpRateLimited, GcpServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.limits import records_unlimited
 from collector.lib.models import GapReason, SourceResult, SourceStatus, TimeWindow
 from collector.lib.params import logging_window, param_int, param_raw, param_strings
 from collector.lib.scoping import gcp_logging_filter_extension
-from collector.clouds.gcp.client_factory import GcpAccessDenied, GcpRateLimited, GcpServiceNotEnabled
 
 DEFAULT_WINDOW_DAYS = 90
 from collector.lib.limits import DEFAULT_MAX_RECORDS as MAX_RECORDS
@@ -198,9 +198,7 @@ class GcpLoggingCollector(Collector):
                                 truncated = True
                                 break
                     except GcpAccessDenied as exc:
-                        gaps.append(
-                            (self.name, GapReason.ACCESS_DENIED, f"{project_id}: {exc.message}")
-                        )
+                        gaps.append((self.name, GapReason.ACCESS_DENIED, f"{project_id}: {exc.message}"))
                         continue
                     except GcpServiceNotEnabled as exc:
                         gaps.append(
@@ -208,9 +206,7 @@ class GcpLoggingCollector(Collector):
                         )
                         continue
                     except GcpRateLimited as exc:
-                        gaps.append(
-                            (self.name, GapReason.RATE_LIMITED, f"{project_id}: {exc.message}")
-                        )
+                        gaps.append((self.name, GapReason.RATE_LIMITED, f"{project_id}: {exc.message}"))
                         continue
 
                     per_project.append(

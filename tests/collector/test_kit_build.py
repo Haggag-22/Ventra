@@ -11,7 +11,7 @@ import yaml
 
 from collector.cli import main
 from collector.engine.acquisition import load_acquisition, resolve_collectors_from_acquisition
-from collector.kit.build import _bundle_wheel, _download_pypi_wheel, build_kit
+from collector.kit.build import _bundle_wheel, build_kit
 from collector.kit.preview import preview_kit
 
 ARTIFACTS = Path("artifacts")
@@ -52,8 +52,6 @@ def test_build_kit_full_schema_acquisition(tmp_path: Path) -> None:
     assert "vpc_flow" not in entry
 
 
-
-
 def test_build_kit_aws_profile(tmp_path: Path) -> None:
     out = build_kit(
         tmp_path / "kit.zip",
@@ -71,6 +69,7 @@ def test_build_kit_aws_profile(tmp_path: Path) -> None:
     acq_path.write_text(yaml.dump(acq))
     spec = load_acquisition(acq_path)
     assert spec.aws_profile == "default"
+
 
 def test_kit_acquisition_roundtrips(tmp_path: Path) -> None:
     out = build_kit(
@@ -117,8 +116,20 @@ def test_build_kit_no_match_raises(tmp_path: Path) -> None:
 
 def test_cli_kit_build(tmp_path: Path, capsys) -> None:
     out = tmp_path / "kit.zip"
-    code = main(["kit", "build", "--cloud", "gcp", "--pack", "baseline-ir-gcp",
-                 "--case", "CASE-CLI", "--out", str(out)])
+    code = main(
+        [
+            "kit",
+            "build",
+            "--cloud",
+            "gcp",
+            "--pack",
+            "baseline-ir-gcp",
+            "--case",
+            "CASE-CLI",
+            "--out",
+            str(out),
+        ]
+    )
     assert code == 0
     assert out.is_file()
     with zipfile.ZipFile(out) as zf:

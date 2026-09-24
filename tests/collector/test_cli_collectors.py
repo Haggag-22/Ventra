@@ -46,9 +46,7 @@ def test_plan_collection_pack() -> None:
 
 def test_plan_collection_acquisition(tmp_path: Path) -> None:
     acq = tmp_path / "acquisition.yaml"
-    acq.write_text(
-        "case_id: CASE-ACQ\ncloud: gcp\nartifacts: [scc_findings, project]\n", encoding="utf-8"
-    )
+    acq.write_text("case_id: CASE-ACQ\ncloud: gcp\nartifacts: [scc_findings, project]\n", encoding="utf-8")
     names, refs, case_id, eng, spec = _plan_collection(
         _gcp_args(["--acquisition", str(acq)]), "gcp", list(GCP_COLLECTOR_ORDER), GCP_REGISTRY
     )

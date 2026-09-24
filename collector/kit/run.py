@@ -11,7 +11,7 @@ from typing import Any
 
 from collector import __version__
 
-from .format import KitExpiredError, KitError, assert_kit_usable, format_iso, open_kit, utcnow
+from .format import KitError, KitExpiredError, assert_kit_usable, format_iso, open_kit, utcnow
 
 
 @dataclass
@@ -103,7 +103,9 @@ def _apply_azure_credentials(kit: OpenKit) -> dict[str, str]:
     tenant = str(data.get("azure_tenant_id") or acq.get("azure_tenant_id") or "").strip()
     client = str(data.get("azure_client_id") or acq.get("azure_client_id") or "").strip()
     secret = str(data.get("azure_client_secret") or "").strip()
-    cert_rel = str(data.get("azure_client_certificate_path") or acq.get("azure_client_certificate") or "").strip()
+    cert_rel = str(
+        data.get("azure_client_certificate_path") or acq.get("azure_client_certificate") or ""
+    ).strip()
     if tenant:
         os.environ["AZURE_TENANT_ID"] = tenant
     if client:
@@ -549,9 +551,7 @@ def _execute_collection(
         )
         case_id = args.case or case_override
         reporter, _console = _cli_reporter(quiet=False, json_mode=False, cloud="kubernetes")
-        labels, sevs = _artifact_matrix_meta(
-            "kubernetes", artifact_refs, _artifacts_root_from_args(args)
-        )
+        labels, sevs = _artifact_matrix_meta("kubernetes", artifact_refs, _artifacts_root_from_args(args))
         kc = k8s_creds or {}
         cfg = KubernetesRunConfig(
             case_id=case_id,
@@ -593,9 +593,7 @@ def _collector_rows_from_reporter(reporter: Any, collectors: list[str]) -> list[
         return rows
     finished = getattr(matrix, "finished_csv_rows", None) if matrix is not None else None
     if isinstance(finished, list) and finished:
-        by_check = {
-            str(r.get("check") or "").lower(): r for r in finished if isinstance(r, dict)
-        }
+        by_check = {str(r.get("check") or "").lower(): r for r in finished if isinstance(r, dict)}
         for name in collectors:
             r = by_check.get(name.lower()) or by_check.get(name.upper())
             if not r:

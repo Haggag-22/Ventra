@@ -53,9 +53,7 @@ __all__ = ["GcpRunConfig", "run_gcp_collection", "parse_window"]
 SCHEMA_VERSION = "1.0.0"
 
 
-def _source_result_for_dedup(
-    name: str, broad: str, outcome: CollectorOutcome, note: str
-) -> SourceResult:
+def _source_result_for_dedup(name: str, broad: str, outcome: CollectorOutcome, note: str) -> SourceResult:
     if outcome.status == STATUS_COLLECTED:
         return SourceResult(
             name=name,
@@ -121,9 +119,7 @@ class GcpRunConfig:
     pipeline_steps: list[str] = field(default_factory=list)
 
 
-def run_gcp_collection(
-    cfg: GcpRunConfig, *, factory: GcpClientFactory | None = None
-) -> PackageResult:
+def run_gcp_collection(cfg: GcpRunConfig, *, factory: GcpClientFactory | None = None) -> PackageResult:
     started = utcnow_iso()
     if factory is None:
         raw = (cfg.gcp_service_account_json or "").strip()
@@ -227,9 +223,7 @@ def run_gcp_collection(
         }
 
         active_logging = [
-            c
-            for c in run_list
-            if c in GCP_LOGGING_COLLECTOR_IDS and c not in skipped_by_resolution
+            c for c in run_list if c in GCP_LOGGING_COLLECTOR_IDS and c not in skipped_by_resolution
         ]
         shared_groups: dict[str, dict[str, Any]] = {}
         spool_plans: list[Any] = []
@@ -286,9 +280,7 @@ def run_gcp_collection(
                 return
             if name in dedup_map:
                 broad = dedup_map[name]
-                collection_log.append(
-                    {"collector": name, "status": "deduplicated", "via": broad}
-                )
+                collection_log.append({"collector": name, "status": "deduplicated", "via": broad})
                 if broad in outcomes:
                     _publish_dedup_collector(
                         reporter,
@@ -311,9 +303,7 @@ def run_gcp_collection(
                 reporter.start(name)
                 reporter.finish(name, result)
                 manifest.add_source_result(result)
-                collection_log.append(
-                    {"collector": name, "status": "not_collected", "reason": reason}
-                )
+                collection_log.append({"collector": name, "status": "not_collected", "reason": reason})
                 outcomes[name] = CollectorOutcome(
                     collector=name,
                     status=STATUS_NOT_COLLECTED,
@@ -357,9 +347,7 @@ def run_gcp_collection(
                 on_spool_progress=lambda cid, n: reporter.raw_log(
                     cid, f"spool: {n:,} rows buffered from GCS export"
                 ),
-                on_spool_done=lambda cid, n: reporter.raw_log(
-                    cid, f"spool ready — {n:,} rows on disk"
-                ),
+                on_spool_done=lambda cid, n: reporter.raw_log(cid, f"spool ready — {n:,} rows on disk"),
                 on_raw_log=lambda cid, msg: reporter.raw_log(cid, msg),
             )
 
@@ -492,9 +480,7 @@ def _outcome_from_result(
     )
 
 
-def _deduplicated_outcome(
-    name: str, broad: str, broad_outcome: CollectorOutcome | None
-) -> CollectorOutcome:
+def _deduplicated_outcome(name: str, broad: str, broad_outcome: CollectorOutcome | None) -> CollectorOutcome:
     """Summary entry for a subset view collected once via its broad stream."""
     if broad_outcome is None or broad_outcome.status != STATUS_COLLECTED:
         reason = (

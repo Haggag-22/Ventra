@@ -12,8 +12,8 @@ from pathlib import Path
 from typing import Any, Callable, Iterator
 
 from collector.engine.gcp_log_backend import (
-    GCP_SUBSET_OF,
     _SHARED_GROUP_FILTERS,
+    GCP_SUBSET_OF,
     gcs_reads_all_prefixes,
     resolve_gcs_prefix_candidates,
 )
@@ -115,9 +115,7 @@ def fill_export_spools_parallel(
         path = spool_dir / f"{plan.collector}.jsonl.gz"
         stats: dict[str, Any] = {}
         count = 0
-        progress_cb = (
-            (lambda msg: on_raw_log(plan.collector, msg)) if on_raw_log is not None else None
-        )
+        progress_cb = (lambda msg: on_raw_log(plan.collector, msg)) if on_raw_log is not None else None
         with gzip.open(path, "wt", encoding="utf-8") as out:
             for entry in iter_entries(
                 plan.anchor_project,

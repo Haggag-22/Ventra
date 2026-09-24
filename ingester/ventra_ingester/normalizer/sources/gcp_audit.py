@@ -60,9 +60,7 @@ def _audit_event(rec: dict, ctx: NormalizeContext, source: str) -> UnifiedEvent:
     proto = _proto(rec)
     auth = proto.get("authenticationInfo") or {}
     req_meta = proto.get("requestMetadata") or {}
-    resource = proto.get("resourceName") or rec.get("resource", {}).get("labels", {}).get(
-        "project_id", ""
-    )
+    resource = proto.get("resourceName") or rec.get("resource", {}).get("labels", {}).get("project_id", "")
     method = proto.get("methodName") or ""
     service = proto.get("serviceName") or ""
     principal = auth.get("principalEmail") or auth.get("principalSubject") or ""

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collector.lib.base import CollectorRegistry
 from collector.engine.api.aws.control_plane.cloudtrail import CloudTrailCollector
 from collector.engine.api.aws.control_plane.cloudwatch import CloudWatchCollector
 from collector.engine.api.aws.control_plane.config import ConfigCollector
@@ -24,11 +23,12 @@ from collector.engine.api.aws.network.vpc_flow import VpcFlowCollector
 from collector.engine.api.aws.network.waf import WafCollector
 from collector.engine.api.aws.workloads.ec2 import Ec2Collector
 from collector.engine.api.aws.workloads.eks_audit import EksAuditCollector
-from collector.engine.api.aws.workloads.lambda_logs import LambdaLogsCollector
 from collector.engine.api.aws.workloads.lambda_ import LambdaCollector
+from collector.engine.api.aws.workloads.lambda_logs import LambdaLogsCollector
 from collector.engine.api.aws.workloads.rds_logs import RdsLogsCollector
 from collector.engine.api.aws.workloads.s3 import S3Collector
 from collector.engine.api.aws.workloads.s3_access import S3AccessCollector
+from collector.lib.base import CollectorRegistry
 
 _COLLECTOR_CLASSES = (
     AccountCollector,

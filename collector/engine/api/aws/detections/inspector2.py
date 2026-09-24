@@ -10,13 +10,12 @@ from __future__ import annotations
 
 from botocore.exceptions import ClientError
 
+from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from collector.lib.base import Collector
+from collector.lib.limits import records_unlimited
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import effective_window
 from collector.lib.scoping import filter_inspector_findings
-from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
-
-from collector.lib.limits import records_unlimited
 
 
 class Inspector2Collector(Collector):
@@ -46,9 +45,7 @@ class Inspector2Collector(Collector):
             except (ServiceNotEnabled, ClientError):
                 continue
             accounts = status.get("accounts") or []
-            region_enabled = any(
-                (a.get("state") or {}).get("status") == "ENABLED" for a in accounts
-            )
+            region_enabled = any((a.get("state") or {}).get("status") == "ENABLED" for a in accounts)
             status_by_region.append({"region": region, "accounts": accounts})
             if not region_enabled:
                 continue
@@ -72,12 +69,14 @@ class Inspector2Collector(Collector):
                 notes="Inspector2 not enabled — recorded as a gap.",
             )
 
-        files = [self.write_json({"account_status": status_by_region, "artifact_parameters": params}, "config.json")]
+        files = [
+            self.write_json(
+                {"account_status": status_by_region, "artifact_parameters": params}, "config.json"
+            )
+        ]
         if findings:
             files.append(self.write_jsonl(findings, "events.jsonl.gz"))
-        self.write_meta(
-            {"source": self.name, "findings": len(findings), "regions": self.ctx.regions}
-        )
+        self.write_meta({"source": self.name, "findings": len(findings), "regions": self.ctx.regions})
         return SourceResult(
             name=self.name,
             status=SourceStatus.COLLECTED if findings else SourceStatus.EMPTY,
@@ -100,6 +99,7 @@ class Inspector2Collector(Collector):
                 if updated:
                     try:
                         from datetime import datetime
+
                         ts = datetime.fromisoformat(str(updated).replace("Z", "+00:00"))
                         if ts < start or ts > end:
                             continue

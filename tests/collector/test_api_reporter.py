@@ -98,9 +98,7 @@ def test_late_event_after_cancel_does_not_resurrect_running() -> None:
     assert rows["iam"]["status"] == "fail"
     assert rows["iam"]["detail"] == "Cancelled before start"
     # The raw log line is still recorded so the per-collector panel reads like a terminal.
-    assert any(
-        e.get("type") == "event" and e.get("message") == "reading page 2" for e in sink.events
-    )
+    assert any(e.get("type") == "event" and e.get("message") == "reading page 2" for e in sink.events)
 
 
 def test_start_after_cancel_is_suppressed() -> None:
@@ -108,9 +106,7 @@ def test_start_after_cancel_is_suppressed() -> None:
     sink = _MemorySink()
     matrix = MatrixState(severity_resolver=lambda _n: "High")
     cancelled = {"flag": True}
-    reporter = ApiReporter(
-        matrix, run_id="run-1", sink=sink, cancel_checker=lambda: cancelled["flag"]
-    )
+    reporter = ApiReporter(matrix, run_id="run-1", sink=sink, cancel_checker=lambda: cancelled["flag"])
     reporter.begin_run("123456789012", ["us-east-1"], "CASE-1", ["cloudtrail"])
     reporter.start("cloudtrail")
     reporter.finalize()
@@ -158,10 +154,7 @@ def test_raw_log_emits_debug_and_updates_pending_live_msg() -> None:
     reporter = ApiReporter(matrix, run_id="run-1", sink=sink)
     reporter.begin_run("123456789012", ["us-east-1"], "CASE-1", ["cloud_audit_admin"])
     reporter.raw_log("cloud_audit_admin", "[gcs] table `proj.ds.cloudaudit_googleapis_com_activity`")
-    assert any(
-        e.get("type") == "debug" and e.get("message", "").startswith("[gcs]")
-        for e in sink.events
-    )
+    assert any(e.get("type") == "debug" and e.get("message", "").startswith("[gcs]") for e in sink.events)
     row = sink.matrix_updates[-1]["matrix"]["collectors"][0]
     assert row["name"] == "cloud_audit_admin"
     assert row["status"] == "pending"

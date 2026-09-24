@@ -223,9 +223,7 @@ class AuditPostureCollector(Collector):
             files=files,
             record_count=1,
             gaps=gaps,
-            notes=(
-                "Audit logging ENABLED" if audit_enabled else "Audit logging DISABLED"
-            )
+            notes=("Audit logging ENABLED" if audit_enabled else "Audit logging DISABLED")
             + (f"; {len(weaknesses)} policy weakness(es)" if weaknesses else ""),
         )
 

@@ -9,11 +9,12 @@ from __future__ import annotations
 
 from typing import Any
 
+from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
-from collector.lib.params import scoped_window, param_strings
+from collector.lib.params import param_strings, scoped_window
 from collector.lib.scoping import matches_any
-from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
+
 from ..common.diagnostics import _container_for
 from ..common.storage_logs import read_log_records
 
@@ -74,9 +75,7 @@ class AksAuditCollector(Collector):
                     "id": rid,
                     "subscription_id": sub,
                     "location": cluster.get("location", ""),
-                    "kubernetes_version": (cluster.get("properties") or {}).get(
-                        "kubernetesVersion", ""
-                    ),
+                    "kubernetes_version": (cluster.get("properties") or {}).get("kubernetesVersion", ""),
                 }
                 try:
                     settings = cf.diagnostic_settings(rid)

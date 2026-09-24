@@ -21,7 +21,7 @@ START = datetime(2026, 6, 11, 0, 0, 0, tzinfo=UTC)
 END = datetime(2026, 6, 11, 23, 59, 59, tzinfo=UTC)
 
 ALB_LINE = (
-    'https 2026-06-11T12:00:00.000000Z app/web-alb/abc 203.0.113.66:34567 10.0.1.5:80 '
+    "https 2026-06-11T12:00:00.000000Z app/web-alb/abc 203.0.113.66:34567 10.0.1.5:80 "
     '0.0 0.001 0.0 200 200 34 366 "GET https://x.example.com:443/ HTTP/1.1" "UA" c p arn '
     '"t" "d" "-" 0 2026-06-11T12:00:00.000000Z "forward" "-" "-" "10.0.1.5:80" "200" "-" "-"'
 )
@@ -154,9 +154,7 @@ def test_eks_audit_disabled_cluster_is_a_gap(tmp_path: Path) -> None:
     )
     result = EksAuditCollector(_ctx(tmp_path, cf)).collect()
     assert result.record_count == 0
-    assert any(
-        g[1] == GapReason.LOGGING_NOT_CONFIGURED and "prod" in g[2] for g in result.gaps
-    )
+    assert any(g[1] == GapReason.LOGGING_NOT_CONFIGURED and "prod" in g[2] for g in result.gaps)
 
 
 def test_eks_audit_pulls_cloudwatch_audit_events(tmp_path: Path) -> None:

@@ -19,16 +19,18 @@ from pydantic import BaseModel
 
 from . import __version__
 from .config import settings
-from .rbac import Role, _check, current_role
 from .config_store import ConfigNotFound, config_store
-from .run_store import RunNotFound, run_store
+from .rbac import Role, _check, current_role
 from .run_service import (
     apply_relay_payload,
-    cancel_run as cancel_run_service,
     reclaim_orphaned_runs,
     start_run,
     test_connection,
 )
+from .run_service import (
+    cancel_run as cancel_run_service,
+)
+from .run_store import RunNotFound, run_store
 from .store import CaseNotFound, EventQuery, store
 
 
@@ -72,8 +74,6 @@ class ExportBatchRequest(BaseModel):
     sources: list[str] = []
     since: str = ""
     until: str = ""
-
-
 
 
 class ConnectionCreateRequest(BaseModel):
@@ -211,6 +211,7 @@ async def _run_not_found(_, exc: RunNotFound) -> JSONResponse:
 
 # -- meta --------------------------------------------------------------------------------
 
+
 @app.get("/api/health")
 def health() -> dict[str, Any]:
     return {
@@ -233,6 +234,7 @@ def me(role: Role = Depends(current_role)) -> dict[str, Any]:
 
 
 # -- cases -------------------------------------------------------------------------------
+
 
 @app.get("/api/cases")
 def list_cases(_: Role = Depends(_check("view_case"))) -> dict[str, Any]:
@@ -260,6 +262,7 @@ def case_collection_log(case_id: str, _: Role = Depends(_check("view_case"))) ->
 
 
 # -- events (CloudTrail / Search / Pivot all flow through here) -------------------------
+
 
 def _event_query(
     q: str | None = Query(None, description="Free-text search."),
@@ -351,14 +354,16 @@ def _event_query(
 
 
 @app.get("/api/cases/{case_id}/events")
-def events(case_id: str, q: EventQuery = Depends(_event_query),
-           _: Role = Depends(_check("view_case"))) -> dict:
+def events(
+    case_id: str, q: EventQuery = Depends(_event_query), _: Role = Depends(_check("view_case"))
+) -> dict:
     return store.query_events(case_id, q)
 
 
 @app.get("/api/cases/{case_id}/events/facets")
-def event_facets(case_id: str, q: EventQuery = Depends(_event_query),
-                 _: Role = Depends(_check("view_case"))) -> dict:
+def event_facets(
+    case_id: str, q: EventQuery = Depends(_event_query), _: Role = Depends(_check("view_case"))
+) -> dict:
     return store.facets(case_id, q)
 
 
@@ -379,14 +384,15 @@ def vpc_flow_collection(case_id: str, _: Role = Depends(_check("view_case"))) ->
 
 # -- findings ----------------------------------------------------------------------------
 
+
 @app.get("/api/cases/{case_id}/findings")
 def findings(case_id: str, _: Role = Depends(_check("view_case"))) -> dict:
-    q = EventQuery(filters={"event_kind": "finding"}, sort="event_severity", order="desc",
-                   limit=500)
+    q = EventQuery(filters={"event_kind": "finding"}, sort="event_severity", order="desc", limit=500)
     return store.query_events(case_id, q)
 
 
 # -- identity ----------------------------------------------------------------------------
+
 
 @app.get("/api/cases/{case_id}/identity")
 def identity(case_id: str, _: Role = Depends(_check("view_case"))) -> dict:
@@ -406,6 +412,7 @@ def identity(case_id: str, _: Role = Depends(_check("view_case"))) -> dict:
 
 
 # -- network -----------------------------------------------------------------------------
+
 
 @app.get("/api/cases/{case_id}/network/vpcs")
 def network_vpcs(case_id: str, _: Role = Depends(_check("view_case"))) -> dict:
@@ -433,6 +440,7 @@ def data_access(case_id: str, _: Role = Depends(_check("view_case"))) -> dict:
 
 # -- resources / inventory ---------------------------------------------------------------
 
+
 @app.get("/api/cases/{case_id}/resources")
 def resources(case_id: str, _: Role = Depends(_check("view_case"))) -> dict:
     return store.inventory_summary(case_id)
@@ -452,6 +460,7 @@ def inventory(case_id: str, source: str, _: Role = Depends(_check("view_case")))
 
 
 # -- evidence file browser (raw collected sources) ---------------------------------------
+
 
 @app.get("/api/cases/{case_id}/evidence")
 def evidence_index(case_id: str, _: Role = Depends(_check("view_case"))) -> dict:
@@ -534,6 +543,7 @@ def evidence_download(
 
 # -- acquire (artifact library + kit builder) --------------------------------------------
 
+
 def _artifact_view(art: dict[str, Any], *, full: bool = False) -> dict[str, Any]:
     view = {
         "name": art.get("name", ""),
@@ -569,7 +579,8 @@ def list_artifacts(
     if search:
         s = search.lower()
         arts = [
-            a for a in arts
+            a
+            for a in arts
             if s in a["name"].lower()
             or s in a["collector"].lower()
             or s in a["description"].lower()
@@ -579,9 +590,7 @@ def list_artifacts(
 
 
 @app.get("/api/artifacts/{collector}")
-def get_artifact(
-    collector: str, cloud: str | None = Query(None), _: Role = Depends(current_role)
-) -> dict:
+def get_artifact(collector: str, cloud: str | None = Query(None), _: Role = Depends(current_role)) -> dict:
     from collector.engine.loader import load_artifacts_dir
 
     for a in load_artifacts_dir(settings.artifacts_root, cloud=cloud):
@@ -652,7 +661,9 @@ def preview_acquisition(
     cloud, names, iam_paths = _resolve_acquisition_request(body, require_gcp_log_backend=False)
     profile = _coerce_deployment_profile(cloud, body.deployment_profile.strip().lower() or "platform")
     if profile not in _ALLOWED_PROFILES:
-        raise HTTPException(status_code=400, detail=f"Unknown deployment profile: {body.deployment_profile!r}")
+        raise HTTPException(
+            status_code=400, detail=f"Unknown deployment profile: {body.deployment_profile!r}"
+        )
     gcp_backend = body.gcp_log_backend if cloud == "gcp" else None
     try:
         preview = preview_kit(
@@ -667,7 +678,6 @@ def preview_acquisition(
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     preview["deployment_profile"] = profile
     preview["bundle_wheel"] = False
-    from collector.kit.build import kit_wheel_source
 
     preview["wheel_source"] = "cli"  # .kit assumes Ventra CLI is installed
     return preview
@@ -679,14 +689,16 @@ def build_acquisition(
 ) -> Response:
     import tempfile
 
-    from collector.kit.build import build_kit
     from collector.engine.gcp_log_backend import validate_gcp_log_backend_dict
+    from collector.kit.build import build_kit
 
     cloud, names, iam_paths = _resolve_acquisition_request(body)
     case_id = _normalize_case_id(body.case_id) or "CASE-PENDING"
     profile = _coerce_deployment_profile(cloud, body.deployment_profile.strip().lower() or "platform")
     if profile not in _ALLOWED_PROFILES:
-        raise HTTPException(status_code=400, detail=f"Unknown deployment profile: {body.deployment_profile!r}")
+        raise HTTPException(
+            status_code=400, detail=f"Unknown deployment profile: {body.deployment_profile!r}"
+        )
     # Download endpoint always produces an operator kit — map live "platform" to workstation.
     if profile not in _KIT_DOWNLOAD_PROFILES:
         profile = "workstation"
@@ -760,6 +772,7 @@ def build_acquisition(
 
 
 # -- import (RBAC: import_case) ----------------------------------------------------------
+
 
 @app.post("/api/cases/import")
 async def import_case(
@@ -953,9 +966,7 @@ def export_cases_batch(
                 ),
             )
         job_id = uuid.uuid4().hex
-        export_name = drop_export_dirname(
-            case_ids=case_ids, target=body.target, job_id=job_id
-        )
+        export_name = drop_export_dirname(case_ids=case_ids, target=body.target, job_id=job_id)
         create_export_job(
             "drop",
             {
@@ -997,9 +1008,7 @@ def export_cases_batch(
 
 
 @app.get("/api/cases/export/{job_id}")
-def get_export_job_status(
-    job_id: str, _: Role = Depends(_check("export_report"))
-) -> dict[str, Any]:
+def get_export_job_status(job_id: str, _: Role = Depends(_check("export_report"))) -> dict[str, Any]:
     """Poll an export job: status is pending → running → ready | error | cancelled."""
     from .export_jobs import get_export_job
 
@@ -1018,9 +1027,7 @@ def get_export_job_status(
 
 
 @app.post("/api/cases/export/{job_id}/cancel")
-def cancel_export_job_endpoint(
-    job_id: str, _: Role = Depends(_check("export_report"))
-) -> dict[str, Any]:
+def cancel_export_job_endpoint(job_id: str, _: Role = Depends(_check("export_report"))) -> dict[str, Any]:
     """Cancel an in-flight export: stop the worker and unlock the Export UI."""
     from .export_jobs import cancel_export_job, get_export_job
 
@@ -1067,12 +1074,11 @@ def download_export_job(
 
     background_tasks.add_task(shutil.rmtree, job["tmp_dir"], True)
     background_tasks.add_task(discard_export_job, job_id)
-    return FileResponse(
-        zip_path, media_type="application/zip", filename=job.get("filename") or zip_path.name
-    )
+    return FileResponse(zip_path, media_type="application/zip", filename=job.get("filename") or zip_path.name)
 
 
 # -- configuration (connections + profiles) ----------------------------------------------
+
 
 @app.get("/api/config/connections")
 def list_connections(_: Role = Depends(_check("manage_config"))) -> dict[str, Any]:
@@ -1112,9 +1118,7 @@ def update_connection(
     if isinstance(raw, str) and raw.strip():
         existing = config_store.get_connection(connection_id)
         platform = (patch.get("platform") or existing.get("platform") or "").strip().lower()
-        auth_method = (
-            patch.get("auth_method") or existing.get("auth_method") or ""
-        ).strip().lower()
+        auth_method = (patch.get("auth_method") or existing.get("auth_method") or "").strip().lower()
         if platform == "gcp" and auth_method != "adc":
             parse_gcp_service_account_json(raw)
     kubeconfig_raw = patch.get("kubeconfig_content")
@@ -1134,9 +1138,7 @@ def delete_connection(connection_id: str, _: Role = Depends(_check("manage_confi
 
 
 @app.post("/api/config/connections/{connection_id}/test")
-def test_saved_connection(
-    connection_id: str, _: Role = Depends(_check("manage_config"))
-) -> dict[str, Any]:
+def test_saved_connection(connection_id: str, _: Role = Depends(_check("manage_config"))) -> dict[str, Any]:
     from datetime import datetime, timezone
 
     result = test_connection(connection_id)
@@ -1193,6 +1195,7 @@ def delete_profile(profile_id: str, _: Role = Depends(_check("manage_config"))) 
 
 
 # -- collection runs ---------------------------------------------------------------------
+
 
 def _run_meta_view(meta: dict[str, Any], matrix: dict[str, Any] | None = None) -> dict[str, Any]:
     done = matrix.get("complete", 0) if matrix else 0
@@ -1256,7 +1259,11 @@ def get_run(run_id: str, _: Role = Depends(_check("view_case"))) -> dict[str, An
     except RunNotFound:
         pass
     view = _run_meta_view(meta, matrix)
-    return {**meta, **view, "progress": {"complete": view["collectors_complete"], "total": view["collectors_total"]}}
+    return {
+        **meta,
+        **view,
+        "progress": {"complete": view["collectors_complete"], "total": view["collectors_total"]},
+    }
 
 
 @app.get("/api/runs/{run_id}/matrix")
@@ -1327,6 +1334,7 @@ def cancel_run(run_id: str, _: Role = Depends(_check("run_collection"))) -> dict
 
 # -- case overview (dashboard shortcut) --------------------------------------------------
 
+
 @app.get("/api/cases/{case_id}/overview")
 def case_overview(case_id: str, _: Role = Depends(_check("view_case"))) -> dict[str, Any]:
     summary = store.summary(case_id)
@@ -1336,10 +1344,7 @@ def case_overview(case_id: str, _: Role = Depends(_check("view_case"))) -> dict[
         case_id,
         EventQuery(filters={"event_kind": "finding"}, limit=0),
     )
-    severity_counts = {
-        item["value"]: item["count"]
-        for item in findings_facets.get("event_severity", [])
-    }
+    severity_counts = {item["value"]: item["count"] for item in findings_facets.get("event_severity", [])}
     recent = store.query_events(
         case_id,
         EventQuery(sort="timestamp", order="desc", limit=10),
@@ -1365,7 +1370,9 @@ def case_overview(case_id: str, _: Role = Depends(_check("view_case"))) -> dict[
         "recent_events": recent.get("events", []),
     }
 
+
 # -- delete (RBAC: delete_case — Data Custodian only) ------------------------------------
+
 
 @app.delete("/api/cases/{case_id}")
 def delete_case(case_id: str, _: Role = Depends(_check("delete_case"))) -> dict:

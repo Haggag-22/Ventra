@@ -9,7 +9,6 @@ from collector.engine.api.azure.network.flow_common import flatten_nsg_record, f
 from collector.engine.api.azure.network.nsg_flow import NsgFlowCollector
 from collector.engine.api.azure.network.vnet_flow import VNetFlowCollector
 from collector.lib.models import CollectionContext, GapReason, SourceStatus, TimeWindow
-
 from ventra_ingester.normalizer.base import NormalizeContext
 from ventra_ingester.normalizer.sources.azure_nsg_flow import normalize_vnet_flow
 
@@ -19,12 +18,18 @@ NSG_BLOB = {
     "properties": {
         "Version": 2,
         "flows": [
-            {"rule": "AllowOutbound", "flows": [
-                {"mac": "00", "flowTuples": [
-                    "1717808400,10.0.1.4,203.0.113.7,49152,443,T,O,A,E,9,1500,12,5000000",
-                    "1717808405,10.0.1.4,198.51.100.9,50000,22,T,O,D,E,1,40,0,0",
-                ]},
-            ]},
+            {
+                "rule": "AllowOutbound",
+                "flows": [
+                    {
+                        "mac": "00",
+                        "flowTuples": [
+                            "1717808400,10.0.1.4,203.0.113.7,49152,443,T,O,A,E,9,1500,12,5000000",
+                            "1717808405,10.0.1.4,198.51.100.9,50000,22,T,O,D,E,1,40,0,0",
+                        ],
+                    },
+                ],
+            },
         ],
     },
 }
@@ -32,13 +37,21 @@ VNET_BLOB = {
     "resourceId": "/SUBSCRIPTIONS/S1/.../FLOWLOGS/fl1",
     "properties": {
         "Version": 4,
-        "flowRecords": {"flows": [
-            {"aclID": "/SUBSCRIPTIONS/S1/.../VIRTUALNETWORKS/prod-vnet", "flowGroups": [
-                {"rule": "rule1", "flowTuples": [
-                    "1717808400,10.0.2.4,185.220.101.45,49152,443,6,O,E,NX,9,1500,12,9000000",
-                ]},
-            ]},
-        ]},
+        "flowRecords": {
+            "flows": [
+                {
+                    "aclID": "/SUBSCRIPTIONS/S1/.../VIRTUALNETWORKS/prod-vnet",
+                    "flowGroups": [
+                        {
+                            "rule": "rule1",
+                            "flowTuples": [
+                                "1717808400,10.0.2.4,185.220.101.45,49152,443,6,O,E,NX,9,1500,12,9000000",
+                            ],
+                        },
+                    ],
+                },
+            ]
+        },
     },
 }
 
@@ -62,13 +75,20 @@ def _ctx(tmp_path: Path, cf: _FakeCf) -> CollectionContext:
     staging = tmp_path / "staging"
     staging.mkdir(exist_ok=True)
     return CollectionContext(
-        cloud="azure", account_id="tenant-abc", regions=[], time_window=TimeWindow(),
-        staging=staging, case_id="CASE-AZ", tenant_id="tenant-abc",
-        subscription_ids=["S1"], client_factory=cf,
+        cloud="azure",
+        account_id="tenant-abc",
+        regions=[],
+        time_window=TimeWindow(),
+        staging=staging,
+        case_id="CASE-AZ",
+        tenant_id="tenant-abc",
+        subscription_ids=["S1"],
+        client_factory=cf,
     )
 
 
 # -- tuple flattening --------------------------------------------------------------------
+
 
 def test_flatten_nsg_v2_tuple() -> None:
     rows = list(flatten_nsg_record(NSG_BLOB))
@@ -93,11 +113,21 @@ def test_flatten_vnet_v4_tuple() -> None:
 
 # -- collectors --------------------------------------------------------------------------
 
+
 def test_vnet_flow_collects(tmp_path: Path, monkeypatch) -> None:
-    cf = _FakeCf(flow_logs={"S1": [
-        {"name": "fl1", "target_resource_id": "/.../virtualNetworks/prod-vnet",
-         "storage_id": "/.../storageAccounts/logs", "enabled": True, "flow_type": "vnet"},
-    ]})
+    cf = _FakeCf(
+        flow_logs={
+            "S1": [
+                {
+                    "name": "fl1",
+                    "target_resource_id": "/.../virtualNetworks/prod-vnet",
+                    "storage_id": "/.../storageAccounts/logs",
+                    "enabled": True,
+                    "flow_type": "vnet",
+                },
+            ]
+        }
+    )
     monkeypatch.setattr(
         "collector.engine.api.azure.network.flow_common.read_log_records",
         lambda cc, **k: iter([VNET_BLOB]),
@@ -121,6 +151,7 @@ def test_flow_discovery_access_denied_is_a_gap(tmp_path: Path) -> None:
 
 
 # -- normalizer --------------------------------------------------------------------------
+
 
 def test_vnet_flow_normalizer_tags_source_and_egress() -> None:
     ctx = NormalizeContext(case_id="CASE-AZ", account_id="tenant-abc")

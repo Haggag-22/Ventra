@@ -15,9 +15,20 @@ from typing import Any, Iterator
 from .base import NormalizeContext, UnifiedEvent
 
 INVENTORY_SOURCES = {
-    "iam", "ec2", "s3", "kms", "secrets", "account", "waf", "lambda",
-    "rbac", "subscription", "entra_directory", "resource_graph",
-    "project", "iam_policy",
+    "iam",
+    "ec2",
+    "s3",
+    "kms",
+    "secrets",
+    "account",
+    "waf",
+    "lambda",
+    "rbac",
+    "subscription",
+    "entra_directory",
+    "resource_graph",
+    "project",
+    "iam_policy",
 }
 
 
@@ -54,8 +65,7 @@ def iam_state_events(snapshot: dict, ctx: NormalizeContext) -> Iterator[UnifiedE
             resource_id=user.get("UserName", ""),
             resource_arn=user.get("Arn", ""),
             related_user=[user.get("UserName", ""), user.get("Arn", "")],
-            message=f"IAM user {user.get('UserName','')}"
-            + (f" — {oldest_note}" if oldest_note else ""),
+            message=f"IAM user {user.get('UserName', '')}" + (f" — {oldest_note}" if oldest_note else ""),
             case_id=ctx.case_id,
             ventra_source="iam",
             raw={"UserName": user.get("UserName"), "AccessKeys": keys},
@@ -94,8 +104,7 @@ def iam_policy_state_events(snapshot: dict, ctx: NormalizeContext) -> Iterator[U
                 resource_id=email,
                 resource_arn=name,
                 related_user=[email, name],
-                message=f"GCP service account {email}"
-                + (f" — {note}" if note else ""),
+                message=f"GCP service account {email}" + (f" — {note}" if note else ""),
                 case_id=ctx.case_id,
                 ventra_source="iam_policy",
                 raw={"email": email, "keys": keys},
@@ -118,9 +127,7 @@ K8S_INVENTORY_SOURCES = {
 }
 
 
-def k8s_posture_events(
-    source: str, snapshot: dict, ctx: NormalizeContext
-) -> Iterator[UnifiedEvent]:
+def k8s_posture_events(source: str, snapshot: dict, ctx: NormalizeContext) -> Iterator[UnifiedEvent]:
     """Turn Kubernetes posture snapshots into first-class timeline findings.
 
     "There is no audit log" is the most consequential result a Kubernetes IR can produce, so

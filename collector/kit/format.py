@@ -138,7 +138,9 @@ def load_kit_manifest(data: dict[str, Any]) -> KitManifest:
             kind=str(cred_raw.get("kind") or "embedded").strip(),
             expires_at=expires,
             path=str(cred_raw.get("path") or "").strip(),
-            details={k: v for k, v in cred_raw.items() if k not in {"provider", "kind", "expires_at", "path"}},
+            details={
+                k: v for k, v in cred_raw.items() if k not in {"provider", "kind", "expires_at", "path"}
+            },
         )
 
     collectors = data.get("collectors") or []

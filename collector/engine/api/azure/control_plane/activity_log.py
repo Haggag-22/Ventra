@@ -5,12 +5,13 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from typing import Any
 
+from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.limits import records_unlimited
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import effective_window
 from collector.lib.scoping import arm_activity_log_filter
-from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
+
 from .activity_log_common import (
     CHUNK_DAYS,
     DEFAULT_WINDOW_DAYS,
@@ -38,9 +39,7 @@ def _safe_sub_filename(subscription_id: str) -> str:
 class ActivityLogCollector(Collector):
     name = "activity_log"
     priority = 1
-    description = (
-        "Azure Activity Log — subscription control-plane operations (Monitor API, 89d default)."
-    )
+    description = "Azure Activity Log — subscription control-plane operations (Monitor API, 89d default)."
     required_actions = ("Microsoft.Insights/eventtypes/values/read",)
 
     def collect(self) -> SourceResult:

@@ -105,9 +105,7 @@ def seal_package(
         on_progress("Computing package checksum…")
 
     digest = sha256_file(out_path)
-    (out_dir / f"{out_path.name}.sha256").write_text(
-        f"{digest}  {out_path.name}\n", encoding="utf-8"
-    )
+    (out_dir / f"{out_path.name}.sha256").write_text(f"{digest}  {out_path.name}\n", encoding="utf-8")
     return PackageResult(
         path=out_path,
         sha256=digest,

@@ -108,7 +108,10 @@ class CniLogsCollector(NodePlaneCollector):
                 )
             )
             return SourceResult(
-                name=self.name, status=SourceStatus.EMPTY, files=files, gaps=gaps,
+                name=self.name,
+                status=SourceStatus.EMPTY,
+                files=files,
+                gaps=gaps,
                 notes="No CNI plugin detected.",
             )
         status = SourceStatus.COLLECTED if collected else SourceStatus.EMPTY
@@ -126,9 +129,7 @@ class CniLogsCollector(NodePlaneCollector):
         found: list[str] = []
         for plugin, cfg in _PLUGINS.items():
             probes = [
-                f"{conf_dir}/{pattern}"
-                for conf_dir in _CNI_CONF_DIRS
-                for pattern in cfg.get("conf", ())
+                f"{conf_dir}/{pattern}" for conf_dir in _CNI_CONF_DIRS for pattern in cfg.get("conf", ())
             ]
             probes.extend(cfg.get("detect", ()))
             for probe in probes:

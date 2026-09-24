@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collector.lib.base import Collector
 from collector.lib.models import SourceResult
+
 from ..common.diagnostics import collect_diagnostic_logs
 
 _RESOURCE_TYPES = ["Microsoft.Storage/storageAccounts"]

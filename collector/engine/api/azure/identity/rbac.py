@@ -8,11 +8,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import param_strings
 from collector.lib.scoping import matches_any
-from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 
 
 class RbacCollector(Collector):
@@ -64,16 +64,26 @@ class RbacCollector(Collector):
         role_names = param_strings(artifact_params, "role_names")
         if principal_ids:
             snapshot["role_assignments"] = [
-                ra for ra in snapshot["role_assignments"]
+                ra
+                for ra in snapshot["role_assignments"]
                 if matches_any(str((ra.get("properties") or ra).get("principalId") or ""), principal_ids)
             ]
         if role_names:
-            rd_map = {str(rd.get("id") or ""): str(rd.get("properties", rd).get("roleName") or rd.get("roleName") or "")
-                      for rd in snapshot["role_definitions"]}
+            rd_map = {
+                str(rd.get("id") or ""): str(
+                    rd.get("properties", rd).get("roleName") or rd.get("roleName") or ""
+                )
+                for rd in snapshot["role_definitions"]
+            }
             snapshot["role_assignments"] = [
-                ra for ra in snapshot["role_assignments"]
-                if matches_any(rd_map.get(str((ra.get("properties") or ra).get("roleDefinitionId") or ""), role_names)
-                               or matches_any(str((ra.get("properties") or ra).get("roleDefinitionId") or ""), role_names))
+                ra
+                for ra in snapshot["role_assignments"]
+                if matches_any(
+                    rd_map.get(str((ra.get("properties") or ra).get("roleDefinitionId") or ""), role_names)
+                    or matches_any(
+                        str((ra.get("properties") or ra).get("roleDefinitionId") or ""), role_names
+                    )
+                )
             ]
         snapshot["artifact_parameters"] = artifact_params
 

@@ -181,9 +181,7 @@ def _message(action: str, who: str, err: str, service: str) -> str:
     return f"{base} — DENIED ({err})" if err else base
 
 
-ASSUME_ROLE_ACTIONS = frozenset(
-    {"AssumeRole", "AssumeRoleWithSAML", "AssumeRoleWithWebIdentity"}
-)
+ASSUME_ROLE_ACTIONS = frozenset({"AssumeRole", "AssumeRoleWithSAML", "AssumeRoleWithWebIdentity"})
 
 
 def _apply_session_role(ev: UnifiedEvent, detail: dict[str, Any]) -> None:

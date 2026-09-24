@@ -62,8 +62,9 @@ def azure_factory_kwargs(
     return kwargs
 
 
-def manifest_profile_overrides(*, aws_profile: str = "", azure_auth: AzureAuthOptions | None = None,
-                               subscription_id: str | None = None) -> list[str]:
+def manifest_profile_overrides(
+    *, aws_profile: str = "", azure_auth: AzureAuthOptions | None = None, subscription_id: str | None = None
+) -> list[str]:
     """Non-secret acquisition context recorded in the manifest."""
     overrides: list[str] = []
     if aws_profile:

@@ -10,10 +10,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from collector.clouds.gcp.client_factory import GcpAccessDenied, GcpServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.scoping import filter_network_posture
-from collector.clouds.gcp.client_factory import GcpAccessDenied, GcpServiceNotEnabled
 
 MAX_FIREWALLS = 500
 MAX_NETWORKS = 200
@@ -80,9 +80,7 @@ class NetworkPostureCollector(Collector):
                             )
                         )
             except GcpAccessDenied as exc:
-                gaps.append(
-                    ("network_posture", GapReason.ACCESS_DENIED, f"{project_id}: {exc.message}")
-                )
+                gaps.append(("network_posture", GapReason.ACCESS_DENIED, f"{project_id}: {exc.message}"))
             except GcpServiceNotEnabled as exc:
                 gaps.append(
                     ("network_posture", GapReason.SERVICE_NOT_ENABLED, f"{project_id}: {exc.message}")
@@ -94,9 +92,7 @@ class NetworkPostureCollector(Collector):
             return SourceResult(
                 name=self.name,
                 status=SourceStatus.EMPTY,
-                gaps=gaps or [
-                    ("network_posture", GapReason.NOT_PRESENT, "No network resources in scope.")
-                ],
+                gaps=gaps or [("network_posture", GapReason.NOT_PRESENT, "No network resources in scope.")],
                 notes="No network posture data found.",
             )
 

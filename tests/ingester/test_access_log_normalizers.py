@@ -18,17 +18,17 @@ from ventra_ingester.normalizer.sources.findings import normalize_inspector2
 CTX = NormalizeContext(case_id="CASE-TEST", account_id="123456789012")
 
 ALB_LINE = (
-    'https 2026-06-08T01:10:05.123456Z app/web-alb/50dc6c495c0c9188 '
-    '203.0.113.66:34567 10.0.1.5:80 0.000 0.001 0.000 403 403 34 366 '
+    "https 2026-06-08T01:10:05.123456Z app/web-alb/50dc6c495c0c9188 "
+    "203.0.113.66:34567 10.0.1.5:80 0.000 0.001 0.000 403 403 34 366 "
     '"GET https://shop.example.com:443/admin/login HTTP/1.1" "Mozilla/5.0" '
-    'ECDHE-RSA-AES128-GCM-SHA256 TLSv1.2 '
-    'arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/web/abc '
+    "ECDHE-RSA-AES128-GCM-SHA256 TLSv1.2 "
+    "arn:aws:elasticloadbalancing:us-east-1:123456789012:targetgroup/web/abc "
     '"Root=1-abc" "shop.example.com" "-" 0 2026-06-08T01:10:05.120000Z '
     '"forward" "-" "-" "10.0.1.5:80" "403" "-" "-"'
 )
 
 CLB_LINE = (
-    '2026-06-08T01:11:00.123456Z my-clb 203.0.113.66:34567 10.0.1.5:80 '
+    "2026-06-08T01:11:00.123456Z my-clb 203.0.113.66:34567 10.0.1.5:80 "
     '0.00005 0.0006 0.00003 200 200 0 57 "GET https://example.com:443/ HTTP/1.1" '
     '"curl/7.88" ECDHE-RSA-AES128 TLSv1.2'
 )
