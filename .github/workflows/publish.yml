@@ -46,7 +46,7 @@ jobs:
         run: uvx twine check --strict dist/*
       - name: Fresh-install smoke test
         run: |
-          wheel="$(ls dist/*.whl)"
+          wheel="$(ls "$PWD"/dist/*.whl)"
           cd "$(mktemp -d)"
           uvx --from "$wheel" ventra --version
           uvx --from "$wheel" ventra artifacts validate --strict
