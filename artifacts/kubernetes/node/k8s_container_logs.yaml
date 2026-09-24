@@ -1,0 +1,25 @@
+name: Kubernetes.Node.ContainerLogs
+aliases:
+- k8s_container_logs
+- kubernetes.k8s_container_logs
+cloud: kubernetes
+category: Node
+description: >-
+  Container logs read straight from the node filesystem at /var/log/pods, including the rotated
+  siblings the kubelet leaves behind. The tree keeps rotated logs and the logs of pods that no
+  longer exist, which is exactly what an attacker expects to disappear. The layout is the same
+  on every distribution. The /var/log/containers symlinks are deliberately not traversed because
+  they point into this same tree, so nothing is collected twice. Runs on every node.
+version: 1.0.0
+collector: k8s_container_logs
+type: k8s_container_logs
+required_actions: []
+parameters:
+  namespaces:
+    type: list
+    required: false
+sources:
+- type: k8s_container_logs
+  format: json
+severity: extended
+estimated_volume: high

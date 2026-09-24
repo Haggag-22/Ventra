@@ -1,11 +1,21 @@
 import type { AcquirePlatform } from "./catalog";
-import { CASE_PLATFORM_LABELS, isAcquirePlatform, type CasePlatform } from "./catalog";
+import {
+  CASE_PLATFORM_LABELS,
+  isAcquirePlatform,
+  isPlatformVisibleInUi,
+  type CasePlatform,
+} from "./catalog";
 
 export const DOCS_HREF = "/docs";
 
-/** Documentation providers — mirrors case platform tabs (includes Kubernetes roadmap). */
-export const DOC_PROVIDERS = ["aws", "azure", "gcp", "kubernetes"] as const;
-export type DocProvider = (typeof DOC_PROVIDERS)[number];
+/** Full documentation provider union, including hidden Kubernetes docs. */
+const ALL_DOC_PROVIDERS = ["aws", "azure", "gcp", "kubernetes"] as const;
+export type DocProvider = (typeof ALL_DOC_PROVIDERS)[number];
+
+/** Documentation providers shown in nav — Kubernetes gated by `KUBERNETES_UI_ENABLED`. */
+export const DOC_PROVIDERS: readonly DocProvider[] = ALL_DOC_PROVIDERS.filter(
+  isPlatformVisibleInUi,
+);
 export const DEFAULT_DOC_PROVIDER: DocProvider = "aws";
 
 export const DOC_PROVIDER_LABELS: Record<DocProvider, string> = {
@@ -29,7 +39,10 @@ export function isDocSection(value: string): value is DocSectionId {
   return DOC_SECTIONS.some((s) => s.id === value);
 }
 
-export function docSectionLabel(section: DocSectionId): string {
+export function docSectionLabel(section: DocSectionId, provider?: string): string {
+  if (section === "permissions" && provider?.toLowerCase() === "kubernetes") {
+    return "RBAC";
+  }
   return DOC_SECTIONS.find((s) => s.id === section)?.label ?? section;
 }
 
@@ -106,6 +119,18 @@ export const PROVIDER_IAM_POLICIES: Partial<Record<DocProvider, IamPolicyRef[]>>
       label: "Read-only policy JSON",
       path: "docs/iam-policies/gcp-collector-readonly.json",
       publicPath: "/docs/iam-policies/gcp-collector-readonly.json",
+    },
+  ],
+  kubernetes: [
+    {
+      label: "Read-only RBAC ClusterRole",
+      path: "docs/iam-policies/kubernetes-collector-readonly.yaml",
+      publicPath: "/docs/iam-policies/kubernetes-collector-readonly.yaml",
+    },
+    {
+      label: "RBAC permissions JSON",
+      path: "docs/iam-policies/kubernetes-collector-readonly.json",
+      publicPath: "/docs/iam-policies/kubernetes-collector-readonly.json",
     },
   ],
 };

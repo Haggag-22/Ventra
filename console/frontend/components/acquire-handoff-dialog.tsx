@@ -2,8 +2,10 @@
 
 import { Button } from "@/components/ui";
 import type { KitHandoffRecord } from "@/lib/acquire-handoff";
+import { kitEntryScriptName } from "@/lib/acquisition-build";
 import { deploymentProfileLabel, isEnterpriseProfile } from "@/lib/deployment-profiles";
 import { displayArtifactLabel } from "@/lib/artifact-icons";
+import { acquirePermissionModel } from "@/lib/catalog";
 import {
   HANDOFF_MODES,
   handoffModeLabel,
@@ -11,12 +13,23 @@ import {
 } from "@/lib/handoff-modes";
 import { CheckCircle2, ClipboardList, CloudDownload, Upload, X } from "lucide-react";
 
-const STANDARD_STEPS = [
-  "Send the kit zip to the client operator (secure channel).",
-  "Client attaches the narrowed IAM policy from iam/ and runs the kit in their environment.",
-  "Client returns the sealed evidence package (.tar.zst) to your IR team.",
-  "Import the package into Ventra Investigate to continue analysis.",
-];
+function standardSteps(cloud: string, kitName?: string): string[] {
+  const kitFile = kitEntryScriptName(kitName || "");
+  if (cloud.toLowerCase() === "kubernetes") {
+    return [
+      "Download the .kit file (Authentication is baked in — short-lived credential).",
+      `On any machine with Ventra installed: ventra run ${kitFile} (optional: --out ./evidence). Open README.md in the kit for details.`,
+      "For node logs, SSH to each node (or use the DaemonSet) so /var/log and journals are local.",
+      "Import with ventra import ./evidence (or Cases → Import package). Export works after import.",
+    ];
+  }
+  const model = acquirePermissionModel(cloud);
+  return [
+    "Download the .kit file (Authentication is baked in — short-lived credential).",
+    `On any machine with Ventra installed: ventra run ${kitFile} (optional: --out ./evidence). Read-only ${model} is already scoped in iam/.`,
+    "Import with ventra import ./evidence (or Cases → Import package). Export works after import.",
+  ];
+}
 
 const ENTERPRISE_IR_BUCKET_STEPS = [
   "Send the kit zip to the client operator (secure channel).",
@@ -33,7 +46,9 @@ const ENTERPRISE_PRESIGNED_STEPS = [
 ];
 
 function stepsForHandoff(handoff: KitHandoffRecord): string[] {
-  if (!isEnterpriseProfile(handoff.deploymentProfile)) return STANDARD_STEPS;
+  if (!isEnterpriseProfile(handoff.deploymentProfile)) {
+    return standardSteps(handoff.cloud, handoff.kitName);
+  }
   const mode = parseHandoffMode(handoff.handoffMode);
   if (mode === "s3_ir_bucket") return ENTERPRISE_IR_BUCKET_STEPS;
   if (mode === "presigned") return ENTERPRISE_PRESIGNED_STEPS;

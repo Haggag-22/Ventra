@@ -229,7 +229,7 @@ function CollectorRowCard({
       </div>
       <div className="collector-row-name">
         <h3 className="truncate text-sm font-semibold leading-tight text-fg">
-          {displayArtifactLabel(row.name)}
+          {displayArtifactLabel(row.name, cloud)}
         </h3>
         {showSubtext ? (
           <Tooltip content={showSubtext}>
@@ -324,31 +324,7 @@ export function CollectorMatrixTable({
     <div ref={containerRef} className={cn("collector-matrix-panel", className)}>
       <div className="collector-matrix-header">
         <h2 className="text-sm font-medium text-fg">Collectors</h2>
-        {pct != null && (
-          <div className="flex items-center gap-2">
-            <span className="text-2xs tabular-nums text-fg-subtle">
-              {complete}/{total}
-            </span>
-            <div
-              className="collector-progress-track"
-              role="progressbar"
-              aria-valuenow={complete}
-              aria-valuemax={total}
-            >
-              <div
-                className="collector-progress-fill"
-                style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
-              />
-            </div>
-          </div>
-        )}
-      </div>
-
-      <div className="collector-row-list">
-        <div className="collector-row-columns-header collector-row-grid" aria-hidden>
-          <span />
-          <span />
-          <span />
+        <div className="flex items-center gap-4">
           <span className="collector-column-label">
             <Database className="h-3 w-3" />
             Records
@@ -357,7 +333,28 @@ export function CollectorMatrixTable({
             <Clock className="h-3 w-3" />
             Time
           </span>
+          {pct != null && (
+            <div className="flex items-center gap-2">
+              <span className="text-2xs tabular-nums text-fg-subtle">
+                {complete}/{total}
+              </span>
+              <div
+                className="collector-progress-track"
+                role="progressbar"
+                aria-valuenow={complete}
+                aria-valuemax={total}
+              >
+                <div
+                  className="collector-progress-fill"
+                  style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
+                />
+              </div>
+            </div>
+          )}
         </div>
+      </div>
+
+      <div className="collector-row-list">
         {rows.map((row) => {
           const displayStatus = effectiveRowStatus(row.status, runCancelled);
           const isActive = runCancelled ? false : activeCollector === row.name;

@@ -150,7 +150,7 @@ class EvidencePackage:
                     continue
                 name = parts[1]
                 fname = parts[-1]
-                kind = self._classify(fname)
+                kind = self._classify(fname, name)
                 out.append(SourceFile(name=name, arcname=member.name, kind=kind))
         return out
 
@@ -185,7 +185,7 @@ class EvidencePackage:
         return json.loads(data.decode("utf-8")) if data else None
 
     @staticmethod
-    def _classify(fname: str) -> str:
+    def _classify(fname: str, source: str = "") -> str:
         if fname.startswith("events"):
             return "events"
         if fname == "config.json":
@@ -196,4 +196,10 @@ class EvidencePackage:
             return "meta"
         if "credential_report" in fname:
             return "credential_report"
+        # Kubernetes collectors write several distinct JSON-lines payloads per source
+        # (pods.jsonl.gz, roles.jsonl.gz, kubelet.jsonl.gz) rather than one events file, so
+        # each is an event payload too. Scoped to k8s_* sources on purpose: the AWS / Azure /
+        # GCP collectors keep exactly the classification they had.
+        if source.startswith("k8s_") and fname.endswith(".jsonl.gz"):
+            return "events"
         return "other"

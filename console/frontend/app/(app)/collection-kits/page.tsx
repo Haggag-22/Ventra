@@ -19,9 +19,16 @@ import {
   startRun,
   type CollectionProfile,
 } from "@/lib/api";
-import { CASE_PLATFORM_LABELS, type CasePlatform } from "@/lib/catalog";
+import {
+  countByPlatformTab,
+  filterByPlatformTab,
+  PlatformTabBar,
+  type PlatformTab,
+} from "@/components/platform-tab-bar";
+import { CASE_PLATFORM_LABELS, CASE_PLATFORMS, isPlatformVisibleInUi, type CasePlatform } from "@/lib/catalog";
 import { displayCaseId } from "@/lib/case-id";
-import { isEnterpriseProfile, parseDeploymentProfile } from "@/lib/deployment-profiles";
+import { isEnterpriseProfile, parseDeploymentProfile, supportsLiveConsoleRun } from "@/lib/deployment-profiles";
+import { fmtNum } from "@/lib/format";
 import { handoffModeFromTransport } from "@/lib/handoff-modes";
 import {
   CASES_HREF,
@@ -31,12 +38,13 @@ import {
   runHref,
 } from "@/lib/routes";
 import { writeLastConnection } from "@/lib/provider-storage";
+import { cn } from "@/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Download, LayoutTemplate, Pencil, Play, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { gsap, matchMediaReduced, useGSAP } from "@/lib/gsap-client";
 import { useRouter } from "next/navigation";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState, type ReactNode } from "react";
 
 function KitRunRow({
   kit,
@@ -54,6 +62,7 @@ function KitRunRow({
   downloading: boolean;
 }) {
   const collectorCount = kit.artifacts?.length ?? 0;
+  const canLiveRun = supportsLiveConsoleRun(kit.cloud);
 
   return (
     <tr className="kit-row border-b border-border/60 last:border-0 transition-colors hover:bg-surface-2/30">
@@ -66,15 +75,17 @@ function KitRunRow({
       <td className="table-cell">{collectorCount}</td>
       <td className="table-cell-center">
         <div className="flex flex-wrap items-center justify-center gap-2">
-          <Button
-            variant="primary"
-            size="sm"
-            icon={Play}
-            disabled={!collectorCount}
-            onClick={onRun}
-          >
-            Run
-          </Button>
+          {canLiveRun && (
+            <Button
+              variant="primary"
+              size="sm"
+              icon={Play}
+              disabled={!collectorCount}
+              onClick={onRun}
+            >
+              Run
+            </Button>
+          )}
           <Button
             variant="primary"
             size="sm"
@@ -120,13 +131,19 @@ export default function CollectionKitsPage() {
   const [downloadError, setDownloadError] = useState("");
   const [handoff, setHandoff] = useState<KitHandoffRecord | null>(null);
   const [handoffOpen, setHandoffOpen] = useState(false);
+  const [tab, setTab] = useState<PlatformTab>("all");
 
   const delMut = useMutation({
     mutationFn: deleteProfile,
     onSuccess: () => qc.invalidateQueries({ queryKey: ["config", "profiles"] }),
   });
 
-  const rows = profiles.data?.profiles ?? [];
+  const all = useMemo(
+    () => (profiles.data?.profiles ?? []).filter((p) => isPlatformVisibleInUi(p.cloud)),
+    [profiles.data],
+  );
+  const rows = useMemo(() => filterByPlatformTab(all, tab, (p) => p.cloud), [all, tab]);
+  const countFor = (t: PlatformTab) => countByPlatformTab(all, t, (p) => p.cloud);
 
   const startKitRun = async (payload: {
     caseId: string;
@@ -165,6 +182,7 @@ export default function CollectionKitsPage() {
         const record: KitHandoffRecord = {
           caseId: body.case_id || "CASE-PENDING",
           cloud: kit.cloud,
+          kitName: kit.name,
           collectors: kit.artifacts ?? [],
           deploymentProfile,
           builtAt: new Date().toISOString(),
@@ -223,8 +241,8 @@ export default function CollectionKitsPage() {
   );
 
   return (
-    <div className="px-6 py-8">
-      <div className="mb-8 flex items-start justify-between gap-4">
+    <div className="page-shell">
+      <div className="mb-8 flex items-center justify-between gap-4">
         <div>
           <h1 className="page-title">
             <LayoutTemplate className="h-5 w-5 text-accent" />
@@ -242,18 +260,49 @@ export default function CollectionKitsPage() {
         <p className="mb-4 text-sm text-bad-red">{downloadError}</p>
       )}
 
+      {!profiles.isLoading && all.length > 0 && (
+        <div className="mb-5 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+          <StatPill label="Total kits" value={all.length} tone="accent" />
+          {CASE_PLATFORMS.map((platform) => (
+            <StatPill
+              key={platform}
+              label={CASE_PLATFORM_LABELS[platform]}
+              value={countFor(platform as PlatformTab)}
+              icon={<CloudProviderIcon cloud={platform} />}
+            />
+          ))}
+        </div>
+      )}
+
+      {!profiles.isLoading && all.length > 0 && (
+        <PlatformTabBar value={tab} onChange={setTab} countFor={countFor} />
+      )}
+
       {profiles.isLoading ? (
         <LoadingPanel label="Loading kits…" />
-      ) : rows.length === 0 ? (
+      ) : all.length === 0 ? (
         <Card className="p-6">
           <EmptyState
             icon={LayoutTemplate}
             title="No Collection Kits"
-            description="Build a cart on Configuration → Acquire, then use Save kit to store it for one-click runs."
+            description="Build a cart on Configuration → Acquire, then save the kit. Cloud kits can run live; Kubernetes kits download for terminal use."
             action={
               <Link href={CONFIG_ACQUIRE_HREF}>
                 <Button variant="primary">Open Acquire</Button>
               </Link>
+            }
+          />
+        </Card>
+      ) : rows.length === 0 ? (
+        <Card className="p-6">
+          <EmptyState
+            icon={LayoutTemplate}
+            title={tab === "all" ? "No kits" : `No ${CASE_PLATFORM_LABELS[tab]} kits`}
+            description="Try another platform or build a kit on Acquire."
+            action={
+              <Button variant="secondary" onClick={() => setTab("all")}>
+                Show all kits
+              </Button>
             }
           />
         </Card>
@@ -334,6 +383,38 @@ export default function CollectionKitsPage() {
         onImport={openImport}
         onImportS3={openImportS3}
       />
+    </div>
+  );
+}
+
+function StatPill({
+  label,
+  value,
+  icon,
+  tone = "default",
+}: {
+  label: string;
+  value: number;
+  icon?: ReactNode;
+  tone?: "default" | "accent";
+}) {
+  return (
+    <div
+      className={cn(
+        "rounded-md border bg-surface px-3 py-2.5",
+        tone === "accent" ? "border-accent/35" : "border-border",
+      )}
+    >
+      <div
+        className={cn(
+          "stat-card-header text-2xs font-medium tracking-wide text-fg-subtle",
+          label.toLowerCase() === "kubernetes" ? "normal-case" : "uppercase",
+        )}
+      >
+        {icon ? <span className="inline-flex shrink-0 items-center">{icon}</span> : null}
+        <span className="min-w-0 truncate">{label}</span>
+      </div>
+      <div className="mt-1 text-xl font-semibold tabular-nums">{fmtNum(value)}</div>
     </div>
   );
 }

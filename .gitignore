@@ -95,5 +95,30 @@ obsidian/
 *.log
 scratch/
 tmp/
-icons/
-Icons/
+
+# Vendor icon packs at repo root (extracted subset lives in console/frontend/public/icons)
+/icons/
+
+# Agent / IDE skill dumps (local only — not product source)
+.agents/
+.agents*/
+
+# Google Cloud local auth
+**/application_default_credentials.json
+**/adc.json
+.gcloud/
+*-service-account.json
+*-sa.json
+client_secret*.json
+
+# Extra Terraform / cloud local artifacts
+**/*.tfvars.json
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# Local package metadata / OS junk already partly covered
+*.egg-info/
+.Python

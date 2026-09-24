@@ -19,7 +19,7 @@ export interface ParamFieldDef {
   options?: ParamFieldOption[];
   defaultValue?: string;
   /** Limit this field to specific clouds (Acquire UI). Omit = all clouds. */
-  clouds?: Array<"aws" | "azure" | "gcp">;
+  clouds?: Array<"aws" | "azure" | "gcp" | "kubernetes">;
   /** Show this field only when another param equals one of the listed values. */
   visibleWhen?: {
     key: string;
@@ -1496,61 +1496,12 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
         "Container registries considered trusted. Pods pulling images from anywhere else are flagged as suspicious. Common defaults (registry.k8s.io, etc.) are always included.",
     },
   ],
-  k8s_pod_logs: [
-    {
-      key: "namespaces",
-      label: "Namespaces",
-      type: "list",
-      description: "Limit pod-log collection to these namespaces. Empty = all namespaces.",
-    },
-    {
-      key: "pods",
-      label: "Pod names",
-      type: "list",
-      description: "Limit collection to these pod names. Empty = all pods in scope.",
-    },
-  ],
   k8s_container_logs: [
     {
       key: "namespaces",
       label: "Namespaces",
       type: "list",
       description: "Limit node-side container-log collection to these namespaces. Empty = all.",
-    },
-  ],
-  k8s_container_fs: [
-    {
-      key: "container_ids",
-      label: "Container IDs",
-      type: "list",
-      description:
-        "CRI container IDs of the implicated containers to capture. Overlay paths are resolved via crictl inspect.",
-    },
-    {
-      key: "namespaces",
-      label: "Namespaces",
-      type: "list",
-      description: "Restrict container enumeration to these namespaces.",
-    },
-    {
-      key: "pods",
-      label: "Pod names",
-      type: "list",
-      description: "Restrict container enumeration to these pods.",
-    },
-    {
-      key: "full_export",
-      label: "Full changed-layer export",
-      type: "boolean",
-      description:
-        "Also export a full tar of each container's changed (upper) layer, not just individual files. Larger evidence.",
-    },
-    {
-      key: "allow_docker",
-      label: "Allow legacy Docker runtime",
-      type: "boolean",
-      description:
-        "Permit collection on a legacy Docker runtime (dockershim was removed in Kubernetes v1.24). Off by default.",
     },
   ],
   k8s_apiserver_audit: [
@@ -1571,24 +1522,32 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
         "MAXIMUM SENSITIVITY. Snapshot the etcd database — it contains every Secret in plaintext (unless encryption-at-rest is on). Off by default; enable only with explicit authorization.",
     },
   ],
-  k8s_checkpoint: [
-    {
-      key: "targets",
-      label: "Checkpoint targets",
-      type: "list",
-      required: true,
-      description:
-        "namespace/pod/container triples to checkpoint via the kubelet CRIU API. The archive contains full process memory (credentials, keys, tokens) and is treated as maximum sensitivity.",
-      placeholder: "prod/web-0/app",
-    },
-  ],
 };
+
+/** Capitalize the first letter of each word in a parameter label. */
+export function titleCaseParamLabel(label: string): string {
+  return label.replace(/[A-Za-z0-9][A-Za-z0-9']*/g, (word) => {
+    if (!word) return word;
+    return word.charAt(0).toUpperCase() + word.slice(1);
+  });
+}
+
+function titleCaseParamField(field: ParamFieldDef): ParamFieldDef {
+  return {
+    ...field,
+    label: titleCaseParamLabel(field.label),
+    options: field.options?.map((option) => ({
+      ...option,
+      label: titleCaseParamLabel(option.label),
+    })),
+  };
+}
 
 export function collectorParamSchema(
   collector: string,
-  cloud?: "aws" | "azure" | "gcp",
+  cloud?: "aws" | "azure" | "gcp" | "kubernetes",
 ): ParamFieldDef[] {
-  const fields = COLLECTOR_PARAM_SCHEMAS[collector] ?? [];
+  const fields = (COLLECTOR_PARAM_SCHEMAS[collector] ?? []).map(titleCaseParamField);
   if (!cloud) return fields;
   return fields.filter((f) => !f.clouds || f.clouds.includes(cloud));
 }

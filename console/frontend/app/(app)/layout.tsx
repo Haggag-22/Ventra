@@ -2,7 +2,6 @@
 
 import { AppShell } from "@/components/layout/app-shell";
 import { GlobalSidebar } from "@/components/layout/global-sidebar";
-import { TopBar } from "@/components/layout/topbar";
 import { usePathname } from "next/navigation";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
@@ -13,7 +12,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
   if (isCaseWorkspace) return children;
 
   return (
-    <AppShell sidebar={<GlobalSidebar />} topbar={<TopBar variant="global" />}>
+    <AppShell sidebar={<GlobalSidebar />}>
       {children}
     </AppShell>
   );

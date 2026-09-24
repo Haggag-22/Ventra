@@ -40,6 +40,77 @@ function stringValue(values: ParamValues, key: string): string {
   return typeof v === "string" ? v : "";
 }
 
+/** Premium on/off control for collector boolean params (replaces bare checkbox + “Enable”). */
+function ParamBooleanToggle({
+  label,
+  checked,
+  caution = false,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  /** Sensitive options (e.g. etcd dump) use amber emphasis when enabled. */
+  caution?: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  const activeTone = caution
+    ? "border-warn-amber/45 bg-warn-amber/[0.08] shadow-[inset_0_1px_0_rgb(255_255_255/0.04)]"
+    : "border-accent/40 bg-accent/[0.08] shadow-[inset_0_1px_0_rgb(255_255_255/0.04)]";
+  const trackOn = caution ? "bg-warn-amber" : "bg-accent";
+  const thumbRing = caution ? "ring-warn-amber/25" : "ring-accent/25";
+
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      aria-label={`${label}: ${checked ? "on" : "off"}`}
+      onClick={() => onChange(!checked)}
+      className={cn(
+        "group flex w-full items-center justify-between gap-4 rounded-lg border px-3.5 py-2.5 text-left transition-all duration-200",
+        "focus:outline-none focus-visible:ring-2 focus-visible:ring-accent/35",
+        checked
+          ? activeTone
+          : "border-border/80 bg-surface-2/35 hover:border-border-strong hover:bg-surface-2/55",
+      )}
+    >
+      <span className="min-w-0">
+        <span
+          className={cn(
+            "block text-sm font-medium tracking-tight transition-colors",
+            checked ? (caution ? "text-warn-amber" : "text-accent") : "text-fg",
+          )}
+        >
+          {checked ? "On" : "Off"}
+        </span>
+        <span className="mt-0.5 block text-2xs leading-snug text-fg-subtle">
+          {checked
+            ? caution
+              ? "High sensitivity — included"
+              : "Included in this kit"
+            : "Not included"}
+        </span>
+      </span>
+
+      <span
+        aria-hidden
+        className={cn(
+          "relative h-6 w-11 shrink-0 rounded-full transition-colors duration-200",
+          checked ? trackOn : "bg-border-strong/70 group-hover:bg-border-strong",
+        )}
+      >
+        <span
+          className={cn(
+            "absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform duration-200",
+            "ring-2 ring-transparent",
+            checked && cn("translate-x-5", thumbRing),
+          )}
+        />
+      </span>
+    </button>
+  );
+}
+
 export function AcquireParamFields({
   fields,
   values,
@@ -64,9 +135,9 @@ export function AcquireParamFields({
   };
 
   const setString = (key: string, val: string) => {
-    let next = { ...values, [key]: val };
+    let next: ParamValues = { ...values, [key]: val };
     if (key === "collection_source") {
-      next = pruneHiddenParamValues(fields, next);
+      next = pruneHiddenParamValues(fields, next) as ParamValues;
     }
     onChange(next);
   };
@@ -95,15 +166,12 @@ export function AcquireParamFields({
           />
 
           {field.type === "boolean" ? (
-            <label className="flex cursor-pointer items-center gap-2 text-sm text-fg">
-              <input
-                type="checkbox"
-                checked={boolValue(values, field.key)}
-                onChange={(e) => setBool(field.key, e.target.checked)}
-                className="rounded border-border"
-              />
-              Enable
-            </label>
+            <ParamBooleanToggle
+              label={field.label}
+              checked={boolValue(values, field.key)}
+              caution={/maximum sensitivity/i.test(field.description ?? "")}
+              onChange={(checked) => setBool(field.key, checked)}
+            />
           ) : field.type === "select" ? (
             <select
               className={cn(PARAM_INPUT_CLASS, "w-full")}

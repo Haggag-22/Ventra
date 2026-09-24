@@ -5,8 +5,8 @@ aliases:
 cloud: aws
 category: ManagementPlane
 description: CloudTrail trail config; management, insight, data and network-activity
-  events from the trail's S3 logs (LookupEvents fallback for management when no trail
-  delivers to S3), plus S3 log integrity validation (validate-logs).
+  events from the trail's S3 logs (LookupEvents only when no trails exist), plus S3
+  log integrity validation (validate-logs).
 version: 1.0.0
 collector: cloudtrail
 type: cloudtrail

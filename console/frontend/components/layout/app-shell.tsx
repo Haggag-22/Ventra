@@ -17,7 +17,7 @@ export function AppShell({
       {sidebar}
       <div className="flex min-w-0 flex-1 flex-col bg-transparent">
         {topbar}
-        <main className="flex flex-1 flex-col overflow-y-auto">
+        <main className="app-main-scroll flex flex-1 flex-col overflow-y-auto">
           <PageTransition>{children}</PageTransition>
         </main>
       </div>

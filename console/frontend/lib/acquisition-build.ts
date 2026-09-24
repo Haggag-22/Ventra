@@ -5,7 +5,11 @@ import { artifactParamsFromProfile } from "@/lib/artifact-params";
 import { collectorParamSchema } from "@/lib/collector-param-definitions";
 import { normalizeCaseId } from "@/lib/case-id";
 import type { AcquirePlatform } from "@/lib/catalog";
-import type { DeploymentProfile } from "@/lib/deployment-profiles";
+import {
+  coerceDeploymentProfileForCloud,
+  isPlatformProfile,
+  type DeploymentProfile,
+} from "@/lib/deployment-profiles";
 import {
   DEFAULT_GCP_LOG_BACKEND_FORM,
   gcpConfigToForm,
@@ -129,7 +133,7 @@ export function buildRequestBody(
     azure_client_id: platform === "azure" ? azureClientId.trim() || undefined : undefined,
     aws_profile: platform === "aws" ? awsProfile.trim() || undefined : undefined,
     artifact_parameters: Object.keys(params).length ? params : undefined,
-    deployment_profile: deploymentProfile,
+    deployment_profile: coerceDeploymentProfileForCloud(platform, deploymentProfile),
     max_records_per_source: parseMaxRecords(maxRecordsPerSource),
     transport: transport?.trim() || undefined,
     gcp_log_backend:
@@ -139,17 +143,43 @@ export function buildRequestBody(
   };
 }
 
+export function kitEntryScriptName(kitName: string): string {
+  const raw = (kitName || "").trim();
+  const slug = raw
+    .replace(/[^\w.\-]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^[.\-]+|[.\-]+$/g, "")
+    .slice(0, 80);
+  return `${slug || "ventra-kit"}.kit`;
+}
+
+export function kitZipFileName(kitName: string, cloud: string, caseId: string): string {
+  const raw = (kitName || "").trim() || `ventra-kit-${cloud}-${caseId}`;
+  const slug = raw
+    .replace(/[^\w.\-]+/g, "-")
+    .replace(/-{2,}/g, "-")
+    .replace(/^[.\-]+|[.\-]+$/g, "")
+    .slice(0, 80);
+  return `${slug || "ventra-kit"}.kit`;
+}
+
 export function buildKitDownloadRequest(
   profile: CollectionProfile,
   connectionId: string,
 ): AcquisitionBuild {
+  const body = profileToRunBody(profile);
+  const coerced = coerceDeploymentProfileForCloud(profile.cloud, body.deployment_profile);
+  // Kit download is always a workstation/enterprise artifact — never server-side "platform".
+  const downloadProfile = isPlatformProfile(coerced) ? "workstation" : coerced;
   return {
-    ...profileToRunBody(profile),
+    ...body,
     case_id: "CASE-PENDING",
     connection_id: connectionId.trim(),
+    kit_name: (profile.name || "").trim() || undefined,
     include_iam: true,
-    bundle_wheel: true,
-    require_wheel: true,
+    deployment_profile: downloadProfile,
+    bundle_wheel: false,
+    require_wheel: false,
   };
 }
 
@@ -182,6 +212,7 @@ export function buildKitRunRequest(
     gcp_log_backend:
       platform === "gcp" ? serializeGcpLogBackend(scope.gcpLogBackend) : undefined,
     include_iam: true,
+    deployment_profile: coerceDeploymentProfileForCloud(platform, profile.deployment_profile),
     bundle_wheel: true,
     require_wheel: true,
   };

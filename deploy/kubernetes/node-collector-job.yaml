@@ -1,6 +1,6 @@
 # ventra-node-collector-job — targeted at ONE node (node plane).
 #
-# For single-pod / single-node deep dives (container filesystem capture, CRIU checkpoint).
+# For single-pod / single-node deep dives (targeted node-plane collection).
 # Modelled on the kube-forensics job-on-target-node pattern, but runtime-agnostic (crictl/CRI,
 # never docker). Set spec.template.spec.nodeName to the target node before applying.
 apiVersion: batch/v1
@@ -21,8 +21,7 @@ spec:
     spec:
       restartPolicy: Never
       serviceAccountName: ventra-collector
-      # REQUIRED: pin to the node under investigation (the kubelet checkpoint endpoint is
-      # reachable on localhost only, which is why the pod must land on the target node).
+      # REQUIRED: pin to the node under investigation.
       nodeName: REPLACE_WITH_TARGET_NODE
       hostPID: true
       tolerations:
@@ -48,9 +47,6 @@ spec:
         - name: containerd-sock
           mountPath: /run/containerd/containerd.sock
           readOnly: true
-        - name: kubelet-checkpoints
-          mountPath: /host/var/lib/kubelet/checkpoints
-          readOnly: true
         - name: evidence
           mountPath: /evidence
       volumes:
@@ -58,13 +54,14 @@ spec:
         hostPath:
           path: /
           type: Directory
+      # The CRI socket path varies by distribution and `type: Socket` blocks the pod from
+      # starting when it does not exist (k3s and RKE2 use /run/k3s/containerd/containerd.sock,
+      # CRI-O /var/run/crio/crio.sock, microk8s its own snap path). Adjust it, or delete this
+      # volume and its mount: Ventra finds the socket under the read-only /host mount and
+      # passes --runtime-endpoint to crictl itself.
       - name: containerd-sock
         hostPath:
           path: /run/containerd/containerd.sock
           type: Socket
-      - name: kubelet-checkpoints
-        hostPath:
-          path: /var/lib/kubelet/checkpoints
-          type: DirectoryOrCreate
       - name: evidence
         emptyDir: {}

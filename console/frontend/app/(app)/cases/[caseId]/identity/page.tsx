@@ -35,7 +35,26 @@ export default function IdentityPage() {
   const { caseId, summary } = useCase();
   const cloud = caseCloud(summary?.cloud);
   const collected = new Set(summary?.collection?.collected ?? []);
-  const hasIdentitySnapshot = collected.has("iam") || collected.has("rbac") || collected.has("entra_directory");
+  const hasIdentitySnapshot =
+    collected.has("iam") ||
+    collected.has("rbac") ||
+    collected.has("entra_directory") ||
+    collected.has("iam_policy") ||
+    collected.has("k8s_rbac");
+  const isGcpIam = collected.has("iam_policy") && !collected.has("iam");
+  // A cluster has no IAM: the principals are ServiceAccounts and the roles are
+  // (Cluster)Roles, so the headings say so rather than mislabelling them as IAM.
+  const isK8sRbac = cloud === "kubernetes";
+  const principalsLabel = isK8sRbac
+    ? "ServiceAccounts"
+    : isGcpIam
+      ? "Service accounts"
+      : "IAM users";
+  const rolesLabel = isK8sRbac
+    ? "Roles & ClusterRoles"
+    : isGcpIam
+      ? "Custom roles"
+      : "IAM roles";
   const q = useQuery({ queryKey: ["identity", caseId], queryFn: () => api.identity(caseId) });
   const kmsQ = useQuery({
     queryKey: ["inventory", caseId, "kms"],
@@ -54,7 +73,7 @@ export default function IdentityPage() {
   const roles: any[] = iam.roles ?? [];
   const groups: any[] = iam.groups ?? [];
   const policies: any[] = iam.policies ?? [];
-  const noMfa = users.filter((u) => !(u.MFADevices ?? []).length).length;
+  const noMfa = isGcpIam ? 0 : users.filter((u) => !(u.MFADevices ?? []).length).length;
   const unusedKeyUsers = countUnusedActiveKeys(users);
   const kmsKeyList: any[] = kmsQ.data?.data?.keys ?? [];
   const secretsList: any[] = secretsQ.data?.data?.secrets ?? [];
@@ -72,17 +91,33 @@ export default function IdentityPage() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
           {hasIdentitySnapshot && (
             <>
-              <StatCard label="Users" value={fmtNum(users.length)} icon={Users} />
-              <StatCard label="Roles" value={fmtNum(roles.length)} icon={Shield} />
-              <StatCard label="Groups" value={fmtNum(groups.length)} icon={UsersRound} />
-              <StatCard label="Policies" value={fmtNum(policies.length)} icon={KeyRound} />
               <StatCard
-                label="No MFA"
-                value={fmtNum(noMfa)}
-                icon={ShieldX}
-                tone={noMfa > 0 ? "high" : "default"}
-                sub={unusedKeyUsers > 0 ? `${fmtNum(unusedKeyUsers)} with unused keys` : undefined}
+                label={isGcpIam ? "Service accounts" : "Users"}
+                value={fmtNum(users.length)}
+                icon={Users}
               />
+              <StatCard
+                label={isGcpIam ? "Custom roles" : "Roles"}
+                value={fmtNum(roles.length)}
+                icon={Shield}
+              />
+              {!isGcpIam && (
+                <StatCard label="Groups" value={fmtNum(groups.length)} icon={UsersRound} />
+              )}
+              <StatCard
+                label={isGcpIam ? "Bindings" : "Policies"}
+                value={fmtNum(policies.length)}
+                icon={KeyRound}
+              />
+              {!isGcpIam && (
+                <StatCard
+                  label="No MFA"
+                  value={fmtNum(noMfa)}
+                  icon={ShieldX}
+                  tone={noMfa > 0 ? "high" : "default"}
+                  sub={unusedKeyUsers > 0 ? `${fmtNum(unusedKeyUsers)} with unused keys` : undefined}
+                />
+              )}
             </>
           )}
           {collected.has("kms") && kmsKeys !== undefined && (
@@ -97,7 +132,9 @@ export default function IdentityPage() {
           <div className="ct-panel">
             <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
               <KeyRound className="h-4 w-4 text-fg-subtle" />
-              <span className="text-sm font-semibold text-fg">IAM users ({users.length})</span>
+              <span className="text-sm font-semibold text-fg">
+                {`${principalsLabel} (${users.length})`}
+              </span>
             </div>
             <IdentityUsersTable users={users} groups={groups} policies={policies} />
           </div>
@@ -105,7 +142,9 @@ export default function IdentityPage() {
           <div className="ct-panel">
             <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
               <Shield className="h-4 w-4 text-fg-subtle" />
-              <span className="text-sm font-semibold text-fg">IAM roles ({roles.length})</span>
+              <span className="text-sm font-semibold text-fg">
+                {`${rolesLabel} (${roles.length})`}
+              </span>
             </div>
             <IdentityRolesTable roles={roles} />
           </div>

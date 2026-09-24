@@ -4,6 +4,7 @@ import { useCase } from "@/components/case-context";
 import { PanelBody, PanelHeader } from "@/components/panel";
 import { Button, Card, EmptyState } from "@/components/ui";
 import { api } from "@/lib/api";
+import { CASE_PLATFORM_LABELS, type CasePlatform } from "@/lib/catalog";
 import { fmtTime } from "@/lib/format";
 import { usePins } from "@/lib/usePins";
 import { useQuery } from "@tanstack/react-query";
@@ -21,7 +22,7 @@ export default function ReportPage() {
     const lines: string[] = [];
     lines.push(`# Incident Report — ${caseId}`, "");
     if (s) {
-      lines.push(`- **Cloud / Account:** ${s.cloud?.toUpperCase()} ${s.account_id} ${s.account_alias ? `(${s.account_alias})` : ""}`);
+      lines.push(`- **Cloud / Account:** ${CASE_PLATFORM_LABELS[(s.cloud as CasePlatform)] ?? s.cloud} ${s.account_id} ${s.account_alias ? `(${s.account_alias})` : ""}`);
       lines.push(`- **Regions:** ${s.regions?.join(", ")}`);
       lines.push(`- **Collected by:** ${s.operator?.principal_arn ?? "—"}`);
       lines.push(`- **Window:** ${s.time_window?.since ?? "start"} → ${s.time_window?.until ?? "now"}`);

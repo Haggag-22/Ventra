@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 set -euo pipefail
-PROJECT="${1:-ultimate-opus-500916-b2}"
+PROJECT="${1:-${GOOGLE_CLOUD_PROJECT:-${CLOUDSDK_CORE_PROJECT:-}}}"
+if [[ -z "${PROJECT}" ]]; then
+  echo "Usage: $0 <gcp-project-id>" >&2
+  echo "Or set GOOGLE_CLOUD_PROJECT / CLOUDSDK_CORE_PROJECT." >&2
+  exit 1
+fi
 APIS=(
   compute.googleapis.com logging.googleapis.com storage.googleapis.com
   cloudfunctions.googleapis.com artifactregistry.googleapis.com cloudbuild.googleapis.com

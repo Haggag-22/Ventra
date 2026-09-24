@@ -28,7 +28,7 @@ import {
   type CollectionProfile,
 } from "@/lib/api";
 import { displayArtifactLabel } from "@/lib/artifact-icons";
-import { ACQUIRE_PLATFORM_LABELS, ACQUIRE_PLATFORMS, artifactIconCloud, compareCollectorCategories, isAcquirePlatform, type AcquirePlatform } from "@/lib/catalog";
+import { ACQUIRE_PLATFORM_LABELS, ACQUIRE_PLATFORMS, acquirePermissionModel, artifactIconCloud, compareCollectorCategories, isAcquirePlatform, type AcquirePlatform } from "@/lib/catalog";
 import {
   DEFAULT_GCP_LOG_BACKEND_FORM,
   cartNeedsGcpLogBackend,
@@ -38,9 +38,10 @@ import {
 } from "@/lib/gcp-log-backend";
 import { GcpLogBackendFields } from "@/components/gcp-log-backend-fields";
 import {
+  coerceDeploymentProfileForCloud,
   isEnterpriseProfile,
   isPlatformProfile,
-  parseDeploymentProfile,
+  supportsLiveConsoleRun,
   type DeploymentProfile,
 } from "@/lib/deployment-profiles";
 import { downloadTextFile } from "@/lib/download";
@@ -158,7 +159,9 @@ function applyProfileToState(
   setters.setAzureTenantId(profile.azure_tenant_id || "");
   setters.setAzureClientId(profile.azure_client_id || "");
   setters.setCart(new Set((profile.artifacts || []).filter((c) => valid.has(c))));
-  setters.setDeploymentProfile(parseDeploymentProfile(profile.deployment_profile));
+  setters.setDeploymentProfile(
+    coerceDeploymentProfileForCloud(profile.cloud, profile.deployment_profile),
+  );
   setters.setMaxRecordsPerSource(
     profile.max_records_per_source != null ? String(profile.max_records_per_source) : "",
   );
@@ -288,10 +291,16 @@ function AcquireContent() {
   }, [editProfile, all, platform]);
 
   useEffect(() => {
+    setDeploymentProfile((prev) => coerceDeploymentProfileForCloud(platform, prev));
+  }, [platform]);
+
+  useEffect(() => {
     if (urlProfileId) return;
     const mode = searchParams.get("mode")?.trim().toLowerCase();
-    if (mode === "run") setDeploymentProfile("platform");
-  }, [urlProfileId, searchParams]);
+    if (mode === "run" && supportsLiveConsoleRun(platform)) {
+      setDeploymentProfile("platform");
+    }
+  }, [urlProfileId, searchParams, platform]);
 
   const fromCase = !!urlCaseId;
   const preselectedCount = urlCollectors.length;
@@ -503,21 +512,17 @@ function AcquireContent() {
   };
 
   return (
-    <div className="px-6 py-8">
+    <div className="page-shell">
       <div className="mb-6">
         {isEditingKit ? (
-          <div className="flex items-start gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg border border-border bg-bg">
-              <CloudProviderIcon cloud={platform} />
-            </span>
-            <div className="min-w-0">
-              <p className="text-xs font-semibold uppercase tracking-wide text-fg-subtle">
-                Edit collection kit · {ACQUIRE_PLATFORM_LABELS[platform]}
-              </p>
-              <h1 className="page-title mt-1.5 min-w-0">
-                <span className="min-w-0 truncate">{kitName.trim() || "Untitled kit"}</span>
-              </h1>
-            </div>
+          <div className="min-w-0">
+            <p className="text-xs font-semibold uppercase tracking-wide text-fg-subtle">
+              Edit collection kit · {ACQUIRE_PLATFORM_LABELS[platform]}
+            </p>
+            <h1 className="page-title mt-1.5 min-w-0">
+              <CloudProviderIcon cloud={platform} size={34} />
+              <span className="min-w-0 truncate">{kitName.trim() || "Untitled kit"}</span>
+            </h1>
           </div>
         ) : (
           <h1 className="page-title">
@@ -535,7 +540,7 @@ function AcquireContent() {
             <span className="mono font-medium">{urlCaseId}</span>. Adjust the kit, then{" "}
             {isPlatformProfile(deploymentProfile)
               ? "save the kit, then run it from Collection Kits."
-              : "save the kit, then download it from Collection Kits."}
+              : "save the kit, then download it from Collection Kits and run it from a terminal."}
           </div>
         )}
         <div className="min-w-0">
@@ -550,6 +555,7 @@ function AcquireContent() {
                     className={cn(
                       "relative -mb-px flex items-center gap-2 px-4 py-2.5 text-sm transition-colors",
                       active ? "text-fg" : "text-fg-subtle hover:text-fg",
+                      t.id === "kubernetes" && "normal-case",
                     )}
                   >
                     <CloudProviderIcon cloud={t.id} />
@@ -613,7 +619,7 @@ function AcquireContent() {
             <div className="space-y-6">
               {byCategory.map(([category, items]) => (
                 <div key={category}>
-                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-fg-subtle">
+                  <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-accent">
                     {displayCategoryLabel(category)}
                   </h3>
                   <div className="space-y-2">
@@ -658,7 +664,7 @@ function AcquireContent() {
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2">
                                 <span className="truncate text-sm font-medium text-fg">
-                                  {displayArtifactLabel(a.collector)}
+                                  {displayArtifactLabel(a.collector, a.cloud)}
                                 </span>
                                 {selected && hasParams && !paramsExpanded && (
                                   <span className="inline-flex shrink-0 items-center gap-1 text-2xs text-fg-subtle">
@@ -846,14 +852,29 @@ function AcquireContent() {
                   </label>
                 </div>
                 <label className="block space-y-1.5">
-                  <KitFieldLabel>Regions</KitFieldLabel>
+                  <KitFieldLabel>{platform === "kubernetes" ? "Nodes / zones (optional)" : "Regions"}</KitFieldLabel>
                   <Input
                     value={regions}
                     onChange={(e) => setRegions(e.target.value)}
-                    placeholder={platform === "aws" ? "us-east-1,us-west-2" : "optional"}
+                    placeholder={
+                      platform === "aws"
+                        ? "us-east-1,us-west-2"
+                        : platform === "kubernetes"
+                          ? "optional"
+                          : "optional"
+                    }
                     className={KIT_INPUT_CLASS}
                   />
                 </label>
+                {platform === "kubernetes" && (
+                  <p className="text-xs leading-relaxed text-fg-subtle">
+                    Kubernetes kits are download-only for now. Save the kit, download it from
+                    Collection Kits, run <span className="mono">ventra run &lt;kit&gt;.kit</span> on a host that
+                    can reach the API (and nodes for log collectors), then import with{" "}
+                    <span className="mono">ventra import</span> or Cases → Import. Live console scans
+                    for Kubernetes are disabled until a later release.
+                  </p>
+                )}
                 {platform === "gcp" && (
                   <div className="block space-y-1.5">
                     <KitFieldLabel>Project ID(s)</KitFieldLabel>
@@ -894,7 +915,7 @@ function AcquireContent() {
                     </label>
                     <p className="text-xs leading-relaxed text-fg">
                       Set <span className="mono">AZURE_CLIENT_SECRET</span> in the environment before
-                      running <span className="mono">ventra.py</span> — never put secrets in the kit zip.
+                      running the kit entry script — never put secrets in the kit zip.
                     </p>
                   </>
                 )}
@@ -917,7 +938,7 @@ function AcquireContent() {
               <div className="acquire-kit-section">
                 <div className="flex items-center gap-2 text-sm font-semibold text-accent">
                   <ShieldCheck className="h-4 w-4" />
-                  Read-only IAM policy
+                  Read-only {acquirePermissionModel(platform)} policy
                 </div>
                 {collectors.length > 0 && (
                   <div className="acquire-kit-iam-box">
@@ -926,8 +947,9 @@ function AcquireContent() {
                     ) : iamPreview ? (
                       <>
                         <p className="text-sm text-fg">
-                          <span className="mono font-semibold">{iamPreview.iam_action_count}</span> IAM
-                          action{iamPreview.iam_action_count === 1 ? "" : "s"}
+                          <span className="mono font-semibold">{iamPreview.iam_action_count}</span>{" "}
+                          {acquirePermissionModel(platform)} action
+                          {iamPreview.iam_action_count === 1 ? "" : "s"}
                           {iamPreview.implicit_collectors.length > 0 && (
                             <span className="text-fg">
                               {" "}
@@ -943,7 +965,7 @@ function AcquireContent() {
                             onClick={() => setIamActionsOpen(true)}
                             disabled={iamPreview.iam_actions.length === 0}
                           >
-                            Show IAM actions
+                            Show {acquirePermissionModel(platform)} actions
                           </Button>
                           {Object.keys(iamPreview.iam_policies).length > 0 && (
                             <Button
@@ -959,7 +981,9 @@ function AcquireContent() {
                         </div>
                       </>
                     ) : (
-                      <p className="text-xs text-fg-subtle">Calculating IAM preview…</p>
+                      <p className="text-xs text-fg-subtle">
+                        Calculating {acquirePermissionModel(platform)} preview…
+                      </p>
                     )}
                   </div>
                 )}

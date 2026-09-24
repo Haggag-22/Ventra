@@ -3,11 +3,14 @@ aliases:
 - k8s_cni_logs
 - kubernetes.k8s_cni_logs
 cloud: kubernetes
-category: Network
+category: Node
 description: >-
-  Detects the CNI plugin (Calico, Cilium, Flannel, Weave) and collects its logs and, where
-  supported, flow logs (e.g. Cilium Hubble) — the primary evidence for lateral movement and
-  exfiltration.
+  CNI plugin detection and its logs, plus flow evidence where the plugin supports it, which is the
+  primary node-level record of lateral movement and exfiltration. Detection reads every CNI
+  configuration directory in use across distributions: /etc/cni/net.d on kubeadm, the k3s and RKE2
+  copies under /var/lib/rancher, and the microk8s args directory, so a plugin is not missed just
+  because the node is not kubeadm. Calico, Cilium (including Hubble flows when the CLI is
+  present), Flannel and Weave are recognised. Runs on every node.
 version: 1.0.0
 collector: k8s_cni_logs
 type: k8s_cni_logs

@@ -1,7 +1,12 @@
 "use client";
 
 import { Button } from "@/components/ui";
-import { ACQUIRE_PLATFORM_LABELS, isAcquirePlatform, type AcquirePlatform } from "@/lib/catalog";
+import {
+  ACQUIRE_PLATFORM_LABELS,
+  acquirePermissionModel,
+  isAcquirePlatform,
+  type AcquirePlatform,
+} from "@/lib/catalog";
 import { shortPlatformLabel } from "@/components/providers/types";
 import { cn } from "@/lib/utils";
 import { List, X } from "lucide-react";
@@ -29,6 +34,8 @@ export function IamActionsDialog({
   implicitCount,
   elevated = false,
 }: Props) {
+  const model = acquirePermissionModel(cloud);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -57,7 +64,8 @@ export function IamActionsDialog({
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <h3 id="iam-actions-title" className="flex items-center gap-2 text-sm font-semibold">
             <List className="h-4 w-4 text-fg-subtle" />
-            IAM actions — {isAcquirePlatform(cloud) ? ACQUIRE_PLATFORM_LABELS[cloud] : shortPlatformLabel(cloud)}
+            {model} actions —{" "}
+            {isAcquirePlatform(cloud) ? ACQUIRE_PLATFORM_LABELS[cloud] : shortPlatformLabel(cloud)}
           </h3>
           <button type="button" onClick={onClose} className="text-fg-subtle hover:text-fg" aria-label="Close">
             <X className="h-4 w-4" />
@@ -77,7 +85,7 @@ export function IamActionsDialog({
 
         <div className="flex-1 overflow-y-auto px-4 py-3">
           {actions.length === 0 ? (
-            <p className="text-sm text-fg-subtle">No IAM actions in this preview.</p>
+            <p className="text-sm text-fg-subtle">No {model} actions in this preview.</p>
           ) : (
             <ul className="space-y-1.5">
               {actions.map((action) => (

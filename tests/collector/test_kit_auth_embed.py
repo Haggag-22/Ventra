@@ -85,3 +85,28 @@ def test_build_kit_embeds_aws_profile(tmp_path: Path) -> None:
         acq = yaml.safe_load(zf.read("acquisition.yaml"))
     assert acq["aws_profile"] == "ir-collector"
     assert acq["auth_method"] == "profile"
+
+
+def test_build_kit_embeds_kubernetes_kubeconfig(tmp_path: Path) -> None:
+    out = build_kit(
+        tmp_path / "kit.zip",
+        cloud="kubernetes",
+        case_id="CASE-K8S",
+        artifact_names=["k8s_events"],
+        artifacts_root=ARTIFACTS,
+        bundle_wheel=False,
+        connection={
+            "platform": "kubernetes",
+            "auth_method": "kubeconfig",
+            "k8s_context": "lab-ctx",
+            "kubeconfig_content": "apiVersion: v1\nkind: Config\ncontexts:\n- name: lab-ctx\n  context: {}\n",
+        },
+    )
+    with zipfile.ZipFile(out) as zf:
+        acq = yaml.safe_load(zf.read("acquisition.yaml"))
+        assert acq["kubeconfig"] == "credentials/kubeconfig.yaml"
+        assert acq["k8s_context"] == "lab-ctx"
+        assert acq["node_root"] == "/"
+        assert "credentials/kubeconfig.yaml" in zf.namelist()
+        raw = zf.read("credentials/kubeconfig.yaml").decode()
+        assert "lab-ctx" in raw

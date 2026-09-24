@@ -321,11 +321,11 @@ const K8S_AUTH: DocSectionContent = {
 };
 
 const K8S_PERMISSIONS: DocSectionContent = {
-  title: "Permissions",
+  title: "RBAC",
   blocks: [
     {
       type: "p",
-      text: "Grant read-only RBAC to the identity in your kubeconfig. Required verbs are get, list, and watch on core workloads, events, and audit-related API groups. No create, update, patch, or delete permissions are required.",
+      text: "Grant read-only RBAC to the identity in your kubeconfig. Required verbs are get, list, and watch on core workloads, events, and audit-related API groups. No create, update, patch, or delete permissions are required (except create on SelfSubjectAccessReview for the collector preflight probe).",
     },
   ],
 };

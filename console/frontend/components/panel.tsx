@@ -10,21 +10,46 @@ export function PanelHeader({
   title,
   panel,
   actions,
+  collectorsInline,
 }: {
   icon: LucideIcon;
   title: string;
   panel?: PanelId;
   actions?: React.ReactNode;
+  collectorsInline?: boolean;
 }) {
   return (
     <div className="flex items-start justify-between gap-4 border-b border-border/80 bg-surface/60 px-6 py-5 backdrop-blur-sm">
-      <div className="flex min-w-0 flex-1 items-start gap-3">
-        <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-surface-2 text-accent">
+      <div
+        className={
+          collectorsInline
+            ? "flex min-w-0 flex-1 items-center gap-3"
+            : "flex min-w-0 flex-1 items-start gap-3"
+        }
+      >
+        <div
+          className={
+            collectorsInline
+              ? "flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-surface-2 text-accent"
+              : "mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-surface-2 text-accent"
+          }
+        >
           <Icon className="h-4 w-4" />
         </div>
-        <div className="min-w-0 flex-1">
+        <div
+          className={
+            collectorsInline
+              ? "flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-2"
+              : "min-w-0 flex-1"
+          }
+        >
           <h1 className="page-title">{title}</h1>
-          {panel && <PanelCollectors panel={panel} />}
+          {panel && (
+            <PanelCollectors
+              panel={panel}
+              className={collectorsInline ? "is-inline" : undefined}
+            />
+          )}
         </div>
       </div>
       {actions && (

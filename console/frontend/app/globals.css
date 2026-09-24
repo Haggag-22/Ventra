@@ -376,6 +376,17 @@ body > * {
   background: rgb(var(--fg-subtle) / 0.5);
 }
 
+/* Main content — keep wheel/trackpad scroll, hide the right-edge bar */
+.app-main-scroll {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.app-main-scroll::-webkit-scrollbar {
+  display: none;
+  width: 0;
+  height: 0;
+}
+
 /* Focus ring — keyboard-first, WCAG AA */
 :focus-visible {
   outline: 2px solid rgb(var(--accent));
@@ -555,6 +566,14 @@ body > * {
   .page-title {
     @apply flex items-center gap-2.5 text-2xl font-semibold text-fg;
     letter-spacing: 0;
+    line-height: 2.125rem; /* 34px — match .sb-brand-mark */
+    min-height: 2.125rem;
+  }
+
+  /* Aligns page title with sidebar brand row (same top inset) */
+  .page-shell {
+    @apply px-6 pb-8;
+    padding-top: 2rem; /* keep in sync with .sb-brand-row */
   }
 
   /* Shared data-table typography — use across all list/matrix tables */
@@ -564,15 +583,15 @@ body > * {
   }
 
   .table-header-cell {
-    @apply px-5 py-3 text-left text-sm font-bold uppercase tracking-wide text-fg;
+    @apply px-5 py-3 text-left text-sm font-bold uppercase tracking-wide text-accent;
   }
 
   .table-header-cell-center {
-    @apply px-5 py-3 text-center text-sm font-bold uppercase tracking-wide text-fg;
+    @apply px-5 py-3 text-center text-sm font-bold uppercase tracking-wide text-accent;
   }
 
   .table-header-cell-right {
-    @apply px-5 py-3 text-right text-sm font-bold uppercase tracking-wide text-fg;
+    @apply px-5 py-3 text-right text-sm font-bold uppercase tracking-wide text-accent;
   }
 
   .table-cell {
@@ -676,6 +695,10 @@ body > * {
 
   .panel-collectors {
     @apply mt-3;
+  }
+
+  .panel-collectors.is-inline {
+    @apply mt-0;
   }
 
   .panel-collectors-row {
@@ -1025,12 +1048,22 @@ body > * {
     -webkit-backdrop-filter: none;
   }
 
-  .sb-brand {
+  .sb-brand-row {
     display: flex;
     align-items: center;
-    gap: 10px;
+    justify-content: space-between;
+    gap: 8px;
     border-bottom: 1px solid rgb(var(--border) / 0.8);
-    padding: 17px 16px 15px;
+    /* Top inset matches .page-shell so brand + page titles share a baseline */
+    padding: 2rem 12px 14px 16px;
+    min-height: calc(2rem + 2.125rem + 14px);
+  }
+
+  .sb-brand {
+    display: flex;
+    min-width: 0;
+    align-items: center;
+    gap: 10px;
     color: rgb(var(--fg));
     text-decoration: none;
     transition: opacity 0.12s;
@@ -1038,6 +1071,32 @@ body > * {
 
   .sb-brand:hover {
     opacity: 0.92;
+  }
+
+  .sb-brand-actions {
+    display: flex;
+    flex-shrink: 0;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .sb-brand-action {
+    display: inline-flex;
+    height: 32px;
+    width: 32px;
+    align-items: center;
+    justify-content: center;
+    border: 1px solid rgb(var(--border));
+    border-radius: 6px;
+    background: rgb(var(--surface));
+    color: rgb(var(--fg-subtle));
+    transition: border-color 0.12s, background 0.12s, color 0.12s;
+  }
+
+  .sb-brand-action:hover {
+    border-color: rgb(var(--accent) / 0.4);
+    background: rgb(var(--surface-2));
+    color: rgb(var(--fg));
   }
 
   .sb-brand-mark {
@@ -1075,27 +1134,27 @@ body > * {
     display: flex;
     flex-direction: column;
     justify-content: center;
-    border-bottom: 1px solid rgb(var(--border) / 0.8);
-    padding: 14px 12px;
+    padding: 20px 12px;
   }
 
   .sb-back-wrap {
-    padding: 12px 12px 0;
+    padding: 10px 8px 14px;
   }
 
   .sb-back-btn {
     display: flex;
     width: 100%;
     align-items: center;
-    gap: 9px;
+    gap: 10px;
     border: 1px solid rgb(var(--border) / 0.8);
     border-radius: 8px;
     background: rgb(var(--fg) / 0.04);
-    padding: 9px 11px;
+    padding: 10px 14px;
     color: rgb(var(--fg-subtle));
     font-family: inherit;
-    font-size: 12px;
+    font-size: 13.5px;
     font-weight: 650;
+    line-height: 1.25;
     text-decoration: none;
     transition: border-color 0.12s, background 0.12s, color 0.12s;
   }
@@ -1107,15 +1166,15 @@ body > * {
   }
 
   .sb-back-icon {
-    height: 14px;
-    width: 14px;
+    height: 16px;
+    width: 16px;
     flex-shrink: 0;
   }
 
   .sb-nav {
     flex: 1;
     overflow-y: auto;
-    padding: 12px 8px;
+    padding: 0 8px 12px;
   }
 
   .sb-nav-section {
@@ -1124,7 +1183,11 @@ body > * {
     font-weight: 500;
     letter-spacing: 0.05em;
     text-transform: uppercase;
-    color: rgb(var(--fg-faint));
+    color: rgb(var(--accent));
+  }
+
+  .sb-nav-section:first-child {
+    padding-top: 0;
   }
 
   .sb-nav-item {
@@ -1232,13 +1295,19 @@ body > * {
       width: 72px;
     }
 
+    .sb-brand-row {
+      justify-content: center;
+      padding: 2rem 8px 14px;
+    }
+
     .sb-brand {
       justify-content: center;
-      padding: 14px 10px;
+      padding: 0;
     }
 
     .sb-brand-title,
     .sb-brand-sub,
+    .sb-brand-actions,
     .sb-nav-section,
     .sb-footer-meta,
     .sb-primary-action span,
@@ -1268,7 +1337,7 @@ body > * {
     }
 
     .sb-nav {
-      padding: 12px 8px;
+      padding: 0 8px 12px;
     }
 
     .sb-nav-item {
@@ -1293,19 +1362,19 @@ body > * {
     }
 
     .sb-back-wrap {
-      padding: 10px 8px 0;
+      padding: 10px 8px 14px;
     }
 
     .sb-back-btn {
       justify-content: center;
       gap: 0;
-      padding: 10px 0;
+      padding: 11px 0;
       font-size: 0;
     }
 
     .sb-back-icon {
-      height: 17px;
-      width: 17px;
+      height: 19px;
+      width: 19px;
     }
   }
 
@@ -1971,6 +2040,10 @@ body > * {
 
   .cloudtrail-view .ct-table tbody tr:hover td {
     background: rgb(var(--surface-2));
+  }
+
+  .cloudtrail-view .ct-table tbody tr.is-selected td {
+    background: rgb(var(--accent) / 0.12);
   }
 
   .cloudtrail-view .ct-cat-badge {

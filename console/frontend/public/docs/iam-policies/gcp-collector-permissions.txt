@@ -44,7 +44,7 @@ compute.subnetworks.list
 compute.routes.list
 compute.packetMirrorings.list
 
-[Load Balancer Access Logs]
+[Cloud Load Balancing Logs]
 logging.logEntries.list
 
 [Cloud CDN Access Logs]

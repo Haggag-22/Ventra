@@ -1,8 +1,10 @@
-# Ventra read-only IAM policies
+# Ventra read-only IAM / RBAC policies
 
 The collector is **strictly read-only**. These policies contain only describe/get/list
 actions — no `Create*`, `Put*`, `Delete*`, `Update*`, `Modify*`, `Run*`, `Terminate*`, or
-other mutating verbs. The CI `readonly-guard` check enforces this against the collector code.
+other mutating verbs (Kubernetes preflight uses `create` on SelfSubjectAccessReview only,
+which is a permission probe and changes no cluster state). The CI `readonly-guard` check
+enforces this against the collector code.
 
 ## How to use
 
@@ -17,6 +19,8 @@ Give the policy to the client's security team to review **before** they run anyt
 | [`azure-collector-readonly.json`](azure-collector-readonly.json) | Azure ARM read-only. |
 | [`azure-collector-graph.json`](azure-collector-graph.json) | Microsoft Graph (Entra). |
 | [`azure-collector-m365.json`](azure-collector-m365.json) | M365 Unified Audit Log search. |
+| [`kubernetes-collector-readonly.json`](kubernetes-collector-readonly.json) | Kubernetes RBAC permission list (Acquire preview / kit narrowing). |
+| [`kubernetes-collector-readonly.yaml`](kubernetes-collector-readonly.yaml) | Kubernetes ServiceAccount + read-only ClusterRole + binding (apply with `kubectl`). |
 
 ## Verifying read-only
 

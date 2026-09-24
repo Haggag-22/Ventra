@@ -5,9 +5,14 @@ aliases:
 cloud: kubernetes
 category: Node
 description: >-
-  kubelet journal/log (journalctl -u kubelet or /var/log/kubelet.log): pod admission, image
-  pulls, container start/stop, volume mounts. Cross-check against the API audit log to detect
-  tampering (kubelet did something the API server was never asked to do).
+  The kubelet's own account of pod admission, image pulls, container start and stop, and volume
+  mounts. Read from journalctl -u kubelet, or /var/log/kubelet.log on a node without systemd, or
+  the distribution's node agent unit where the kubelet has no unit of its own: k3s-agent and k3s,
+  rke2-agent and rke2-server, or the microk8s kubelite snap daemon. When the records come from a
+  merged unit that also carries the control plane and runtime, the result says so, so an analyst
+  reading two collectors that quote the same journal knows why. Cross-checking this against the
+  API-server audit log is powerful: a divergence between what the API server was asked to do and
+  what the kubelet actually did is a strong tampering signal. Runs on every node.
 version: 1.0.0
 collector: k8s_kubelet_logs
 type: k8s_kubelet_logs

@@ -20,7 +20,7 @@ export default function SettingsPage() {
   const me = useQuery({ queryKey: ["me"], queryFn: api.me });
 
   return (
-    <div className="px-6 py-8">
+    <div className="page-shell">
       <div className="mb-6">
         <h1 className="page-title">
           <Settings className="h-5 w-5 text-accent" />

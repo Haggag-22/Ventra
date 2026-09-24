@@ -4,6 +4,7 @@ import { useCase } from "@/components/case-context";
 import { api } from "@/lib/api";
 import { caseCloud } from "@/lib/cloud-sources";
 import { panelLabel } from "@/lib/panel-labels";
+import { isPanelVisible } from "@/lib/panel-visibility";
 import { useQuery } from "@tanstack/react-query";
 import {
   Cloud,
@@ -48,7 +49,6 @@ const PANELS: {
   { href: "data-access", panel: "data-access", icon: Database },
   { href: "collection", panel: "collection", icon: Gauge },
   { href: "files", panel: "files", icon: FileText },
-  { href: "report", panel: "report", icon: FileText },
 ];
 
 export function CommandPalette({
@@ -86,9 +86,7 @@ export function CommandPalette({
       router.push(`/cases/${caseId}/${path}`);
       onClose();
     };
-    const base: Item[] = PANELS.filter(
-      (p) => p.href !== "cloudwatch" || cloud === "aws",
-    ).map((p) => ({
+    const base: Item[] = PANELS.filter((p) => isPanelVisible(cloud, p.href)).map((p) => ({
       id: `panel-${p.href}`,
       label: p.label ?? (p.panel ? panelLabel(cloud, p.panel) : p.href),
       hint: "Panel",

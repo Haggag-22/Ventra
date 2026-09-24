@@ -49,3 +49,25 @@ export function isDownloadProfile(id: string): boolean {
 export function isEnterpriseProfile(id: string): boolean {
   return id === "enterprise";
 }
+
+/** Kubernetes live console runs are disabled — kits are download-only until node collection is wired. */
+export function supportsLiveConsoleRun(cloud: string): boolean {
+  return cloud.trim().toLowerCase() !== "kubernetes";
+}
+
+/** Default kit profile for a cloud. Kubernetes always downloads a workstation kit. */
+export function defaultDeploymentProfileForCloud(cloud: string): DeploymentProfile {
+  return supportsLiveConsoleRun(cloud) ? "platform" : "workstation";
+}
+
+/** Coerce saved/requested profiles so Kubernetes never stays on live ``platform``. */
+export function coerceDeploymentProfileForCloud(
+  cloud: string,
+  profile: string | null | undefined,
+): DeploymentProfile {
+  const parsed = parseDeploymentProfile(profile);
+  if (!supportsLiveConsoleRun(cloud)) {
+    return isPlatformProfile(parsed) ? "workstation" : parsed;
+  }
+  return parsed;
+}

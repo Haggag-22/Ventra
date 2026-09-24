@@ -1,8 +1,11 @@
 # GCP authentication for Ventra
 
-Ventra does not authenticate from the Acquire console. Collection runs on the client or IR
-host via an **acquisition kit** (`ventra.py`). The kit holds scope (project IDs, collectors,
-time window). **Credentials never go inside the kit zip.**
+Collection for GCP usually runs on the client or IR host via an **acquisition kit**
+(`ventra.py`). The kit holds scope (project IDs, collectors, time window).
+**Credentials never go inside the kit zip** — operators supply a service account key or
+Application Default Credentials on the collection host. Separately, the console
+**Config → Providers** connection can store a GCP service account key for **platform runs**
+that execute on the Ventra host; that path is independent of Acquire kit handoff.
 
 ## What you need
 
