@@ -40,7 +40,8 @@ jobs:
           python-version: "3.11"
       - name: Install
         run: |
-          uv pip install --system -e ".[dev]" -e "./ingester[dev]" -e ./console/backend
+          # pytest/ruff live in [dependency-groups].dev — `.[dev]` is not an optional-extra anymore
+          uv pip install --system --group dev -e . -e ./ingester -e ./console/backend
           uv pip install --system ruff
       - name: Lint
         run: ruff check collector ingester console/backend
