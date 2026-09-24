@@ -1,0 +1,195 @@
+"""Orchestrates an Azure collection run end-to-end."""
+
+from __future__ import annotations
+
+import json
+import platform
+import tempfile
+import traceback
+from dataclasses import dataclass, field
+from pathlib import Path
+
+from collector import __version__
+from collector.clouds.azure.client_factory import AzureClientFactory
+from collector.engine.acquisition import artifact_refs_for_collectors
+from collector.engine.registry import AZURE_REGISTRY
+from collector.engine.run_common import RunReporter, parse_window
+from collector.lib.auth import azure_factory_kwargs, manifest_profile_overrides
+from collector.lib.base import Collector
+from collector.lib.models import (
+    ArtifactRef,
+    AzureAuthOptions,
+    CollectionContext,
+    GapReason,
+    Manifest,
+    Operator,
+    SourceResult,
+    SourceStatus,
+    TimeWindow,
+    UalCollectOptions,
+    utcnow_iso,
+)
+from collector.lib.packaging.packager import PackageResult
+
+__all__ = ["AzureRunConfig", "run_azure_collection", "parse_window"]
+
+SCHEMA_VERSION = "1.0.0"
+
+
+@dataclass
+class AzureRunConfig:
+    case_id: str
+    collectors: list[str]
+    regions: list[str] | None
+    subscription_id: str | None
+    time_window: TimeWindow
+    out_dir: Path
+    engagement_id: str = ""
+    key_path: Path | None = None
+    reporter: RunReporter | None = None
+    ual: UalCollectOptions = field(default_factory=UalCollectOptions)
+    auth: AzureAuthOptions = field(default_factory=AzureAuthOptions)
+    artifact_refs: list[ArtifactRef] = field(default_factory=list)
+    max_records_per_source: int | None = None
+    artifact_parameters: dict[str, dict] = field(default_factory=dict)
+    plan_label: str = ""
+    artifact_labels: dict[str, str] = field(default_factory=dict)
+    artifact_severities: dict[str, str] = field(default_factory=dict)
+    pipeline_steps: list[str] = field(default_factory=list)
+
+
+def run_azure_collection(
+    cfg: AzureRunConfig, *, factory: AzureClientFactory | None = None
+) -> PackageResult:
+    started = utcnow_iso()
+    cf = factory or AzureClientFactory(**azure_factory_kwargs(cfg.auth, subscription_id=cfg.subscription_id))
+    identity = cf.caller_identity()
+    subscriptions = cf.subscriptions()
+
+    reporter = cfg.reporter or RunReporter()
+    reporter.begin_run(
+        identity.tenant_id,
+        subscriptions,
+        cfg.case_id,
+        cfg.collectors,
+        plan_label=cfg.plan_label,
+        artifact_labels=cfg.artifact_labels,
+        artifact_severities=cfg.artifact_severities,
+        pipeline_steps=cfg.pipeline_steps,
+    )
+
+    with tempfile.TemporaryDirectory(prefix="ventra-stage-") as tmp:
+        staging = Path(tmp)
+        (staging / "sources").mkdir(parents=True, exist_ok=True)
+
+        ctx = CollectionContext(
+            cloud="azure",
+            account_id=identity.tenant_id,
+            tenant_id=identity.tenant_id,
+            subscription_ids=subscriptions,
+            regions=cfg.regions or [],
+            time_window=cfg.time_window,
+            staging=staging,
+            case_id=cfg.case_id,
+            client_factory=cf,
+            logger=reporter,
+            ual=cfg.ual,
+            max_records_per_source=cfg.max_records_per_source,
+            artifact_parameters=cfg.artifact_parameters,
+        )
+
+        manifest = Manifest(
+            schema_version=SCHEMA_VERSION,
+            tool_version=__version__,
+            case_id=cfg.case_id,
+            engagement_id=cfg.engagement_id,
+            cloud="azure",
+            account_id=identity.tenant_id,
+            partition="azure",
+            regions=cfg.regions or [],
+            operator=Operator(
+                principal_arn=f"azure-sp:{identity.principal}", user_id=identity.tenant_id
+            ),
+            started_at=started,
+            completed_at="",
+            time_window=cfg.time_window,
+            profile_name="all",
+            profile_overrides=manifest_profile_overrides(
+                azure_auth=cfg.auth,
+                subscription_id=cfg.subscription_id,
+            ),
+            account_alias=identity.tenant_name,
+            host_environment="local",
+            host_os=platform.platform(),
+            host_runtime=f"python {platform.python_version()}",
+        )
+        manifest.artifacts = cfg.artifact_refs or artifact_refs_for_collectors("azure", cfg.collectors)
+
+        collection_log: list[dict] = []
+        for name in cfg.collectors:
+            if reporter.should_cancel():
+                reporter.abort_remaining()
+                break
+            cls = AZURE_REGISTRY.get(name)
+            if cls is None:
+                manifest.add_source_result(
+                    SourceResult(
+                        name=name,
+                        status=SourceStatus.SKIPPED,
+                        gaps=[(name, GapReason.OUT_OF_SCOPE, "Unknown collector for Azure.")],
+                        notes="Unknown collector name.",
+                    )
+                )
+                continue
+            reporter.start(name)
+            result = _run_one(cls, ctx)
+            reporter.finish(name, result)
+            manifest.add_source_result(result)
+            collection_log.append(
+                {
+                    "ts": utcnow_iso(),
+                    "collector": name,
+                    "status": result.status.value,
+                    "records": result.record_count,
+                    "gaps": [g[0] for g in result.gaps],
+                    "errors": result.errors,
+                }
+            )
+            if result.errors:
+                ctx.error_log(name).write_text("\n".join(result.errors), encoding="utf-8")
+
+        manifest.completed_at = utcnow_iso()
+        _write_collection_log(staging, collection_log)
+        manifest_path = staging / "manifest.json"
+        manifest.write(manifest_path)
+
+        from ...run_finalize import finalize_and_seal_package
+
+        return finalize_and_seal_package(
+            reporter=reporter,
+            staging=staging,
+            out_dir=cfg.out_dir,
+            case_id=cfg.case_id,
+            account_id=identity.tenant_id,
+            key_path=cfg.key_path,
+        )
+
+
+def _run_one(cls: type[Collector], ctx: CollectionContext) -> SourceResult:
+    try:
+        return cls(ctx).collect()
+    except Exception as exc:  # noqa: BLE001 - isolation is intentional
+        return SourceResult(
+            name=cls.name,
+            status=SourceStatus.ERRORED,
+            gaps=[(cls.name, GapReason.COLLECTOR_ERROR, str(exc))],
+            errors=[traceback.format_exc()],
+            notes=f"Collector raised: {exc}",
+        )
+
+
+def _write_collection_log(staging: Path, entries: list[dict]) -> None:
+    path = staging / "collection.log"
+    with path.open("w", encoding="utf-8") as fh:
+        for e in entries:
+            fh.write(json.dumps(e, default=str) + "\n")

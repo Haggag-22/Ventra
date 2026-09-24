@@ -3,7 +3,7 @@ export PYTHONDONTWRITEBYTECODE := 1
 
 UV ?= uv
 
-.PHONY: help install dev-setup demo demo-azure demo-gcp aws-lab-deploy aws-lab-seed aws-lab-destroy ingest ingest-azure ingest-gcp backend frontend dev gui test lint readonly-guard validate-artifacts generate-catalog clean clean-pycache ensure-no-pycache install-hooks
+.PHONY: help install dev-setup demo demo-azure demo-gcp demo-kubernetes aws-lab-deploy aws-lab-seed aws-lab-destroy ingest ingest-azure ingest-gcp ingest-kubernetes backend frontend dev gui test lint readonly-guard validate-artifacts generate-catalog clean clean-pycache ensure-no-pycache install-hooks
 
 help:
 	@echo "Ventra targets:"
@@ -29,13 +29,21 @@ help:
 
 install:
 	$(UV) sync
+	@# macOS (esp. iCloud Desktop) may mark editable install files UF_HIDDEN;
+	@# Python then skips *.pth and the ventra console script cannot import collector.
+	@if [ "$$(uname -s)" = Darwin ]; then \
+		find .venv/lib \( -name '__editable__*' -o -name '*.pth' \) \
+			-exec chflags nohidden {} + 2>/dev/null || true; \
+	fi
 
 dev-setup: install clean-pycache ensure-no-pycache install-hooks
 	mkdir -p cases .ventra-uploads
 	cd console/frontend && npm install
 
 gui: clean-pycache
-	$(UV) run ventra gui
+	@# Desktop/iCloud marks editable *.pth UF_HIDDEN; PYTHONPATH avoids that entirely.
+	PYTHONPATH="$(CURDIR):$(CURDIR)/ingester$${PYTHONPATH:+:$$PYTHONPATH}" \
+		$(UV) run python -m collector.cli gui
 
 # Alias of `gui`, kept for muscle memory.
 dev: gui
@@ -49,6 +57,9 @@ demo-azure:
 demo-gcp:
 	$(UV) run python tests/fixtures/generate_gcp_demo_case.py --out tests/fixtures/
 
+demo-kubernetes:
+	$(UV) run python tests/fixtures/generate_kubernetes_demo_case.py --out tests/fixtures/
+
 aws-lab-deploy:
 	cd docs/deployment/aws/collector-lab/terraform && terraform init -input=false && terraform apply -input=false -auto-approve
 
@@ -59,16 +70,19 @@ aws-lab-destroy:
 	cd docs/deployment/aws/collector-lab/terraform && terraform destroy -input=false -auto-approve
 
 ingest:
-	$(UV) run ventra-ingest tests/fixtures/case-CASE-2026-0042-*.tar.zst --case-store ./cases
+	PYTHONPATH=$(CURDIR):$(CURDIR)/ingester $(UV) run ventra-ingest tests/fixtures/case-CASE-2026-0042-*.tar.zst --case-store ./cases
 
 ingest-azure:
-	$(UV) run ventra-ingest $$(ls -t tests/fixtures/case-CASE-2026-AZ42-*.tar.zst | head -1) --case-store ./cases
+	PYTHONPATH=$(CURDIR):$(CURDIR)/ingester $(UV) run ventra-ingest $$(ls -t tests/fixtures/case-CASE-2026-AZ42-*.tar.zst | head -1) --case-store ./cases
 
 ingest-gcp:
-	$(UV) run ventra-ingest $$(ls -t tests/fixtures/case-CASE-*-gcp-*.tar.zst | head -1) --case-store ./cases
+	PYTHONPATH=$(CURDIR):$(CURDIR)/ingester $(UV) run ventra-ingest $$(ls -t tests/fixtures/case-CASE-*-gcp-*.tar.zst | head -1) --case-store ./cases
+
+ingest-kubernetes:
+	PYTHONPATH=$(CURDIR):$(CURDIR)/ingester $(UV) run ventra-ingest $$(ls -t tests/fixtures/case-CASE-2026-K8S1-*.tar.zst | head -1) --case-store ./cases
 
 backend: clean-pycache
-	VENTRA_CASE_STORE=./cases VENTRA_UPLOAD_DIR=./.ventra-uploads \
+	cd console/backend && PYTHONPATH=$(CURDIR):$(CURDIR)/ingester VENTRA_CASE_STORE=$(CURDIR)/cases VENTRA_UPLOAD_DIR=$(CURDIR)/.ventra-uploads \
 	$(UV) run uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 
 frontend:

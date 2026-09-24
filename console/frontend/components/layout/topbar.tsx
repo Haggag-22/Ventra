@@ -1,16 +1,14 @@
 "use client";
 
-import { Breadcrumbs } from "@/components/layout/breadcrumbs";
 import { CloudPlatformLabel } from "@/components/cloud-provider-icon";
 import { ExportElasticButton } from "@/components/export-elastic-button";
-import { useUI } from "@/app/providers";
-import { CASES_HREF, breadcrumbsFromPath } from "@/lib/routes";
+import { ThemeToggle } from "@/components/layout/theme-toggle";
+import { CASES_HREF } from "@/lib/routes";
 import type { CaseSummary } from "@/lib/types";
 import { fmtDateOnly } from "@/lib/format";
 import { cn } from "@/lib/utils";
-import { ChevronDown, Moon, Sun, SunMoon } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 
 function MetaSegment({
   label,
@@ -35,28 +33,6 @@ function MetaDivider() {
   return <span className="h-4 w-px bg-border" aria-hidden />;
 }
 
-function ThemeToggle() {
-  const { theme, setTheme } = useUI();
-  const cycle = () => {
-    const next =
-      theme === "light" ? "contrast" : theme === "contrast" ? "dark" : "light";
-    setTheme(next);
-  };
-  const Icon =
-    theme === "light" ? Sun : theme === "contrast" ? SunMoon : Moon;
-  return (
-    <button
-      type="button"
-      onClick={cycle}
-      className="inline-flex h-8 w-8 items-center justify-center rounded-md border border-border bg-surface text-fg-subtle transition-colors hover:border-accent/40 hover:bg-surface-2 hover:text-fg"
-      title={`Theme: ${theme}`}
-      aria-label={`Switch theme (current: ${theme})`}
-    >
-      <Icon className="h-4 w-4" />
-    </button>
-  );
-}
-
 export function TopBar({
   caseId,
   summary,
@@ -66,8 +42,6 @@ export function TopBar({
   summary?: CaseSummary;
   variant?: "case" | "global";
 }) {
-  const pathname = usePathname();
-  const crumbs = breadcrumbsFromPath(pathname, caseId);
   const win = summary?.time_window;
   const windowLabel =
     win?.since || win?.until
@@ -76,26 +50,28 @@ export function TopBar({
 
   const accountId = summary?.account_id ?? "—";
 
+  if (variant === "global") {
+    return null;
+  }
+
   return (
-    <header className="flex h-[3.75rem] shrink-0 items-center justify-between gap-6 border-b border-border/80 bg-raised px-6">
+    <header className="flex min-h-[4.5rem] shrink-0 items-center justify-between gap-6 bg-transparent px-6 pb-3 pt-4">
       <div className="flex min-w-0 items-center gap-3">
-        {variant === "case" && caseId ? (
+        {caseId ? (
           <Link
             href={CASES_HREF}
-            className="flex items-center gap-2 rounded-md border border-accent-cta/45 bg-accent-cta/10 px-2.5 py-1.5 transition-colors hover:border-accent-cta/60 hover:bg-accent-cta/15"
+            className="flex items-center gap-2 rounded-md border border-accent-cta/45 bg-accent-cta/10 px-3 py-2 transition-colors hover:border-accent-cta/60 hover:bg-accent-cta/15"
             title="Back to all cases"
           >
             <span className="text-2xs uppercase tracking-wide text-fg-subtle">Case</span>
             <span className="mono text-sm font-medium text-fg">{caseId}</span>
             <ChevronDown className="h-3.5 w-3.5 text-fg-subtle" />
           </Link>
-        ) : (
-          <Breadcrumbs items={crumbs} />
-        )}
+        ) : null}
       </div>
 
       <div className="flex min-w-0 items-center gap-3">
-        {variant === "case" && summary && (
+        {summary && (
           <div className="hidden shrink-0 items-center gap-4 text-sm md:flex">
             <MetaSegment label="Platform">
               <CloudPlatformLabel cloud={summary.cloud} className="text-sm font-semibold" />
@@ -110,7 +86,7 @@ export function TopBar({
             </MetaSegment>
           </div>
         )}
-        {variant === "case" && caseId && <ExportElasticButton caseId={caseId} />}
+        {caseId && <ExportElasticButton caseId={caseId} />}
         <ThemeToggle />
       </div>
     </header>

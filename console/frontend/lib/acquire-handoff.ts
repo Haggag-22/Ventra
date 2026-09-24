@@ -8,6 +8,8 @@ const STORAGE_KEY = "ventra:kit-handoffs";
 export type KitHandoffRecord = {
   caseId: string;
   cloud: string;
+  /** Saved Acquire kit display name (drives zip / entry script naming). */
+  kitName?: string;
   collectors: string[];
   deploymentProfile: DeploymentProfile;
   builtAt: string;

@@ -131,7 +131,43 @@ def test_cli_list_packs(capsys) -> None:
     assert "baseline-ir-gcp" in capsys.readouterr().out
 
 
-def test_kit_ships_ventra_py_and_requirements(tmp_path: Path) -> None:
+def test_kit_ships_entry_script_and_requirements(tmp_path: Path) -> None:
+    out = build_kit(
+        tmp_path / "kit.zip",
+        cloud="aws",
+        case_id="CASE-FLAGS",
+        artifact_names=["guardduty"],
+        artifacts_root=ARTIFACTS,
+        bundle_wheel=False,
+        kit_name="Prod IR Sweep",
+    )
+    with zipfile.ZipFile(out) as zf:
+        names = zf.namelist()
+        assert "Prod-IR-Sweep.py" in names
+        assert "ventra.py" not in names
+        assert "kit.json" in names
+        assert "README.md" in names
+        assert "requirements.txt" in names
+        entry_py = zf.read("Prod-IR-Sweep.py").decode()
+        reqs = zf.read("requirements.txt").decode()
+        run_sh = zf.read("run.sh").decode()
+        readme = zf.read("README.md").decode()
+        kit = json.loads(zf.read("kit.json"))
+    assert kit["kit_name"] == "Prod IR Sweep"
+    assert "--profile" in entry_py
+    assert "--subscription" in entry_py
+    assert "--project" in entry_py
+    assert "--credentials" in entry_py
+    assert "PyYAML" in reqs
+    assert "Prod-IR-Sweep.py" in run_sh
+    assert "python3 Prod-IR-Sweep.py" in readme
+    assert "Quick start" in readme
+    assert "Prod IR Sweep" in readme
+    assert "{{ENTRY_SCRIPT}}" not in readme
+    assert "{{KIT_NAME}}" not in readme
+
+
+def test_kit_default_entry_script_without_kit_name(tmp_path: Path) -> None:
     out = build_kit(
         tmp_path / "kit.zip",
         cloud="aws",
@@ -141,18 +177,9 @@ def test_kit_ships_ventra_py_and_requirements(tmp_path: Path) -> None:
         bundle_wheel=False,
     )
     with zipfile.ZipFile(out) as zf:
-        names = zf.namelist()
-        assert "ventra.py" in names
-        assert "requirements.txt" in names
-        ventra_py = zf.read("ventra.py").decode()
-        reqs = zf.read("requirements.txt").decode()
-        run_sh = zf.read("run.sh").decode()
-    assert "--profile" in ventra_py
-    assert "--subscription" in ventra_py
-    assert "--project" in ventra_py
-    assert "--credentials" in ventra_py
-    assert "PyYAML" in reqs
-    assert "ventra.py" in run_sh
+        assert "ventra-aws.py" in zf.namelist()
+        assert "ventra-aws.py" in zf.read("run.sh").decode()
+        assert "kit.json" in zf.namelist()
 
 
 def test_build_kit_rejects_ec2_deployment_profile(tmp_path: Path) -> None:

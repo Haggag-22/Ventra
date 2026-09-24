@@ -10,6 +10,7 @@ import { ArtifactIcon } from "@/components/artifact-icon";
 import { Badge, EmptyState, LoadingPanel } from "@/components/ui";
 import { api } from "@/lib/api";
 import { displayArtifactLabel } from "@/lib/artifact-icons";
+import { acquirePermissionModel } from "@/lib/catalog";
 import {
   DOC_PROVIDER_LABELS,
   PROVIDER_IAM_POLICIES,
@@ -83,6 +84,7 @@ export default function DocsCollectorPage({
   const data = artifact.data;
   const acquirePlatform = data ? acquirePlatformForArtifact(data.cloud) : null;
   const iamPolicies = PROVIDER_IAM_POLICIES[provider] ?? [];
+  const permissionModel = acquirePermissionModel(provider);
 
   return (
     <DocLayout
@@ -108,25 +110,9 @@ export default function DocsCollectorPage({
         </div>
       ) : data ? (
         <>
-          <DocPageHeader
-            title={data.name || displayArtifactLabel(data.collector)}
-            actions={
-              acquirePlatform ? (
-                <Link
-                  href={acquireHref({
-                    cloud: acquirePlatform,
-                    collectors: [data.collector],
-                  })}
-                  className="inline-flex h-7 items-center gap-1.5 rounded-md bg-accent px-2.5 text-xs font-medium text-accent-fg transition-colors hover:bg-accent/90"
-                >
-                  <Play className="h-4 w-4" aria-hidden />
-                  Acquire
-                </Link>
-              ) : undefined
-            }
-          />
+          <DocPageHeader title={displayArtifactLabel(data.collector, data.cloud)} />
 
-          <div className="px-6 py-8">
+          <div className="page-shell">
             <div className="mb-8 flex flex-wrap items-center gap-3">
               <ArtifactIcon collector={data.collector} cloud={data.cloud} className="h-10 w-10" />
               <div className="flex flex-wrap gap-2">
@@ -153,8 +139,9 @@ export default function DocsCollectorPage({
                       <span className="mono font-medium text-fg">
                         {data.required_actions.length}
                       </span>{" "}
-                      narrowed IAM action{data.required_actions.length === 1 ? "" : "s"} in the
-                      generated kit policy.
+                      narrowed {permissionModel} action
+                      {data.required_actions.length === 1 ? "" : "s"} in the generated kit
+                      policy.
                     </p>
                     <ul className="max-h-48 overflow-y-auto rounded-md border border-border bg-surface-2 p-3">
                       {data.required_actions.map((action) => (
@@ -167,7 +154,7 @@ export default function DocsCollectorPage({
                       <div className="rounded-md border border-border bg-surface-2 p-3">
                         <div className="flex items-center gap-2 text-sm font-medium text-fg">
                           <FileKey className="h-4 w-4 text-accent" aria-hidden />
-                          Provider IAM policies
+                          Provider {permissionModel} policies
                         </div>
                         <ul className="mt-2 space-y-1.5">
                           {iamPolicies.map((policy) => (

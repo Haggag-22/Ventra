@@ -3,12 +3,14 @@ aliases:
 - k8s_rbac
 - kubernetes.k8s_rbac
 cloud: kubernetes
-category: Identity
+category: ClusterState
 description: >-
-  RBAC snapshot (Roles, ClusterRoles, RoleBindings, ClusterRoleBindings, ServiceAccounts) with
-  effective-permission analysis: flags subjects that can exec into pods, read secrets
-  cluster-wide, escalate/bind roles, impersonate, or hold cluster-admin, plus any binding to
-  anonymous/unauthenticated subjects.
+  RBAC snapshot through the Kubernetes API: Roles, ClusterRoles, RoleBindings, ClusterRoleBindings
+  and ServiceAccounts, with each object carrying the verdict the collector resolved for it. Flags
+  subjects that can pivot to cluster-admin (exec into pods, read secrets cluster-wide, escalate or
+  bind roles, impersonate) and any binding to system:anonymous or system:unauthenticated.
+  Privilege escalation through RBAC is the most common post-exploitation move in a cluster, and
+  the binding object itself is durable evidence. Needs nothing but a kubeconfig.
 version: 1.0.0
 collector: k8s_rbac
 type: k8s_rbac

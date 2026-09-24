@@ -74,6 +74,9 @@ export function titleCase(s: string): string {
 export function displayCategoryLabel(category: string): string {
   if (category === "DataStorage") return "Data & Storage Logs";
   if (category === "Workloads") return "Compute & Workloads";
+  if (category === "ClusterState") return "Cluster State & Identity";
+  if (category === "Node") return "Node & Control Plane";
+  if (category === "Audit") return "Audit & Events";
   return category
     .replace(/_/g, " ")
     .replace(/([a-z\d])([A-Z])/g, "$1 $2")

@@ -236,7 +236,13 @@ function CollectorAspectGroup({
   );
 }
 
-export function PanelCollectors({ panel }: { panel: PanelId }) {
+export function PanelCollectors({
+  panel,
+  className,
+}: {
+  panel: PanelId;
+  className?: string;
+}) {
   const { caseId, summary } = useCase();
   const cloud = (summary?.cloud ?? "aws") as Cloud;
   const def = panelCollectors(cloud)[panel];
@@ -259,7 +265,7 @@ export function PanelCollectors({ panel }: { panel: PanelId }) {
   const segments = segmentCollectors(def.collectors);
 
   return (
-    <div className="panel-collectors">
+    <div className={cn("panel-collectors", className)}>
       <div className="panel-collectors-row">
         {segments.map((segment) => {
           if (segment.kind === "aspect-group") {

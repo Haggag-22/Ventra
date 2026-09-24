@@ -54,9 +54,10 @@ The collector prints a live progress table, then writes a sealed package:
 > S3-resident logs, pass `--stream-to s3://your-evidence-bucket/...` (a bucket *you* control)
 > so big pulls stream out instead of staging locally. See `--help`.
 
-Ventra runs **every registered collector** on each invocation — there are no profiles to
-choose. Analysts review what came back (and what surfaced as gaps) in the console. Use
-`ventra collect aws --list-collectors` to see the current set.
+Ventra runs **every registered collector** for the cloud on each invocation unless you pass
+`--collectors`, `--pack`, or `--acquisition`. Analysts review what came back (and what
+surfaced as gaps) in the console. Use `ventra collect aws --list-collectors` (or
+`--list-packs`) to see the current set.
 
 ## Shipping the package to the IR team
 

@@ -100,3 +100,95 @@ def iam_policy_state_events(snapshot: dict, ctx: NormalizeContext) -> Iterator[U
                 ventra_source="iam_policy",
                 raw={"email": email, "keys": keys},
             )
+
+
+# -- Kubernetes (on-prem) -------------------------------------------------------------------
+# The Kubernetes collectors write several named JSON sidecars per source (config.json plus
+# derived artefacts like suspicious_pods.json, pod_security.json, images.json). These sources
+# are snapshots, so they populate the Resource Inventory panel; the event payloads are
+# normalized separately by the k8s_state / k8s_logs normalizers.
+K8S_INVENTORY_SOURCES = {
+    "k8s_cluster_state",
+    "k8s_rbac",
+    "k8s_audit_posture",
+    "k8s_apiserver_audit",
+    "k8s_etcd",
+    "k8s_runtime_logs",
+    "k8s_container_logs",
+}
+
+
+def k8s_posture_events(
+    source: str, snapshot: dict, ctx: NormalizeContext
+) -> Iterator[UnifiedEvent]:
+    """Turn Kubernetes posture snapshots into first-class timeline findings.
+
+    "There is no audit log" is the most consequential result a Kubernetes IR can produce, so
+    it belongs on the timeline as a critical finding — not only in the manifest's gap list.
+    The same applies to etcd running without client-certificate auth or encryption at rest.
+    """
+    cluster = str(snapshot.get("_cluster") or ctx.account_id)
+
+    if source == "k8s_audit_posture":
+        config = snapshot.get("_config") or {}
+        if not isinstance(config, dict) or not config:
+            return
+        enabled = bool(config.get("audit_enabled"))
+        weaknesses = [str(w) for w in (config.get("policy_weaknesses") or [])]
+        if not enabled:
+            message = (
+                "API-server audit logging is DISABLED — there is no record of who did what in "
+                "this cluster (no pods/exec, no secret reads, no RBAC changes)"
+            )
+            severity = "critical"
+        elif weaknesses:
+            message = "Audit logging is enabled but the policy is weak: " + "; ".join(weaknesses)
+            severity = "high"
+        else:
+            message = "API-server audit logging is enabled with a policy covering sensitive resources"
+            severity = "info"
+        yield UnifiedEvent(
+            timestamp=ctx.collected_at,
+            event_kind="finding",
+            event_category=["kubernetes", "configuration"],
+            event_action="AuditLoggingPosture",
+            event_outcome="failure" if not enabled else "success",
+            event_severity=severity,
+            event_provider="k8s_audit_posture",
+            cloud_provider="kubernetes",
+            cloud_account=cluster,
+            cloud_service="kubernetes",
+            resource_type="cluster",
+            resource_id=cluster,
+            related_resource=[cluster],
+            message=message,
+            case_id=ctx.case_id,
+            ventra_source="k8s_audit_posture",
+            raw=config,
+        )
+        return
+
+    if source == "k8s_etcd":
+        config = snapshot.get("_config") or {}
+        posture = (config or {}).get("posture") or {}
+        for issue in posture.get("issues") or []:
+            yield UnifiedEvent(
+                timestamp=ctx.collected_at,
+                event_kind="finding",
+                event_category=["kubernetes", "configuration"],
+                event_action="EtcdPosture",
+                event_outcome="failure",
+                event_severity="high",
+                event_provider="k8s_etcd",
+                cloud_provider="kubernetes",
+                cloud_account=cluster,
+                cloud_service="etcd",
+                resource_type="etcd",
+                resource_id=cluster,
+                related_resource=[cluster],
+                message=str(issue),
+                case_id=ctx.case_id,
+                ventra_source="k8s_etcd",
+                raw={"issue": str(issue), "flags": posture.get("flags") or {}},
+            )
+        return

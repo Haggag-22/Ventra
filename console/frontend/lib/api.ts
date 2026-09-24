@@ -8,6 +8,7 @@ import type {
   CaseSummary,
   CloudTrailCollection,
   CloudWatchCollection,
+  VpcFlowCollection,
   CollectorMatrixRow,
   EventsResponse,
   ExportableCase,
@@ -119,11 +120,17 @@ function throwIfBackendDown(res: Response): void {
   }
 }
 
+function isNextProxyBackendDown(status: number, body: string): boolean {
+  // Next.js rewrites to a stopped FastAPI process as 500 + plain "Internal Server Error".
+  return status === 500 && body.trim() === "Internal Server Error";
+}
+
 async function get<T>(path: string): Promise<T> {
   const res = await apiFetch(`/api${path}`, { headers: { Accept: "application/json" } });
   throwIfBackendDown(res);
   if (!res.ok) {
     const body = await res.text().catch(() => "");
+    if (isNextProxyBackendDown(res.status, body)) throw new Error(BACKEND_UNREACHABLE);
     throw new Error(`${res.status} ${res.statusText}: ${body.slice(0, 200)}`);
   }
   return res.json() as Promise<T>;
@@ -154,6 +161,8 @@ export const api = {
     get<CloudTrailCollection>(`/cases/${c}/cloudtrail/collection`),
   cloudwatchCollection: (c: string) =>
     get<CloudWatchCollection>(`/cases/${c}/cloudwatch/collection`),
+  vpcFlowCollection: (c: string) =>
+    get<VpcFlowCollection>(`/cases/${c}/vpc-flow/collection`),
   evidenceIndex: (c: string) => get<EvidenceIndex>(`/cases/${c}/evidence`),
   evidenceContent: (c: string, path: string, maxBytes?: number) =>
     get<EvidenceContent>(
@@ -609,6 +618,8 @@ export type AcquisitionBuild = {
   bundle_wheel?: boolean;
   require_wheel?: boolean;
   connection_id?: string;
+  /** Saved Acquire kit display name — zip and entry script use this. */
+  kit_name?: string;
 };
 
 export type AcquisitionPreview = {
@@ -624,7 +635,7 @@ export type AcquisitionPreview = {
   iam_policies: Record<string, Record<string, unknown>>;
   deployment_profile: string;
   bundle_wheel: boolean;
-  wheel_source: "local" | "pypi";
+  wheel_source: "local" | "pypi" | "cli";
 };
 
 /** Preview IAM narrowing and kit metadata before download. */
@@ -649,16 +660,40 @@ export async function buildAcquisitionKit(body: AcquisitionBuild): Promise<void>
     // The Responder role owns the acquisition phase (matches backend RBAC).
     headers: { "Content-Type": "application/json", "X-Ventra-Role": "responder" },
     body: JSON.stringify(body),
+    // Kit builds mint credentials + package bytes; do not abort mid-download.
+    timeoutMs: null,
   });
   throwIfBackendDown(res);
   if (!res.ok) {
     const err = await res.json().catch(() => ({ detail: res.statusText }));
     throw new Error(err.detail || "Kit build failed");
   }
-  const blob = await res.blob();
+  const buf = await res.arrayBuffer();
+  if (buf.byteLength < 4) {
+    throw new Error("Kit download was empty — try again.");
+  }
+  const magic = new Uint8Array(buf.slice(0, 2));
+  // ZIP local file header is "PK"
+  if (magic[0] !== 0x50 || magic[1] !== 0x4b) {
+    const preview = new TextDecoder().decode(buf.slice(0, 120)).replace(/\s+/g, " ").slice(0, 100);
+    throw new Error(
+      `Kit download was not a valid archive (got ${buf.byteLength} bytes). Preview: ${preview}`,
+    );
+  }
+  const blob = new Blob([buf], { type: "application/zip" });
   const disposition = res.headers.get("Content-Disposition") || "";
   const match = disposition.match(/filename="?([^"]+)"?/);
-  const filename = match?.[1] || `ventra-kit-${body.cloud}-${body.case_id}.zip`;
+  const filename =
+    match?.[1] ||
+    (() => {
+      const raw = (body.kit_name || "").trim() || `ventra-kit-${body.cloud}-${body.case_id}`;
+      const slug = raw
+        .replace(/[^\w.\-]+/g, "-")
+        .replace(/-{2,}/g, "-")
+        .replace(/^[.\-]+|[.\-]+$/g, "")
+        .slice(0, 80);
+      return `${slug || "ventra-kit"}.kit`;
+    })();
 
   const url = URL.createObjectURL(blob);
   const a = document.createElement("a");

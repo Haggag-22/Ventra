@@ -12,7 +12,7 @@ import {
   scopeStateFromProfile,
   type KitRunScopeState,
 } from "@/lib/acquisition-build";
-import { ACQUIRE_PLATFORM_LABELS, isAcquirePlatform } from "@/lib/catalog";
+import { ACQUIRE_PLATFORM_LABELS, CASE_PLATFORM_LABELS, acquirePermissionModel, isAcquirePlatform } from "@/lib/catalog";
 import { displayCaseId, validateCaseId } from "@/lib/case-id";
 import { downloadTextFile } from "@/lib/download";
 import {
@@ -31,12 +31,15 @@ type CaseMode = "existing" | "new";
 
 type WizardStep = "case" | "auth" | "scope" | "iam";
 
-const STEPS = [
-  { id: "case" as const, label: "Case", description: "Choose destination" },
-  { id: "auth" as const, label: "Authentication", description: "Link credentials" },
-  { id: "scope" as const, label: "Time & scope", description: "Collection window" },
-  { id: "iam" as const, label: "IAM policy", description: "Review permissions" },
-];
+function wizardSteps(platform: string) {
+  const model = acquirePermissionModel(platform);
+  return [
+    { id: "case" as const, label: "Case", description: "Choose destination" },
+    { id: "auth" as const, label: "Authentication", description: "Link credentials" },
+    { id: "scope" as const, label: "Time & scope", description: "Collection window" },
+    { id: "iam" as const, label: `${model} policy`, description: "Review permissions" },
+  ];
+}
 
 type Props = {
   open: boolean;
@@ -56,8 +59,12 @@ const GLASS_MENU =
 const KIT_INPUT_CLASS = "acquire-kit-input";
 
 function platformLabel(cloud: string): string {
-  const key = cloud.toLowerCase() as keyof typeof ACQUIRE_PLATFORM_LABELS;
-  return ACQUIRE_PLATFORM_LABELS[key] ?? cloud.toUpperCase();
+  const key = cloud.toLowerCase();
+  return (
+    ACQUIRE_PLATFORM_LABELS[key as keyof typeof ACQUIRE_PLATFORM_LABELS]
+    ?? CASE_PLATFORM_LABELS[key as keyof typeof CASE_PLATFORM_LABELS]
+    ?? cloud
+  );
 }
 
 function CaseSelector({
@@ -214,6 +221,7 @@ export function KitRunWizard({ open, kit, onClose, onConfirm, running, error }: 
   const platform = isAcquirePlatform(platformKey) ? platformKey : platformKey === "m365" ? "m365" : "aws";
   const providerLabel = platformLabel(cloud);
   const collectors = kit?.artifacts ?? [];
+  const steps = useMemo(() => wizardSteps(platform), [platform]);
   const needsGcpLogBackend = platform === "gcp" && cartNeedsGcpLogBackend(collectors);
   const gcpLogBackendError = useMemo(
     () => validateGcpLogBackendForm(scope.gcpLogBackend, needsGcpLogBackend),
@@ -338,8 +346,8 @@ export function KitRunWizard({ open, kit, onClose, onConfirm, running, error }: 
 
   const goBack = () => {
     setLocalError("");
-    const idx = STEPS.findIndex((s) => s.id === step);
-    if (idx > 0) setStep(STEPS[idx - 1].id);
+    const idx = steps.findIndex((s) => s.id === step);
+    if (idx > 0) setStep(steps[idx - 1].id);
   };
 
   const startRun = () => {
@@ -380,7 +388,7 @@ export function KitRunWizard({ open, kit, onClose, onConfirm, running, error }: 
 
   const shownError = localError || error;
   const onLastStep = step === "iam";
-  const currentIdx = STEPS.findIndex((s) => s.id === step);
+  const currentIdx = steps.findIndex((s) => s.id === step);
 
   return (
     <>
@@ -388,7 +396,7 @@ export function KitRunWizard({ open, kit, onClose, onConfirm, running, error }: 
         open={open}
         onClose={onClose}
         closeDisabled={running}
-        steps={STEPS}
+        steps={steps}
         currentStepId={step}
         ariaLabel={`Run collection kit: ${kit.name}`}
         footer={
@@ -631,7 +639,7 @@ export function KitRunWizard({ open, kit, onClose, onConfirm, running, error }: 
               <div className="space-y-3">
                 <div className="flex items-center gap-2 text-sm font-semibold text-accent">
                   <ShieldCheck className="h-4 w-4" />
-                  Read-only IAM policy
+                  Read-only {acquirePermissionModel(platform)} policy
                 </div>
                 <p className="text-sm text-fg-subtle">
                   Preview the narrowed permissions required for {collectors.length} collector
@@ -643,8 +651,9 @@ export function KitRunWizard({ open, kit, onClose, onConfirm, running, error }: 
                   ) : iamPreview ? (
                     <>
                       <p className="text-sm text-fg">
-                        <span className="mono font-semibold">{iamPreview.iam_action_count}</span> IAM
-                        action{iamPreview.iam_action_count === 1 ? "" : "s"}
+                        <span className="mono font-semibold">{iamPreview.iam_action_count}</span>{" "}
+                        {acquirePermissionModel(platform)} action
+                        {iamPreview.iam_action_count === 1 ? "" : "s"}
                         {iamPreview.implicit_collectors.length > 0 && (
                           <span className="text-fg">
                             {" "}
@@ -660,7 +669,7 @@ export function KitRunWizard({ open, kit, onClose, onConfirm, running, error }: 
                           onClick={() => setIamActionsOpen(true)}
                           disabled={iamPreview.iam_actions.length === 0}
                         >
-                          Show IAM actions
+                          Show {acquirePermissionModel(platform)} actions
                         </Button>
                         {Object.keys(iamPreview.iam_policies).length > 0 && (
                           <Button
@@ -676,7 +685,9 @@ export function KitRunWizard({ open, kit, onClose, onConfirm, running, error }: 
                       </div>
                     </>
                   ) : (
-                    <p className="text-xs text-fg-subtle">Calculating IAM preview…</p>
+                    <p className="text-xs text-fg-subtle">
+                      Calculating {acquirePermissionModel(platform)} preview…
+                    </p>
                   )}
                 </div>
               </div>

@@ -40,7 +40,7 @@ export function IdentityUsersTable({
 
   if (users.length === 0) {
     return (
-      <div className="px-4 py-16 text-center text-sm text-fg-subtle">No users collected.</div>
+      <div className="px-4 py-16 text-center text-sm text-fg-subtle">No identity principals collected.</div>
     );
   }
 

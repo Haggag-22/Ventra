@@ -260,7 +260,7 @@ function EdgeRequestLog({ caseId, cloud }: { caseId: string; cloud: Cloud }) {
     cloud === "azure"
       ? "Every Application Gateway and Front Door access-log line"
       : cloud === "gcp"
-        ? "Every Load Balancer, Cloud CDN, and API Gateway access-log line"
+        ? "Every Cloud Load Balancing, Cloud CDN, and API Gateway access-log line"
         : "Every ELB/ALB and CloudFront access-log line";
 
   return (
@@ -330,7 +330,7 @@ export default function WebDnsPage() {
                 cloud === "azure"
                   ? "Application Gateway, Front Door, and DNS query logs were not in scope for this window. Any gaps are recorded in the manifest."
                   : cloud === "gcp"
-                    ? "Cloud Load Balancer and API Gateway access logs were not in scope for this window. Any gaps are recorded in the manifest."
+                    ? "Cloud Load Balancing and API Gateway access logs were not in scope for this window. Any gaps are recorded in the manifest."
                     : "ELB/ALB and CloudFront access logging, WAF sampled requests, and Route53 Resolver query logs were not in scope for this window. Any gaps are recorded in the manifest."
               }
             />

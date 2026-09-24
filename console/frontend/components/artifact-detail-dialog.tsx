@@ -6,7 +6,9 @@ import { Button } from "@/components/ui";
 import { api } from "@/lib/api";
 import { resolvedParamFields } from "@/lib/artifact-params";
 import { displayArtifactLabel } from "@/lib/artifact-icons";
+import { acquirePermissionModel } from "@/lib/catalog";
 import { gcpCollectorApiInfo } from "@/lib/gcp-collector-apis";
+import { collectorSourceHint } from "@/lib/collector-source-hints";
 import type { Artifact } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useQuery } from "@tanstack/react-query";
@@ -26,9 +28,12 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function ArtifactBody({ art }: { art: Artifact }) {
   const paramFields = resolvedParamFields(art);
   const gcpApis = art.cloud.toLowerCase() === "gcp" ? gcpCollectorApiInfo(art.collector) : null;
+  const sourceHint = collectorSourceHint(art.cloud, art.collector);
+  const permissionLabel = `${acquirePermissionModel(art.cloud)} actions`;
   return (
     <div className="space-y-1">
       <Field label="Description">{art.description}</Field>
+      {sourceHint ? <Field label="Collects from">{sourceHint}</Field> : null}
       {art.subset_of ? (
         <Field label="Included in">
           <span className="text-fg">{displayArtifactLabel(art.subset_of)}</span>
@@ -59,7 +64,7 @@ function ArtifactBody({ art }: { art: Artifact }) {
         </Field>
       ) : null}
       {art.required_actions?.length ? (
-        <Field label="IAM actions">
+        <Field label={permissionLabel}>
           <ul className="max-h-40 space-y-0.5 overflow-auto text-2xs">
             {art.required_actions.map((a) => (
               <li key={a} className="mono text-fg-subtle">
@@ -127,7 +132,7 @@ export function ArtifactDetailDialog({
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <h3 className="flex flex-wrap items-center gap-2 text-sm font-semibold">
             <ArtifactIcon cloud={cloud} collector={collector} size={22} />
-            <span>{displayArtifactLabel(collector)}</span>
+            <span>{displayArtifactLabel(collector, cloud)}</span>
           </h3>
           <button type="button" onClick={onClose} className="text-fg-subtle hover:text-fg">
             <X className="h-4 w-4" />

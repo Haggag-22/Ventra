@@ -74,6 +74,14 @@
     "subset_of": {
       "type": "string",
       "description": "Collector id this one is a filter/subset view over (e.g. cloud_cdn -> load_balancer)"
+    },
+    "implicit": {
+      "type": "boolean",
+      "description": "When true, Acquire and the docs catalog hide this artifact (posture-only / always-on companion)."
+    },
+    "selectable": {
+      "type": "boolean",
+      "description": "When false, Acquire and the docs catalog hide this artifact (still runnable via CLI/registry)."
     }
   },
   "additionalProperties": false

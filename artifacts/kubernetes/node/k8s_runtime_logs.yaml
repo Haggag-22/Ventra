@@ -5,13 +5,23 @@ aliases:
 cloud: kubernetes
 category: Node
 description: >-
-  Container-runtime journal (containerd/crio) plus a live runtime-state snapshot via crictl
-  (ps -a, images, pods). Surfaces image pulls from unexpected registries, container lifecycle,
-  and CRI errors.
+  CRI (Container Runtime Interface) logs and live state, resolved as two independent halves. The
+  journal comes from journalctl -u containerd or -u crio, or from the distribution's agent unit
+  where containerd is embedded (k3s, RKE2, microk8s), and carries image pulls including from
+  unexpected registries, container lifecycle and CRI errors. Live state comes from the CRI socket
+  via crictl ps -a, images and pods, plus crictl inspect for each container, which is where each
+  container's overlay storage paths and mounts are resolved; embedded sockets such as
+  /run/k3s/containerd/containerd.sock are probed alongside the standard path. A missing runtime
+  unit is reported as a partial result rather than a failure when the socket still answers.
 version: 1.0.0
 collector: k8s_runtime_logs
 type: k8s_runtime_logs
 required_actions: []
+parameters:
+  max_inspect:
+    type: int
+    required: false
+    default: 100
 sources:
 - type: k8s_runtime_logs
   format: jsonl

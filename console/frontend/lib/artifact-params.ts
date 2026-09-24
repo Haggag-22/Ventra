@@ -40,9 +40,12 @@ export type ParamValidationError = {
 /** Merge artifact YAML parameters with rich Acquire UI schemas. */
 export function resolvedParamFields(
   artifact: Artifact,
-  cloud?: "aws" | "azure" | "gcp",
+  cloud?: "aws" | "azure" | "gcp" | "kubernetes",
 ): ParamFieldDef[] {
-  const fromUi = collectorParamSchema(artifact.collector, cloud ?? (artifact.cloud as "aws" | "azure" | "gcp" | undefined));
+  const fromUi = collectorParamSchema(
+    artifact.collector,
+    cloud ?? (artifact.cloud as "aws" | "azure" | "gcp" | "kubernetes" | undefined),
+  );
   if (fromUi.length) return fromUi;
 
   const schema = artifact.parameters as ParamSchema | undefined;
@@ -114,7 +117,7 @@ export function validateArtifactParams(
     for (const param of missingRequiredParams(artifact, params[artifact.collector])) {
       errors.push({
         collector: artifact.collector,
-        label: displayArtifactLabel(artifact.collector),
+        label: displayArtifactLabel(artifact.collector, artifact.cloud),
         param,
         message: `Required parameter "${paramLabel(param)}" is missing`,
       });
@@ -133,7 +136,7 @@ export function validateArtifactParams(
         if (!hasBucket) {
           errors.push({
             collector: artifact.collector,
-            label: displayArtifactLabel(artifact.collector),
+            label: displayArtifactLabel(artifact.collector, artifact.cloud),
             param: "s3_bucket_names",
             message: 'S3 bucket names are required when collection source is "S3 bucket"',
           });

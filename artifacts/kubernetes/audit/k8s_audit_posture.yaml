@@ -5,9 +5,14 @@ aliases:
 cloud: kubernetes
 category: Audit
 description: >-
-  API-server audit-logging posture: whether --audit-log-path / --audit-policy-file are set,
-  the policy contents, rotation settings, and webhook backend. Missing audit logging is
-  reported as a first-class critical gap, not a silent absence.
+  Whether API-server audit logging is on at all, and whether the policy is worth having: are
+  --audit-log-path and --audit-policy-file set, does the policy cover secrets and pods/exec, what
+  rotation settings cap how far back the log reaches, and does a webhook backend send events off
+  the node. Flags are read through the node plane from a kubeadm or RKE2 static pod manifest, a
+  k3s or RKE2 config file, the server unit's ExecStart line, or the microk8s args file. When no
+  flag source is readable but an audit log file is already on disk, posture is still reported from
+  that file. With neither, the result is an explicit undetermined gap naming what was inspected,
+  never a silent claim that auditing is off. Missing audit logging is a first-class critical gap.
 version: 1.0.0
 collector: k8s_audit_posture
 type: k8s_audit_posture

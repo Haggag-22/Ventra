@@ -127,7 +127,7 @@ export const PANEL_COLLECTORS: Record<PanelId, PanelCollectorDef> = {
     collectors: [],
   },
   resources: {
-    blurb: "Resources",
+    blurb: "EC2, S3, Lambda inventory and related account resource posture.",
     collectors: [
       { id: "ec2" },
       { id: "s3" },
@@ -201,7 +201,7 @@ const PANEL_COLLECTORS_AZURE: Record<PanelId, PanelCollectorDef> = {
     collectors: [],
   },
   resources: {
-    blurb: "Resources",
+    blurb: "Subscription context and ARM inventory from Resource Graph.",
     collectors: [
       { id: "subscription", note: "tenant + subscription context" },
       { id: "resource_graph", note: "ARM inventory snapshot" },
@@ -247,7 +247,7 @@ const PANEL_COLLECTORS_GCP: Record<PanelId, PanelCollectorDef> = {
   web: {
     blurb: "Edge requests, WAF verdicts, and DNS (L7) — what was requested, by whom, with what result.",
     collectors: [
-      { id: "load_balancer", note: "Cloud Load Balancing" },
+      { id: "load_balancer", note: "Cloud Load Balancing Logs" },
       { id: "cloud_cdn", note: "Cloud CDN cache request logs" },
       { id: "api_gateway", note: "API Gateway request logs" },
       { id: "cloud_dns", note: "Cloud DNS" },
@@ -277,7 +277,7 @@ const PANEL_COLLECTORS_GCP: Record<PanelId, PanelCollectorDef> = {
     collectors: [{ id: "logging_posture", note: "flow logs, firewall logging, audit sinks" }],
   },
   resources: {
-    blurb: "Resources",
+    blurb: "Project context, GCE inventory, and related compute workload logs.",
     collectors: [
       { id: "project", note: "project + organization context" },
       { id: "gce", note: "GCE instances, disks, snapshots, NICs" },
@@ -287,9 +287,94 @@ const PANEL_COLLECTORS_GCP: Record<PanelId, PanelCollectorDef> = {
   },
 };
 
+const PANEL_COLLECTORS_KUBERNETES: Record<PanelId, PanelCollectorDef> = {
+  cloudtrail: {
+    blurb:
+      "The cluster timeline: the API-server audit log (who did what), the cluster datastore " +
+      "posture, and the object state each action produced.",
+    collectors: [
+      { id: "k8s_apiserver_audit", note: "who did what — exec, secret reads, RBAC changes" },
+      { id: "k8s_events", note: "perishable; garbage-collected after --event-ttl (1h default)" },
+      { id: "k8s_etcd", note: "datastore journal + TLS and at-rest posture" },
+    ],
+  },
+  cloudwatch: {
+    blurb: "CloudWatch Logs is an AWS investigation panel.",
+    collectors: [],
+  },
+  findings: {
+    blurb:
+      "Posture findings the collectors raise — a missing audit log, a weak audit policy, or " +
+      "etcd / datastore exposure.",
+    collectors: [
+      { id: "k8s_audit_posture", note: "is audit logging on, and is the policy useful" },
+      { id: "k8s_etcd", note: "client cert auth, listen addresses, encryption at rest" },
+    ],
+  },
+  identity: {
+    blurb:
+      "RBAC roles and bindings with escalation analysis, plus ServiceAccounts and their " +
+      "token automount settings.",
+    collectors: [
+      { id: "k8s_rbac", note: "roles, bindings, escalation paths, anonymous subjects" },
+      { id: "k8s_cluster_state", note: "ServiceAccounts, Secret metadata, token automount" },
+    ],
+  },
+  network: {
+    blurb: "NetworkPolicies and CNI plugin flow logs.",
+    collectors: [
+      { id: "k8s_cni_logs", note: "Calico / Cilium / Flannel logs and flows" },
+      { id: "k8s_cluster_state", note: "NetworkPolicy objects" },
+    ],
+  },
+  web: {
+    blurb: "Ingress request logs come from the ingress controller's container logs on the node.",
+    collectors: [{ id: "k8s_container_logs", note: "ingress controller stdout/stderr under /var/log/pods" }],
+  },
+  "kubernetes-audit": {
+    blurb:
+      "The API-server audit log read from the control-plane node — the only record of " +
+      "pods/exec, secret reads, and RBAC changes. On-prem this is a file on disk, not a " +
+      "cloud log stream.",
+    collectors: [
+      { id: "k8s_apiserver_audit" },
+      { id: "k8s_audit_posture", note: "whether the log exists at all, and what it covers" },
+    ],
+  },
+  "data-access": {
+    blurb:
+      "In a cluster, data access means Secret reads — recorded only in the API-server audit " +
+      "log — plus etcd, which holds every Secret in plaintext without encryption at rest.",
+    collectors: [
+      { id: "k8s_apiserver_audit", note: "get / list on secrets and configmaps" },
+      { id: "k8s_etcd", note: "etcd access posture and at-rest encryption" },
+    ],
+  },
+  collection: {
+    blurb:
+      "Evidence sources for an on-prem cluster, by plane: the API server (kubeconfig) and " +
+      "the nodes (privileged DaemonSet or Job) — what ran, what was missing, and why.",
+    collectors: [
+      { id: "k8s_audit_posture", note: "the most common Kubernetes IR gap: no audit log" },
+    ],
+  },
+  resources: {
+    blurb:
+      "Cluster object inventory: workloads, identity, storage and admission objects across " +
+      "every namespace, with the container-escape-shaped pods flagged.",
+    collectors: [
+      { id: "k8s_cluster_state", note: "all-namespace inventory + suspicious pods" },
+      { id: "k8s_container_logs", note: "container logs from the node, incl. rotated" },
+      { id: "k8s_kubelet_logs", note: "pod admission, image pulls, container lifecycle" },
+      { id: "k8s_runtime_logs", note: "CRI journal (containerd / CRI-O) + live crictl state" },
+    ],
+  },
+};
+
 export function panelCollectors(cloud: Cloud): Record<PanelId, PanelCollectorDef> {
   if (cloud === "azure") return PANEL_COLLECTORS_AZURE;
   if (cloud === "gcp") return PANEL_COLLECTORS_GCP;
+  if (cloud === "kubernetes") return PANEL_COLLECTORS_KUBERNETES;
   return PANEL_COLLECTORS;
 }
 

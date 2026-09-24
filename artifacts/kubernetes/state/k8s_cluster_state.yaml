@@ -5,10 +5,14 @@ aliases:
 cloud: kubernetes
 category: ClusterState
 description: >-
-  All-namespace inventory of workloads (pods, deployments, daemonsets, statefulsets,
-  replicasets, jobs, cronjobs), identity (serviceaccounts, secret metadata, configmaps),
-  network (services, ingresses, networkpolicies), nodes/namespaces, CRDs, and mutating/
-  validating webhook configurations. Derives suspicious_pods. Secret values are never captured.
+  All-namespace inventory and environment snapshot through the Kubernetes API: workloads (pods,
+  deployments, daemonsets, statefulsets, replicasets, jobs, cronjobs), identity (serviceaccounts,
+  secret metadata, configmaps), network (services, ingresses, networkpolicies), storage (PVs and
+  PVCs, with hostPath-backed volumes flagged), nodes and namespaces, CRDs, mutating and validating
+  webhook configurations, Pod Security Admission labels and PSPs on older clusters, cluster
+  version, API discovery, and every distinct image and imageID running cluster-wide. Derives
+  suspicious_pods, the container-escape-shaped pods to look at first, and stamps each verdict onto
+  the object it belongs to. Secret values are never captured. Needs nothing but a kubeconfig.
 version: 1.0.0
 collector: k8s_cluster_state
 type: k8s_cluster_state
@@ -27,11 +31,15 @@ required_actions:
 - list services
 - list ingresses
 - list networkpolicies
+- list persistentvolumes
+- list persistentvolumeclaims
 - list nodes
 - list namespaces
 - list customresourcedefinitions
 - list mutatingwebhookconfigurations
 - list validatingwebhookconfigurations
+- get /version
+- get /apis
 parameters:
   trusted_registries:
     type: list

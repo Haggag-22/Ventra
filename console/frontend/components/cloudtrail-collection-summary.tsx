@@ -10,6 +10,15 @@ import { Archive, Cloud, Route } from "lucide-react";
 
 type CollectionMode = "lookup" | "s3" | "mixed" | "none";
 
+function trailLogPrefix(trail: CloudTrailTrailSummary): string {
+  const explicit = (trail.s3_log_prefix || "").trim();
+  if (explicit) return explicit.endsWith("/") ? explicit : `${explicit}/`;
+  const raw = (trail.s3_key_prefix || "").trim().replace(/\/+$/, "");
+  if (!raw || raw === "AWSLogs") return "AWSLogs/";
+  if (raw.endsWith("AWSLogs")) return `${raw}/`;
+  return `${raw}/AWSLogs/`;
+}
+
 type EventCategoryCounts = {
   total: number;
   management: number;
@@ -304,6 +313,9 @@ function TrailS3Inventory({
                       S3 bucket
                     </div>
                     <div className="ct-flow-node-value mono break-all">{trail.s3_bucket}</div>
+                    <div className="ct-flow-node-sub mono break-all">
+                      {trailLogPrefix(trail)}
+                    </div>
                     {b && (
                       <div className="ct-flow-node-sub">
                         {fmtNum(b.events?.total ?? 0)} events from this bucket

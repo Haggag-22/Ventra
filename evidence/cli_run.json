@@ -1,0 +1,15 @@
+{
+  "kit_id": "616da3c0-784c-4b09-a905-fe360258e561",
+  "kit_name": "Test AWS",
+  "case_id": "CASE-T",
+  "cloud": "aws",
+  "collectors": [
+    "guardduty"
+  ],
+  "started_at": "2026-09-24T07:25:46Z",
+  "local_user": "omar",
+  "host": "Omar-Mac.local",
+  "ventra_cli_version": "0.5.1.dev12+g1f837cf10.d20260924",
+  "kit_ventra_version": "0.5.1.dev12+g1f837cf10.d20260924",
+  "status": "running"
+}

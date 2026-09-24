@@ -3,12 +3,21 @@ aliases:
 - k8s_etcd
 - kubernetes.k8s_etcd
 cloud: kubernetes
-category: ControlPlane
+category: Node
 description: >-
-  etcd logs plus TLS/at-rest posture: client cert auth enforcement, non-loopback listen
-  addresses, encryption at rest. Never dumps the etcd database by default (it holds every
-  Secret in plaintext); a DB snapshot is an explicit, separately-confirmed, maximum-sensitivity
-  parameter. On-prem exclusive.
+  Cluster datastore posture, logs, topology and health, read from the node. Not every distribution
+  uses etcd, and the difference changes what can protect it: kubeadm runs etcd as a static pod
+  with data in /var/lib/etcd and TLS in /etc/kubernetes/pki/etcd; RKE2 runs embedded etcd under
+  /var/lib/rancher/rke2; k3s defaults to a sqlite datastore at
+  /var/lib/rancher/k3s/server/db/state.db, and microk8s to dqlite, neither of which has a client-
+  certificate model, so file permissions are the entire access control and are reported as such.
+  Captures client cert auth enforcement, non-loopback listen addresses, encryption at rest, data
+  directory permissions and size, and the TLS material (certificates captured, private keys hashed
+  but never copied). Where etcdctl is present, member list and endpoint health are recorded. Never
+  dumps the datastore by default: it holds every Secret in the cluster in plaintext unless
+  encryption at rest is on, so a dump is the explicit, separately confirmed dump_db parameter. On
+  k3s and RKE2 with no separate etcd journal, datastore events are read from the merged server
+  unit journal (journalctl -u k3s / rke2-server).
 version: 1.0.0
 collector: k8s_etcd
 type: k8s_etcd
@@ -18,6 +27,9 @@ parameters:
     type: bool
     required: false
     default: false
+  etcdctl_endpoints:
+    type: list
+    required: false
 sources:
 - type: k8s_etcd
   format: json

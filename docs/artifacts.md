@@ -9,6 +9,7 @@ artifacts/                  # YAML catalog (what to collect)
   aws/                      # Category subfolders (management-plane, identity, …)
   azure/
   gcp/
+  kubernetes/
   packs/                    # Curated artifact bundles (baseline-ir-*.yaml)
 
 schemas/artifact.schema.json
@@ -16,10 +17,10 @@ schemas/artifact.schema.json
 collector/
   engine/
     loader.py               # Load + validate artifact YAML
-    registry.py             # Map collector keys → API module classes
+    registry/               # Map collector keys → API module classes (per cloud)
     executor.py             # List / run collectors (delegates to cloud runners)
-    api/{aws,azure,gcp}/    # Collector implementations (read-only acquisition)
-  clouds/{aws,azure,gcp}/   # SDK client factories (auth, pagination, gap typing)
+    api/{aws,azure,gcp,kubernetes}/  # Collector implementations (read-only acquisition)
+  clouds/{aws,azure,gcp,kubernetes}/ # SDK client factories (auth, pagination, gap typing)
   kit/                      # Operator zip builder (acquisition.yaml + templates)
   lib/                      # Shared models, packaging, chain of custody
   runner.py                 # Thin CLI/runner re-exports

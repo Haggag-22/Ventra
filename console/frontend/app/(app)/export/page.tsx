@@ -2,9 +2,16 @@
 
 import { ArtifactIcon } from "@/components/artifact-icon";
 import { CloudProviderIcon } from "@/components/cloud-provider-icon";
+import {
+  countByPlatformTab,
+  filterByPlatformTab,
+  PlatformTabBar,
+  type PlatformTab,
+} from "@/components/platform-tab-bar";
 import { Button, Card, EmptyState, LoadingPanel } from "@/components/ui";
 import { displayArtifactLabel } from "@/lib/artifact-icons";
 import { exportCasesBatch, ExportCancelledError, listExportableCases } from "@/lib/api";
+import { CASE_PLATFORM_LABELS, isPlatformVisibleInUi, type CasePlatform } from "@/lib/catalog";
 import { fmtBytes, fmtDateOnly, fmtNum } from "@/lib/format";
 import type { ExportableCase, ExportTarget } from "@/lib/types";
 import { cn } from "@/lib/utils";
@@ -88,6 +95,7 @@ function estimateSourceBytes(source: string, cases: ExportableCase[]): number | 
 export default function ExportPage() {
   const cases = useQuery({ queryKey: ["cases", "exportable"], queryFn: listExportableCases });
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [tab, setTab] = useState<PlatformTab>("all");
   const [target, setTarget] = useState<ExportTarget>("elastic");
   const [sourceFilter, setSourceFilter] = useState<Set<string>>(new Set());
   const [error, setError] = useState("");
@@ -95,7 +103,18 @@ export default function ExportPage() {
   const [cancelledMsg, setCancelledMsg] = useState(false);
   const abortRef = useRef<AbortController | null>(null);
 
-  const all = useMemo(() => cases.data?.cases ?? [], [cases.data]);
+  const all = useMemo(
+    () => (cases.data?.cases ?? []).filter((c) => isPlatformVisibleInUi(c.cloud)),
+    [cases.data],
+  );
+  const visible = useMemo(() => filterByPlatformTab(all, tab, (c) => c.cloud), [all, tab]);
+  const countFor = (t: PlatformTab) => countByPlatformTab(all, t, (c) => c.cloud);
+
+  useEffect(() => {
+    if (selectedId && !visible.some((c) => c.case_id === selectedId)) {
+      setSelectedId(null);
+    }
+  }, [visible, selectedId]);
 
   const selectedCase = useMemo(
     () => (selectedId ? all.find((c) => c.case_id === selectedId) ?? null : null),
@@ -194,17 +213,17 @@ export default function ExportPage() {
   const showScope = Boolean(selectedCase);
 
   return (
-    <div className="px-6 py-7">
-      <div className="mb-6 border-b border-border/70 pb-5">
+    <div className="page-shell">
+      <div className="mb-6">
         <h1 className="page-title">
           <Download className="h-5 w-5 text-accent" />
           Export
         </h1>
-        <p className="mt-2 max-w-2xl text-sm text-fg-subtle">
-          Download case events as NDJSON for your SIEM. Load the zip with Logstash or your
-          forwarder.
-        </p>
       </div>
+
+      {!cases.isLoading && !cases.error && all.length > 0 && (
+        <PlatformTabBar value={tab} onChange={setTab} countFor={countFor} />
+      )}
 
       {cases.isLoading ? (
         <LoadingPanel label="Loading cases…" />
@@ -224,6 +243,19 @@ export default function ExportPage() {
             description="Import a Ventra evidence package before you can export it."
           />
         </Card>
+      ) : visible.length === 0 ? (
+        <Card className="py-4">
+          <EmptyState
+            icon={FolderOpen}
+            title={tab === "all" ? "No cases" : `No ${CASE_PLATFORM_LABELS[tab]} cases`}
+            description="Try another platform or import a package for this cloud."
+            action={
+              <Button variant="secondary" onClick={() => setTab("all")}>
+                Show all cases
+              </Button>
+            }
+          />
+        </Card>
       ) : (
         <div className="grid grid-cols-1 gap-5 lg:grid-cols-[1fr_22rem]">
           <div
@@ -236,6 +268,7 @@ export default function ExportPage() {
                   <colgroup>
                     <col className="w-10" />
                     <col />
+                    <col className="w-28" />
                     <col className="w-64" />
                     <col className="w-52" />
                     <col className="w-44" />
@@ -244,14 +277,17 @@ export default function ExportPage() {
                     <tr className="table-head-row">
                       <th className="table-header-cell-center w-10" aria-label="Select" />
                       <th className="table-header-cell">Case</th>
+                      <th className="table-header-cell-center">Platform</th>
                       <th className="table-header-cell !px-12">Time range</th>
                       <th className="table-header-cell-right !px-12">Events</th>
                       <th className="table-header-cell-right !px-12">Size</th>
                     </tr>
                   </thead>
                   <tbody>
-                    {all.map((c) => {
+                    {visible.map((c) => {
                       const isSelected = selectedId === c.case_id;
+                      const platformLabel =
+                        CASE_PLATFORM_LABELS[c.cloud as CasePlatform] ?? c.cloud;
                       return (
                         <tr
                           key={c.case_id}
@@ -279,10 +315,12 @@ export default function ExportPage() {
                             </span>
                           </td>
                           <td className="table-cell">
-                            <div className="flex min-w-0 items-center gap-2.5">
+                            <span className="mono truncate font-medium text-fg">{c.case_id}</span>
+                          </td>
+                          <td className="table-cell-center">
+                            <span className="inline-flex justify-center" title={platformLabel}>
                               <CloudProviderIcon cloud={c.cloud} />
-                              <span className="mono truncate font-medium text-fg">{c.case_id}</span>
-                            </div>
+                            </span>
                           </td>
                           <td className="table-cell-muted mono whitespace-nowrap !px-12">
                             {formatCaseDateRange(c)}
@@ -375,7 +413,7 @@ export default function ExportPage() {
                                 <div className="flex min-w-0 items-center gap-2.5">
                                   <ArtifactIcon cloud={scopeCloud!} collector={s} size={24} />
                                   <span className="truncate text-sm font-medium text-fg">
-                                    {displayArtifactLabel(s)}
+                                    {displayArtifactLabel(s, scopeCloud ?? undefined)}
                                   </span>
                                 </div>
                               </td>

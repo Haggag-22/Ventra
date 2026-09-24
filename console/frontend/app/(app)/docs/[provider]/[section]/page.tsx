@@ -6,9 +6,9 @@ import { docSectionContent, renderDocBlocks } from "@/lib/doc-content";
 import { groupArtifactsByCategory } from "@/lib/docs-data";
 import {
   DOC_PROVIDER_LABELS,
-  DOC_SECTIONS,
   PROVIDER_IAM_POLICIES,
   artifactCloudsForProvider,
+  docSectionLabel,
   docsCollectorHref,
   docsSectionHref,
   isDocProvider,
@@ -154,7 +154,7 @@ function CollectorsSection({ provider }: { provider: DocProvider }) {
                 />
                 <div className="min-w-0 flex-1">
                   <p className="font-medium text-fg group-hover:text-accent">
-                    {artifact.name || displayArtifactLabel(artifact.collector)}
+                    {displayArtifactLabel(artifact.collector, artifact.cloud)}
                   </p>
                   {artifact.description && (
                     <p className="mt-1 line-clamp-2 text-xs text-fg-subtle">
@@ -208,7 +208,7 @@ export default function DocProviderSectionPage({
   const pageTitle =
     section === "collectors"
       ? `${DOC_PROVIDER_LABELS[provider]} collectors`
-      : `${DOC_PROVIDER_LABELS[provider]} ${DOC_SECTIONS.find((s) => s.id === section)?.label ?? section}`;
+      : `${DOC_PROVIDER_LABELS[provider]} ${docSectionLabel(section, provider)}`;
 
   return (
     <DocLayout
@@ -218,7 +218,7 @@ export default function DocProviderSectionPage({
       artifactsPending={artifacts.isPending}
     >
       <DocPageHeader title={pageTitle} />
-      <div className="px-6 py-8">
+      <div className="page-shell">
         <DocSectionBody provider={provider} section={section} />
       </div>
     </DocLayout>

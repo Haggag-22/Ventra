@@ -20,7 +20,7 @@ sys.path.insert(0, str(REPO / "console" / "backend"))
 
 from generate_demo_case import generate  # noqa: E402
 
-from app.store import CaseNotFound, CaseStore, EventQuery, _vpc_ids_from_flow_config, network_vpc_filter_clause  # noqa: E402
+from app.store import CaseNotFound, CaseStore, EventQuery, _cloudtrail_s3_log_prefix, _s3_flow_bucket_prefix, _vpc_ids_from_flow_config, network_vpc_filter_clause  # noqa: E402
 from ventra_ingester.pipeline import ingest_package  # noqa: E402
 
 
@@ -371,6 +371,8 @@ def test_cloudtrail_collection(store_case) -> None:
     ctc = store.cloudtrail_collection(case_id)
     assert "trails" in ctc
     assert "events" in ctc and "s3" in ctc["events"]
+    if ctc["trails"]:
+        assert ctc["trails"][0]["s3_log_prefix"].endswith("AWSLogs/")
 
 
 def test_vpc_flow_collection(store_case) -> None:
@@ -383,3 +385,26 @@ def test_vpc_flow_collection(store_case) -> None:
     assert row["destination_type"] == "cloud-watch-logs"
     assert row["destination"]
     assert row["vpc_id"].startswith("vpc-")
+
+
+def test_cloudtrail_s3_log_prefix() -> None:
+    assert _cloudtrail_s3_log_prefix({}) == "AWSLogs/"
+    assert _cloudtrail_s3_log_prefix({"S3KeyPrefix": "AWSLogs"}) == "AWSLogs/"
+    assert _cloudtrail_s3_log_prefix({"S3KeyPrefix": "org"}) == "org/AWSLogs/"
+    assert _cloudtrail_s3_log_prefix({"S3KeyPrefix": "org/AWSLogs/"}) == "org/AWSLogs/"
+
+
+def test_s3_flow_bucket_prefix() -> None:
+    fl = {
+        "LogDestinationType": "s3",
+        "LogDestination": "arn:aws:s3:::detection-rules-logs",
+    }
+    assert _s3_flow_bucket_prefix(fl, "194722414229") == (
+        "detection-rules-logs",
+        "AWSLogs/194722414229/vpcflowlogs/",
+    )
+    fl_pref = {
+        "LogDestinationType": "s3",
+        "LogDestination": "arn:aws:s3:::bucket/custom",
+    }
+    assert _s3_flow_bucket_prefix(fl_pref, "1") == ("bucket", "custom/AWSLogs/1/vpcflowlogs/")

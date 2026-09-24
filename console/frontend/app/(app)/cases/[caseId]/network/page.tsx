@@ -7,6 +7,7 @@ import { Entity } from "@/components/pivot";
 import { StatCard } from "@/components/stat";
 import { TablePager } from "@/components/table-pager";
 import { Card, CardHeader, EmptyState, LoadingPanel } from "@/components/ui";
+import { VpcFlowCollectionSummary } from "@/components/vpc-flow-collection-summary";
 import { VpcFlowTable } from "@/components/vpc-flow-table";
 import { VpcFlowToolbar, type VpcFlowFilters } from "@/components/vpc-flow-toolbar";
 import { api } from "@/lib/api";
@@ -242,8 +243,15 @@ export default function NetworkPage() {
   if (globalEmpty) {
     return (
       <>
-        <PanelHeader icon={Network} title={panelLabel(cloud, "network")} panel="network" actions={vpcDropdown} />
-        <PanelBody>
+        <PanelHeader
+          icon={Network}
+          title={panelLabel(cloud, "network")}
+          panel="network"
+          collectorsInline
+          actions={vpcDropdown}
+        />
+        <PanelBody className="cloudtrail-view space-y-6">
+          <VpcFlowCollectionPanel caseId={caseId} />
           <Card className="py-4">
             <EmptyState
               icon={Network}
@@ -269,6 +277,7 @@ export default function NetworkPage() {
           icon={Network}
           title={panelLabel(cloud, "network")}
           panel="network"
+          collectorsInline
           actions={vpcDropdown}
         />
         <PanelBody>
@@ -286,9 +295,11 @@ export default function NetworkPage() {
         icon={Network}
         title={panelLabel(cloud, "network")}
         panel="network"
+        collectorsInline
         actions={vpcDropdown}
       />
-      <PanelBody className="space-y-6">
+      <PanelBody className="cloudtrail-view space-y-6">
+        <VpcFlowCollectionPanel caseId={caseId} />
         {vpcFilteredEmpty ? (
           <Card className="py-4">
             <EmptyState
@@ -477,5 +488,32 @@ export default function NetworkPage() {
         <VpcFlowLog caseId={caseId} sources={flowSource} vpcId={vpcFilter} />
       </PanelBody>
     </>
+  );
+}
+
+function VpcFlowCollectionPanel({ caseId }: { caseId: string }) {
+  const q = useQuery({
+    queryKey: ["vpc-flow-collection", caseId],
+    queryFn: () => api.vpcFlowCollection(caseId),
+    retry: 1,
+  });
+
+  if (q.isLoading) {
+    return (
+      <div className="ct-panel px-4 py-6 text-sm text-fg-subtle">
+        Loading VPC Flow Log collection…
+      </div>
+    );
+  }
+
+  if (q.isError || !q.data) return null;
+
+  const hasLogs = (q.data.flow_logs?.length ?? 0) > 0 || (q.data.records ?? 0) > 0;
+  if (!hasLogs) return null;
+
+  return (
+    <div className="ct-panel p-4">
+      <VpcFlowCollectionSummary data={q.data} />
+    </div>
   );
 }

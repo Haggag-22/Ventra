@@ -1,19 +1,25 @@
 "use client";
 
+import { useCase } from "@/components/case-context";
 import { Entity } from "@/components/pivot";
+import { ResourceInventoryDrawer } from "@/components/resource-inventory-drawer";
+import { TablePager } from "@/components/table-pager";
+import { api } from "@/lib/api";
+import { fmtNum } from "@/lib/format";
+import { usePagination } from "@/lib/pagination";
 import {
   columnsForResource,
   defaultResourceWidths,
   getInventoryRows,
+  K8S_STATE_EVENT_ITEMS,
   loadResourceWidths,
+  resourceDetailTitle,
+  resourceLookupId,
   resourcePrimaryId,
   resourceWidthsKey,
   type ResourceColumn,
   type ResourceRow,
 } from "@/lib/resource-inventory-detail";
-import { fmtNum } from "@/lib/format";
-import { usePagination } from "@/lib/pagination";
-import { TablePager } from "@/components/table-pager";
 import type { InventoryResourceItem } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -45,12 +51,21 @@ export function ResourceInventoryTable({
   item: InventoryResourceItem;
   data: unknown;
 }) {
+  const { caseId } = useCase();
   const rows = getInventoryRows(data, item.key);
   const columns = useMemo(() => columnsForResource(item.id), [item.id]);
   const defaults = useMemo(() => defaultResourceWidths(columns), [columns]);
   const { page, setPage, pageSize, setPageSize } = usePagination("ventra.resource-inventory.page-size");
 
+  const [selected, setSelected] = useState<ResourceRow | null>(null);
+  const [detail, setDetail] = useState<unknown | null>(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+
   useEffect(() => setPage(0), [item.id, setPage]);
+  useEffect(() => {
+    setSelected(null);
+    setDetail(null);
+  }, [item.id]);
 
   const paged = rows.slice(page * pageSize, page * pageSize + pageSize);
 
@@ -110,6 +125,36 @@ export function ResourceInventoryTable({
     [widths, defaults, persistWidths],
   );
 
+  const openRow = useCallback(
+    async (row: ResourceRow) => {
+      setSelected(row);
+      setDetail(null);
+
+      const lookup = resourceLookupId(item, row);
+      if (!lookup || !K8S_STATE_EVENT_ITEMS.has(item.id)) return;
+
+      setDetailLoading(true);
+      try {
+        const res = await api.events(caseId, {
+          resources: [lookup],
+          source: [item.source],
+          kind: "state",
+          limit: 5,
+        });
+        const match =
+          res.events.find((ev) => ev.resource_id === lookup) ??
+          res.events.find((ev) => ev.raw && typeof ev.raw === "object") ??
+          res.events[0];
+        if (match?.raw) setDetail(match.raw);
+      } catch {
+        /* keep compact row in the drawer */
+      } finally {
+        setDetailLoading(false);
+      }
+    },
+    [caseId, item],
+  );
+
   const totalWeight = columns.reduce(
     (sum, c) => sum + (widths[c.key] ?? defaults[c.key] ?? c.min ?? 80),
     0,
@@ -136,7 +181,7 @@ export function ResourceInventoryTable({
         ) : (
           <div className="ct-table-wrap overflow-x-auto overflow-y-auto">
             <table
-              className="ct-table ct-table-no-row-click w-full border-collapse text-left"
+              className="ct-table w-full border-collapse text-left"
               style={{ tableLayout: "fixed", width: totalWeight, minWidth: "100%" }}
             >
               <colgroup>
@@ -162,26 +207,43 @@ export function ResourceInventoryTable({
                 </tr>
               </thead>
               <tbody>
-                {paged.map((row: ResourceRow, i) => (
-                  <tr key={resourcePrimaryId(item, row) + i}>
-                    {columns.map((col, ci) => {
-                      const text = col.cell(row);
-                      return (
-                        <td
-                          key={col.key}
-                          className={cn("truncate", col.mono && "mono text-fg-subtle")}
-                          title={text !== "—" ? text : undefined}
-                        >
-                          {ci === 0 ? (
-                            <PrimaryCell itemId={item.id} text={text} />
-                          ) : (
-                            text
-                          )}
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
+                {paged.map((row: ResourceRow, i) => {
+                  const rowKey = resourcePrimaryId(item, row) + i;
+                  const isSelected = selected === row;
+                  return (
+                    <tr
+                      key={rowKey}
+                      className={cn(isSelected && "is-selected")}
+                      onClick={() => openRow(row)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          openRow(row);
+                        }
+                      }}
+                      tabIndex={0}
+                      role="button"
+                      aria-label={`View details for ${resourceDetailTitle(item, row)}`}
+                    >
+                      {columns.map((col, ci) => {
+                        const text = col.cell(row);
+                        return (
+                          <td
+                            key={col.key}
+                            className={cn("truncate", col.mono && "mono text-fg-subtle")}
+                            title={text !== "—" ? text : undefined}
+                          >
+                            {ci === 0 ? (
+                              <PrimaryCell itemId={item.id} text={text} />
+                            ) : (
+                              text
+                            )}
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
@@ -197,6 +259,17 @@ export function ResourceInventoryTable({
           />
         )}
       </div>
+
+      <ResourceInventoryDrawer
+        title={selected ? resourceDetailTitle(item, selected) : ""}
+        row={selected}
+        detail={detail}
+        loading={detailLoading}
+        onClose={() => {
+          setSelected(null);
+          setDetail(null);
+        }}
+      />
     </div>
   );
 }

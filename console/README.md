@@ -41,19 +41,29 @@ cd frontend && npm install && VENTRA_API=http://127.0.0.1:8000 npm run dev   # :
 
 ## Panels
 
+Titles follow the case cloud (AWS defaults below; Azure and GCP rename several panels via
+`panel-labels.ts`). Collector chips in each panel header come from `panel-collectors.ts`.
+
+### Investigate
+
 | Panel | Purpose |
 |-------|---------|
-| Overview | Account context, collection completeness (gaps as evidence), quick stats, distributions |
-| Timeline | Every source on one brushable time axis; filter rail; event table |
-| CloudTrail Analyzer | Control-plane deep dive with saved views and user-agent breakdown |
-| Identity | IAM principals, key hygiene, and the role-assumption graph |
-| Network | VPC flow top talkers (public-egress = exfil lens) and rejected flows |
-| Resources | EC2 / S3 inventory with exposure + shared-snapshot highlighting |
-| Findings | Merged GuardDuty / Security Hub / Inspector / Macie, with pivots |
-| Search | Full-text + structured query across the case |
-| IOCs & Hunts | ATT&CK Cloud coverage map and curated hunt packs |
-| Report | Pin evidence, write the narrative, export Markdown |
-| Settings | Theme/density, RBAC roles, backend status, privacy |
+| CloudTrail Timeline | Control-plane event table (CloudTrail / Activity Log / Entra / Cloud Audit). Filter by source, action, principal, IP, region, trail category. |
+| CloudWatch Logs | CloudWatch log group events (shown for AWS cases only). |
+| Security Findings | Merged detections: GuardDuty / Security Hub / Inspector / Macie / Detective / Config; Defender; SCC / Cloud Monitoring. |
+| Identity & Access | IAM / Entra / RBAC principals and policies; KMS and Secrets inventory when collected. |
+| Network Activity | VPC / VNet / NSG / firewall flow volume, public egress, rejected flows. |
+| Web & DNS | Edge access logs, WAF sampled requests, DNS resolver / Cloud DNS queries. |
+| Kubernetes Audit | EKS / AKS / GKE API-server audit logs. |
+| Data Access | Object-level and secret access (S3, storage, Key Vault, GCS, BigQuery, Cloud SQL, Secret Manager). |
+| Logs Coverage | Per-collector collected / partial / empty / denied / not-run status from the manifest, including gaps. |
+
+### Package
+
+| Panel | Purpose |
+|-------|---------|
+| Resource Inventory | EC2 / S3 / Lambda / ARM / GCE and related inventory snapshots. |
+| Raw Evidence | Browse and download sealed source files from the package. |
 
 ## Cross-cutting
 
@@ -61,4 +71,5 @@ cd frontend && npm install && VENTRA_API=http://127.0.0.1:8000 npm run dev   # :
   any panel with the filter pre-applied.
 - **URL state** — filters, time windows, and selections live in the URL; share a link to a
   view.
-- **Keyboard** — `⌘K` palette, `/` search, `g t/c/i/n/r/f` to jump between panels.
+- **Keyboard** — `⌘K` / `Ctrl+K` palette, `/` open palette, `g` then `t`/`c` timeline,
+  `f` findings, `i` identity, `n` network, `a` logs coverage.

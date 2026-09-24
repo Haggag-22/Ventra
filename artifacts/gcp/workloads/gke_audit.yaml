@@ -4,7 +4,7 @@ aliases:
 - gcp.gke_audit
 cloud: gcp
 category: Workloads
-description: GKE Kubernetes API-server audit logs from Cloud Logging.
+description: GKE Kubernetes API-server audit logs from Cloud Logging + cluster posture.
 version: 1.0.0
 collector: gke_audit
 type: gke_audit

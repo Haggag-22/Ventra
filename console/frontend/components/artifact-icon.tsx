@@ -1,6 +1,5 @@
 import { artifactIconSrc } from "@/lib/artifact-icons";
 import { cn } from "@/lib/utils";
-import Image from "next/image";
 
 export function ArtifactIcon({
   cloud,
@@ -33,13 +32,12 @@ export function ArtifactIcon({
       className={cn("inline-flex shrink-0 items-center justify-center overflow-hidden rounded-md", className)}
       style={{ width: size, height: size }}
     >
-      <Image
+      <img
         src={src}
         alt=""
         width={size}
         height={size}
         className="h-full w-full object-contain"
-        unoptimized
       />
     </span>
   );
