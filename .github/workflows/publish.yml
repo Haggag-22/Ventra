@@ -2,6 +2,9 @@
 #
 #   git tag v1.0.0 && git push origin v1.0.0
 #
+# Dry run (build + checks, nothing published): Actions → Release → Run workflow,
+# or `gh workflow run publish.yml`.
+#
 # PyPI Trusted Publishing (OIDC — no API tokens stored anywhere):
 #   owner Haggag-22 / repo Ventra / workflow publish.yml / environment (any).
 # Keep this filename: the PyPI trusted-publisher entry is bound to it.
@@ -10,6 +13,7 @@ name: Release
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -28,12 +32,19 @@ jobs:
           cache-dependency-path: console/frontend/package-lock.json
       - name: Build static console (bundled into the wheel)
         run: bash scripts/build-console-static.sh
+      - name: Working tree must stay clean (a dirty tree gives a +d<date> version PyPI rejects)
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git status --porcelain
+            echo "::error::the console build modified tracked files"; exit 1
+          fi
       - uses: astral-sh/setup-uv@v10.2.0
         with:
           python-version: "3.12"
       - name: Build sdist + wheel
         run: uv build
       - name: Version must match the tag
+        if: startsWith(github.ref, 'refs/tags/v')
         run: |
           tag="${GITHUB_REF_NAME#v}"
           for f in dist/*; do
@@ -50,6 +61,8 @@ jobs:
           cd "$(mktemp -d)"
           uvx --from "$wheel" ventra --version
           uvx --from "$wheel" ventra artifacts validate --strict
+          # The analyst console must be bundled in release wheels.
+          unzip -l "$wheel" | grep -q 'collector/_console_static/index.html'
       - uses: actions/upload-artifact@v7
         with:
           name: dist
@@ -58,6 +71,7 @@ jobs:
 
   pypi:
     needs: build
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       id-token: write   # PyPI trusted publishing (OIDC)
@@ -73,6 +87,7 @@ jobs:
 
   github-release:
     needs: pypi
+    if: startsWith(github.ref, 'refs/tags/v')
     runs-on: ubuntu-latest
     permissions:
       contents: write   # create the GitHub Release
