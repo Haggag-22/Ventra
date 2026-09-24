@@ -134,14 +134,6 @@ Priority `1` = collect first (most volatile or most important). Build in priorit
 - **Why:** privilege escalation via RBAC is the most common post-exploitation move, and the
   binding object itself is durable evidence.
 
-#### `k8s_pod_logs` — Container stdout/stderr via the API
-- **Collect:** `pods/log` for every container, including `--previous` for crashed/restarted
-  containers (the attacker's container may already have died).
-- **Required verbs:** `get` on `pods/log`.
-- **Caveat:** the API only returns logs the kubelet still has on disk; rotated logs are gone.
-  The node-plane collector (`k8s_container_logs`) is the more complete source — this one exists
-  because it works with nothing but a kubeconfig.
-
 ---
 
 ### Priority 1 — Node plane
@@ -201,13 +193,6 @@ Priority `1` = collect first (most volatile or most important). Build in priorit
 - Image pulls (including from unexpected registries), container lifecycle, CRI errors.
 - Also snapshot live runtime state: `crictl ps -a`, `crictl images`, `crictl pods`,
   `crictl inspect` for each container.
-
-#### `k8s_control_plane_logs` — **on-prem exclusive**
-- Static pod logs under `/var/log/pods/kube-system_kube-apiserver-*/`,
-  `kube-scheduler-*`, `kube-controller-manager-*`.
-- Also collect the static pod **manifests** from `/etc/kubernetes/manifests/` — an attacker who
-  writes a file there gets a privileged pod on the control plane with no API call and therefore
-  **no audit log entry**. Diff these against expected content and hash them.
 
 #### `k8s_etcd` — **on-prem exclusive**
 - etcd logs: `/var/log/pods/kube-system_etcd-*/` or `journalctl -u etcd`.
@@ -271,6 +256,73 @@ Priority `1` = collect first (most volatile or most important). Build in priorit
     which means plaintext credentials, private keys, and session tokens. Encrypt at rest,
     restrict access, log every read, and mark it maximum-sensitivity in the evidence manifest.
   - Never restore a checkpoint back into the production cluster.
+
+---
+
+## 3.1 Distribution Matrix
+
+The collector set above was specified against **kubeadm**, where the control plane runs as
+static pods under `/etc/kubernetes/manifests` and each component has its own log tree. That is
+one layout among several, and the differences are not cosmetic: on k3s there is no static pod
+directory, no per-component log tree, and no etcd. Node-plane collectors therefore resolve the
+distribution once per run (`collector/engine/api/kubernetes/common/distro.py`) and work down an
+ordered list of candidates, recording every path and unit they tried.
+
+**Detection is filesystem-only and read-only.** It reads well-known directories and systemd
+*unit files*; it never shells out to `systemctl`, so it works from a pod with the host mounted
+read-only, and it is deterministic in tests.
+
+### Where the control plane lives
+
+| Family | Detected by | Control-plane logs | Static pod manifests | Datastore | Node agent (kubelet) |
+|---|---|---|---|---|---|
+| **kubeadm** | `/etc/kubernetes/manifests/kube-apiserver.yaml`, `admin.conf` | `/var/log/pods/kube-system_<component>-*`, else `journalctl -u kube-apiserver` (and per component), else `crictl logs` | `/etc/kubernetes/manifests` | etcd: `/var/lib/etcd`, TLS `/etc/kubernetes/pki/etcd` | `journalctl -u kubelet` |
+| **k3s** | `/etc/rancher/k3s`, `/var/lib/rancher/k3s`, unit `k3s` / `k3s-agent` | `journalctl -u k3s` **only**. One process carries apiserver + scheduler + controller-manager | none (by design) | sqlite `/var/lib/rancher/k3s/server/db/state.db`, or embedded etcd `.../db/etcd` | inside `k3s` (server) or `k3s-agent` (worker) |
+| **RKE2** | `/etc/rancher/rke2`, `/var/lib/rancher/rke2`, unit `rke2-server` / `rke2-agent` | `journalctl -u rke2-server` | `/var/lib/rancher/rke2/agent/pod-manifests` | embedded etcd `/var/lib/rancher/rke2/server/db/etcd` | inside `rke2-agent` / `rke2-server` |
+| **microk8s** | `/var/snap/microk8s` | `journalctl -u snap.microk8s.daemon-kubelite` | `/etc/kubernetes/manifests` if present | dqlite `/var/snap/microk8s/current/var/kubernetes/backend` | inside the kubelite daemon |
+| **managed** (EKS / GKE / AKS worker) | no known layout found | none on the node | none | none | `journalctl -u kubelet` |
+
+Other per-distro paths that matter: API-server flags come from
+`/etc/rancher/{k3s,rke2}/config.yaml`, the server unit's `ExecStart` line, or
+`/var/snap/microk8s/current/args/kube-apiserver` when there is no manifest to read; CNI config
+lives under `/var/lib/rancher/<distro>/agent/etc/cni/net.d` on k3s and RKE2; containerd's
+socket is `/run/k3s/containerd/containerd.sock` on k3s and RKE2 and
+`/var/snap/microk8s/common/run/containerd.sock` on microk8s.
+
+### Which collectors work where
+
+`CP` = control-plane / server node only. `any` = every node. `api` = API plane, needs only a
+kubeconfig and does not care about the distribution.
+
+| Collector | Plane | Node | kubeadm | k3s | RKE2 | microk8s | managed worker |
+|---|---|---|---|---|---|---|---|
+| `k8s_events` | api | - | yes | yes | yes | yes | yes |
+| `k8s_cluster_state` | api | - | yes | yes | yes | yes | yes |
+| `k8s_rbac` | api | - | yes | yes | yes | yes | yes |
+| `k8s_apiserver_audit` | node | CP | manifest flag | k3s config / defaults | RKE2 manifest / config | args file | gap |
+| `k8s_audit_posture` | node | CP | manifest flags | config or log on disk | manifest or config | args file | gap |
+| `k8s_etcd` | node | CP | etcd | sqlite or etcd (+ merged journal) | etcd (+ merged journal) | dqlite | gap |
+| `k8s_kubelet_logs` | node | any | `kubelet` unit | `k3s` / `k3s-agent` | `rke2-agent` | kubelite | `kubelet` unit |
+| `k8s_runtime_logs` | node | any | `containerd` unit + socket | socket, journal via `k3s` | socket, journal via `rke2-agent` | socket + kubelite | `containerd` unit + socket |
+| `k8s_container_logs` | node | any | `/var/log/pods` | same | same | same | same |
+| `k8s_cni_logs` | node | any | `/etc/cni/net.d` | rancher CNI dir | rancher CNI dir | snap args dir | `/etc/cni/net.d` |
+
+"gap" means the collector records what it looked for and emits a `GapReason` with the reason.
+It is never a crash and never a silent empty result: a worker simply has no control plane on it.
+
+### What an operator should check manually
+
+If a control-plane collector gaps, the fastest confirmations are:
+
+* **kubeadm** - `ls /etc/kubernetes/manifests`, `journalctl -u kubelet | head`
+* **k3s** - `systemctl status k3s`, `journalctl -u k3s | head`, `ls /var/lib/rancher/k3s/server/db`
+* **RKE2** - `systemctl status rke2-server`, `ls /var/lib/rancher/rke2/agent/pod-manifests`
+* **microk8s** - `microk8s status`, `cat /var/snap/microk8s/current/args/kube-apiserver`
+* **any** - is the audit log actually on disk? `ls -l /var/log/kubernetes/audit/`
+
+Each collector's `config.json` records the detected distribution, every candidate path and unit
+it tried, and which one answered, so this can be reconstructed after the fact from the evidence
+package alone.
 
 ---
 

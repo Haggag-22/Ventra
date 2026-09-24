@@ -54,7 +54,8 @@ class AcquisitionBuildRequest(BaseModel):
     transport: str = ""
     gcp_log_backend: dict[str, Any] | None = None
     connection_id: str | None = None
-    connection_id: str | None = None
+    # Saved Acquire kit display name — used for zip + entry script filenames.
+    kit_name: str = ""
 
 
 class AcquisitionPreviewRequest(AcquisitionBuildRequest):
@@ -168,6 +169,14 @@ class S3ImportRequest(BaseModel):
 
 _ALLOWED_PROFILES = frozenset({"platform", "cloudshell", "workstation", "enterprise"})
 _KIT_DOWNLOAD_PROFILES = frozenset({"cloudshell", "workstation", "enterprise"})
+
+
+def _coerce_deployment_profile(cloud: str, profile: str) -> str:
+    """Kubernetes live console runs are disabled — kits must be downloadable."""
+    p = (profile or "platform").strip().lower() or "platform"
+    if cloud.strip().lower() == "kubernetes" and p == "platform":
+        return "workstation"
+    return p
 
 
 app = FastAPI(
@@ -382,6 +391,14 @@ def findings(case_id: str, _: Role = Depends(_check("view_case"))) -> dict:
 @app.get("/api/cases/{case_id}/identity")
 def identity(case_id: str, _: Role = Depends(_check("view_case"))) -> dict:
     iam = store.inventory(case_id, "iam") or store.inventory(case_id, "rbac")
+    if iam is None:
+        gcp = store.inventory(case_id, "iam_policy")
+        if gcp is not None:
+            iam = store.normalize_gcp_iam_policy(gcp)
+    if iam is None:
+        k8s = store.inventory(case_id, "k8s_rbac")
+        if k8s is not None:
+            iam = store.normalize_k8s_rbac(k8s, store.inventory(case_id, "k8s_cluster_state"))
     return {
         "iam": iam,
         "graph": store.role_assumption_graph(case_id),
@@ -633,7 +650,7 @@ def preview_acquisition(
     from collector.kit.preview import preview_kit
 
     cloud, names, iam_paths = _resolve_acquisition_request(body, require_gcp_log_backend=False)
-    profile = body.deployment_profile.strip().lower() or "platform"
+    profile = _coerce_deployment_profile(cloud, body.deployment_profile.strip().lower() or "platform")
     if profile not in _ALLOWED_PROFILES:
         raise HTTPException(status_code=400, detail=f"Unknown deployment profile: {body.deployment_profile!r}")
     gcp_backend = body.gcp_log_backend if cloud == "gcp" else None
@@ -649,10 +666,10 @@ def preview_acquisition(
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
     preview["deployment_profile"] = profile
-    preview["bundle_wheel"] = True
+    preview["bundle_wheel"] = False
     from collector.kit.build import kit_wheel_source
 
-    preview["wheel_source"] = kit_wheel_source()
+    preview["wheel_source"] = "cli"  # .kit assumes Ventra CLI is installed
     return preview
 
 
@@ -667,33 +684,43 @@ def build_acquisition(
 
     cloud, names, iam_paths = _resolve_acquisition_request(body)
     case_id = _normalize_case_id(body.case_id) or "CASE-PENDING"
-    profile = body.deployment_profile.strip().lower() or "platform"
+    profile = _coerce_deployment_profile(cloud, body.deployment_profile.strip().lower() or "platform")
     if profile not in _ALLOWED_PROFILES:
         raise HTTPException(status_code=400, detail=f"Unknown deployment profile: {body.deployment_profile!r}")
+    # Download endpoint always produces an operator kit — map live "platform" to workstation.
     if profile not in _KIT_DOWNLOAD_PROFILES:
-        raise HTTPException(
-            status_code=400,
-            detail="Platform deployments run server-side; use POST /api/runs instead of building a kit.",
-        )
+        profile = "workstation"
     gcp_backend = None
     if cloud == "gcp" and body.gcp_log_backend:
         gcp_backend = validate_gcp_log_backend_dict(body.gcp_log_backend)
 
     connection: dict[str, Any] | None = None
-    if body.connection_id:
-        try:
-            connection = config_store.get_connection(body.connection_id.strip())
-        except ConfigNotFound as exc:
-            raise HTTPException(status_code=404, detail=str(exc)) from exc
-        conn_platform = str(connection.get("platform") or "").strip().lower()
-        if conn_platform and conn_platform != cloud:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Connection platform {conn_platform!r} does not match kit cloud {cloud!r}.",
-            )
+    if not (body.connection_id or "").strip():
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Select an Authentication connection when downloading a kit so credentials "
+                "are embedded and `ventra run <kit>.kit` needs no extra flags."
+            ),
+        )
+    try:
+        connection = config_store.get_connection(body.connection_id.strip())
+    except ConfigNotFound as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    conn_platform = str(connection.get("platform") or "").strip().lower()
+    if conn_platform and conn_platform != cloud:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Connection platform {conn_platform!r} does not match kit cloud {cloud!r}.",
+        )
+
+    from collector.kit.build import _safe_kit_slug
+
+    kit_display = (body.kit_name or "").strip() or f"ventra-kit-{cloud}-{case_id}"
+    kit_slug = _safe_kit_slug(kit_display)
 
     with tempfile.TemporaryDirectory(prefix="ventra-kit-") as tmp:
-        out = Path(tmp) / "kit.zip"
+        out = Path(tmp) / f"{kit_slug}.kit"
         try:
             build_kit(
                 out,
@@ -714,16 +741,17 @@ def build_acquisition(
                 artifact_parameters=body.artifact_parameters or None,
                 transport=body.transport.strip(),
                 gcp_log_backend=gcp_backend,
-                bundle_wheel=True,
-                require_wheel=True,
+                bundle_wheel=False,
+                require_wheel=False,
                 deployment_profile=profile,
                 connection=connection,
+                kit_name=kit_display,
             )
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
         data = out.read_bytes()
 
-    filename = f"ventra-kit-{cloud}-{case_id}.zip"
+    filename = f"{kit_slug}.kit"
     return Response(
         content=data,
         media_type="application/zip",
@@ -1135,6 +1163,10 @@ def create_profile(body: ProfileCreateRequest, _: Role = Depends(_check("manage_
         payload["case_id"] = _normalize_case_id(payload["case_id"])
     else:
         payload.pop("case_id", None)
+    cloud = str(payload.get("cloud") or "")
+    payload["deployment_profile"] = _coerce_deployment_profile(
+        cloud, str(payload.get("deployment_profile") or "platform")
+    )
     return config_store.create_profile({"name": name, **payload})
 
 
@@ -1145,6 +1177,12 @@ def update_profile(
     patch = {k: v for k, v in body.model_dump().items() if v is not None}
     if "case_id" in patch:
         patch["case_id"] = _normalize_case_id(patch["case_id"]) if patch["case_id"] else ""
+    existing = config_store.get_profile(profile_id)
+    cloud = str(patch.get("cloud") or existing.get("cloud") or "")
+    if "deployment_profile" in patch or cloud.lower() == "kubernetes":
+        patch["deployment_profile"] = _coerce_deployment_profile(
+            cloud, str(patch.get("deployment_profile") or existing.get("deployment_profile") or "platform")
+        )
     return config_store.update_profile(profile_id, patch)
 
 
@@ -1189,7 +1227,16 @@ def create_run(body: RunRequest, _: Role = Depends(_check("run_collection"))) ->
     case_id = _normalize_case_id(body.case_id) or body.case_id
     payload = body.model_dump()
     payload["case_id"] = case_id
-    _resolve_acquisition_request(body)
+    cloud, _names, _iam = _resolve_acquisition_request(body)
+    if cloud == "kubernetes":
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                "Kubernetes live console runs are disabled. Download the collection kit, "
+                "run `ventra run <kit>.kit` from a terminal, then import with "
+                "`ventra import` or Cases → Import package."
+            ),
+        )
     return start_run(payload)
 
 

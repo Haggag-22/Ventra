@@ -1,3 +1,4 @@
+import { isPlatformVisibleInUi } from "@/lib/catalog";
 import type { ProviderPlatform, SelectableProviderPlatform } from "./types";
 
 /**
@@ -50,8 +51,11 @@ export const PROVIDER_META: Record<ProviderPlatform, ProviderMeta> = {
   },
 };
 
-/** Ordered platforms for the selection grid. */
-export const PROVIDER_ORDER: SelectableProviderPlatform[] = ["aws", "gcp", "azure", "kubernetes"];
+/** Ordered platforms for the selection grid — Kubernetes gated by `KUBERNETES_UI_ENABLED`. */
+const ALL_PROVIDER_ORDER: SelectableProviderPlatform[] = ["aws", "gcp", "azure", "kubernetes"];
+export const PROVIDER_ORDER: SelectableProviderPlatform[] = ALL_PROVIDER_ORDER.filter(
+  isPlatformVisibleInUi,
+);
 
 // ---- Field validation ------------------------------------------------------------------
 // Validators treat an empty string as valid — required-ness is enforced by the step, so an

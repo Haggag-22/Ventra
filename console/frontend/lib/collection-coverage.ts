@@ -122,6 +122,17 @@ export const IMPLEMENTED_LOG_COLLECTORS = new Set([
   "secret_manager",
   "scc_findings",
   "cloud_monitoring",
+  // On-prem Kubernetes
+  "k8s_events",
+  "k8s_audit_posture",
+  "k8s_apiserver_audit",
+  "k8s_cluster_state",
+  "k8s_rbac",
+  "k8s_container_logs",
+  "k8s_kubelet_logs",
+  "k8s_runtime_logs",
+  "k8s_etcd",
+  "k8s_cni_logs",
 ]);
 
 export function aggregateManifestSources(sources: ManifestSource[] = []) {

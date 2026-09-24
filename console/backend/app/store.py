@@ -54,7 +54,12 @@ DATA_ACCESS_SCOPE = (
     "OR ventra_source IN ("
     "'storage_access', 'bigquery_audit', 'cloud_sql', 'secret_manager', "
     "'key_vault', 'log_analytics', 'cloud_audit_data'"
-    "))"
+    ") "
+    # On-prem Kubernetes: "data access" is a Secret read, and the API-server audit log is
+    # the only place it is recorded. resource_type carries objectRef.resource, so Secret
+    # reads select cleanly without touching the rest of the audit stream.
+    "OR (ventra_source='k8s_apiserver_audit' AND resource_type IN ('secrets', 'configmaps'))"
+    ")"
 )
 
 DATA_ACCESS_PRINCIPAL_SQL = "COALESCE(NULLIF(user_arn,''), NULLIF(user_name,''), '')"
@@ -150,6 +155,71 @@ _INVENTORY_RESOURCE_SPECS: list[tuple[str, list[dict[str, str]]]] = [
 ]
 
 
+# Kubernetes (on-prem) roll-ups. The cluster's object counts come from the collectors' own
+# config.json (``_config.counts.*``); the risk rows come from the derived artefacts the
+# collectors write beside it, so the panel never re-derives a verdict.
+_K8S_INVENTORY_RESOURCE_SPECS: list[tuple[str, list[dict[str, str]]]] = [
+    (
+        "Workloads",
+        [
+            {"id": "k8s_pods", "label": "Pods", "source": "k8s_cluster_state", "key": "objects.pods"},
+            {"id": "k8s_deployments", "label": "Deployments", "source": "k8s_cluster_state", "key": "objects.deployments"},
+            {"id": "k8s_daemonsets", "label": "DaemonSets", "source": "k8s_cluster_state", "key": "objects.daemonsets"},
+            {"id": "k8s_statefulsets", "label": "StatefulSets", "source": "k8s_cluster_state", "key": "objects.statefulsets"},
+            {"id": "k8s_jobs", "label": "Jobs", "source": "k8s_cluster_state", "key": "objects.jobs"},
+            {"id": "k8s_cronjobs", "label": "CronJobs", "source": "k8s_cluster_state", "key": "objects.cronjobs"},
+            {"id": "k8s_images", "label": "Images running cluster-wide", "source": "k8s_cluster_state", "key": "images.images"},
+        ],
+    ),
+    (
+        "Cluster & storage",
+        [
+            {"id": "k8s_nodes", "label": "Nodes", "source": "k8s_cluster_state", "key": "objects.nodes"},
+            {"id": "k8s_namespaces", "label": "Namespaces", "source": "k8s_cluster_state", "key": "objects.namespaces"},
+            {"id": "k8s_services", "label": "Services", "source": "k8s_cluster_state", "key": "objects.services"},
+            {"id": "k8s_ingresses", "label": "Ingresses", "source": "k8s_cluster_state", "key": "objects.ingresses"},
+            {"id": "k8s_networkpolicies", "label": "NetworkPolicies", "source": "k8s_cluster_state", "key": "objects.networkpolicies"},
+            {"id": "k8s_pvs", "label": "PersistentVolumes", "source": "k8s_cluster_state", "key": "objects.persistentvolumes"},
+            {"id": "k8s_pvcs", "label": "PersistentVolumeClaims", "source": "k8s_cluster_state", "key": "objects.persistentvolumeclaims"},
+            {"id": "k8s_configmaps", "label": "ConfigMaps", "source": "k8s_cluster_state", "key": "objects.configmaps"},
+        ],
+    ),
+    (
+        "Identity & admission",
+        [
+            {"id": "k8s_serviceaccounts", "label": "ServiceAccounts", "source": "k8s_cluster_state", "key": "objects.serviceaccounts"},
+            {"id": "k8s_secrets", "label": "Secrets (metadata only)", "source": "k8s_cluster_state", "key": "objects.secrets"},
+            {"id": "k8s_roles", "label": "Roles", "source": "k8s_rbac", "key": "objects.roles"},
+            {"id": "k8s_clusterroles", "label": "ClusterRoles", "source": "k8s_rbac", "key": "objects.clusterroles"},
+            {"id": "k8s_rolebindings", "label": "RoleBindings", "source": "k8s_rbac", "key": "objects.rolebindings"},
+            {"id": "k8s_clusterrolebindings", "label": "ClusterRoleBindings", "source": "k8s_rbac", "key": "objects.clusterrolebindings"},
+            {"id": "k8s_mutating_webhooks", "label": "Mutating webhooks", "source": "k8s_cluster_state", "key": "objects.mutatingwebhookconfigurations"},
+            {"id": "k8s_validating_webhooks", "label": "Validating webhooks", "source": "k8s_cluster_state", "key": "objects.validatingwebhookconfigurations"},
+            {"id": "k8s_crds", "label": "CRDs", "source": "k8s_cluster_state", "key": "objects.customresourcedefinitions"},
+        ],
+    ),
+    (
+        "Flagged for review",
+        [
+            {"id": "k8s_suspicious_pods", "label": "Suspicious pods", "source": "k8s_cluster_state", "key": "suspicious_pods"},
+            {"id": "k8s_untrusted_images", "label": "Untrusted-registry images", "source": "k8s_cluster_state", "key": "images.untrusted"},
+            {"id": "k8s_hostpath_pvs", "label": "hostPath-backed volumes", "source": "k8s_cluster_state", "key": "hostpath_volumes"},
+            {"id": "k8s_automounting_sas", "label": "ServiceAccount token automount", "source": "k8s_cluster_state", "key": "service_accounts.accounts"},
+            {"id": "k8s_privileged_namespaces", "label": "Pod Security per namespace", "source": "k8s_cluster_state", "key": "pod_security.namespaces"},
+            {"id": "k8s_dangerous_bindings", "label": "Escalation-capable bindings", "source": "k8s_rbac", "key": "dangerous_bindings"},
+            {"id": "k8s_anonymous_bindings", "label": "Anonymous bindings", "source": "k8s_rbac", "key": "anonymous_bindings"},
+        ],
+    ),
+]
+
+# Which roll-up set a case uses. AWS is the default because the Azure and GCP panels have
+# always rendered the AWS rows; Kubernetes objects have no AWS equivalent at all, so a
+# Kubernetes case gets its own set rather than a screen of empty EC2/S3 rows.
+_INVENTORY_SPECS_BY_CLOUD: dict[str, list[tuple[str, list[dict[str, str]]]]] = {
+    "kubernetes": _K8S_INVENTORY_RESOURCE_SPECS,
+}
+
+
 def _inventory_resource_count(data: Any, key: str) -> int:
     node: Any = data
     for part in key.split("."):
@@ -215,6 +285,29 @@ def _vpc_names_from_config(config: dict[str, Any] | None) -> dict[str, str]:
         if vid:
             names[vid] = _vpc_name_from_inventory(vpc)
     return names
+
+
+def _cloudtrail_s3_log_prefix(trail: dict[str, Any]) -> str:
+    """Prefix CloudTrail actually lists under (``{S3KeyPrefix}/AWSLogs/``)."""
+    prefix = (trail.get("S3KeyPrefix") or "").strip()
+    if prefix and not prefix.endswith("/"):
+        prefix += "/"
+    if not prefix or prefix == "AWSLogs/" or prefix.endswith("/AWSLogs/"):
+        return prefix or "AWSLogs/"
+    return prefix + "AWSLogs/"
+
+
+def _s3_flow_bucket_prefix(flow_log: dict[str, Any], account_id: str = "") -> tuple[str, str]:
+    """Return ``(bucket, collection_prefix)`` for an S3 VPC Flow Log destination."""
+    dtype, dest = _flow_log_destination(flow_log)
+    if dtype != "s3":
+        return dest, ""
+    bucket, _, extra = dest.partition("/")
+    extra = extra.strip("/")
+    extra = f"{extra}/" if extra else ""
+    if account_id:
+        return bucket, f"{extra}AWSLogs/{account_id}/vpcflowlogs/"
+    return bucket, f"{extra}AWSLogs/"
 
 
 def _flow_log_destination(flow_log: dict[str, Any]) -> tuple[str, str]:
@@ -376,6 +469,221 @@ class CaseStore:
             return None
         return json.loads(p.read_text())
 
+    @staticmethod
+    def normalize_gcp_iam_policy(snapshot: dict[str, Any] | None) -> dict[str, Any]:
+        """Map GCP ``iam_policy`` inventory into the Identity panel's AWS-shaped fields.
+
+        Older collections may store proto messages as ``{_raw: "..."}`` text dumps; parse
+        those best-effort so already-ingested cases still render.
+        """
+        import re
+
+        def _from_raw(raw: str) -> dict[str, Any]:
+            out: dict[str, Any] = {}
+            for key, val in re.findall(r'(\w+):\s*"((?:\\.|[^"\\])*)"', raw):
+                out[key] = bytes(val, "utf-8").decode("unicode_escape")
+            return out
+
+        def _entity(item: Any) -> dict[str, Any]:
+            if not isinstance(item, dict):
+                return {}
+            if item.get("_raw") and len(item) == 1:
+                return _from_raw(str(item["_raw"]))
+            if item.get("_raw") and not item.get("email") and not item.get("name"):
+                parsed = _from_raw(str(item["_raw"]))
+                return {**parsed, **{k: v for k, v in item.items() if k != "_raw"}}
+            return item
+
+        users: list[dict[str, Any]] = []
+        roles: list[dict[str, Any]] = []
+        policies: list[dict[str, Any]] = []
+        for project in (snapshot or {}).get("projects") or []:
+            if not isinstance(project, dict):
+                continue
+            project_id = str(project.get("project_id") or "")
+            for sa in project.get("service_accounts") or []:
+                ent = _entity(sa)
+                email = str(ent.get("email") or "")
+                name = str(ent.get("name") or email)
+                if not email and not name:
+                    continue
+                keys = []
+                for key in ent.get("keys") or sa.get("keys") or []:
+                    k = _entity(key) if isinstance(key, dict) else {}
+                    keys.append(
+                        {
+                            "AccessKeyId": k.get("name") or k.get("unique_id") or "key",
+                            "Status": "Inactive" if k.get("disabled") else "Active",
+                            "LastUsed": {},
+                        }
+                    )
+                users.append(
+                    {
+                        "UserName": email or name.rsplit("/", 1)[-1],
+                        "Arn": name,
+                        "CreateDate": None,
+                        "AccessKeys": keys,
+                        "MFADevices": [],
+                        "GroupList": [],
+                        "AttachedManagedPolicies": [],
+                        "Tags": [{"Key": "project_id", "Value": project_id}] if project_id else [],
+                        "display_name": ent.get("display_name") or ent.get("displayName"),
+                        "project_id": project_id,
+                    }
+                )
+            for role in project.get("custom_roles") or []:
+                ent = _entity(role)
+                role_name = str(ent.get("title") or ent.get("name") or "")
+                if not role_name:
+                    continue
+                roles.append(
+                    {
+                        "RoleName": role_name,
+                        "Arn": ent.get("name") or role_name,
+                        "CreateDate": None,
+                        "AssumeRolePolicyDocument": {},
+                        "AttachedManagedPolicies": [],
+                        "RoleLastUsed": {},
+                        "description": ent.get("description"),
+                        "project_id": project_id,
+                    }
+                )
+            for binding in project.get("bindings") or []:
+                if not isinstance(binding, dict):
+                    continue
+                role = str(binding.get("role") or "")
+                members = binding.get("members") or []
+                if not role:
+                    continue
+                policies.append(
+                    {
+                        "PolicyName": role.rsplit("/", 1)[-1],
+                        "Arn": role,
+                        "AttachmentCount": len(members),
+                        "members": members,
+                        "project_id": project_id,
+                    }
+                )
+
+        return {
+            "users": users,
+            "roles": roles,
+            "groups": [],
+            "policies": policies,
+            "credential_report": [],
+            "password_policy": {},
+            "source": "iam_policy",
+        }
+
+    @staticmethod
+    def normalize_k8s_rbac(
+        rbac: dict[str, Any] | None, cluster_state: dict[str, Any] | None
+    ) -> dict[str, Any]:
+        """Map Kubernetes RBAC into the Identity panel's AWS-shaped fields.
+
+        The panel speaks users / roles / policies, so the cluster's equivalents are mapped
+        onto it: ServiceAccounts are the principals (they are what workloads authenticate
+        as), Roles and ClusterRoles are the roles, and bindings are the policies that attach
+        them. Each row keeps the verdict the collector stamped on — the grants a binding
+        confers, and whether it is bound to an anonymous subject.
+        """
+        objects = (rbac or {}).get("objects") or {}
+        state_objects = (cluster_state or {}).get("objects") or {}
+        sa_detail = {
+            (str(a.get("namespace", "")), str(a.get("name", ""))): a
+            for a in ((cluster_state or {}).get("service_accounts") or {}).get("accounts") or []
+        }
+
+        users: list[dict[str, Any]] = []
+        for sa in state_objects.get("serviceaccounts") or []:
+            ns = str(sa.get("namespace", ""))
+            name = str(sa.get("name", ""))
+            detail = sa_detail.get((ns, name), {})
+            automount = detail.get("automount_service_account_token")
+            tags = [{"Key": "namespace", "Value": ns}] if ns else []
+            if automount is not None:
+                tags.append({"Key": "automountServiceAccountToken", "Value": str(automount)})
+            pods = detail.get("pods") or []
+            if pods:
+                tags.append({"Key": "pods", "Value": ", ".join(str(p) for p in pods)})
+            users.append(
+                {
+                    "UserName": f"{ns}/{name}" if ns else name,
+                    "Arn": f"system:serviceaccount:{ns}:{name}" if ns else name,
+                    "CreateDate": sa.get("created") or None,
+                    # A ServiceAccount's token is its credential; an automounted one is
+                    # reachable from inside every pod that runs as it.
+                    "AccessKeys": [
+                        {
+                            "AccessKeyId": secret,
+                            "Status": "Active",
+                            "LastUsed": {},
+                        }
+                        for secret in (detail.get("secrets") or [])
+                    ],
+                    "MFADevices": [],
+                    "GroupList": [],
+                    "AttachedManagedPolicies": [],
+                    "Tags": tags,
+                    "namespace": ns,
+                    "automount_service_account_token": automount,
+                }
+            )
+
+        roles: list[dict[str, Any]] = []
+        for kind, rows in (("ClusterRole", "clusterroles"), ("Role", "roles")):
+            for role in objects.get(rows) or []:
+                ns = str(role.get("namespace", ""))
+                name = str(role.get("name", ""))
+                roles.append(
+                    {
+                        "RoleName": f"{ns}/{name}" if ns else name,
+                        "Arn": f"{kind}/{ns}/{name}".replace("//", "/"),
+                        "CreateDate": role.get("created") or None,
+                        "AssumeRolePolicyDocument": {},
+                        "AttachedManagedPolicies": [],
+                        "RoleLastUsed": {},
+                        "description": role.get("grants") or "",
+                        "kind": kind,
+                        "namespace": ns,
+                    }
+                )
+
+        policies: list[dict[str, Any]] = []
+        for kind, rows in (
+            ("ClusterRoleBinding", "clusterrolebindings"),
+            ("RoleBinding", "rolebindings"),
+        ):
+            for binding in objects.get(rows) or []:
+                subjects = str(binding.get("subjects") or "")
+                policies.append(
+                    {
+                        "PolicyName": str(binding.get("name", "")),
+                        "Arn": f"{kind}/{binding.get('namespace', '')}/{binding.get('name', '')}".replace(
+                            "//", "/"
+                        ),
+                        "AttachmentCount": len([s for s in subjects.split(", ") if s]),
+                        "members": [s for s in subjects.split(", ") if s],
+                        "role": binding.get("role") or "",
+                        "grants": binding.get("grants") or "",
+                        "anonymous": binding.get("anonymous") or "",
+                        "kind": kind,
+                        "namespace": binding.get("namespace") or "",
+                    }
+                )
+
+        return {
+            "users": users,
+            "roles": roles,
+            "groups": [],
+            "policies": policies,
+            "credential_report": [],
+            "password_policy": {},
+            "source": "k8s_rbac",
+            "dangerous_bindings": (rbac or {}).get("dangerous_bindings") or [],
+            "anonymous_bindings": (rbac or {}).get("anonymous_bindings") or [],
+        }
+
     def inventory_sources(self, case_id: str) -> list[str]:
         inv = self.case_dir(case_id) / "inventory"
         if not inv.is_dir():
@@ -387,9 +695,12 @@ class CaseStore:
         sources = self.inventory_sources(case_id)
         loaded = {s: self.inventory(case_id, s) for s in sources}
 
+        cloud = str(self.manifest(case_id).get("cloud") or "").lower()
+        spec_set = _INVENTORY_SPECS_BY_CLOUD.get(cloud, _INVENTORY_RESOURCE_SPECS)
+
         categories: list[dict[str, Any]] = []
         total = 0
-        for cat_name, specs in _INVENTORY_RESOURCE_SPECS:
+        for cat_name, specs in spec_set:
             items: list[dict[str, Any]] = []
             for spec in specs:
                 data = loaded.get(spec["source"])
@@ -1202,6 +1513,7 @@ class CaseStore:
         meta = inv.get("meta") or {}
         summary = config.get("collection_summary") or meta.get("collection_summary") or {}
         trails = summary.get("trails") or [_trail_from_config(t) for t in config.get("trails", [])]
+        trails = [_ensure_s3_log_prefix(t) for t in trails if isinstance(t, dict)]
         live = self._cloudtrail_live_counts(case_id)
 
         lookup = summary.get("events", {}).get("lookup_api") or {}
@@ -1295,12 +1607,16 @@ class CaseStore:
         config = inv.get("_config") if isinstance(inv.get("_config"), dict) else {}
         meta = inv.get("meta") if isinstance(inv.get("meta"), dict) else {}
         vpc_names = _vpc_names_from_config(config)
+        account_id = str((self.summary(case_id) or {}).get("account_id") or "")
         flow_logs_out: list[dict[str, Any]] = []
         for fl in config.get("flow_logs") or []:
             if not isinstance(fl, dict):
                 continue
             rid = str(fl.get("ResourceId") or fl.get("target") or "").strip()
             dtype, dest = _flow_log_destination(fl)
+            prefix = ""
+            if dtype == "s3":
+                dest, prefix = _s3_flow_bucket_prefix(fl, account_id)
             flow_logs_out.append(
                 {
                     "flow_log_id": str(fl.get("FlowLogId") or fl.get("id") or ""),
@@ -1310,6 +1626,7 @@ class CaseStore:
                     "region": str(fl.get("_ventra_region") or fl.get("region") or ""),
                     "destination_type": dtype,
                     "destination": dest,
+                    "prefix": prefix,
                     "status": str(fl.get("FlowLogStatus") or ("ACTIVE" if _flow_log_active(fl) else "")),
                 }
             )
@@ -1435,6 +1752,15 @@ def _public_ip_sql(col: str) -> str:
     )
 
 
+def _ensure_s3_log_prefix(trail: dict[str, Any]) -> dict[str, Any]:
+    out = dict(trail)
+    if not str(out.get("s3_log_prefix") or "").strip():
+        out["s3_log_prefix"] = _cloudtrail_s3_log_prefix(
+            {"S3KeyPrefix": out.get("s3_key_prefix") or out.get("S3KeyPrefix") or ""}
+        )
+    return out
+
+
 def _trail_from_config(trail: dict[str, Any]) -> dict[str, Any]:
     status = trail.get("Status") or {}
     return {
@@ -1443,6 +1769,7 @@ def _trail_from_config(trail: dict[str, Any]) -> dict[str, Any]:
         "home_region": trail.get("HomeRegion", ""),
         "s3_bucket": trail.get("S3BucketName", ""),
         "s3_key_prefix": trail.get("S3KeyPrefix", ""),
+        "s3_log_prefix": _cloudtrail_s3_log_prefix(trail),
         "is_logging": bool(status.get("IsLogging")),
         "is_multi_region": bool(trail.get("IsMultiRegionTrail")),
         "is_organization": bool(trail.get("IsOrganizationTrail")),

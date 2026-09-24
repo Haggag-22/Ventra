@@ -248,6 +248,7 @@ export interface CloudTrailTrailSummary {
   home_region: string;
   s3_bucket: string;
   s3_key_prefix: string;
+  s3_log_prefix?: string;
   is_logging: boolean;
   is_multi_region: boolean;
   is_organization: boolean;
@@ -346,6 +347,30 @@ export interface CloudWatchCollection {
   log_group_count: number;
   log_groups: CloudWatchLogGroupSummary[];
   records: number;
+  window?: { since?: string; until?: string };
+  meta: Record<string, unknown>;
+}
+
+export interface VpcFlowLogSummary {
+  flow_log_id: string;
+  vpc_id: string;
+  vpc_name: string;
+  resource_id: string;
+  region: string;
+  destination_type: string;
+  destination: string;
+  prefix?: string;
+  status: string;
+}
+
+export interface VpcFlowCollection {
+  flow_log_count: number;
+  vpc_count: number;
+  flow_logs: VpcFlowLogSummary[];
+  vpcs_without_flow_logs: { id: string; name: string }[];
+  records: number;
+  cloudwatch_records: number;
+  s3_records: number;
   window?: { since?: string; until?: string };
   meta: Record<string, unknown>;
 }

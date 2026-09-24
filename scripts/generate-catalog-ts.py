@@ -38,7 +38,9 @@ def _load_artifacts() -> list[dict]:
 
 
 def _build_catalog(artifacts: list[dict], overrides: dict[str, str], planned: dict) -> dict[str, list[dict]]:
-    by_cloud: dict[str, dict[str, list[dict]]] = {c: {} for c in ("aws", "azure", "gcp")}
+    by_cloud: dict[str, dict[str, list[dict]]] = {
+        c: {} for c in ("aws", "azure", "gcp", "kubernetes")
+    }
     for art in artifacts:
         cloud = str(art.get("cloud", "")).lower()
         collector = str(art.get("collector", "")).strip()
@@ -83,7 +85,12 @@ def _ts_group(group: dict) -> str:
 
 def _render_catalog_block(catalog: dict[str, list[dict]]) -> str:
     parts = []
-    for cloud, const in (("aws", "AWS_LOGS"), ("azure", "AZURE"), ("gcp", "GCP")):
+    for cloud, const in (
+        ("aws", "AWS_LOGS"),
+        ("azure", "AZURE"),
+        ("gcp", "GCP"),
+        ("kubernetes", "KUBERNETES"),
+    ):
         groups = catalog.get(cloud, [])
         comment = ""
         if cloud == "aws":
@@ -93,6 +100,11 @@ def _render_catalog_block(catalog: dict[str, list[dict]]) -> str:
             )
         elif cloud == "gcp":
             comment = "/** GCP IR cheat sheet — categories mirror the Google Cloud incident response reference. */\n"
+        elif cloud == "kubernetes":
+            comment = (
+                "/** On-prem Kubernetes IR cheat sheet — grouped by collection plane and\n"
+                " *  component (control plane, node, API objects). */\n"
+            )
         body = "\n".join(_ts_group(g) for g in groups)
         parts.append(f"{comment}const {const}: CatalogGroup[] = [\n{body}\n];")
     return "\n\n".join(parts)

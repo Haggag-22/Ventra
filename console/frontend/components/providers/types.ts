@@ -9,7 +9,7 @@ export const PROVIDER_PLATFORMS = [
 ] as const;
 
 export type SelectableProviderPlatform = (typeof PROVIDER_PLATFORMS)[number]["id"];
-/** Includes legacy M365 connections saved before the platform was hidden. */
+/** Includes legacy M365 connections, and Kubernetes when hidden via `KUBERNETES_UI_ENABLED`. */
 export type ProviderPlatform = SelectableProviderPlatform | "m365";
 
 export const WIZARD_STEPS = [
@@ -340,15 +340,4 @@ export function shortPlatformLabel(platform: string): string {
 /** Primary row title — alias when set, otherwise connection name. */
 export function providerDisplayName(conn: Connection): string {
   return conn.alias?.trim() || conn.name;
-}
-
-/** Secondary subtitle — platform scope (account, project, subscription, etc.). */
-export function providerScopeSubtitle(conn: Connection): string | null {
-  if (conn.aws_account_id?.trim()) return conn.aws_account_id.trim();
-  if (conn.project?.trim()) return conn.project.trim();
-  if (conn.subscription?.trim()) return conn.subscription.trim();
-  if (conn.m365_domain?.trim()) return conn.m365_domain.trim();
-  if (conn.azure_tenant_id?.trim()) return conn.azure_tenant_id.trim();
-  if (conn.k8s_context?.trim()) return conn.k8s_context.trim();
-  return null;
 }

@@ -28,6 +28,8 @@ export function acquireRunHref(connectionId?: string | null): string {
 export const SETTINGS_HREF = "/settings";
 export const CONFIG_COLLECTION_HREF = "/config/collection";
 export const CONFIG_PROVIDERS_HREF = "/config/providers";
+/** Public GitHub repository for this product. */
+export const GITHUB_REPO_URL = "https://github.com/Haggag-22/Ventra";
 /** @deprecated Use CONFIG_PROVIDERS_HREF — kept for redirects and bookmarks. */
 export const CONFIG_CONNECTIONS_HREF = "/config/connections";
 /** @deprecated Saved kits live at COLLECTION_KITS_HREF — kept for redirects. */
@@ -150,7 +152,7 @@ export function breadcrumbsFromPath(pathname: string, caseId?: string): Breadcru
       const section = parts[2];
       if (section && isDocSection(section)) {
         items.push({
-          label: docSectionLabel(section),
+          label: docSectionLabel(section, provider),
           href: `/docs/${provider}/${section}`,
         });
         if (section === "collectors" && parts[3]) {

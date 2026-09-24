@@ -14,6 +14,8 @@ from . import dns_logs  # noqa: F401
 from . import eks_audit  # noqa: F401
 from . import k8s_apiserver_audit  # noqa: F401
 from . import k8s_events  # noqa: F401
+from . import k8s_logs  # noqa: F401
+from . import k8s_state  # noqa: F401
 from . import findings  # noqa: F401
 from . import m365  # noqa: F401
 from . import network  # noqa: F401

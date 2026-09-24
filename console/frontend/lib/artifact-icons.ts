@@ -1,6 +1,4 @@
-import type { Cloud } from "@/lib/catalog";
-
-/** Display filename stems under ``public/icons/<cloud>/`` (must match extract-artifact-icons). */
+/** Collectors with an SVG under ``public/icons/<cloud>/<collector>.svg`` (see extract-artifact-icons). */
 export const ARTIFACT_ICON_LABELS: Record<string, string> = {
   account: "account",
   apigateway: "api gateway access logs",
@@ -9,6 +7,7 @@ export const ARTIFACT_ICON_LABELS: Record<string, string> = {
   cloudwatch: "cloudwatch",
   config: "config",
   detective: "detective",
+  dynamodb_streams: "dynamodb streams",
   ec2: "ec2",
   eks_audit: "eks audit",
   elb_alb: "elb alb access logs",
@@ -20,6 +19,8 @@ export const ARTIFACT_ICON_LABELS: Record<string, string> = {
   lambda_logs: "lambda logs",
   log_posture: "log posture",
   macie: "macie",
+  network_firewall: "network firewall",
+  opensearch: "opensearch",
   route53_resolver: "route53 resolver",
   rds: "rds logs",
   s3: "s3",
@@ -62,7 +63,7 @@ export const ARTIFACT_ICON_LABELS: Record<string, string> = {
   firewall_logs: "firewall logs",
   gce: "compute engine",
   iam_policy: "iam policy",
-  load_balancer: "load balancer access logs",
+  load_balancer: "cloud load balancing logs",
   cloud_cdn: "cloud cdn access logs",
   logging_posture: "logging posture",
   login_events: "login events",
@@ -74,73 +75,73 @@ export const ARTIFACT_ICON_LABELS: Record<string, string> = {
   cloud_dns: "cloud dns",
   cloud_armor: "cloud armor",
   cloud_nat: "cloud nat",
+  k8s_apiserver_audit: "API-Server Audit Logs",
+  k8s_audit_posture: "audit logging posture",
+  k8s_events: "kubernetes events",
+  k8s_cluster_state: "cluster inventory",
+  k8s_rbac: "rbac snapshot",
+  k8s_container_logs: "container logs",
+  k8s_kubelet_logs: "kubelet logs",
+  k8s_runtime_logs: "CRI logs",
+  k8s_etcd: "etcd",
+  k8s_cni_logs: "cni plugin logs",
 };
 
-/** Per-cloud icon filename overrides when the default label differs by provider. */
-const CLOUD_ARTIFACT_ICON_LABELS: Partial<Record<Cloud, Record<string, string>>> = {
-  aws: {
-    storage_access: "s3 access logs",
-  },
-  azure: {
-    storage_access: "storage access logs",
-  },
-  gcp: {
-    storage_access: "gcs access logs",
-  },
-};
-
-/** UI display names (proper product / acronym casing). Icon filenames stay lowercase in ``ARTIFACT_ICON_LABELS``. */
+/** UI display names (proper product / acronym casing). */
 const ARTIFACT_DISPLAY_LABELS: Record<string, string> = {
-  account: "Account",
+  account: "Account Context",
   apigateway: "API Gateway Access Logs",
   cloudfront: "CloudFront Access Logs",
-  cloudtrail: "CloudTrail",
+  cloudtrail: "CloudTrail Logs",
   cloudwatch: "CloudWatch Logs",
-  config: "Config",
-  detective: "Detective",
-  ec2: "EC2",
-  eks_audit: "EKS Audit",
+  config: "Config Snapshot",
+  detective: "Detective Investigations",
+  dynamodb_streams: "DynamoDB Streams",
+  ec2: "EC2 / EBS Inventory",
+  eks_audit: "EKS Audit Logs",
   elb_alb: "ELB/ALB Access Logs",
-  guardduty: "GuardDuty",
-  iam: "IAM",
-  inspector2: "Inspector",
-  kms: "KMS",
-  lambda: "Lambda",
-  lambda_logs: "Lambda Logs",
-  log_posture: "Log Posture",
-  macie: "Macie",
-  route53_resolver: "Route53 Resolver",
+  guardduty: "GuardDuty Findings",
+  iam: "IAM Snapshot",
+  inspector2: "Inspector Findings",
+  kms: "KMS Key Inventory",
+  lambda: "Lambda Inventory",
+  lambda_logs: "Lambda Execution Logs",
+  log_posture: "Logging Posture",
+  macie: "Macie Findings",
+  network_firewall: "Network Firewall Logs",
+  opensearch: "OpenSearch Logs",
+  route53_resolver: "Route 53 Resolver Query Logs",
   rds: "RDS Export Logs",
-  s3: "S3",
+  s3: "S3 Inventory",
   s3_access: "S3 Access Logs",
-  secrets: "Secrets Manager",
-  securityhub: "Security Hub",
+  secrets: "Secrets Manager Inventory",
+  securityhub: "Security Hub Findings",
   vpc_flow: "VPC Flow Logs",
-  waf: "WAF",
-  activity_log: "Activity Log",
-  aks_audit: "AKS Audit",
+  waf: "WAF Config & Sampled Requests",
+  activity_log: "Activity Logs",
+  aks_audit: "AKS Audit Logs",
   app_gateway: "App Gateway Access Logs",
   azure_firewall: "Azure Firewall Logs",
-  defender: "Defender for Cloud",
+  defender: "Defender for Cloud Alerts",
   diag_posture: "Diagnostic Posture",
-  dns: "DNS",
-  entra_audit: "Entra Audit",
-  entra_directory: "Entra Directory",
-  entra_signin: "Entra Sign-in",
+  dns: "DNS Query Logs",
+  entra_audit: "Entra Audit Logs",
+  entra_directory: "Entra Directory Snapshot",
+  entra_signin: "Entra Sign-in Logs",
   front_door: "Front Door Access Logs",
-  key_vault: "Key Vault",
-  log_analytics: "Log Analytics",
+  key_vault: "Key Vault Audit Logs",
+  log_analytics: "Log Analytics Diagnostics",
   nsg_flow: "NSG Flow Logs",
-  oauth_consent: "OAuth Consent",
-  rbac: "RBAC",
-  resource_graph: "Resource Graph",
-  storage_access: "GCS Access Logs",
+  oauth_consent: "OAuth Consent Grants",
+  rbac: "RBAC Snapshot",
+  resource_graph: "Resource Graph Inventory",
+  storage_access: "Storage Access Logs",
   bigquery_audit: "BigQuery Audit Logs",
   cloud_sql: "Cloud SQL Logs",
-  secret_manager: "Secret Manager Access",
-  subscription: "Subscription",
-  unified_audit: "Unified Audit",
-  unified_audit_search: "Unified Audit Search",
+  secret_manager: "Secret Manager Access Logs",
+  subscription: "Subscription Context",
+  unified_audit: "M365 Unified Audit Logs",
+  unified_audit_search: "M365 Unified Audit Search",
   vnet_flow: "VNet Flow Logs",
   api_gateway: "API Gateway Access Logs",
   cloud_audit_admin: "Admin Activity Audit Logs",
@@ -148,13 +149,13 @@ const ARTIFACT_DISPLAY_LABELS: Record<string, string> = {
   cloud_audit_system: "System Event Audit Logs",
   cloud_functions: "Cloud Functions Logs",
   cloud_monitoring: "Cloud Monitoring Alert Logs",
-  firewall_logs: "Firewall Rules Logging",
+  firewall_logs: "Firewall Rule Logs",
   gce: "GCE Inventory",
   iam_policy: "IAM Snapshot",
-  load_balancer: "Load Balancer Access Logs",
+  load_balancer: "Cloud Load Balancing Logs",
   cloud_cdn: "Cloud CDN Access Logs",
   logging_posture: "Logging Posture",
-  login_events: "Cloud Login Audit Logs",
+  login_events: "Login Audit Logs",
   network_posture: "Network Posture",
   project: "Project Context",
   scc_findings: "SCC Findings",
@@ -163,31 +164,38 @@ const ARTIFACT_DISPLAY_LABELS: Record<string, string> = {
   cloud_dns: "Cloud DNS Logs",
   cloud_armor: "Cloud Armor Logs",
   cloud_nat: "Cloud NAT Logs",
+  k8s_apiserver_audit: "API-Server Audit Logs",
+  k8s_audit_posture: "Audit Logging Posture",
+  k8s_events: "Kubernetes Events",
+  k8s_cluster_state: "Cluster Inventory",
+  k8s_rbac: "RBAC Snapshot",
+  k8s_container_logs: "Container Logs",
+  k8s_kubelet_logs: "Kubelet Logs",
+  k8s_runtime_logs: "CRI Logs",
+  k8s_etcd: "etcd Logs + Posture",
+  k8s_cni_logs: "CNI Plugin Logs",
   package: "Seal evidence package",
   ingest: "Ingest into case store",
 };
 
-export function displayArtifactLabel(collector: string): string {
+export function displayArtifactLabel(collector: string, cloud?: string): string {
+  const c = cloud?.toLowerCase();
+  if (collector === "storage_access") {
+    if (c === "gcp") return "GCS Access Logs";
+    if (c === "aws") return "S3 Access Logs";
+    return "Storage Access Logs";
+  }
   if (ARTIFACT_DISPLAY_LABELS[collector]) return ARTIFACT_DISPLAY_LABELS[collector];
   const label = ARTIFACT_ICON_LABELS[collector] ?? collector.replace(/_/g, " ");
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-function iconExtension(cloud: string): string {
-  const key = cloud.toLowerCase();
-  return key === "azure" || key === "m365" ? ".svg" : ".png";
-}
-
-export function resolveArtifactIconLabel(cloud: string, collector: string): string | null {
-  const c = cloud.toLowerCase();
-  const cloudLabel = CLOUD_ARTIFACT_ICON_LABELS[c as Cloud]?.[collector];
-  if (cloudLabel) return cloudLabel;
+export function resolveArtifactIconLabel(_cloud: string, collector: string): string | null {
   return ARTIFACT_ICON_LABELS[collector] ?? null;
 }
 
 export function artifactIconSrc(cloud: string, collector: string): string | null {
-  const label = resolveArtifactIconLabel(cloud, collector);
-  if (!label) return null;
-  const c = cloud.toLowerCase();
-  return `/icons/${c}/${encodeURIComponent(label)}${iconExtension(c)}`;
+  if (!ARTIFACT_ICON_LABELS[collector]) return null;
+  const folder = cloud.toLowerCase();
+  return `/icons/${folder}/${collector}.svg`;
 }

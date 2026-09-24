@@ -41,6 +41,20 @@ const CLOUD_OVERRIDES: Record<Cloud, Partial<Record<NavPanelId, string>>> = {
     "kubernetes-audit": "AKS Audit Logs",
     "data-access": "Storage & Key Vault",
   },
+  kubernetes: {
+    // The Kubernetes control-plane record is the API-server audit log, so the "cloudtrail"
+    // slot is the cluster timeline; the dedicated audit panel keeps the raw audit table.
+    cloudtrail: "Cluster Timeline",
+    cloudwatch: "Node Logs",
+    search: "Security Findings",
+    identity: "RBAC & Service Accounts",
+    network: "Network Policies & CNI",
+    web: "Ingress & Web",
+    "kubernetes-audit": "API-Server Audit Logs",
+    "data-access": "Secrets & etcd Access",
+    collection: "Evidence Coverage",
+    resources: "Cluster Inventory",
+  },
   gcp: {
     cloudtrail: "Audit Log",
     cloudwatch: "Cloud Logging",

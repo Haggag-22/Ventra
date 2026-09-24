@@ -3,11 +3,15 @@ aliases:
 - k8s_events
 - kubernetes.k8s_events
 cloud: kubernetes
-category: Events
+category: Audit
 description: >-
-  Kubernetes Events across all namespaces. The single most perishable artifact in the
-  cluster — the API server garbage-collects Events after --event-ttl (default 1h). Warns
-  explicitly when the incident window predates the effective TTL.
+  Kubernetes Events across all namespaces, from both core/v1 and events.k8s.io/v1, de-duplicated
+  by uid. The single most perishable artifact in the cluster: the API server garbage-collects
+  Events after --event-ttl, which defaults to one hour, so an incident older than that has already
+  lost them. Warns explicitly when the collection window predates the effective TTL, which is read
+  from the API server's real flags when the node plane is available (kubeadm manifest, k3s or RKE2
+  config or server unit, microk8s args file) and assumed to be the documented default when it is
+  not. Needs nothing but a kubeconfig.
 version: 1.0.0
 collector: k8s_events
 type: k8s_events
@@ -15,6 +19,7 @@ required_actions:
 - get events
 - list events
 - watch events
+- list events.k8s.io events
 parameters:
   since:
     type: datetime

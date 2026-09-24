@@ -3,9 +3,9 @@
 import { RunStatusBadge } from "@/components/badges";
 import { CloudProviderIcon } from "@/components/cloud-provider-icon";
 import { Button, Card, EmptyState, LoadingPanel } from "@/components/ui";
-import { KpiMetricCard, SegmentedProgress } from "@/components/stat";
+import { KpiMetricCard } from "@/components/stat";
 import { cancelRun, listConnections, listRuns } from "@/lib/api";
-import { CASE_PLATFORM_LABELS, type CasePlatform } from "@/lib/catalog";
+import { CASE_PLATFORM_LABELS, isPlatformVisibleInUi, type CasePlatform } from "@/lib/catalog";
 import { fmtTime } from "@/lib/format";
 import { rerunScan, type RunMetaWithRequest } from "@/lib/rerun-run";
 import {
@@ -108,7 +108,7 @@ function RunRowActions({ run }: { run: RunMeta }) {
   const canRerun = !active && !cancelling;
 
   return (
-    <div className="flex flex-wrap items-center justify-center gap-2">
+    <div className="flex flex-nowrap items-center justify-center gap-2 whitespace-nowrap">
       {canCancel && (
         <Button
           variant="primary"
@@ -123,7 +123,7 @@ function RunRowActions({ run }: { run: RunMeta }) {
       )}
       {canRerun && (
         <Button
-          variant="secondary"
+          variant="primary"
           size="sm"
           icon={RotateCcw}
           loading={rerunMut.isPending}
@@ -191,12 +191,11 @@ export default function CollectionPage() {
     return map;
   }, [connections.data]);
 
-  const all = runs.data?.runs ?? [];
+  const all = (runs.data?.runs ?? []).filter((r) => isPlatformVisibleInUi(r.cloud));
   const countFor = (f: StatusFilter) =>
     f === "all" ? all.length : all.filter((r) => matchesFilter(r.status, f)).length;
   const visible = all.filter((r) => matchesFilter(r.status, filter));
 
-  const runningCount = countFor("running");
   const completedCount = countFor("completed");
   const failedCount = countFor("failed");
   const avgProgress =
@@ -210,7 +209,7 @@ export default function CollectionPage() {
       : 0;
 
   return (
-    <div className="px-6 py-8">
+    <div className="page-shell">
       <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="page-title">
@@ -230,26 +229,22 @@ export default function CollectionPage() {
           <KpiMetricCard
             label="Total runs"
             value={all.length}
-            sub={`${runningCount} active`}
             icon={Activity}
             tone="cta"
           />
           <KpiMetricCard
             label="Completed"
             value={completedCount}
-            sub={all.length > 0 ? `${Math.round((completedCount / all.length) * 100)}% success rate` : "—"}
             tone="success"
           />
           <KpiMetricCard
             label="Failed"
             value={failedCount}
-            sub={failedCount > 0 ? "Review failed runs" : "No failures"}
             tone="critical"
           />
           <KpiMetricCard
             label="Avg progress"
             value={`${avgProgress}%`}
-            sub="Across all runs"
             tone="cta"
           />
         </div>
@@ -356,13 +351,11 @@ export default function CollectionPage() {
                   <th className="table-header-cell">Authentication</th>
                   <th className="table-header-cell">Started</th>
                   <th className="table-header-cell">Duration</th>
-                  <th className="table-header-cell">Progress</th>
                   <th className="table-header-cell-center">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {visible.map((run) => {
-                  const { complete, total } = runProgress(run);
                   const provider =
                     (run.connection_id && connectionNames.get(run.connection_id)) || "—";
                   return (
@@ -374,7 +367,7 @@ export default function CollectionPage() {
                       <td className="table-cell-center">
                         <RunStatusBadge status={run.status} />
                       </td>
-                      <td className="table-cell">
+                      <td className="table-cell whitespace-nowrap">
                         <Link
                           href={caseHref(run.case_id)}
                           className="text-fg hover:text-accent"
@@ -391,27 +384,12 @@ export default function CollectionPage() {
                           <CloudProviderIcon cloud={run.cloud as CasePlatform} />
                         </span>
                       </td>
-                      <td className="table-cell-muted">{provider}</td>
-                      <td className="table-cell-muted mono">
+                      <td className="table-cell-muted whitespace-nowrap">{provider}</td>
+                      <td className="table-cell-muted mono whitespace-nowrap">
                         {fmtTime(run.started_at ?? run.created_at)}
                       </td>
-                      <td className="table-cell-muted mono">{fmtDuration(run)}</td>
-                      <td className="table-cell">
-                        {total > 0 ? (
-                          <div className="min-w-[6rem] space-y-1.5">
-                            <div className="mono text-sm text-fg-subtle">
-                              {complete}/{total}
-                            </div>
-                            <SegmentedProgress
-                              value={Math.round((complete / total) * 100)}
-                              segments={4}
-                            />
-                          </div>
-                        ) : (
-                          <span className="mono text-fg-subtle">—</span>
-                        )}
-                      </td>
-                      <td className="table-cell-center" onClick={(e) => e.stopPropagation()}>
+                      <td className="table-cell-muted mono whitespace-nowrap">{fmtDuration(run)}</td>
+                      <td className="table-cell-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
                         <RunRowActions run={run} />
                       </td>
                     </tr>

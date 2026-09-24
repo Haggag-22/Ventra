@@ -1,7 +1,7 @@
 # Ventra — whitelist-only Cursor file tree
 # Re-ignore boilerplate inside each tree (required on disk, hidden from tree).
 
-/*
+
 !artifacts/
 !artifacts/**
 !schemas/

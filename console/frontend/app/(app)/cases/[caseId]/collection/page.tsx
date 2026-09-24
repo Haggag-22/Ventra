@@ -2,12 +2,13 @@
 
 import { useCase } from "@/components/case-context";
 import { PanelBody, PanelHeader } from "@/components/panel";
+import { panelLabel } from "@/lib/panel-labels";
 import { Button, Card, LoadingPanel } from "@/components/ui";
 import { clearKitHandoff, getKitHandoff } from "@/lib/acquire-handoff";
 import { handoffModeLabel, parseHandoffMode } from "@/lib/handoff-modes";
 import { api } from "@/lib/api";
 import { displayArtifactLabel } from "@/lib/artifact-icons";
-import { CLOUD_IMPLEMENTED, type Cloud } from "@/lib/catalog";
+import { CASE_PLATFORM_LABELS, CLOUD_IMPLEMENTED, isAcquirePlatform, type CasePlatform, type Cloud } from "@/lib/catalog";
 import {
   ACQUIRABLE_COVERAGE,
   aggregateManifestSources,
@@ -104,7 +105,7 @@ export default function CollectionPage() {
     <>
       <PanelHeader
         icon={ListChecks}
-        title="Logs Coverage"
+        title={panelLabel(cloud, "collection")}
         panel="collection"
         actions={
           <span className="text-xs text-fg-subtle">
@@ -176,7 +177,7 @@ export default function CollectionPage() {
 
         {!CLOUD_IMPLEMENTED[cloud] && (
           <div className="rounded-lg border border-warn-amber/30 bg-warn-amber/10 px-4 py-3 text-xs text-warn-amber">
-            {cloud.toUpperCase()} collectors are coming soon — coverage below shows posture
+            {(CASE_PLATFORM_LABELS[cloud as CasePlatform] ?? cloud)} collectors are coming soon — coverage below shows posture
             detection until collection is available.
           </div>
         )}
@@ -226,8 +227,10 @@ export default function CollectionPage() {
                       (r.state === "collected" || r.state === "partial") && r.records > 0
                         ? fmtNum(r.records)
                         : "—";
+                    // Hand-off to Acquire when this platform can build a collection kit.
                     const canAcquire =
                       CLOUD_IMPLEMENTED[cloud] &&
+                      isAcquirePlatform(cloud) &&
                       IMPLEMENTED_LOG_COLLECTORS.has(it.id) &&
                       ACQUIRABLE_COVERAGE.has(r.state);
 
@@ -238,7 +241,11 @@ export default function CollectionPage() {
                             <span>{it.label}</span>
                             {canAcquire && (
                               <Link
-                                href={acquireHref({ caseId, cloud, collectors: [it.id] })}
+                                href={acquireHref({
+                                  caseId,
+                                  cloud: isAcquirePlatform(cloud) ? cloud : undefined,
+                                  collectors: [it.id],
+                                })}
                                 className="inline-flex items-center gap-1 text-2xs text-accent hover:underline"
                                 title={`Add ${it.id} to collection kit`}
                               >

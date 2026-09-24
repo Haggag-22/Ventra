@@ -1,5 +1,6 @@
 "use client";
 
+import { isPlatformVisibleInUi } from "@/lib/catalog";
 import { deleteConnection, listConnections, testConnection } from "@/lib/api";
 import { ProviderWizard } from "@/components/providers/provider-wizard";
 import { ProvidersPageHeader } from "@/components/providers/providers-page-header";
@@ -20,14 +21,18 @@ export default function ProvidersPage() {
   const [editing, setEditing] = useState<Connection | null>(null);
   const [testingId, setTestingId] = useState<string | null>(null);
 
-  const connections = providers.data?.connections ?? [];
+  const connections = useMemo(
+    () => (providers.data?.connections ?? []).filter((c) => isPlatformVisibleInUi(c.platform)),
+    [providers.data],
+  );
+
   const metrics = useMemo(() => {
-    const list = providers.data?.connections ?? [];
+    const list = connections;
     const connected = list.filter(isProviderConnected).length;
     const untested = list.filter(isProviderUntested).length;
     const failed = list.filter(isProviderFailed).length;
     return { total: list.length, connected, untested, failed };
-  }, [providers.data]);
+  }, [connections]);
 
   const delMut = useMutation({
     mutationFn: deleteConnection,
@@ -67,7 +72,7 @@ export default function ProvidersPage() {
   }
 
   return (
-    <div className="px-6 py-8">
+    <div className="page-shell">
       <ProvidersPageHeader
         onAdd={openAdd}
         total={metrics.total}

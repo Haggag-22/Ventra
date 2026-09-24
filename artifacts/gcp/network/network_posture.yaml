@@ -4,7 +4,8 @@ aliases:
 - gcp.network_posture
 cloud: gcp
 category: Network
-description: VPC firewall rules, network topology, and packet mirroring policies.
+description: VPC firewall rules, network topology (VPCs, subnets, routes, peering),
+  and packet mirroring policies.
 version: 1.0.0
 collector: network_posture
 type: network_posture

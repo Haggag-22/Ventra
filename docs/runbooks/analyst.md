@@ -26,48 +26,64 @@ clean import shows a **green integrity badge** on the case header.
 
 > Prefer the CLI? `ventra-ingest ./case-....tar.zst --case-store ./cases`
 
-## 3. Orient — the Overview panel
+## 3. Orient — Logs Coverage first
 
-Open the case. The **Overview** gives you:
+Cases open on the control-plane timeline (CloudTrail / Activity Log / Audit Log). Before
+drawing conclusions, open **Logs Coverage**:
 
-- Account context, time window, regions touched, operator who collected it.
-- **Collection completeness** — which sources came back collected / empty / missing, and
-  why. *Read this first.* A disabled Tier 1 source changes how you interpret everything else.
-- Quick stats and suggested starting points (auto-generated from findings).
+- Which collectors came back collected, partial, empty, denied, or not run.
+- Manifest **gaps** (for example VPC Flow Logs not enabled) — missing telemetry is evidence.
+- A disabled Tier 1 source changes how you interpret everything else.
 
 ## 4. Investigate — recommended flow
 
-The panels are ordered for a typical investigation, top to bottom:
+Sidebar panels (Investigate, then Package), top to bottom for a typical case:
 
-1. **Findings** — triage GuardDuty / Security Hub / Inspector / Macie. Pivot from any finding.
-2. **Timeline** — put everything on one axis. Brush to the incident window. Filter by source,
-   principal, IP, region.
-3. **CloudTrail Analyzer** — the control-plane deep dive. Use saved views: *Root activity*,
-   *AccessDenied storm*, *Console logins from new IPs*, *Sensitive IAM/KMS/Secrets actions*.
-4. **Identity** — who the principals are, key hygiene, and the **role-assumption graph**
-   (who assumed what). Lateral movement lives here.
-5. **Network** — VPC flow top talkers, egress-to-public volume (the exfil lens), DNS, WAF.
-6. **Resources** — what was created / modified / made public / shared **during the window**.
-   EBS snapshot share+copy history is a classic exfil tell.
+1. **Security Findings** — triage GuardDuty / Security Hub / Inspector / Macie / Detective /
+   Config (AWS), Defender (Azure), or SCC / Cloud Monitoring (GCP). Pivot from any finding.
+2. **CloudTrail Timeline** (Azure: **Activity Log**; GCP: **Audit Log**) — control-plane
+   deep dive. Filter by source, action, principal, IP, region, and (AWS) trail category
+   (management / data / insight / network activity).
+3. **CloudWatch Logs** (AWS only) — selected log group events when domain collectors did not
+   cover the evidence you need.
+4. **Identity & Access** — users, roles, groups, policies, MFA/key hygiene, plus KMS and
+   Secrets inventory when those collectors ran.
+5. **Network Activity** — VPC / VNet / NSG / firewall flow volume and egress-to-public
+   (the exfil lens). DNS and WAF live on **Web & DNS**, not here.
+6. **Web & DNS** — edge access logs, WAF verdicts, and DNS resolver queries.
+7. **Data Access** — object-level and secret access (S3 / storage / Key Vault / GCS /
+   BigQuery / Cloud SQL / Secret Manager, depending on cloud).
+8. **Kubernetes Audit** — EKS / AKS / GKE API-server audit when those collectors ran.
+9. **Resource Inventory** — EC2 / S3 / Lambda / ARM / GCE inventory; EBS snapshot
+   share+copy history is a classic exfil tell on AWS.
+10. **Raw Evidence** — browse sealed source files from the package when you need the
+    original bytes.
 
 ## 5. Pivot everywhere
 
 Every IP, principal, ARN, and resource ID is clickable. The **Pivot** menu jumps to that
 entity's slice in every other panel with the filter pre-applied. This is the fastest way to
-follow a thread: see a suspicious IP in Findings → pivot to Timeline → pivot to Identity.
+follow a thread: see a suspicious IP in Findings → pivot to the timeline → pivot to Identity.
 
-## 6. Build the report
+## 6. Pin evidence
 
-In **Report**, pin events, charts, and findings as you go (every row has a *Pin to report*
-action). Pinned items render as immutable evidence callouts with their hash and source
-reference. Export to PDF / DOCX / Markdown.
+Use **Pin to report** on events and findings as you go. Pinned items stay on the case as
+immutable evidence callouts with their source reference (see the Report route when you need
+the pin list assembled).
 
 ## 7. Share views, not screenshots
 
-Every filter and selection is in the URL. Send a colleague a link to the exact Timeline
+Every filter and selection is in the URL. Send a colleague a link to the exact timeline
 range and filter set you're looking at — they open the same case at the same view.
 
 ## Keyboard
 
-`⌘K` command palette · `/` focus search · `j`/`k` move selection · `g t` Timeline ·
-`g c` CloudTrail · `g i` Identity · `g n` Network · `g r` Resources · `g f` Findings.
+`⌘K` / `Ctrl+K` command palette · `/` open palette · `g` then:
+
+| Key | Panel |
+|-----|--------|
+| `t` or `c` | CloudTrail Timeline / Activity Log / Audit Log |
+| `f` | Security Findings |
+| `i` | Identity & Access |
+| `n` | Network Activity |
+| `a` | Logs Coverage |

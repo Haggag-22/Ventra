@@ -3,6 +3,11 @@
 Events come from the ``kubernetes`` client's ``.to_dict()`` (snake_case keys). ``Warning``
 events and the flagged reasons the collector marks (OOMKilled, BackOff, FailedMount, image
 pulls, evictions) surface with raised severity so they show up in the timeline.
+
+The collector reads both Event APIs, and they do not share a schema: ``core/v1`` uses
+``involved_object`` / ``message`` / ``last_timestamp``, while ``events.k8s.io/v1`` uses
+``regarding`` / ``note`` / ``event_time``. Every field here is resolved across both spellings
+so a record normalizes identically whichever view it arrived from.
 """
 
 from __future__ import annotations
@@ -16,12 +21,54 @@ _MEDIUM_REASONS = {"failed", "failedscheduling", "killing", "unhealthy"}
 
 
 def _timestamp(rec: dict[str, Any]) -> str:
-    for key in ("last_timestamp", "event_time", "first_timestamp"):
+    # events.k8s.io/v1 prefers event_time and keeps the legacy fields under deprecated_*.
+    for key in (
+        "last_timestamp",
+        "lastTimestamp",
+        "event_time",
+        "eventTime",
+        "deprecated_last_timestamp",
+        "deprecatedLastTimestamp",
+        "first_timestamp",
+        "firstTimestamp",
+        "deprecated_first_timestamp",
+    ):
         val = rec.get(key)
         if val:
             return str(val)
     meta = rec.get("metadata") or {}
-    return str(meta.get("creation_timestamp") or "")
+    return str(meta.get("creation_timestamp") or meta.get("creationTimestamp") or "")
+
+
+def _subject(rec: dict[str, Any]) -> dict[str, Any]:
+    """The object the event is about: ``involved_object`` (core/v1) or ``regarding`` (modern)."""
+    for key in ("involved_object", "involvedObject", "regarding"):
+        val = rec.get(key)
+        if isinstance(val, dict) and val:
+            return val
+    return {}
+
+
+def _note(rec: dict[str, Any]) -> str:
+    """The human-readable text: ``message`` (core/v1) or ``note`` (events.k8s.io/v1)."""
+    for key in ("message", "note"):
+        val = rec.get(key)
+        if val:
+            return str(val)
+    return ""
+
+
+def _reporting_node(rec: dict[str, Any]) -> str:
+    source = rec.get("source") or {}
+    if isinstance(source, dict) and source.get("host"):
+        return str(source["host"])
+    for key in ("reporting_instance", "reportingInstance", "deprecated_source"):
+        val = rec.get(key)
+        if isinstance(val, str) and val:
+            return val
+        if isinstance(val, dict) and val.get("host"):
+            return str(val["host"])
+    return ""
 
 
 def _severity(reason: str, etype: str) -> str:
@@ -38,14 +85,13 @@ def normalize_k8s_events(records: list[dict], ctx: NormalizeContext) -> Iterator
     for rec in records:
         reason = str(rec.get("reason", ""))
         etype = str(rec.get("type", ""))
-        involved = rec.get("involved_object") or rec.get("involvedObject") or {}
+        involved = _subject(rec)
         ns = involved.get("namespace", "")
         kind = involved.get("kind", "")
         obj_name = involved.get("name", "")
         target = "/".join(p for p in (ns, kind, obj_name) if p)
         cluster = rec.get("_ventra_cluster", ctx.account_id)
-        source = rec.get("source") or {}
-        node = source.get("host", "") if isinstance(source, dict) else ""
+        node = _reporting_node(rec)
         yield UnifiedEvent(
             timestamp=_timestamp(rec),
             event_kind="event",
@@ -61,7 +107,7 @@ def normalize_k8s_events(records: list[dict], ctx: NormalizeContext) -> Iterator
             resource_type=kind or "object",
             resource_id=target or cluster,
             related_resource=[r for r in (cluster, target) if r],
-            message=f"{reason}: {rec.get('message', '')}".strip(": "),
+            message=f"{reason}: {_note(rec)}".strip(": "),
             case_id=ctx.case_id,
             ventra_source="k8s_events",
             raw=rec,

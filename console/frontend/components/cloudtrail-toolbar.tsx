@@ -1,5 +1,6 @@
 "use client";
 
+import type { Cloud } from "@/lib/catalog";
 import { MultiSelect, SelectDropdown } from "@/components/multiselect";
 import {
   ALL_CLOUDTRAIL_COL_KEYS,
@@ -44,7 +45,7 @@ export function CloudTrailToolbar({
   facets?: Facets;
   filters: CloudTrailFilters;
   visibleColumns: CloudTrailColKey[];
-  cloud?: "aws" | "azure" | "gcp";
+  cloud?: Cloud;
   /** CloudTrail Management/Data/Insight/Network filter (AWS CloudTrail page only). */
   showCategory?: boolean;
   onChange: (next: Partial<CloudTrailFilters>) => void;

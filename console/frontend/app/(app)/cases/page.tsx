@@ -3,10 +3,16 @@
 import { CloudProviderIcon } from "@/components/cloud-provider-icon";
 import { ImportDialog } from "@/components/import-dialog";
 import { S3ImportDialog } from "@/components/s3-import-dialog";
+import {
+  countByPlatformTab,
+  filterByPlatformTab,
+  PlatformTabBar,
+  type PlatformTab,
+} from "@/components/platform-tab-bar";
 import { clearKitHandoff } from "@/lib/acquire-handoff";
 import { Button, Card, EmptyState, LoadingPanel } from "@/components/ui";
 import { api, deleteCase, listConnections, listRuns } from "@/lib/api";
-import { CASE_PLATFORM_LABELS, CASE_PLATFORMS, type CasePlatform } from "@/lib/catalog";
+import { CASE_PLATFORM_LABELS, CASE_PLATFORMS, isPlatformVisibleInUi, type CasePlatform } from "@/lib/catalog";
 import { fmtBytes, fmtDateOnly, fmtNum } from "@/lib/format";
 import { caseHref, acquireRunHref } from "@/lib/routes";
 import { readLastConnection } from "@/lib/provider-storage";
@@ -28,8 +34,6 @@ import {
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
-type Tab = "all" | CasePlatform;
-
 function readImportCaseParam(): string {
   if (typeof window === "undefined") return "";
   return new URLSearchParams(window.location.search).get("import_case")?.trim() || "";
@@ -44,7 +48,7 @@ export default function CasesPage() {
   const [importOpen, setImportOpen] = useState(false);
   const [s3ImportOpen, setS3ImportOpen] = useState(false);
   const [importCaseId, setImportCaseId] = useState("");
-  const [tab, setTab] = useState<Tab>("all");
+  const [tab, setTab] = useState<PlatformTab>("all");
   const cases = useQuery({ queryKey: ["cases"], queryFn: api.cases });
   const connections = useQuery({
     queryKey: ["config", "connections"],
@@ -73,18 +77,13 @@ export default function CasesPage() {
     }
   }, []);
 
-  const all = cases.data?.cases ?? [];
-  const countFor = (c: Tab) => (c === "all" ? all.length : all.filter((x) => x.cloud === c).length);
-  const visible = tab === "all" ? all : all.filter((c) => c.cloud === tab);
-
-  const tabs: { id: Tab; label: string }[] = [
-    { id: "all", label: "All" },
-    ...CASE_PLATFORMS.map((c) => ({ id: c as Tab, label: CASE_PLATFORM_LABELS[c] })),
-  ];
+  const all = (cases.data?.cases ?? []).filter((c) => isPlatformVisibleInUi(c.cloud));
+  const countFor = (c: PlatformTab) => countByPlatformTab(all, c, (x) => x.cloud);
+  const visible = filterByPlatformTab(all, tab, (c) => c.cloud);
 
   return (
-    <div className="px-6 py-7">
-      <div className="mb-6 flex flex-wrap items-end justify-between gap-4 border-b border-border/70 pb-5">
+    <div className="page-shell">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="page-title">
             <FolderOpen className="h-5 w-5 text-accent" />
@@ -113,40 +112,14 @@ export default function CasesPage() {
             <StatPill
               key={platform}
               label={CASE_PLATFORM_LABELS[platform]}
-              value={countFor(platform as Tab)}
+              value={countFor(platform as PlatformTab)}
               icon={<CloudProviderIcon cloud={platform} />}
             />
           ))}
         </div>
       )}
 
-      <div className="mb-5 flex items-center gap-1 overflow-x-auto border-b border-border/80">
-          {tabs.map((t) => {
-            const active = tab === t.id;
-            return (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                className={cn(
-                  "relative -mb-px flex h-10 items-center gap-2 whitespace-nowrap px-3 text-sm font-medium transition-colors",
-                  active ? "text-fg" : "text-fg-subtle hover:text-fg",
-                )}
-              >
-                {t.id !== "all" && <CloudProviderIcon cloud={t.id} />}
-                {t.label}
-                <span
-                  className={cn(
-                    "mono rounded-full px-1.5 py-0.5 text-2xs",
-                    active ? "bg-accent/15 text-accent" : "bg-surface text-fg-subtle",
-                  )}
-                >
-                  {countFor(t.id)}
-                </span>
-                {active && <span className="absolute inset-x-0 bottom-0 h-0.5 rounded-full bg-accent" />}
-              </button>
-            );
-          })}
-        </div>
+      <PlatformTabBar value={tab} onChange={setTab} countFor={countFor} />
 
         {cases.isLoading ? (
           <LoadingPanel label="Loading cases…" />
@@ -234,7 +207,12 @@ function StatPill({
         tone === "accent" ? "border-accent/35" : "border-border",
       )}
     >
-      <div className="stat-card-header text-2xs font-medium uppercase tracking-wide text-fg-subtle">
+      <div
+        className={cn(
+          "stat-card-header text-2xs font-medium tracking-wide text-fg-subtle",
+          label.toLowerCase() === "kubernetes" ? "normal-case" : "uppercase",
+        )}
+      >
         {icon ? <span className="inline-flex shrink-0 items-center">{icon}</span> : null}
         <span className="min-w-0 truncate">{label}</span>
       </div>
@@ -439,7 +417,12 @@ function CaseMetric({
 
   return (
     <div className="rounded-md border border-border/75 bg-bg/35 px-2.5 py-2">
-      <div className="flex items-center gap-1.5 text-2xs font-medium uppercase tracking-wide text-fg-subtle">
+      <div
+        className={cn(
+          "flex items-center gap-1.5 text-2xs font-medium tracking-wide text-accent",
+          label.toLowerCase() === "kubernetes" ? "normal-case" : "uppercase",
+        )}
+      >
         <Icon className="h-3.5 w-3.5" />
         {label}
       </div>

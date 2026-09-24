@@ -51,7 +51,7 @@ export const EDGE_SOURCE_LABEL: Record<string, string> = {
   cloudfront: "CloudFront",
   app_gateway: "App Gateway",
   front_door: "Front Door",
-  load_balancer: "Load Balancer",
+  load_balancer: "Cloud Load Balancing",
   cloud_cdn: "Cloud CDN",
   api_gateway: "API Gateway",
 };

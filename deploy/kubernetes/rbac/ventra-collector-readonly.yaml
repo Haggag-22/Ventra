@@ -32,6 +32,8 @@ rules:
   - configmaps
   - services
   - secrets            # metadata only — payloads are stripped in code
+  - persistentvolumes
+  - persistentvolumeclaims
   verbs: ["get", "list", "watch"]
 - apiGroups: ["apps"]
   resources: ["deployments", "daemonsets", "statefulsets", "replicasets"]
@@ -54,6 +56,17 @@ rules:
 - apiGroups: ["admissionregistration.k8s.io"]
   resources: ["mutatingwebhookconfigurations", "validatingwebhookconfigurations"]
   verbs: ["get", "list", "watch"]
+# PodSecurityPolicy only exists on clusters older than v1.25. Harmless to grant (the resource
+# simply does not resolve on a modern cluster) and the collector treats a 404 as the normal case.
+- apiGroups: ["policy"]
+  resources: ["podsecuritypolicies"]
+  verbs: ["get", "list"]
+# Discovery: GET /version (cluster info) and GET /apis + /api/<v> + /apis/<group>/<v>
+# (registered API groups and resources — reveals CRDs and aggregated APIs). These are
+# non-resource URLs, so they need their own rule. Most clusters already grant them to
+# system:discovery; this makes the collector independent of that.
+- nonResourceURLs: ["/version", "/api", "/api/*", "/apis", "/apis/*"]
+  verbs: ["get"]
 # Pre-flight: let the tool test its own permissions before collecting. This is a permission
 # PROBE that changes no cluster state (the sole non-get/list/watch verb the collector uses).
 - apiGroups: ["authorization.k8s.io"]

@@ -4,6 +4,7 @@ import { useCase } from "@/components/case-context";
 import { BackToCases } from "@/components/layout/back-to-cases";
 import { caseCloud } from "@/lib/cloud-sources";
 import { panelLabel } from "@/lib/panel-labels";
+import { isPanelVisible } from "@/lib/panel-visibility";
 import { CASES_HREF } from "@/lib/routes";
 import { cn } from "@/lib/utils";
 import {
@@ -46,7 +47,6 @@ const INVESTIGATE: NavEntry[] = [
 
 const PACKAGE: NavEntry[] = [
   { href: "resources", panel: "resources", icon: Gauge },
-  { href: "report", panel: "report", icon: FileText },
   { href: "files", panel: "files", icon: FileText },
 ];
 
@@ -91,19 +91,20 @@ export function CaseSidebar({ caseId }: { caseId: string }) {
 
   return (
     <aside className="app-sidebar">
-      <Link href={CASES_HREF} className="sb-brand">
-        <div className="sb-brand-mark">
-          <Shield className="h-[19px] w-[19px]" strokeWidth={1.8} aria-hidden />
-        </div>
-        <div className="sb-brand-title">Ventra</div>
-      </Link>
+      <div className="sb-brand-row">
+        <Link href={CASES_HREF} className="sb-brand">
+          <div className="sb-brand-mark">
+            <Shield className="h-[19px] w-[19px]" strokeWidth={1.8} aria-hidden />
+          </div>
+          <div className="sb-brand-title">Ventra</div>
+        </Link>
+      </div>
 
       <BackToCases />
 
       <nav className="sb-nav">
         <div className="sb-nav-section">Investigate</div>
-        {INVESTIGATE.filter((item) => item.href !== "cloudwatch" || cloud === "aws").map(
-          (item) => (
+        {INVESTIGATE.filter((item) => isPanelVisible(cloud, item.href)).map((item) => (
           <NavItem
             key={item.href}
             caseId={caseId}
@@ -111,8 +112,7 @@ export function CaseSidebar({ caseId }: { caseId: string }) {
             pathname={pathname}
             cloud={cloud}
           />
-        ),
-        )}
+        ))}
 
         <div className="sb-nav-section">Package</div>
         {PACKAGE.map((item) => (

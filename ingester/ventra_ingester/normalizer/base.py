@@ -88,6 +88,11 @@ def register(source: str) -> Callable[[SourceNormalizer], SourceNormalizer]:
 class NormalizeContext:
     case_id: str
     account_id: str
+    # When the package was sealed. Snapshot/posture normalizers use it as the event time:
+    # a "this is how the cluster is configured" finding is true as of collection, and an
+    # undated row cannot be placed on the timeline. Optional so existing normalizers are
+    # unaffected.
+    collected_at: str = ""
 
 
 def normalize_source(

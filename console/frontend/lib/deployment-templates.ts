@@ -95,6 +95,23 @@ export const PROVIDER_DEPLOYMENT_TEMPLATES: Partial<Record<DocProvider, Deployme
       filename: "azure-collector-graph.json",
     },
   ],
+  kubernetes: [
+    {
+      id: "k8s-rbac-yaml",
+      label: "RBAC ClusterRole",
+      kind: "policy",
+      href: `${POLICIES}/kubernetes-collector-readonly.yaml`,
+      filename: "kubernetes-collector-readonly.yaml",
+      description: "ServiceAccount, read-only ClusterRole, and ClusterRoleBinding.",
+    },
+    {
+      id: "k8s-rbac-json",
+      label: "RBAC permissions JSON",
+      kind: "policy",
+      href: `${POLICIES}/kubernetes-collector-readonly.json`,
+      filename: "kubernetes-collector-readonly.json",
+    },
+  ],
 };
 
 /** IaC templates shown in the auth wizard (excludes plain policy JSON). */

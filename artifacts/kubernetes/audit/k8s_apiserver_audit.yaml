@@ -5,10 +5,16 @@ aliases:
 cloud: kubernetes
 category: Audit
 description: >-
-  The API-server audit log read from disk (on-prem exclusive) — the only record of who did
-  what inside the cluster (pods/exec, secret reads, RBAC changes). Parses audit.k8s.io/v1
-  events and builds priority detections; a missing file is a critical LOGGING_NOT_CONFIGURED
-  gap cross-linked to k8s_audit_posture.
+  The API-server audit log read from the control-plane node, the only record of who did what
+  inside the cluster: pods/exec, secret reads, RBAC changes. The path is resolved from whichever
+  source the distribution uses to declare it, so no kubeadm static pod manifest is required: the
+  manifest where one exists, /etc/rancher/k3s/config.yaml or /etc/rancher/rke2/config.yaml, the
+  server unit's ExecStart line, or /var/snap/microk8s/current/args/kube-apiserver. Failing all of
+  those, the documented default paths are searched, which is how a default k3s install works. The
+  active file and its rotated and gzipped siblings are parsed as audit.k8s.io/v1 events and turned
+  into priority detections. Nothing configured at all is a critical LOGGING_NOT_CONFIGURED gap; a
+  webhook-only backend is reported as NOT_PRESENT with the external sink named. Both cross-link
+  k8s_audit_posture.
 version: 1.0.0
 collector: k8s_apiserver_audit
 type: k8s_apiserver_audit
