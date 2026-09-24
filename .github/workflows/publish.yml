@@ -28,7 +28,8 @@ jobs:
         with:
           python-version: "3.11"
       - name: Install
-        run: uv pip install --system -e ".[dev]" -e "./ingester[dev]" -e ./console/backend
+        # pytest lives in [dependency-groups].dev — `.[dev]` is not an optional-extra anymore
+        run: uv pip install --system --group dev -e . -e ./ingester -e ./console/backend
       - name: Read-only guard
         run: |
           python -m collector.tools.verify_readonly --collectors
