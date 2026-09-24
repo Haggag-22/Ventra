@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import json
 import multiprocessing as mp
+import os
 import shutil
 import threading
 import time
@@ -268,7 +269,8 @@ def _worker_drop(q: mp.Queue, kwargs: dict[str, Any]) -> None:
 # small JSON file; the built zip / drop folder live under their own paths recorded in it.
 # Live Process handles stay in-memory so Cancel can terminate the child.
 
-_jobs_lock = threading.Lock()
+# Re-entrant: _update_job holds it across its read-modify-write and calls _write_job.
+_jobs_lock = threading.RLock()
 _procs_lock = threading.Lock()
 _active_procs: dict[str, Any] = {}
 
@@ -290,16 +292,31 @@ def _job_file(job_id: str) -> Path:
 
 
 def _write_job(record: dict[str, Any]) -> None:
+    """Persist a job record atomically.
+
+    Status polls read these files without the lock (and from other processes), so an in-place
+    ``write_text`` could be observed half-written and read as "unknown job". Write a sibling temp
+    file and ``os.replace`` it — readers always see either the old or the new complete record.
+    """
+    path = _job_file(record["job_id"])
+    tmp = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
     with _jobs_lock:
-        _job_file(record["job_id"]).write_text(json.dumps(record), encoding="utf-8")
+        try:
+            tmp.write_text(json.dumps(record), encoding="utf-8")
+            os.replace(tmp, path)
+        finally:
+            tmp.unlink(missing_ok=True)
 
 
 def _update_job(job_id: str, patch: dict[str, Any]) -> None:
-    rec = get_export_job(job_id)
-    if rec is None:
-        return
-    rec.update(patch)
-    _write_job(rec)
+    # Hold the lock across read-modify-write so concurrent updates (e.g. running -> ready vs a
+    # cancel) cannot overwrite each other.
+    with _jobs_lock:
+        rec = get_export_job(job_id)
+        if rec is None:
+            return
+        rec.update(patch)
+        _write_job(rec)
 
 
 def _terminate_proc(proc: Any) -> None:
