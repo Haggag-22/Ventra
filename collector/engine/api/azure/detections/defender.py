@@ -9,14 +9,13 @@ from __future__ import annotations
 
 from typing import Any
 
+from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 from collector.lib.base import Collector
+from collector.lib.limits import DEFAULT_MAX_RECORDS as MAX_RECORDS
 from collector.lib.limits import records_unlimited
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import effective_window
 from collector.lib.scoping import filter_defender_alerts
-from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
-
-from collector.lib.limits import DEFAULT_MAX_RECORDS as MAX_RECORDS
 
 
 class DefenderCollector(Collector):
@@ -63,7 +62,9 @@ class DefenderCollector(Collector):
 
         alerts = filter_defender_alerts(alerts, artifact_params)
 
-        files = [self.write_json({"subscriptions": per_sub, "artifact_parameters": artifact_params}, "config.json")]
+        files = [
+            self.write_json({"subscriptions": per_sub, "artifact_parameters": artifact_params}, "config.json")
+        ]
         if alerts:
             files.append(self.write_jsonl(alerts, "events.jsonl.gz"))
         self.write_meta(

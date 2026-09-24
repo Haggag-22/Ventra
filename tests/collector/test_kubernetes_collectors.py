@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 import pytest
+
 from collector.clouds.kubernetes.client_factory import KubeAccessDenied
 from collector.clouds.kubernetes.node import NodeAccess
 from collector.engine.api.kubernetes.api_plane.audit_posture import AuditPostureCollector
@@ -40,6 +41,7 @@ class FakeFactory:
 
     def __getattr__(self, name):
         if name.startswith("list_"):
+
             def _list():
                 val = self.responses.get(name, [])
                 if isinstance(val, Exception):
@@ -132,9 +134,7 @@ def test_events_flags_reasons_and_reports_retention_expired(tmp_path: Path) -> N
     ]
     cf = FakeFactory(node=NodeAccess(root=_node_root(tmp_path)), responses={"list_events": events})
     # Incident window starts well before the default 1h TTL → retention gap.
-    window = TimeWindow(
-        since=datetime(2020, 1, 1, tzinfo=UTC), until=datetime(2020, 1, 2, tzinfo=UTC)
-    )
+    window = TimeWindow(since=datetime(2020, 1, 1, tzinfo=UTC), until=datetime(2020, 1, 2, tzinfo=UTC))
     result = EventsCollector(_ctx(tmp_path, cf, window=window)).collect()
 
     assert result.record_count == 2
@@ -232,9 +232,7 @@ def test_rbac_flags_cluster_admin_and_anonymous(tmp_path: Path) -> None:
             "subjects": [{"kind": "User", "name": "system:anonymous"}],
         },
     ]
-    cf = FakeFactory(
-        responses={"list_cluster_roles": cluster_roles, "list_cluster_role_bindings": crbs}
-    )
+    cf = FakeFactory(responses={"list_cluster_roles": cluster_roles, "list_cluster_role_bindings": crbs})
     assert RbacCollector(_ctx(tmp_path, cf)).collect().status in (
         SourceStatus.COLLECTED,
         SourceStatus.PARTIAL,
@@ -242,9 +240,7 @@ def test_rbac_flags_cluster_admin_and_anonymous(tmp_path: Path) -> None:
     dangerous = json.loads(
         (tmp_path / "staging" / "sources" / "k8s_rbac" / "dangerous_bindings.json").read_text()
     )
-    anon = json.loads(
-        (tmp_path / "staging" / "sources" / "k8s_rbac" / "anonymous_bindings.json").read_text()
-    )
+    anon = json.loads((tmp_path / "staging" / "sources" / "k8s_rbac" / "anonymous_bindings.json").read_text())
     assert any(d["binding"] == "ClusterRoleBinding/admin-binding" for d in dangerous)
     assert any(a["binding"] == "anon-binding" for a in anon)
 
@@ -258,19 +254,25 @@ def test_apiserver_audit_parses_and_detects(tmp_path: Path) -> None:
         "    - --audit-log-path=/var/log/kubernetes/audit/audit.log\n",
     )
     exec_event = {
-        "kind": "Event", "stage": "ResponseComplete", "verb": "create",
+        "kind": "Event",
+        "stage": "ResponseComplete",
+        "verb": "create",
         "user": {"username": "mallory"},
         "objectRef": {"resource": "pods", "subresource": "exec", "namespace": "prod", "name": "web"},
-        "requestReceivedTimestamp": "2026-06-11T10:00:00Z", "stageTimestamp": "2026-06-11T10:00:01Z",
+        "requestReceivedTimestamp": "2026-06-11T10:00:00Z",
+        "stageTimestamp": "2026-06-11T10:00:01Z",
     }
     secret_event = {
-        "kind": "Event", "stage": "ResponseComplete", "verb": "get",
+        "kind": "Event",
+        "stage": "ResponseComplete",
+        "verb": "get",
         "user": {"username": "mallory"},
         "objectRef": {"resource": "secrets", "namespace": "prod", "name": "db"},
         "stageTimestamp": "2026-06-11T10:00:02Z",
     }
     _write(
-        root, "/var/log/kubernetes/audit/audit.log",
+        root,
+        "/var/log/kubernetes/audit/audit.log",
         json.dumps(exec_event) + "\n" + json.dumps(secret_event) + "\n",
     )
     cf = FakeFactory(node=NodeAccess(root=root))
@@ -315,9 +317,6 @@ def test_etcd_posture_flags_disabled_cert_auth(tmp_path: Path) -> None:
     assert "non-loopback" in joined
 
 
-
-
-
 def test_events_merges_both_apis_and_dedupes_by_uid(tmp_path: Path) -> None:
     core = [
         {"metadata": {"uid": "u1"}, "reason": "OOMKilling"},
@@ -331,9 +330,7 @@ def test_events_merges_both_apis_and_dedupes_by_uid(tmp_path: Path) -> None:
     result = EventsCollector(_ctx(tmp_path, cf)).collect()
 
     assert result.record_count == 3  # u1, u2 (once), u3
-    config = json.loads(
-        (tmp_path / "staging" / "sources" / "k8s_events" / "config.json").read_text()
-    )
+    config = json.loads((tmp_path / "staging" / "sources" / "k8s_events" / "config.json").read_text())
     assert config["deduplicated"] == 1
     assert config["apis"]["core/v1"]["events"] == 2
     assert config["apis"]["events.k8s.io/v1"]["events"] == 2
@@ -515,9 +512,7 @@ def test_audit_posture_webhook_only_is_enabled_but_gapped(tmp_path: Path) -> Non
     )
     cf = FakeFactory(node=NodeAccess(root=root))
     result = AuditPostureCollector(_ctx(tmp_path, cf)).collect()
-    config = json.loads(
-        (tmp_path / "staging" / "sources" / "k8s_audit_posture" / "config.json").read_text()
-    )
+    config = json.loads((tmp_path / "staging" / "sources" / "k8s_audit_posture" / "config.json").read_text())
     assert config["audit_enabled"] is True
     assert config["log_backend"] is False
     # Enabled, so NOT the critical "disabled" gap — but the file is off-node, which is a gap.
@@ -620,10 +615,12 @@ def test_etcd_collects_topology_and_flags_unhealthy_endpoint(tmp_path: Path) -> 
             "etcdctl member list": (0, json.dumps({"members": [{"name": "cp1"}, {"name": "cp2"}]}), ""),
             "etcdctl endpoint health": (
                 0,
-                json.dumps([
-                    {"endpoint": "https://127.0.0.1:2379", "health": True},
-                    {"endpoint": "https://10.0.0.9:2379", "health": False},
-                ]),
+                json.dumps(
+                    [
+                        {"endpoint": "https://127.0.0.1:2379", "health": True},
+                        {"endpoint": "https://10.0.0.9:2379", "health": False},
+                    ]
+                ),
                 "",
             ),
         },
@@ -672,9 +669,7 @@ def test_runtime_logs_inspects_each_container(tmp_path: Path) -> None:
     assert config["containers_inspected"] == 1
     rows = [
         json.loads(line)
-        for line in gzip.decompress((src / "container_inspect.jsonl.gz").read_bytes())
-        .decode()
-        .splitlines()
+        for line in gzip.decompress((src / "container_inspect.jsonl.gz").read_bytes()).decode().splitlines()
     ]
     assert rows[0]["container_id"] == "cid1"
     assert rows[0]["namespace"] == "prod"
@@ -690,9 +685,7 @@ def test_container_logs_collects_rotated_siblings(tmp_path: Path) -> None:
     cf = FakeFactory(node=NodeAccess(root=root))
     result = ContainerLogsCollector(_ctx(tmp_path, cf)).collect()
     assert result.record_count == 2
-    config = json.loads(
-        (tmp_path / "staging" / "sources" / "k8s_container_logs" / "config.json").read_text()
-    )
+    config = json.loads((tmp_path / "staging" / "sources" / "k8s_container_logs" / "config.json").read_text())
     assert config["rotated_logs"] == 1
     assert {e["namespace"] for e in config["logs"]} == {"prod"}
 

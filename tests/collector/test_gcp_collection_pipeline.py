@@ -48,8 +48,9 @@ def _cfg(tmp_path: Path, collectors: list[str], **overrides) -> GcpRunConfig:
     return GcpRunConfig(**defaults)
 
 
-def _resolution(cid: str, status: str = STATUS_STORAGE, reason: str | None = None,
-                tables: list[str] | None = None) -> CollectorResolution:
+def _resolution(
+    cid: str, status: str = STATUS_STORAGE, reason: str | None = None, tables: list[str] | None = None
+) -> CollectorResolution:
     return CollectorResolution(
         collector_id=cid,
         collector_name=cid,
@@ -83,9 +84,21 @@ def _patch_resolver(monkeypatch, resolutions_by_id):
 def _patch_gcs_reader(monkeypatch, rows: list[dict]):
     calls: list[dict] = []
 
-    def fake_iter(*, credentials, bucket_name, prefixes, log_filter, start, end,
-                  max_records, read_all_prefixes=False, project_scope=None, stats=None,
-                  on_progress=None, **kwargs):
+    def fake_iter(
+        *,
+        credentials,
+        bucket_name,
+        prefixes,
+        log_filter,
+        start,
+        end,
+        max_records,
+        read_all_prefixes=False,
+        project_scope=None,
+        stats=None,
+        on_progress=None,
+        **kwargs,
+    ):
         calls.append(
             {
                 "bucket": bucket_name,
@@ -133,9 +146,7 @@ def test_broad_plus_subset_collected_once(monkeypatch, tmp_path) -> None:
     )
     summary = _capture_summary(monkeypatch)
 
-    run_gcp_collection(
-        _cfg(tmp_path, ["cloud_audit_data", "storage_access"]), factory=_fake_factory()
-    )
+    run_gcp_collection(_cfg(tmp_path, ["cloud_audit_data", "storage_access"]), factory=_fake_factory())
 
     assert len(calls) == 1
     broad = _outcome(summary, "cloud_audit_data")
@@ -158,9 +169,7 @@ def test_subsets_without_broad_share_one_spooled_read(monkeypatch, tmp_path) -> 
     )
     summary = _capture_summary(monkeypatch)
 
-    run_gcp_collection(
-        _cfg(tmp_path, ["storage_access", "bigquery_audit"]), factory=_fake_factory()
-    )
+    run_gcp_collection(_cfg(tmp_path, ["storage_access", "bigquery_audit"]), factory=_fake_factory())
 
     assert len(calls) == 1
     assert "cloudaudit.googleapis.com%2Fdata_access" in calls[0]["log_filter"]

@@ -11,7 +11,7 @@ import gzip
 import hashlib
 import json
 import time
-from collections.abc import Callable, Iterable, Iterator
+from collections.abc import Callable, Iterable
 from pathlib import Path
 from typing import Any
 
@@ -107,11 +107,7 @@ class JsonlWriter:
         if self._on_progress is None:
             return
         now = time.monotonic()
-        if (
-            self.count == 1
-            or self.count % self._progress_every == 0
-            or now - self._last_progress_at >= 1.0
-        ):
+        if self.count == 1 or self.count % self._progress_every == 0 or now - self._last_progress_at >= 1.0:
             self._last_progress_at = now
             self._on_progress(self.count, False)
 

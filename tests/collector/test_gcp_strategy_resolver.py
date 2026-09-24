@@ -5,6 +5,8 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
+from google.api_core import exceptions as gcp_exc
+
 from collector.engine.gcp_strategy_resolver import (
     COLLECTOR_MAP,
     STATUS_LOG_EXPLORER,
@@ -13,7 +15,6 @@ from collector.engine.gcp_strategy_resolver import (
     BucketNotFoundError,
     resolve_collection_strategy,
 )
-from google.api_core import exceptions as gcp_exc
 
 PROJECT = "test-proj"
 BUCKET = "audit-bucket"
@@ -55,9 +56,7 @@ class FakeStorageClient:
 
 
 def test_log_explorer_always_collects_regardless_of_state() -> None:
-    res = resolve_collection_strategy(
-        ["cloud_audit_admin", "vpc_flow", "secret_manager"], "log_explorer"
-    )
+    res = resolve_collection_strategy(["cloud_audit_admin", "vpc_flow", "secret_manager"], "log_explorer")
     assert {r.status for r in res} == {STATUS_LOG_EXPLORER}
     assert all(r.strategy_used == "log_explorer" for r in res)
     assert all(r.reason is None for r in res)
@@ -66,8 +65,12 @@ def test_log_explorer_always_collects_regardless_of_state() -> None:
 def test_gcs_objects_exist_collects() -> None:
     storage = FakeStorageClient(objects={"cloudaudit.googleapis.com/activity/": 1})
     res = resolve_collection_strategy(
-        ["cloud_audit_admin"], "storage", BUCKET, PROJECT,
-        storage_client=storage, logging_client=FakeLoggingClient(),
+        ["cloud_audit_admin"],
+        "storage",
+        BUCKET,
+        PROJECT,
+        storage_client=storage,
+        logging_client=FakeLoggingClient(),
     )
     (r,) = res
     assert r.status == STATUS_STORAGE
@@ -78,8 +81,12 @@ def test_gcs_objects_exist_collects() -> None:
 def test_gcs_no_objects_not_collected() -> None:
     storage = FakeStorageClient(objects={})
     res = resolve_collection_strategy(
-        ["cloud_audit_admin"], "storage", BUCKET, PROJECT,
-        storage_client=storage, logging_client=FakeLoggingClient(sinks=[]),
+        ["cloud_audit_admin"],
+        "storage",
+        BUCKET,
+        PROJECT,
+        storage_client=storage,
+        logging_client=FakeLoggingClient(sinks=[]),
     )
     (r,) = res
     assert r.status == STATUS_NOT_COLLECTED
@@ -90,8 +97,12 @@ def test_gcs_no_objects_not_collected() -> None:
 def test_gcs_catchall_no_objects_uses_catchall_reason() -> None:
     storage = FakeStorageClient(objects={})
     res = resolve_collection_strategy(
-        ["cloud_audit_admin"], "storage", BUCKET, PROJECT,
-        storage_client=storage, logging_client=FakeLoggingClient(sinks=[_gcs_catchall_sink()]),
+        ["cloud_audit_admin"],
+        "storage",
+        BUCKET,
+        PROJECT,
+        storage_client=storage,
+        logging_client=FakeLoggingClient(sinks=[_gcs_catchall_sink()]),
     )
     (r,) = res
     assert r.status == STATUS_NOT_COLLECTED
@@ -102,8 +113,12 @@ def test_bucket_not_found_raises() -> None:
     storage = FakeStorageClient(bucket_exists=False)
     with pytest.raises(BucketNotFoundError):
         resolve_collection_strategy(
-            ["cloud_audit_admin"], "storage", BUCKET, PROJECT,
-            storage_client=storage, logging_client=FakeLoggingClient(),
+            ["cloud_audit_admin"],
+            "storage",
+            BUCKET,
+            PROJECT,
+            storage_client=storage,
+            logging_client=FakeLoggingClient(),
         )
 
 
@@ -112,8 +127,12 @@ def test_sinks_permission_error_degrades_without_catchall(caplog) -> None:
     logging_client = FakeLoggingClient(error=gcp_exc.PermissionDenied("denied"))
     with caplog.at_level("WARNING"):
         (r,) = resolve_collection_strategy(
-            ["vpc_flow"], "storage", BUCKET, PROJECT,
-            storage_client=storage, logging_client=logging_client,
+            ["vpc_flow"],
+            "storage",
+            BUCKET,
+            PROJECT,
+            storage_client=storage,
+            logging_client=logging_client,
         )
     assert r.status == STATUS_NOT_COLLECTED
     assert "No sink routing" in r.reason

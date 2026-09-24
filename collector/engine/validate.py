@@ -24,16 +24,29 @@ import yaml
 
 from ..lib.base import assert_readonly
 from .acquisition import _pack_collector_keys
-from .loader import ArtifactValidationError, load_artifact, load_artifacts_dir
+from .loader import ArtifactValidationError, load_artifact
 from .registry import registry_for_cloud
 
 _CLOUDS = ("aws", "azure", "gcp", "kubernetes")
 _VERSION_RE = re.compile(r"^\d+\.\d+\.\d+$")
 _ALLOWED_KEYS = frozenset(
     {
-        "name", "aliases", "cloud", "category", "description", "version", "collector",
-        "type", "required_actions", "parameters", "sources", "severity", "estimated_volume",
-        "implicit", "selectable", "subset_of",
+        "name",
+        "aliases",
+        "cloud",
+        "category",
+        "description",
+        "version",
+        "collector",
+        "type",
+        "required_actions",
+        "parameters",
+        "sources",
+        "severity",
+        "estimated_volume",
+        "implicit",
+        "selectable",
+        "subset_of",
     }
 )
 _SEVERITY = frozenset({"critical", "extended", "optional"})

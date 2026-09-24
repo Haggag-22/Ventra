@@ -5,11 +5,12 @@ from __future__ import annotations
 from datetime import datetime
 from typing import Any
 
+from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 from collector.lib.limits import records_unlimited
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import effective_window, param_strings
 from collector.lib.scoping import filter_azure_resources, matches_any
-from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
+
 from .log_analytics_common import (
     CATEGORY_TO_SOURCE,
     DEFAULT_WINDOW_DAYS,
@@ -86,10 +87,7 @@ def collect_log_analytics(collector) -> SourceResult:
                     ws = setting.get("workspace_id") or ""
                     if not ws:
                         continue
-                    enabled = [
-                        c for c in (setting.get("categories") or [])
-                        if c.lower() in wanted
-                    ]
+                    enabled = [c for c in (setting.get("categories") or []) if c.lower() in wanted]
                     if not enabled:
                         continue
                     la_only_hits += 1

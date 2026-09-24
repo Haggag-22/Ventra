@@ -129,15 +129,13 @@ def _describe(kind: str, rec: dict[str, Any]) -> tuple[str, str, list[str]]:
             return (
                 "critical",
                 f"{role} is bound to {', '.join(anonymous)} — unauthenticated callers hold "
-                f"these permissions"
-                + (f" ({', '.join(grants)})" if grants else ""),
+                f"these permissions" + (f" ({', '.join(grants)})" if grants else ""),
                 related,
             )
         if grants:
             return (
                 "high",
-                f"{name} grants {role} to {', '.join(subjects) or 'no subject'}: "
-                f"{', '.join(grants)}",
+                f"{name} grants {role} to {', '.join(subjects) or 'no subject'}: {', '.join(grants)}",
                 related,
             )
         return "info", f"{name} grants {role} to {', '.join(subjects) or 'no subject'}", related
@@ -214,9 +212,9 @@ def _describe(kind: str, rec: dict[str, Any]) -> tuple[str, str, list[str]]:
         )
 
     if kind == "nodes":
-        info = ((rec.get("status") or {}).get("node_info")) or (
-            (rec.get("status") or {}).get("nodeInfo")
-        ) or {}
+        info = (
+            ((rec.get("status") or {}).get("node_info")) or ((rec.get("status") or {}).get("nodeInfo")) or {}
+        )
         detail = " ".join(
             str(info.get(k, ""))
             for k in ("kubelet_version", "kubeletVersion", "os_image", "osImage")
@@ -245,9 +243,7 @@ def _webhook_targets(rec: dict[str, Any]) -> list[str]:
     return out
 
 
-def _state_events(
-    records: list[dict], ctx: NormalizeContext, provider: str
-) -> Iterator[UnifiedEvent]:
+def _state_events(records: list[dict], ctx: NormalizeContext, provider: str) -> Iterator[UnifiedEvent]:
     for rec in records:
         kind = str(rec.get("_ventra_kind", ""))
         action = _STATE_KINDS.get(kind)
@@ -278,9 +274,7 @@ def _state_events(
 
 
 @register("k8s_cluster_state")
-def normalize_k8s_cluster_state(
-    records: list[dict], ctx: NormalizeContext
-) -> Iterator[UnifiedEvent]:
+def normalize_k8s_cluster_state(records: list[dict], ctx: NormalizeContext) -> Iterator[UnifiedEvent]:
     return _state_events(records, ctx, "k8s_cluster_state")
 
 

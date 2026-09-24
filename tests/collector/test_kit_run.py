@@ -8,15 +8,14 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
-import yaml
 
+from collector.kit.build import build_kit
 from collector.kit.format import (
     KitExpiredError,
     assert_kit_usable,
     load_kit_manifest,
     open_kit,
 )
-from collector.kit.build import build_kit
 from collector.kit.import_cmd import find_evidence_package
 from collector.kit.mint import MintedCredential, write_minted_credentials
 
@@ -98,7 +97,9 @@ def test_write_minted_credentials(tmp_path: Path) -> None:
         provider="aws",
         kind="sts_session",
         expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
-        files={"credentials/aws.json": '{"aws_access_key_id":"A","aws_secret_access_key":"B","aws_session_token":"C"}\n'},
+        files={
+            "credentials/aws.json": '{"aws_access_key_id":"A","aws_secret_access_key":"B","aws_session_token":"C"}\n'
+        },
         acquisition_fields={"aws_credentials": "credentials/aws.json"},
     )
     write_minted_credentials(tmp_path, minted)
@@ -107,8 +108,9 @@ def test_write_minted_credentials(tmp_path: Path) -> None:
 
 
 def test_mint_rejects_expired_k8s_jwt() -> None:
-    from collector.kit.mint import mint_connection_credentials
     import base64
+
+    from collector.kit.mint import mint_connection_credentials
 
     past = int((datetime.now(timezone.utc) - timedelta(hours=1)).timestamp())
     payload = base64.urlsafe_b64encode(json.dumps({"exp": past}).encode()).decode().rstrip("=")

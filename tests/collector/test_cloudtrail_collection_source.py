@@ -17,10 +17,7 @@ def test_cloudtrail_collection_source_defaults_to_trail() -> None:
 
 def test_cloudtrail_collection_source_normalizes_lookup() -> None:
     assert cloudtrail_collection_source({"collection_source": "lookup"}) == CLOUDTRAIL_SOURCE_LOOKUP
-    assert (
-        cloudtrail_collection_source({"collection_source": "lookup_events"})
-        == CLOUDTRAIL_SOURCE_LOOKUP
-    )
+    assert cloudtrail_collection_source({"collection_source": "lookup_events"}) == CLOUDTRAIL_SOURCE_LOOKUP
 
 
 def test_cloudtrail_collection_source_normalizes_bucket() -> None:

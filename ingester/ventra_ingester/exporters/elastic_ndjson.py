@@ -27,9 +27,7 @@ from typing import Any, Callable, Iterator
 import duckdb
 
 # Parquet stores list/dict columns as JSON strings (see UnifiedEvent.to_row).
-_JSON_COLUMNS = frozenset(
-    {"event_category", "related_ip", "related_user", "related_resource", "raw"}
-)
+_JSON_COLUMNS = frozenset({"event_category", "related_ip", "related_user", "related_resource", "raw"})
 _BATCH_SIZE = 5000
 
 _TARGETS = frozenset({"elastic", "splunk", "ndjson"})
@@ -548,9 +546,7 @@ def export_ndjson(
             json.dumps(_ELASTIC_INDEX_TEMPLATE, indent=2), encoding="utf-8"
         )
     elif target == "splunk":
-        (out_dir / "splunk-loading-instructions.md").write_text(
-            _SPLUNK_INSTRUCTIONS, encoding="utf-8"
-        )
+        (out_dir / "splunk-loading-instructions.md").write_text(_SPLUNK_INSTRUCTIONS, encoding="utf-8")
 
     meta: dict[str, Any] = {
         "case_id": case_id,

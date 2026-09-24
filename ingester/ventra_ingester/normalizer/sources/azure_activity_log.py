@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any, Iterator
+from typing import Iterator
 
 from ..base import NormalizeContext, UnifiedEvent, register
 

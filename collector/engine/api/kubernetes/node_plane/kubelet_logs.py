@@ -77,9 +77,7 @@ class KubeletLogsCollector(NodePlaneCollector):
                 "config.json",
             )
         )
-        self.write_meta(
-            {"source": self.name, "records": len(records), "distro": distro.family, "unit": unit}
-        )
+        self.write_meta({"source": self.name, "records": len(records), "distro": distro.family, "unit": unit})
 
         if not result["available"]:
             tried = "; ".join(attempted) or "no candidate units for this layout"

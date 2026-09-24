@@ -47,9 +47,7 @@ def _resource_path(obj: dict[str, Any]) -> str:
 
 
 @register("k8s_apiserver_audit")
-def normalize_k8s_apiserver_audit(
-    records: list[dict], ctx: NormalizeContext
-) -> Iterator[UnifiedEvent]:
+def normalize_k8s_apiserver_audit(records: list[dict], ctx: NormalizeContext) -> Iterator[UnifiedEvent]:
     for rec in records:
         if rec.get("stage") == "RequestReceived":
             continue

@@ -15,10 +15,11 @@ mapping lives in the normalizers, matching the rest of the codebase.
 
 from __future__ import annotations
 
+from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import scoped_window
 from collector.lib.scoping import filter_azure_resources, filter_storage_access_records
-from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
+
 from .storage_logs import read_log_records
 
 
@@ -67,8 +68,11 @@ def collect_diagnostic_logs(
 
             if not settings:
                 gaps.append(
-                    (name, GapReason.LOGGING_NOT_CONFIGURED,
-                     f"{res['name']}: no diagnostic setting — logging blind spot.")
+                    (
+                        name,
+                        GapReason.LOGGING_NOT_CONFIGURED,
+                        f"{res['name']}: no diagnostic setting — logging blind spot.",
+                    )
                 )
                 continue
 
@@ -81,9 +85,12 @@ def collect_diagnostic_logs(
             ]
             if not storage_cats:
                 gaps.append(
-                    (name, GapReason.LOGGING_NOT_CONFIGURED,
-                     f"{res['name']}: logs not routed to a Storage account "
-                     "(Log Analytics / Event Hub only) — not collectible via Storage.")
+                    (
+                        name,
+                        GapReason.LOGGING_NOT_CONFIGURED,
+                        f"{res['name']}: logs not routed to a Storage account "
+                        "(Log Analytics / Event Hub only) — not collectible via Storage.",
+                    )
                 )
                 continue
 
@@ -91,9 +98,7 @@ def collect_diagnostic_logs(
             for storage_id, category in storage_cats:
                 try:
                     cc = cf.container_client(storage_id, _container_for(category))
-                    for rec in read_log_records(
-                        cc, prefix=f"resourceId={rid.upper()}", start=start, end=end
-                    ):
+                    for rec in read_log_records(cc, prefix=f"resourceId={rid.upper()}", start=start, end=end):
                         rec["_ventra_resource_id"] = rid
                         records.append(rec)
                 except AzureAccessDenied as exc:

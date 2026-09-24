@@ -48,9 +48,7 @@ class Settings:
         os.environ.get("VENTRA_INGEST_DOWNLOAD_DIR", "./.ventra-ingest-watch")
     ).resolve()
     _ingest_state = os.environ.get("VENTRA_INGEST_STATE_FILE", "").strip()
-    ingest_state_file: Path | None = (
-        Path(_ingest_state).resolve() if _ingest_state else None
-    )
+    ingest_state_file: Path | None = Path(_ingest_state).resolve() if _ingest_state else None
     # Saved connections and collection profiles for the Configuration section.
     config_dir: Path = Path(os.environ.get("VENTRA_CONFIG_DIR", "./.ventra-config")).resolve()
     # File-backed collection run state (matrix + SSE events).

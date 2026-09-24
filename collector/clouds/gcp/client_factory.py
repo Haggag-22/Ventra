@@ -14,9 +14,7 @@ from typing import Any, Callable, Iterator
 # is imported (which happens on the next lines), so it lives at the package root, not here.
 from google.api_core import exceptions as gcp_exc
 from google.auth import default as google_auth_default
-from google.cloud import compute_v1
-from google.cloud import logging_v2
-from google.cloud import resourcemanager_v3
+from google.cloud import compute_v1, logging_v2, resourcemanager_v3
 from google.cloud import securitycenter_v1 as scc_v1
 
 # Cloud Logging reads (entries.list / sinks.list) count against the per-project AND per-user
@@ -126,9 +124,7 @@ class _RateLimiter:
     def acquire(self) -> None:
         with self._lock:
             now = time.monotonic()
-            self._tokens = min(
-                self._capacity, self._tokens + (now - self._updated) * self._refill_per_sec
-            )
+            self._tokens = min(self._capacity, self._tokens + (now - self._updated) * self._refill_per_sec)
             self._updated = now
             if self._tokens < 1.0:
                 time.sleep((1.0 - self._tokens) / self._refill_per_sec)
@@ -221,9 +217,7 @@ def _entry_to_dict(entry: logging_v2.LogEntry) -> dict[str, Any]:
         "payload": payload,
     }
     if entry.proto_payload:
-        out["protoPayload"] = _mapping_to_dict(entry.proto_payload) or {
-            "_raw": str(entry.proto_payload)
-        }
+        out["protoPayload"] = _mapping_to_dict(entry.proto_payload) or {"_raw": str(entry.proto_payload)}
     if entry.text_payload:
         out["textPayload"] = entry.text_payload
     if entry.json_payload:
@@ -249,17 +243,13 @@ class GcpClientFactory:
         if service_account_info:
             from google.oauth2 import service_account
 
-            creds = service_account.Credentials.from_service_account_info(
-                service_account_info, scopes=scopes
-            )
+            creds = service_account.Credentials.from_service_account_info(service_account_info, scopes=scopes)
             self._credentials = creds
             self._default_project = project_id or service_account_info.get("project_id") or ""
         elif credentials_path:
             from google.oauth2 import service_account
 
-            creds = service_account.Credentials.from_service_account_file(
-                credentials_path, scopes=scopes
-            )
+            creds = service_account.Credentials.from_service_account_file(credentials_path, scopes=scopes)
             self._credentials = creds
             self._default_project = project_id or creds.project_id or ""
         else:
@@ -407,13 +397,12 @@ class GcpClientFactory:
                 else:
                     time_clause = ""
                 full_filter = (
-                    f"({log_filter}) AND {time_clause}" if log_filter and time_clause
+                    f"({log_filter}) AND {time_clause}"
+                    if log_filter and time_clause
                     else log_filter or time_clause
                 )
                 try:
-                    for entry in self._throttled_log_entries(
-                        client, full_filter, max_records - emitted
-                    ):
+                    for entry in self._throttled_log_entries(client, full_filter, max_records - emitted):
                         record = _entry_to_dict(entry)
                         insert_id = str(record.get("insertId") or "")
                         second = str(record.get("timestamp") or "")[:19]
@@ -805,9 +794,7 @@ class GcpClientFactory:
         except gcp_exc.PermissionDenied as exc:
             raise GcpAccessDenied(str(exc)) from exc
 
-    def list_service_accounts(
-        self, project_id: str, *, max_items: int = 500
-    ) -> list[dict[str, Any]]:
+    def list_service_accounts(self, project_id: str, *, max_items: int = 500) -> list[dict[str, Any]]:
         client = self._iam_client()
         out: list[dict[str, Any]] = []
         try:
@@ -833,12 +820,8 @@ class GcpClientFactory:
                     "keyAlgorithm": key.key_algorithm.name if key.key_algorithm else "",
                     "keyOrigin": key.key_origin.name if key.key_origin else "",
                     "keyType": key.key_type.name if key.key_type else "",
-                    "validAfterTime": key.valid_after_time.isoformat()
-                    if key.valid_after_time
-                    else "",
-                    "validBeforeTime": key.valid_before_time.isoformat()
-                    if key.valid_before_time
-                    else "",
+                    "validAfterTime": key.valid_after_time.isoformat() if key.valid_after_time else "",
+                    "validBeforeTime": key.valid_before_time.isoformat() if key.valid_before_time else "",
                     "disabled": key.disabled,
                 }
             )
@@ -852,9 +835,7 @@ class GcpClientFactory:
             raise GcpAccessDenied(str(exc)) from exc
         return self._iam_policy_dict(policy)
 
-    def list_project_custom_roles(
-        self, project_id: str, *, max_items: int = 200
-    ) -> list[dict[str, Any]]:
+    def list_project_custom_roles(self, project_id: str, *, max_items: int = 200) -> list[dict[str, Any]]:
         client = self._iam_client()
         out: list[dict[str, Any]] = []
         try:
@@ -929,9 +910,7 @@ class GcpClientFactory:
             self._raise_compute(exc)
         return out
 
-    def compute_aggregated_instances(
-        self, project_id: str, *, max_items: int = 500
-    ) -> list[dict[str, Any]]:
+    def compute_aggregated_instances(self, project_id: str, *, max_items: int = 500) -> list[dict[str, Any]]:
         client = self._compute_client("instances", compute_v1.InstancesClient)
         out: list[dict[str, Any]] = []
         try:
@@ -949,9 +928,7 @@ class GcpClientFactory:
             self._raise_compute(exc)
         return out
 
-    def compute_aggregated_disks(
-        self, project_id: str, *, max_items: int = 500
-    ) -> list[dict[str, Any]]:
+    def compute_aggregated_disks(self, project_id: str, *, max_items: int = 500) -> list[dict[str, Any]]:
         client = self._compute_client("disks", compute_v1.DisksClient)
         out: list[dict[str, Any]] = []
         try:
@@ -1027,16 +1004,12 @@ class GcpClientFactory:
             max_items=max_items,
         )
 
-    def compute_packet_mirrorings(
-        self, project_id: str, *, max_items: int = 200
-    ) -> list[dict[str, Any]]:
+    def compute_packet_mirrorings(self, project_id: str, *, max_items: int = 200) -> list[dict[str, Any]]:
         client = self._compute_client("packet_mirrorings", compute_v1.PacketMirroringsClient)
         regions_client = self._compute_client("regions", compute_v1.RegionsClient)
         out: list[dict[str, Any]] = []
         try:
-            for region in regions_client.list(
-                request=compute_v1.ListRegionsRequest(project=project_id)
-            ):
+            for region in regions_client.list(request=compute_v1.ListRegionsRequest(project=project_id)):
                 region_id = str(region.name or "").strip()
                 if not region_id:
                     continue
@@ -1052,9 +1025,7 @@ class GcpClientFactory:
             self._raise_compute(exc)
         return out
 
-    def compute_security_policies(
-        self, project_id: str, *, max_items: int = 200
-    ) -> list[dict[str, Any]]:
+    def compute_security_policies(self, project_id: str, *, max_items: int = 200) -> list[dict[str, Any]]:
         return self._list_compute(
             client_name="security_policies",
             client_factory=compute_v1.SecurityPoliciesClient,

@@ -91,7 +91,9 @@ def test_elastic_target_writes_index_template(tmp_path: Path, ingested_case: Pat
     written = export_ndjson(ingested_case, out, target="elastic")
     template = json.loads((out / "elastic-index-template.json").read_text())
     assert "index_patterns" in template
-    assert template["template"]["mappings"]["properties"]["event"]["properties"]["action"]["type"] == "keyword"
+    assert (
+        template["template"]["mappings"]["properties"]["event"]["properties"]["action"]["type"] == "keyword"
+    )
 
     first = next(iter(written.values()))
     sample = json.loads(first.read_text(encoding="utf-8").splitlines()[0])
@@ -132,7 +134,10 @@ def test_date_filter_excludes_out_of_range_events(tmp_path: Path, ingested_case:
     # A window far in the future excludes every event.
     out_future = tmp_path / "out-future"
     export_ndjson(
-        ingested_case, out_future, target="ndjson", since="2999-01-01T00:00:00Z",
+        ingested_case,
+        out_future,
+        target="ndjson",
+        since="2999-01-01T00:00:00Z",
     )
     manifest_future = json.loads((out_future / "export-manifest.json").read_text())
     assert manifest_future["total_events"] == 0
@@ -141,8 +146,11 @@ def test_date_filter_excludes_out_of_range_events(tmp_path: Path, ingested_case:
     # A window covering all of recorded history matches the unfiltered count.
     out_wide = tmp_path / "out-wide"
     export_ndjson(
-        ingested_case, out_wide, target="ndjson",
-        since="2000-01-01T00:00:00Z", until="2999-01-01T00:00:00Z",
+        ingested_case,
+        out_wide,
+        target="ndjson",
+        since="2000-01-01T00:00:00Z",
+        until="2999-01-01T00:00:00Z",
     )
     manifest_wide = json.loads((out_wide / "export-manifest.json").read_text())
     assert manifest_wide["total_events"] == total_unfiltered

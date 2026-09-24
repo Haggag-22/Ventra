@@ -95,10 +95,10 @@ class RunStore:
                 new_status = str(patch.get("status") or "")
                 if current in _TERMINAL_STATUSES and new_status not in _TERMINAL_STATUSES:
                     patch = {k: v for k, v in patch.items() if k != "status"}
-                elif (
-                    (current == "cancelling" or meta.get("cancel_requested"))
-                    and new_status in {"pending", "running"}
-                ):
+                elif (current == "cancelling" or meta.get("cancel_requested")) and new_status in {
+                    "pending",
+                    "running",
+                }:
                     patch = {k: v for k, v in patch.items() if k != "status"}
             meta.update(patch)
             self._write_json(self._run_dir(run_id) / "meta.json", meta)
@@ -228,9 +228,7 @@ class RunStore:
                 row["detail"] = "Cancelled before start"
                 row["live_msg"] = ""
         done = sum(
-            1
-            for row in collectors
-            if str(row.get("status") or "").lower() in {"pass", "fail", "partial"}
+            1 for row in collectors if str(row.get("status") or "").lower() in {"pass", "fail", "partial"}
         )
         matrix["complete"] = done
         matrix["total"] = matrix.get("total") or len(collectors)

@@ -10,13 +10,12 @@ Entra audit + Unified Audit Log; this is the standing-grant inventory that compl
 
 from __future__ import annotations
 
+from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 from collector.lib.base import Collector
+from collector.lib.limits import DEFAULT_MAX_RECORDS as MAX_RECORDS
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import param_strings
 from collector.lib.scoping import matches_any
-from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
-
-from collector.lib.limits import DEFAULT_MAX_RECORDS as MAX_RECORDS
 
 
 class OAuthConsentCollector(Collector):
@@ -53,7 +52,9 @@ class OAuthConsentCollector(Collector):
             if record_count:
                 files.append(writer.finalize())
 
-        self.write_meta({"source": self.name, "records": record_count, "artifact_parameters": artifact_params})
+        self.write_meta(
+            {"source": self.name, "records": record_count, "artifact_parameters": artifact_params}
+        )
 
         if record_count:
             status = SourceStatus.PARTIAL if gaps else SourceStatus.COLLECTED

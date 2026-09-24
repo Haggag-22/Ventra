@@ -13,9 +13,7 @@ from typing import Any
 
 def collect_unit(node: Any, unit: str, *, fallback_files: tuple[str, ...] = ()) -> dict[str, Any]:
     """Return ``{records, source, available, note}`` for one systemd unit or its log fallback."""
-    rc, out, err = node.run(
-        ["journalctl", "-u", unit, "-o", "json", "--no-pager"], timeout=180
-    )
+    rc, out, err = node.run(["journalctl", "-u", unit, "-o", "json", "--no-pager"], timeout=180)
     if rc == 0 and out.strip():
         records = _parse_journal_json(out)
         return {

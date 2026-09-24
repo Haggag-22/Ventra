@@ -56,20 +56,14 @@ def test_events_normalized_and_queryable(demo_case) -> None:
     assert total > 100
 
     # The attack story must be present and correctly classified.
-    crit = con.execute(
-        f"SELECT count(*) FROM '{path}' WHERE event_severity='critical'"
-    ).fetchone()[0]
+    crit = con.execute(f"SELECT count(*) FROM '{path}' WHERE event_severity='critical'").fetchone()[0]
     assert crit >= 2  # StopLogging + GuardDuty CloudTrailLoggingDisabled etc.
 
-    stop = con.execute(
-        f"SELECT event_severity FROM '{path}' WHERE event_action='StopLogging'"
-    ).fetchone()
+    stop = con.execute(f"SELECT event_severity FROM '{path}' WHERE event_action='StopLogging'").fetchone()
     assert stop and stop[0] == "critical"
 
     # Pivot dimension: the attacker IP should tie many events together.
-    n = con.execute(
-        f"SELECT count(*) FROM '{path}' WHERE related_ip LIKE '%203.0.113.66%'"
-    ).fetchone()[0]
+    n = con.execute(f"SELECT count(*) FROM '{path}' WHERE related_ip LIKE '%203.0.113.66%'").fetchone()[0]
     assert n > 10
 
 
@@ -88,9 +82,7 @@ def test_access_and_dns_logs_normalized(demo_case) -> None:
     con = duckdb.connect()
     path = str(case_dir / "events.parquet")
 
-    alb = con.execute(
-        f"SELECT count(*) FROM '{path}' WHERE ventra_source='elb_alb'"
-    ).fetchone()[0]
+    alb = con.execute(f"SELECT count(*) FROM '{path}' WHERE ventra_source='elb_alb'").fetchone()[0]
     assert alb > 20
 
     # The attacker's admin-panel probe must be present and pivotable by IP.
@@ -100,14 +92,11 @@ def test_access_and_dns_logs_normalized(demo_case) -> None:
     ).fetchone()[0]
     assert probe >= 1
 
-    dns = con.execute(
-        f"SELECT count(*) FROM '{path}' WHERE ventra_source='route53_resolver'"
-    ).fetchone()[0]
+    dns = con.execute(f"SELECT count(*) FROM '{path}' WHERE ventra_source='route53_resolver'").fetchone()[0]
     assert dns > 20
 
     nxdomain = con.execute(
-        f"SELECT count(*) FROM '{path}' WHERE ventra_source='route53_resolver' "
-        "AND event_outcome='failure'"
+        f"SELECT count(*) FROM '{path}' WHERE ventra_source='route53_resolver' AND event_outcome='failure'"
     ).fetchone()[0]
     assert nxdomain >= 8  # the DGA burst
 
@@ -119,14 +108,10 @@ def test_assume_role_events_folded_into_cloudtrail(demo_case) -> None:
     path = str(case_dir / "events.parquet")
 
     # The phantom 'sts' source is gone entirely.
-    assert (
-        con.execute(f"SELECT count(*) FROM '{path}' WHERE ventra_source='sts'").fetchone()[0]
-        == 0
-    )
+    assert con.execute(f"SELECT count(*) FROM '{path}' WHERE ventra_source='sts'").fetchone()[0] == 0
 
     rows = con.execute(
-        f"SELECT ventra_source, resource_type, resource_arn FROM '{path}' "
-        "WHERE event_action='AssumeRole'"
+        f"SELECT ventra_source, resource_type, resource_arn FROM '{path}' WHERE event_action='AssumeRole'"
     ).fetchall()
     assert rows, "expected AssumeRole events in the cloudtrail source"
     assert all(src == "cloudtrail" for src, _, _ in rows)

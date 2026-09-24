@@ -317,18 +317,14 @@ class KubernetesClientFactory:
 
     def list_persistent_volume_claims(self) -> list[dict[str, Any]]:
         core = self._client("CoreV1Api")
-        return self._list(
-            "list persistentvolumeclaims", core.list_persistent_volume_claim_for_all_namespaces
-        )
+        return self._list("list persistentvolumeclaims", core.list_persistent_volume_claim_for_all_namespaces)
 
     def list_pod_security_policies(self) -> list[dict[str, Any]]:
         """PSPs on an older cluster. Removed in v1.25, so a 404 here is the normal case.
 
         Raises :class:`KubeNotFound` on a modern cluster — the caller records NOT_PRESENT.
         """
-        doc = self._get_raw(
-            "list podsecuritypolicies", "/apis/policy/v1beta1/podsecuritypolicies"
-        )
+        doc = self._get_raw("list podsecuritypolicies", "/apis/policy/v1beta1/podsecuritypolicies")
         items = (doc or {}).get("items") or [] if isinstance(doc, dict) else []
         return [dict(item) for item in items if isinstance(item, dict)]
 
@@ -366,9 +362,7 @@ class KubernetesClientFactory:
             row.pop("stringData", None)
         return rows
 
-    def read_pod_log(
-        self, namespace: str, pod: str, container: str, *, previous: bool = False
-    ) -> str:
+    def read_pod_log(self, namespace: str, pod: str, container: str, *, previous: bool = False) -> str:
         core = self._client("CoreV1Api")
         try:
             return core.read_namespaced_pod_log(
@@ -446,12 +440,8 @@ class KubernetesClientFactory:
 
     def list_mutating_webhooks(self) -> list[dict[str, Any]]:
         adm = self._client("AdmissionregistrationV1Api")
-        return self._list(
-            "list mutatingwebhookconfigurations", adm.list_mutating_webhook_configuration
-        )
+        return self._list("list mutatingwebhookconfigurations", adm.list_mutating_webhook_configuration)
 
     def list_validating_webhooks(self) -> list[dict[str, Any]]:
         adm = self._client("AdmissionregistrationV1Api")
-        return self._list(
-            "list validatingwebhookconfigurations", adm.list_validating_webhook_configuration
-        )
+        return self._list("list validatingwebhookconfigurations", adm.list_validating_webhook_configuration)

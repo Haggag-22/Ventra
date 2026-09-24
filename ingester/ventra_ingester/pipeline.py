@@ -15,13 +15,13 @@ from typing import Any
 from .enrichment import Enricher
 from .evidence_extract import extract_package
 from .loaders.casestore import CaseStore, SummaryAccumulator
-from .normalizer.base import NormalizeContext, UnifiedEvent, has_normalizer, normalize_source
+from .normalizer.base import NormalizeContext, has_normalizer, normalize_source
 from .normalizer.inventory import (
     INVENTORY_SOURCES,
     K8S_INVENTORY_SOURCES,
-    k8s_posture_events,
     iam_policy_state_events,
     iam_state_events,
+    k8s_posture_events,
     parse_credential_report,
 )
 from .package import EvidencePackage
@@ -353,9 +353,7 @@ def _k8s_object_row(rec: dict[str, Any]) -> dict[str, Any]:
             row[dest] = str(status[status_src])
     node_info = status.get("node_info") or status.get("nodeInfo") or {}
     if node_info:
-        row["kubelet"] = str(
-            node_info.get("kubelet_version") or node_info.get("kubeletVersion") or ""
-        )
+        row["kubelet"] = str(node_info.get("kubelet_version") or node_info.get("kubeletVersion") or "")
         row["os"] = str(node_info.get("os_image") or node_info.get("osImage") or "")
     ref = rec.get("role_ref") or rec.get("roleRef") or {}
     if ref:

@@ -10,9 +10,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from collector.clouds.gcp.client_factory import GcpAccessDenied, GcpServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
-from collector.clouds.gcp.client_factory import GcpAccessDenied, GcpServiceNotEnabled
 
 MAX_SUBNETS = 500
 MAX_FIREWALLS = 500
@@ -23,9 +23,7 @@ _PLANNED_COLLECTOR = "Ventra collects flow/firewall logs when enabled — see vp
 class LoggingPostureCollector(Collector):
     name = "logging_posture"
     priority = 2
-    description = (
-        "Logging posture for VPC Flow Logs, firewall rule logging, and Cloud Audit log sinks."
-    )
+    description = "Logging posture for VPC Flow Logs, firewall rule logging, and Cloud Audit log sinks."
     required_actions = (
         "compute.subnetworks.list",
         "compute.firewalls.list",
@@ -111,8 +109,7 @@ class LoggingPostureCollector(Collector):
         else:
             out["_gap"] = (
                 GapReason.OUT_OF_SCOPE,
-                f"Flow logs enabled on {subnets_with_flow}/{subnets_total} subnet(s). "
-                f"{_PLANNED_COLLECTOR}",
+                f"Flow logs enabled on {subnets_with_flow}/{subnets_total} subnet(s). {_PLANNED_COLLECTOR}",
             )
         return out
 
@@ -147,8 +144,7 @@ class LoggingPostureCollector(Collector):
         else:
             out["_gap"] = (
                 GapReason.OUT_OF_SCOPE,
-                f"Logging enabled on {rules_logged}/{rules_total} firewall rule(s). "
-                f"{_PLANNED_COLLECTOR}",
+                f"Logging enabled on {rules_logged}/{rules_total} firewall rule(s). {_PLANNED_COLLECTOR}",
             )
         return out
 

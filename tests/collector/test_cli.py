@@ -6,6 +6,7 @@ import time
 from pathlib import Path
 
 import pytest
+
 from collector.cli import build_parser
 
 

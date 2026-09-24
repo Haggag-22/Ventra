@@ -10,7 +10,7 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "console" / "backend"))
 
-from app.run_store import RunNotFound, RunStore  # noqa: E402
+from app.run_store import RunStore  # noqa: E402
 
 
 @pytest.fixture

@@ -49,9 +49,7 @@ class NodePlaneCollector(Collector):
 
     # -- evidence capture (streaming + hashed on acquisition) -----------------------------
 
-    def capture_path(
-        self, src: Path, dest_rel: str, *, max_bytes: int | None = None
-    ) -> WrittenFile | None:
+    def capture_path(self, src: Path, dest_rel: str, *, max_bytes: int | None = None) -> WrittenFile | None:
         """Copy a resolved node ``Path`` into staging, hashing it in a single streamed pass.
 
         Streams in chunks so a multi-GB log never has to fit in memory, and computes the

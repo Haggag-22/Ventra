@@ -119,9 +119,7 @@ def build_batch_export_dir(
         combined["since"] = since
     if until:
         combined["until"] = until
-    (dest / "export-manifest.json").write_text(
-        json.dumps(combined, indent=2), encoding="utf-8"
-    )
+    (dest / "export-manifest.json").write_text(json.dumps(combined, indent=2), encoding="utf-8")
     return combined
 
 
@@ -415,9 +413,7 @@ def cancel_export_job(job_id: str) -> dict[str, Any]:
     return refreshed or {**job, "status": "cancelled", "cancel_requested": True}
 
 
-def run_export_in_subprocess(
-    kind: str, kwargs: dict[str, Any], *, job_id: str | None = None
-) -> Any:
+def run_export_in_subprocess(kind: str, kwargs: dict[str, Any], *, job_id: str | None = None) -> Any:
     """Run export in a child process; raise RuntimeError with the child traceback on failure.
 
     Returns the child payload on success (``None`` for zip builds, a result dict for drop).
@@ -461,9 +457,7 @@ def run_export_in_subprocess(
             if job and (job.get("cancel_requested") or job.get("status") == "cancelled"):
                 raise ExportCancelled(job_id)
         if status is None:
-            raise RuntimeError(
-                f"export subprocess exited with code {proc.exitcode} before reporting status"
-            )
+            raise RuntimeError(f"export subprocess exited with code {proc.exitcode} before reporting status")
         if status != "ok":
             raise RuntimeError(detail or "export subprocess failed")
         if proc.exitcode not in (0, None):

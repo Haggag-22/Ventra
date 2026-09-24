@@ -61,9 +61,7 @@ class ContainerLogsCollector(NodePlaneCollector):
                 collected += 1
                 if not host_path.endswith(".log"):
                     rotated += 1
-                files.append(
-                    wf
-                )
+                files.append(wf)
                 index.append(
                     {
                         **meta,
@@ -99,8 +97,7 @@ class ContainerLogsCollector(NodePlaneCollector):
             files=files,
             record_count=collected,
             gaps=gaps,
-            notes=f"{collected} container log file(s) ({rotated} rotated) from "
-            f"{node.hostname() or 'node'}.",
+            notes=f"{collected} container log file(s) ({rotated} rotated) from {node.hostname() or 'node'}.",
         )
 
 

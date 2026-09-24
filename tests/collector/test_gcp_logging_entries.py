@@ -6,6 +6,8 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import pytest
+from google.api_core import exceptions as gcp_exc
+
 from collector.clouds.gcp import client_factory as cf_mod
 from collector.clouds.gcp.client_factory import (
     _LOG_PAGE_SIZE,
@@ -16,7 +18,6 @@ from collector.clouds.gcp.client_factory import (
     _mapping_to_dict,
     _RateLimiter,
 )
-from google.api_core import exceptions as gcp_exc
 
 
 def test_enum_name_accepts_string_or_enum() -> None:

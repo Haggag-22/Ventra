@@ -39,16 +39,29 @@ class ClusterStateCollector(Collector):
     plane = "api"
     description = "All-namespace inventory of workloads, identity, network, storage and admission."
     required_actions = (
-        "get pods", "list pods",
-        "list deployments", "list daemonsets", "list statefulsets", "list replicasets",
-        "list jobs", "list cronjobs",
-        "list serviceaccounts", "list secrets", "list configmaps",
-        "list services", "list ingresses", "list networkpolicies",
-        "list persistentvolumes", "list persistentvolumeclaims",
-        "list nodes", "list namespaces",
+        "get pods",
+        "list pods",
+        "list deployments",
+        "list daemonsets",
+        "list statefulsets",
+        "list replicasets",
+        "list jobs",
+        "list cronjobs",
+        "list serviceaccounts",
+        "list secrets",
+        "list configmaps",
+        "list services",
+        "list ingresses",
+        "list networkpolicies",
+        "list persistentvolumes",
+        "list persistentvolumeclaims",
+        "list nodes",
+        "list namespaces",
         "list customresourcedefinitions",
-        "list mutatingwebhookconfigurations", "list validatingwebhookconfigurations",
-        "get /version", "get /apis",
+        "list mutatingwebhookconfigurations",
+        "list validatingwebhookconfigurations",
+        "get /version",
+        "get /apis",
     )
 
     def collect(self) -> SourceResult:
@@ -169,9 +182,7 @@ class ClusterStateCollector(Collector):
             "api_group_versions": len(discovery.get("group_versions", [])),
         }
         files.append(self.write_json(config, "config.json"))
-        self.write_meta(
-            {"source": self.name, "counts": counts, "suspicious_pods": len(suspicious)}
-        )
+        self.write_meta({"source": self.name, "counts": counts, "suspicious_pods": len(suspicious)})
 
         total = sum(counts.values())
         if total == 0:
@@ -265,9 +276,7 @@ class ClusterStateCollector(Collector):
             meta = ns.get("metadata") or {}
             name = str(meta.get("name", ""))
             labels = {
-                k: v
-                for k, v in (meta.get("labels") or {}).items()
-                if str(k).startswith(_PSA_LABEL_PREFIX)
+                k: v for k, v in (meta.get("labels") or {}).items() if str(k).startswith(_PSA_LABEL_PREFIX)
             }
             out["namespaces"].append({"namespace": name, "pod_security_labels": labels})
             if not labels:
@@ -339,15 +348,25 @@ def _distinct_images(pods: list[dict[str, Any]], trusted: list[str]) -> dict[str
 
         # imageID lives on the status, keyed by container name.
         ids: dict[str, str] = {}
-        for key in ("container_statuses", "containerStatuses",
-                    "init_container_statuses", "initContainerStatuses",
-                    "ephemeral_container_statuses", "ephemeralContainerStatuses"):
+        for key in (
+            "container_statuses",
+            "containerStatuses",
+            "init_container_statuses",
+            "initContainerStatuses",
+            "ephemeral_container_statuses",
+            "ephemeralContainerStatuses",
+        ):
             for cs in status.get(key) or []:
                 if isinstance(cs, dict) and cs.get("name"):
                     ids[str(cs["name"])] = str(cs.get("image_id") or cs.get("imageID") or "")
 
-        for key in ("containers", "init_containers", "initContainers",
-                    "ephemeral_containers", "ephemeralContainers"):
+        for key in (
+            "containers",
+            "init_containers",
+            "initContainers",
+            "ephemeral_containers",
+            "ephemeralContainers",
+        ):
             for container in spec.get(key) or []:
                 if not isinstance(container, dict):
                     continue
@@ -411,9 +430,7 @@ def _service_account_usage(
             "name": name,
             "automount_service_account_token": automount,
             "automount_explicit": raw is not None,
-            "secrets": [
-                str((sec or {}).get("name", "")) for sec in (sa.get("secrets") or [])
-            ],
+            "secrets": [str((sec or {}).get("name", "")) for sec in (sa.get("secrets") or [])],
             "image_pull_secrets": [
                 str((sec or {}).get("name", ""))
                 for sec in (sa.get("image_pull_secrets") or sa.get("imagePullSecrets") or [])
@@ -439,9 +456,7 @@ def _hostpath_pvs(pvs: list[dict[str, Any]]) -> list[dict[str, Any]]:
             {
                 "name": str(meta.get("name", "")),
                 "path": str(host_path.get("path", "")),
-                "storageClassName": str(
-                    spec.get("storage_class_name") or spec.get("storageClassName") or ""
-                ),
+                "storageClassName": str(spec.get("storage_class_name") or spec.get("storageClassName") or ""),
                 "claimRef": spec.get("claim_ref") or spec.get("claimRef") or {},
             }
         )

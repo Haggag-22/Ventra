@@ -34,33 +34,54 @@ def _ctx(tmp_path: Path) -> CollectionContext:
 
 def test_authorization_details_preserves_user_and_role_policies(tmp_path: Path) -> None:
     admin_arn = "arn:aws:iam::aws:policy/AdministratorAccess"
-    pages = [{
-        "UserDetailList": [{
-            "UserName": "alice",
-            "Arn": "arn:aws:iam::123456789012:user/alice",
-            "AttachedManagedPolicies": [{"PolicyName": "AdministratorAccess", "PolicyArn": admin_arn}],
-            "UserPolicyList": [{
-                "PolicyName": "inline",
-                "PolicyDocument": {"Version": "2012-10-17", "Statement": []},
-            }],
-        }],
-        "RoleDetailList": [{
-            "RoleName": "app-role",
-            "Arn": "arn:aws:iam::123456789012:role/app-role",
-            "AttachedManagedPolicies": [{"PolicyName": "ReadOnlyAccess",
-                                          "PolicyArn": "arn:aws:iam::aws:policy/ReadOnlyAccess"}],
-            "RolePolicyList": [],
-            "AssumeRolePolicyDocument": {"Version": "2012-10-17", "Statement": []},
-        }],
-        "GroupDetailList": [],
-        "Policies": [{
-            "Arn": admin_arn,
-            "PolicyVersionList": [{
-                "IsDefaultVersion": True,
-                "Document": {"Version": "2012-10-17", "Statement": [{"Effect": "Allow", "Action": "*", "Resource": "*"}]},
-            }],
-        }],
-    }]
+    pages = [
+        {
+            "UserDetailList": [
+                {
+                    "UserName": "alice",
+                    "Arn": "arn:aws:iam::123456789012:user/alice",
+                    "AttachedManagedPolicies": [
+                        {"PolicyName": "AdministratorAccess", "PolicyArn": admin_arn}
+                    ],
+                    "UserPolicyList": [
+                        {
+                            "PolicyName": "inline",
+                            "PolicyDocument": {"Version": "2012-10-17", "Statement": []},
+                        }
+                    ],
+                }
+            ],
+            "RoleDetailList": [
+                {
+                    "RoleName": "app-role",
+                    "Arn": "arn:aws:iam::123456789012:role/app-role",
+                    "AttachedManagedPolicies": [
+                        {
+                            "PolicyName": "ReadOnlyAccess",
+                            "PolicyArn": "arn:aws:iam::aws:policy/ReadOnlyAccess",
+                        }
+                    ],
+                    "RolePolicyList": [],
+                    "AssumeRolePolicyDocument": {"Version": "2012-10-17", "Statement": []},
+                }
+            ],
+            "GroupDetailList": [],
+            "Policies": [
+                {
+                    "Arn": admin_arn,
+                    "PolicyVersionList": [
+                        {
+                            "IsDefaultVersion": True,
+                            "Document": {
+                                "Version": "2012-10-17",
+                                "Statement": [{"Effect": "Allow", "Action": "*", "Resource": "*"}],
+                            },
+                        }
+                    ],
+                }
+            ],
+        }
+    ]
 
     cf = MagicMock()
     client = MagicMock()
@@ -92,10 +113,14 @@ def test_authorization_details_preserves_user_and_role_policies(tmp_path: Path) 
 def test_managed_policy_doc_index_parses_url_encoded_document() -> None:
     doc = {"Version": "2012-10-17", "Statement": []}
     encoded = json.dumps(doc)
-    index = _managed_policy_doc_index([{
-        "Arn": "arn:aws:iam::aws:policy/ReadOnlyAccess",
-        "PolicyVersionList": [{"IsDefaultVersion": True, "Document": encoded}],
-    }])
+    index = _managed_policy_doc_index(
+        [
+            {
+                "Arn": "arn:aws:iam::aws:policy/ReadOnlyAccess",
+                "PolicyVersionList": [{"IsDefaultVersion": True, "Document": encoded}],
+            }
+        ]
+    )
     assert index["arn:aws:iam::aws:policy/ReadOnlyAccess"] == doc
 
 

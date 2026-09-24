@@ -87,9 +87,7 @@ class RuntimeLogsCollector(NodePlaneCollector):
                 "config.json",
             )
         )
-        self.write_meta(
-            {"source": self.name, "records": len(records), "distro": distro.family}
-        )
+        self.write_meta({"source": self.name, "records": len(records), "distro": distro.family})
 
         gaps: list[tuple[str, GapReason, str]] = []
         live_ok = bool(snapshot.get("available"))
@@ -145,9 +143,7 @@ class RuntimeLogsCollector(NodePlaneCollector):
             notes=note,
         )
 
-    def _resolve_journal(
-        self, runtime: Any, attempted: list[str]
-    ) -> tuple[dict[str, Any], str, bool]:
+    def _resolve_journal(self, runtime: Any, attempted: list[str]) -> tuple[dict[str, Any], str, bool]:
         """The runtime's own unit, then the distro unit that embeds it."""
         node = self.node
         distro = self.distro()
@@ -155,9 +151,7 @@ class RuntimeLogsCollector(NodePlaneCollector):
             runtime.runtime, "containerd"
         )
         attempted.append(f"journalctl -u {unit}")
-        result = collect_unit(
-            node, unit, fallback_files=(f"/var/log/{unit}.log", "/var/log/syslog")
-        )
+        result = collect_unit(node, unit, fallback_files=(f"/var/log/{unit}.log", "/var/log/syslog"))
         if result["available"] and result["records"]:
             return result, unit, False
 
@@ -195,7 +189,7 @@ class RuntimeLogsCollector(NodePlaneCollector):
         """
         if not snapshot.get("available") or not node.have("crictl"):
             return []
-        containers = (snapshot.get("containers") or {})
+        containers = snapshot.get("containers") or {}
         rows = containers.get("containers") if isinstance(containers, dict) else None
         if not rows:
             return []

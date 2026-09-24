@@ -21,11 +21,11 @@ from urllib.parse import unquote
 
 from botocore.exceptions import ClientError
 
+from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import param_bool
 from collector.lib.scoping import filter_iam_policies, filter_iam_roles, filter_iam_users
-from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
 
 class IamCollector(Collector):
@@ -137,13 +137,13 @@ class IamCollector(Collector):
             record_count=len(users) + len(roles),
             gaps=gaps,
             notes=(
-                f"{len(users)} users, {len(roles)} roles, "
-                f"{attached} attached + {inline} inline policies."
+                f"{len(users)} users, {len(roles)} roles, {attached} attached + {inline} inline policies."
             ),
         )
 
     def _fetch_authorization_details(
-        self, cf,
+        self,
+        cf,
     ) -> tuple[list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
         """One paginated sweep — users/roles/groups include attached + inline policies."""
         users: list[dict[str, Any]] = []
@@ -190,9 +190,9 @@ class IamCollector(Collector):
                         )
                     )
                     detail["UserPolicyList"] = self._inline_user_policies(cf, uname)
-                    detail["GroupList"] = cf.call(
-                        "iam", None, "list_groups_for_user", UserName=uname
-                    ).get("Groups", [])
+                    detail["GroupList"] = cf.call("iam", None, "list_groups_for_user", UserName=uname).get(
+                        "Groups", []
+                    )
                     detail["GroupList"] = [g.get("GroupName", "") for g in detail["GroupList"]]
                 except AccessDenied as exc:
                     gaps.append(("iam", GapReason.ACCESS_DENIED, f"{uname}: {exc.message}"))
@@ -269,9 +269,7 @@ class IamCollector(Collector):
         return out
 
     def _inline_group_policies(self, cf, group_name: str) -> list[dict[str, Any]]:
-        names = cf.call("iam", None, "list_group_policies", GroupName=group_name).get(
-            "PolicyNames", []
-        )
+        names = cf.call("iam", None, "list_group_policies", GroupName=group_name).get("PolicyNames", [])
         out: list[dict[str, Any]] = []
         for pname in names:
             pol = cf.call("iam", None, "get_group_policy", GroupName=group_name, PolicyName=pname)
@@ -284,18 +282,16 @@ class IamCollector(Collector):
             if not uname:
                 continue
             try:
-                keys = cf.call("iam", None, "list_access_keys", UserName=uname).get(
-                    "AccessKeyMetadata", []
-                )
+                keys = cf.call("iam", None, "list_access_keys", UserName=uname).get("AccessKeyMetadata", [])
                 for k in keys:
-                    last = cf.call(
-                        "iam", None, "get_access_key_last_used", AccessKeyId=k["AccessKeyId"]
-                    ).get("AccessKeyLastUsed", {})
+                    last = cf.call("iam", None, "get_access_key_last_used", AccessKeyId=k["AccessKeyId"]).get(
+                        "AccessKeyLastUsed", {}
+                    )
                     k["LastUsed"] = last
                 user["AccessKeys"] = keys
-                user["MFADevices"] = cf.call(
-                    "iam", None, "list_mfa_devices", UserName=uname
-                ).get("MFADevices", [])
+                user["MFADevices"] = cf.call("iam", None, "list_mfa_devices", UserName=uname).get(
+                    "MFADevices", []
+                )
             except (AccessDenied, ServiceNotEnabled):
                 continue
 

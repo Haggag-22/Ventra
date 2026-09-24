@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from collector.lib.base import CollectorRegistry
 from collector.engine.api.azure.control_plane.activity_log import ActivityLogCollector
 from collector.engine.api.azure.control_plane.diag_posture import DiagPostureCollector
 from collector.engine.api.azure.control_plane.log_analytics import LogAnalyticsCollector
@@ -24,7 +23,10 @@ from collector.engine.api.azure.network.nsg_flow import NsgFlowCollector
 from collector.engine.api.azure.network.vnet_flow import VNetFlowCollector
 from collector.engine.api.azure.workloads.aks_audit import AksAuditCollector
 from collector.engine.api.azure.workloads.key_vault import KeyVaultCollector
-from collector.engine.api.azure.workloads.storage_access import StorageAccessCollector as AzureStorageAccessCollector
+from collector.engine.api.azure.workloads.storage_access import (
+    StorageAccessCollector as AzureStorageAccessCollector,
+)
+from collector.lib.base import CollectorRegistry
 
 _COLLECTOR_CLASSES = (
     SubscriptionCollector,

@@ -12,11 +12,9 @@ crictl is required: external commands come from a lookup table.
 
 from __future__ import annotations
 
-import gzip
 import json
 from pathlib import Path
 
-import pytest
 from collector.clouds.kubernetes.node import NodeAccess
 from collector.engine.api.kubernetes.api_plane.audit_posture import AuditPostureCollector
 from collector.engine.api.kubernetes.common.distro import detect_distro
@@ -206,9 +204,7 @@ def test_k3s_audit_posture_reads_flags_from_distro_config(tmp_path: Path) -> Non
     )
     node = _node(tmp_path, files)
     result = AuditPostureCollector(_ctx(tmp_path, node)).collect()
-    config = json.loads(
-        (tmp_path / "staging" / "sources" / "k8s_audit_posture" / "config.json").read_text()
-    )
+    config = json.loads((tmp_path / "staging" / "sources" / "k8s_audit_posture" / "config.json").read_text())
     assert config["audit_enabled"] is True
     assert config["distro"]["family"] == "k3s"
     assert config["flags"]["audit-log-path"] == "/var/log/kubernetes/audit/audit.log"
@@ -222,9 +218,7 @@ def test_audit_posture_uses_the_log_on_disk_when_no_flag_source_exists(tmp_path:
         {"/var/log/kubernetes/audit/audit.log": "{}\n", "/var/log/pods/": ""},
     )
     result = AuditPostureCollector(_ctx(tmp_path, node)).collect()
-    config = json.loads(
-        (tmp_path / "staging" / "sources" / "k8s_audit_posture" / "config.json").read_text()
-    )
+    config = json.loads((tmp_path / "staging" / "sources" / "k8s_audit_posture" / "config.json").read_text())
     assert config["audit_enabled"] is True
     assert config["audit_log_on_disk"] == "/var/log/kubernetes/audit/audit.log"
     # Not the critical "disabled" finding; the honest one is that the policy is unknown.
@@ -247,9 +241,7 @@ def test_audit_posture_undetermined_is_not_reported_as_disabled(tmp_path: Path) 
 def test_k3s_sqlite_datastore_is_reported_with_the_right_controls(tmp_path: Path) -> None:
     node = _node(tmp_path, K3S_SERVER_FILES)
     result = EtcdCollector(_ctx(tmp_path, node)).collect()
-    config = json.loads(
-        (tmp_path / "staging" / "sources" / "k8s_etcd" / "config.json").read_text()
-    )
+    config = json.loads((tmp_path / "staging" / "sources" / "k8s_etcd" / "config.json").read_text())
     datastore = config["datastore"]
     assert datastore["kind"] == "sqlite"
     assert datastore["path"] == "/var/lib/rancher/k3s/server/db/state.db"
@@ -273,9 +265,7 @@ def test_k3s_etcd_reads_the_merged_server_journal(tmp_path: Path) -> None:
     result = EtcdCollector(_ctx(tmp_path, node)).collect()
     assert result.record_count == 1
     assert (tmp_path / "staging" / "sources" / "k8s_etcd" / "etcd.jsonl.gz").exists()
-    config = json.loads(
-        (tmp_path / "staging" / "sources" / "k8s_etcd" / "config.json").read_text()
-    )
+    config = json.loads((tmp_path / "staging" / "sources" / "k8s_etcd" / "config.json").read_text())
     assert "journalctl -u k3s" in config["log_source"]
     assert "merged" in config["log_source"]
 
@@ -287,9 +277,7 @@ def test_k3s_kubelet_falls_back_to_the_agent_unit(tmp_path: Path) -> None:
         journals={"journalctl -u k3s": _journal("k3s", "Started kubelet", "SyncLoop ADD")},
     )
     result = KubeletLogsCollector(_ctx(tmp_path, node)).collect()
-    config = json.loads(
-        (tmp_path / "staging" / "sources" / "k8s_kubelet_logs" / "config.json").read_text()
-    )
+    config = json.loads((tmp_path / "staging" / "sources" / "k8s_kubelet_logs" / "config.json").read_text())
     assert result.record_count == 2
     assert config["unit"] == "k3s"
     assert config["shared_unit"] is True
@@ -325,9 +313,7 @@ def test_k3s_runtime_uses_embedded_socket_when_no_containerd_unit(tmp_path: Path
     endpoint = crictl_calls[0][crictl_calls[0].index("--runtime-endpoint") + 1]
     assert endpoint.startswith("unix://")
     assert endpoint.endswith("/run/k3s/containerd/containerd.sock")
-    config = json.loads(
-        (tmp_path / "staging" / "sources" / "k8s_runtime_logs" / "config.json").read_text()
-    )
+    config = json.loads((tmp_path / "staging" / "sources" / "k8s_runtime_logs" / "config.json").read_text())
     assert config["runtime"]["runtime"] == "containerd"
     assert config["runtime"]["socket"] == "/run/k3s/containerd/containerd.sock"
     assert config["live_state_available"] is True
@@ -364,9 +350,7 @@ def test_rke2_reads_audit_flags_from_its_pod_manifests(tmp_path: Path) -> None:
     assert audit.status == SourceStatus.EMPTY  # configured but the file is not on this node
 
     etcd = EtcdCollector(_ctx(tmp_path, node)).collect()
-    etcd_config = json.loads(
-        (tmp_path / "staging" / "sources" / "k8s_etcd" / "config.json").read_text()
-    )
+    etcd_config = json.loads((tmp_path / "staging" / "sources" / "k8s_etcd" / "config.json").read_text())
     assert etcd_config["distro"]["family"] == "rke2"
     assert etcd_config["datastore"]["kind"] == "etcd"
     assert etcd.status in (SourceStatus.COLLECTED, SourceStatus.PARTIAL)
@@ -383,18 +367,14 @@ def test_microk8s_reads_flags_from_its_args_file(tmp_path: Path) -> None:
         },
     )
     result = AuditPostureCollector(_ctx(tmp_path, node)).collect()
-    config = json.loads(
-        (tmp_path / "staging" / "sources" / "k8s_audit_posture" / "config.json").read_text()
-    )
+    config = json.loads((tmp_path / "staging" / "sources" / "k8s_audit_posture" / "config.json").read_text())
     assert config["distro"]["family"] == "microk8s"
     assert config["audit_enabled"] is True
     assert config["flags"]["audit-log-path"] == "/var/snap/microk8s/current/audit.log"
     assert any("maxage=7" in g[2] for g in result.gaps)  # short retention still surfaces
 
     etcd = EtcdCollector(_ctx(tmp_path, node)).collect()
-    etcd_config = json.loads(
-        (tmp_path / "staging" / "sources" / "k8s_etcd" / "config.json").read_text()
-    )
+    etcd_config = json.loads((tmp_path / "staging" / "sources" / "k8s_etcd" / "config.json").read_text())
     assert etcd_config["datastore"]["kind"] == "dqlite"
     assert etcd.status in (SourceStatus.COLLECTED, SourceStatus.PARTIAL)
 
@@ -427,5 +407,3 @@ def test_managed_worker_gaps_cleanly_on_every_control_plane_collector(tmp_path: 
     kubelet = KubeletLogsCollector(ctx).collect()
     assert kubelet.status == SourceStatus.EMPTY
     assert "Tried:" in kubelet.gaps[0][2]
-
-

@@ -84,6 +84,7 @@ def duckdb_available() -> bool:
 
 # --- SQL literal / path helpers -----------------------------------------------------------
 
+
 def _sql_str(value: str) -> str:
     """A safely-quoted SQL string literal (doubles embedded single quotes)."""
     return "'" + value.replace("'", "''") + "'"
@@ -125,14 +126,12 @@ def _present_not_null(col: str, base: str, path: str) -> str:
 
 def _severity_case(col: str, base: str) -> str:
     sev = _str_coalesced(col, base, "severity")
-    whens = " ".join(
-        f"WHEN {_sql_str(name)} THEN {rank}"
-        for name, rank in _SEVERITY_RANK.items()
-    )
+    whens = " ".join(f"WHEN {_sql_str(name)} THEN {rank}" for name, rank in _SEVERITY_RANK.items())
     return f"(CASE UPPER({sev}) {whens} ELSE 0 END)"
 
 
 # --- grammar translation (mirrors gcp_log_export._eval_*) ----------------------------------
+
 
 def filter_to_sql(filter_str: str, col: str, base: str) -> str:
     """Translate a Cloud Logging filter into a SQL boolean over JSON column ``col``.
@@ -175,7 +174,7 @@ def _atom_to_sql(expr: str, col: str, base: str) -> str:  # noqa: C901 — mirro
     ln = _str_coalesced(col, base, "logName")
 
     # logName:("a" OR "b")  — substring match on any option (raw or URL-decoded)
-    m = re.match(r'^logName:\((.+)\)$', text, re.DOTALL)
+    m = re.match(r"^logName:\((.+)\)$", text, re.DOTALL)
     if m:
         options = re.findall(r'"([^"]+)"', m.group(1))
         return "(" + " OR ".join(_logname_contains(ln, opt) for opt in options) + ")" if options else "TRUE"
@@ -193,7 +192,7 @@ def _atom_to_sql(expr: str, col: str, base: str) -> str:  # noqa: C901 — mirro
     if m:
         return f"{_str_coalesced(col, base, 'protoPayload.serviceName')} = {_sql_str(m.group(1))}"
 
-    m = re.match(r'^protoPayload\.methodName=\((.+)\)$', text)
+    m = re.match(r"^protoPayload\.methodName=\((.+)\)$", text)
     if m:
         options = re.findall(r'"([^"]+)"', m.group(1))
         lhs = _str_coalesced(col, base, "protoPayload.methodName")
@@ -249,6 +248,7 @@ def _logname_contains(ln_expr: str, fragment: str) -> str:
 
 
 # --- window + project-scope predicates (mirror entry_in_window / entry_in_project_scope) ----
+
 
 def _timestamp_expr(col: str, base: str) -> str:
     ts = _str_coalesced(col, base, "timestamp")
@@ -373,9 +373,7 @@ def duckdb_filter_raw_entries(
     rows = list(entries)
     if not rows:
         return []
-    where = build_entry_where(
-        log_filter, "json", "e.", start=start, end=end, project_scope=project_scope
-    )
+    where = build_entry_where(log_filter, "json", "e.", start=start, end=end, project_scope=project_scope)
     windowed = start is not None or end is not None
     con = _connect()
     tmp = Path(tempfile.mkstemp(prefix="ventra-dfilter-", suffix=".jsonl")[1])
@@ -385,23 +383,25 @@ def duckdb_filter_raw_entries(
                 fh.write(json.dumps({"i": idx, "e": entry}, default=str))
                 fh.write("\n")
         src = f"read_json_objects({_sql_str(str(tmp))}, format='newline_delimited')"
-        sql = (
-            f"SELECT CAST(json_extract(json, '$.i') AS BIGINT) AS i FROM {src} "
-            f"WHERE {where} ORDER BY i"
-        )
+        sql = f"SELECT CAST(json_extract(json, '$.i') AS BIGINT) AS i FROM {src} WHERE {where} ORDER BY i"
         idxs = [r[0] for r in con.execute(sql).fetchall()]
 
         if counters is not None and windowed:
             fs_where = build_entry_where(
-                log_filter, "json", "e.", start=start, end=end,
-                project_scope=project_scope, include_window=False,
+                log_filter,
+                "json",
+                "e.",
+                start=start,
+                end=end,
+                project_scope=project_scope,
+                include_window=False,
             )
             null_ts = _timestamp_null_sql("json", "e.")
             count_sql = f"SELECT count(*) FROM {src} WHERE ({fs_where}) AND {null_ts}"
             excluded = con.execute(count_sql).fetchone()[0]
             if excluded:
-                counters["excluded_unparseable_ts"] = (
-                    counters.get("excluded_unparseable_ts", 0) + int(excluded)
+                counters["excluded_unparseable_ts"] = counters.get("excluded_unparseable_ts", 0) + int(
+                    excluded
                 )
         return [rows[i] for i in idxs]
     finally:
@@ -476,9 +476,7 @@ class GcpEntryMatcher:
                 return [normalize_log_entry(e) for e in matched]
             except Exception as exc:  # noqa: BLE001 — any failure => Python path, never drop rows
                 self._use_duckdb = False
-                _LOG.warning(
-                    "gcp duckdb filter failed (%s); falling back to python filtering", exc
-                )
+                _LOG.warning("gcp duckdb filter failed (%s); falling back to python filtering", exc)
         return self._python_filter(raw_entries)
 
     def _python_filter(self, raw_entries: list[dict[str, Any]]) -> list[dict[str, Any]]:

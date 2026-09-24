@@ -11,12 +11,13 @@ from typing import Any
 
 from botocore.exceptions import ClientError
 
+from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.limits import DEFAULT_MAX_RECORDS
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import effective_window
 from collector.lib.scoping import filter_lambda_log_targets
-from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
+
 from ..common.cw_logs import collect_cw_log_events
 
 DEFAULT_WINDOW_DAYS = 7
@@ -46,8 +47,7 @@ class LambdaLogsCollector(Collector):
             return SourceResult(
                 name=self.name,
                 status=SourceStatus.EMPTY,
-                gaps=gaps
-                or [("lambda_logs", GapReason.NOT_PRESENT, "No Lambda functions in scope.")],
+                gaps=gaps or [("lambda_logs", GapReason.NOT_PRESENT, "No Lambda functions in scope.")],
                 notes="No Lambda functions found.",
             )
 
@@ -116,9 +116,7 @@ class LambdaLogsCollector(Collector):
             status = SourceStatus.PARTIAL if gaps else SourceStatus.COLLECTED
         elif with_groups:
             status = SourceStatus.PARTIAL if gaps else SourceStatus.EMPTY
-            gaps.append(
-                ("lambda_logs", GapReason.NOT_PRESENT, "No Lambda log records in window.")
-            )
+            gaps.append(("lambda_logs", GapReason.NOT_PRESENT, "No Lambda log records in window."))
         else:
             status = SourceStatus.EMPTY
         return SourceResult(

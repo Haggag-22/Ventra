@@ -4,12 +4,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from collector.clouds.gcp.client_factory import GcpAccessDenied, GcpServiceNotEnabled
 from collector.lib.base import Collector
+from collector.lib.limits import DEFAULT_MAX_RECORDS as MAX_RECORDS
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.scoping import filter_scc_findings
-from collector.clouds.gcp.client_factory import GcpAccessDenied, GcpServiceNotEnabled
-
-from collector.lib.limits import DEFAULT_MAX_RECORDS as MAX_RECORDS
 
 
 class SccFindingsCollector(Collector):
@@ -52,11 +51,7 @@ class SccFindingsCollector(Collector):
 
         findings = filter_scc_findings(findings, params)
 
-        files = [
-            self.write_json(
-                {"organization_id": org_id, "artifact_parameters": params}, "config.json"
-            )
-        ]
+        files = [self.write_json({"organization_id": org_id, "artifact_parameters": params}, "config.json")]
         if findings:
             files.append(self.write_jsonl(findings, "events.jsonl.gz"))
 

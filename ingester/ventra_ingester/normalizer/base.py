@@ -95,9 +95,7 @@ class NormalizeContext:
     collected_at: str = ""
 
 
-def normalize_source(
-    source: str, records: list[dict], ctx: NormalizeContext
-) -> Iterator[UnifiedEvent]:
+def normalize_source(source: str, records: list[dict], ctx: NormalizeContext) -> Iterator[UnifiedEvent]:
     fn = SOURCE_NORMALIZERS.get(source)
     if fn is None:
         return iter(())

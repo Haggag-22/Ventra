@@ -88,9 +88,9 @@ def test_gcp_attack_story_present(gcp_demo_case) -> None:
 
     # No generic data_access rows remain for this fixture — every row's serviceName maps to
     # a known subset (storage/secretmanager/bigquery), so cloud_audit_data itself is empty.
-    generic = con.execute(
-        f"SELECT count(*) FROM '{path}' WHERE ventra_source='cloud_audit_data'"
-    ).fetchone()[0]
+    generic = con.execute(f"SELECT count(*) FROM '{path}' WHERE ventra_source='cloud_audit_data'").fetchone()[
+        0
+    ]
     assert generic == 0
 
     # secretmanager.googleapis.com and bigquery.googleapis.com rows are reclassified too.
@@ -99,9 +99,7 @@ def test_gcp_attack_story_present(gcp_demo_case) -> None:
         "AND event_action LIKE '%AccessSecretVersion%'"
     ).fetchone()[0]
     assert secrets >= 3
-    bq = con.execute(
-        f"SELECT count(*) FROM '{path}' WHERE ventra_source='bigquery_audit'"
-    ).fetchone()[0]
+    bq = con.execute(f"SELECT count(*) FROM '{path}' WHERE ventra_source='bigquery_audit'").fetchone()[0]
     assert bq >= 2
 
     # gcp_findings normalizer: SCC findings carry the finding kind.
@@ -118,7 +116,6 @@ def test_gcp_attack_story_present(gcp_demo_case) -> None:
 
     # login_events normalizer: the foreign-IP session is captured.
     login = con.execute(
-        f"SELECT count(*) FROM '{path}' WHERE ventra_source='login_events' "
-        "AND source_ip='203.0.113.66'"
+        f"SELECT count(*) FROM '{path}' WHERE ventra_source='login_events' AND source_ip='203.0.113.66'"
     ).fetchone()[0]
     assert login >= 1

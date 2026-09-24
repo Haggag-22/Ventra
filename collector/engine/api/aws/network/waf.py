@@ -13,10 +13,10 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
+from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.scoping import filter_waf_acls
-from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
 # GetSampledRequests API maximum.
 MAX_SAMPLED_REQUESTS = 500
@@ -64,11 +64,17 @@ class WafCollector(Collector):
                 acl = {"scope": scope, "region": region, "summary": summary}
                 try:
                     acl["detail"] = cf.call(
-                        "wafv2", region, "get_web_acl",
-                        Name=summary["Name"], Scope=scope, Id=summary["Id"],
+                        "wafv2",
+                        region,
+                        "get_web_acl",
+                        Name=summary["Name"],
+                        Scope=scope,
+                        Id=summary["Id"],
                     ).get("WebACL", {})
                     acl["logging"] = cf.call(
-                        "wafv2", region, "get_logging_configuration",
+                        "wafv2",
+                        region,
+                        "get_logging_configuration",
                         ResourceArn=summary["ARN"],
                     ).get("LoggingConfiguration", {})
                 except ServiceNotEnabled:
@@ -88,16 +94,17 @@ class WafCollector(Collector):
 
         if any(a.get("logging") in (None, {}) for a in acls):
             gaps.append(
-                ("waf_logging", GapReason.LOGGING_NOT_CONFIGURED,
-                 "One or more Web ACLs have no logging configuration.")
+                (
+                    "waf_logging",
+                    GapReason.LOGGING_NOT_CONFIGURED,
+                    "One or more Web ACLs have no logging configuration.",
+                )
             )
 
         files = [self.write_json({"web_acls": acls, "artifact_parameters": params}, "config.json")]
         if samples:
             files.append(self.write_jsonl(samples, "events.jsonl.gz"))
-        self.write_meta(
-            {"source": self.name, "web_acls": len(acls), "sampled_requests": len(samples)}
-        )
+        self.write_meta({"source": self.name, "web_acls": len(acls), "sampled_requests": len(samples)})
         return SourceResult(
             name=self.name,
             status=SourceStatus.COLLECTED,
@@ -130,7 +137,9 @@ class WafCollector(Collector):
         for metric in dict.fromkeys(metrics):  # dedupe, keep order
             try:
                 resp = cf.call(
-                    "wafv2", region, "get_sampled_requests",
+                    "wafv2",
+                    region,
+                    "get_sampled_requests",
                     WebAclArn=arn,
                     RuleMetricName=metric,
                     Scope=scope,

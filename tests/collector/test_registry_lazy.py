@@ -7,7 +7,6 @@ import sys
 import zipfile
 from pathlib import Path
 
-
 from collector.kit.build import build_kit
 
 ARTIFACTS = Path("artifacts")

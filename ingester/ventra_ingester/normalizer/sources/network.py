@@ -14,9 +14,20 @@ from ..base import NormalizeContext, UnifiedEvent, register
 
 # Default VPC Flow Logs v2 field order.
 V2_FIELDS = [
-    "version", "account_id", "interface_id", "srcaddr", "dstaddr",
-    "srcport", "dstport", "protocol", "packets", "bytes",
-    "start", "end", "action", "log_status",
+    "version",
+    "account_id",
+    "interface_id",
+    "srcaddr",
+    "dstaddr",
+    "srcport",
+    "dstport",
+    "protocol",
+    "packets",
+    "bytes",
+    "start",
+    "end",
+    "action",
+    "log_status",
 ]
 
 

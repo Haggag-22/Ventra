@@ -4,8 +4,8 @@ from __future__ import annotations
 
 from collector.engine.api.aws.runner import AwsRunConfig, run_aws_collection
 from collector.engine.api.azure.runner import AzureRunConfig, run_azure_collection
-from collector.engine.executor import list_collectors
 from collector.engine.api.gcp.runner import GcpRunConfig, run_gcp_collection
+from collector.engine.executor import list_collectors
 
 __all__ = [
     "AwsRunConfig",

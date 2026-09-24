@@ -113,11 +113,7 @@ def test_management_events_configured_default_is_on() -> None:
 
 def test_management_events_configured_classic_include_flag() -> None:
     on = {"EventSelectors": {"EventSelectors": [{"IncludeManagementEvents": True}]}}
-    off = {
-        "EventSelectors": {
-            "EventSelectors": [{"IncludeManagementEvents": False, "DataResources": [{}]}]
-        }
-    }
+    off = {"EventSelectors": {"EventSelectors": [{"IncludeManagementEvents": False, "DataResources": [{}]}]}}
     assert management_events_configured(on) is True
     assert management_events_configured(off) is False
 
@@ -132,9 +128,7 @@ def test_management_events_configured_advanced_selectors() -> None:
     }
     data_only = {
         "EventSelectors": {
-            "AdvancedEventSelectors": [
-                {"FieldSelectors": [{"Field": "eventCategory", "Equals": ["Data"]}]}
-            ]
+            "AdvancedEventSelectors": [{"FieldSelectors": [{"Field": "eventCategory", "Equals": ["Data"]}]}]
         }
     }
     assert management_events_configured(mgmt) is True

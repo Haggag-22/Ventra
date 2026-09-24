@@ -7,11 +7,12 @@ marked failed so the UI renders collectors + the error instead of hanging.
 
 from __future__ import annotations
 
+from console.backend.app import run_service
+
 import collector.engine.run_launcher as run_launcher
 from collector.engine.api_reporter import ApiReporter
 from collector.engine.matrix_state import MatrixState
 from collector.engine.run_launcher import RunLaunchRequest
-from console.backend.app import run_service
 
 
 class _Sink:

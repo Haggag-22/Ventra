@@ -108,9 +108,7 @@ class ApiserverAuditCollector(NodePlaneCollector):
                 "config.json",
             )
         )
-        self.write_meta(
-            {"source": self.name, "records": len(records), "distro": self.distro().family}
-        )
+        self.write_meta({"source": self.name, "records": len(records), "distro": self.distro().family})
 
         if backend["webhook_config"]:
             gaps.append(
@@ -133,8 +131,10 @@ class ApiserverAuditCollector(NodePlaneCollector):
                     )
                 )
 
-        status = SourceStatus.PARTIAL if (gaps and not records) else (
-            SourceStatus.COLLECTED if records else SourceStatus.EMPTY
+        status = (
+            SourceStatus.PARTIAL
+            if (gaps and not records)
+            else (SourceStatus.COLLECTED if records else SourceStatus.EMPTY)
         )
         return SourceResult(
             name=self.name,
@@ -170,9 +170,7 @@ class ApiserverAuditCollector(NodePlaneCollector):
             out["source"] = f"{origin} (--audit-log-path={configured})"
             # The configured path wins, but still try the defaults: on a rotated-away or
             # relocated log a sibling default occasionally holds the evidence.
-            out["candidates"] = [configured] + [
-                p for p in _DEFAULT_AUDIT_PATHS if p != configured
-            ]
+            out["candidates"] = [configured] + [p for p in _DEFAULT_AUDIT_PATHS if p != configured]
         elif resolved.determined:
             out["source"] = (
                 f"no --audit-log-path in {', '.join(resolved.evidence)}; "
@@ -189,11 +187,7 @@ class ApiserverAuditCollector(NodePlaneCollector):
         """Every existing audit log: each candidate plus its rotated siblings (incl. ``.gz``)."""
         out: list[str] = []
         for audit_path in candidates:
-            if (
-                audit_path not in out
-                and node.exists(audit_path)
-                and not node.is_dir(audit_path)
-            ):
+            if audit_path not in out and node.exists(audit_path) and not node.is_dir(audit_path):
                 out.append(audit_path)
             # kube-apiserver rotates to ``audit-<timestamp>.log`` next to the active file.
             name = audit_path.rsplit("/", 1)[-1]
@@ -378,11 +372,7 @@ def _delete_bursts(deletes: list[dict[str, Any]], *, threshold: int = 10) -> lis
     for rec in deletes:
         user = (rec.get("user") or {}).get("username", "")
         by_user[user] = by_user.get(user, 0) + 1
-    return [
-        {"user": user, "delete_count": count}
-        for user, count in by_user.items()
-        if count >= threshold
-    ]
+    return [{"user": user, "delete_count": count} for user, count in by_user.items() if count >= threshold]
 
 
 def _ip_in_admin_range(ips: list[str], cidrs: list[str]) -> bool:

@@ -12,12 +12,13 @@ from typing import Any
 
 from botocore.exceptions import ClientError
 
+from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.limits import DEFAULT_MAX_RECORDS
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import effective_window
 from collector.lib.scoping import filter_apigateway_stages
-from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
+
 from ..common.cw_logs import collect_cw_log_events, parse_log_group_arn
 
 DEFAULT_WINDOW_DAYS = 7
@@ -45,8 +46,7 @@ class ApigatewayCollector(Collector):
             return SourceResult(
                 name=self.name,
                 status=SourceStatus.EMPTY,
-                gaps=gaps
-                or [("apigateway", GapReason.NOT_PRESENT, "No API Gateway stages in scope.")],
+                gaps=gaps or [("apigateway", GapReason.NOT_PRESENT, "No API Gateway stages in scope.")],
                 notes="No API Gateway stages found.",
             )
 
@@ -61,8 +61,7 @@ class ApigatewayCollector(Collector):
                 (
                     "apigateway",
                     GapReason.LOGGING_NOT_CONFIGURED,
-                    f"Access logging disabled on {len(unlogged)}/{len(stages)} "
-                    f"stage(s): {names}{more}.",
+                    f"Access logging disabled on {len(unlogged)}/{len(stages)} stage(s): {names}{more}.",
                 )
             )
         for stage in non_cw:
@@ -132,9 +131,7 @@ class ApigatewayCollector(Collector):
         elif logged:
             status = SourceStatus.PARTIAL if gaps else SourceStatus.EMPTY
             if not any(g[1] == GapReason.NOT_PRESENT for g in gaps):
-                gaps.append(
-                    ("apigateway", GapReason.NOT_PRESENT, "No access-log records in window.")
-                )
+                gaps.append(("apigateway", GapReason.NOT_PRESENT, "No access-log records in window."))
         else:
             status = SourceStatus.EMPTY
         return SourceResult(
@@ -154,9 +151,7 @@ class ApigatewayCollector(Collector):
                     api_id = api.get("id", "")
                     api_name = api.get("name", api_id)
                     try:
-                        stages = cf.call(
-                            "apigateway", region, "get_stages", restApiId=api_id
-                        ).get("item", [])
+                        stages = cf.call("apigateway", region, "get_stages", restApiId=api_id).get("item", [])
                     except (AccessDenied, ServiceNotEnabled, ClientError):
                         continue
                     for stage in stages:
@@ -180,9 +175,7 @@ class ApigatewayCollector(Collector):
                     api_id = api.get("ApiId", "")
                     api_name = api.get("Name", api_id)
                     try:
-                        stages = cf.call(
-                            "apigatewayv2", region, "get_stages", ApiId=api_id
-                        ).get("Items", [])
+                        stages = cf.call("apigatewayv2", region, "get_stages", ApiId=api_id).get("Items", [])
                     except (AccessDenied, ServiceNotEnabled, ClientError):
                         continue
                     for stage in stages:

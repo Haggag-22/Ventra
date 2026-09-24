@@ -7,10 +7,10 @@ events come from CloudTrail; here we capture the configuration state.
 
 from __future__ import annotations
 
+from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.scoping import filter_kms_keys
-from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
 
 class KmsCollector(Collector):
@@ -49,9 +49,7 @@ class KmsCollector(Collector):
                         entry["policy"] = cf.call(
                             "kms", region, "get_key_policy", KeyId=kid, PolicyName="default"
                         ).get("Policy")
-                        entry["grants"] = list(
-                            cf.paginate("kms", region, "list_grants", "Grants", KeyId=kid)
-                        )
+                        entry["grants"] = list(cf.paginate("kms", region, "list_grants", "Grants", KeyId=kid))
                 except (AccessDenied, ServiceNotEnabled):
                     pass
                 keys.append(entry)

@@ -11,9 +11,7 @@ from .params import matches_any, matches_prefix, param_int, param_raw, param_str
 CLOUDTRAIL_SOURCE_TRAIL = "trail"
 CLOUDTRAIL_SOURCE_BUCKET = "bucket"
 CLOUDTRAIL_SOURCE_LOOKUP = "lookup_events"
-CLOUDTRAIL_SOURCES = frozenset(
-    {CLOUDTRAIL_SOURCE_TRAIL, CLOUDTRAIL_SOURCE_BUCKET, CLOUDTRAIL_SOURCE_LOOKUP}
-)
+CLOUDTRAIL_SOURCES = frozenset({CLOUDTRAIL_SOURCE_TRAIL, CLOUDTRAIL_SOURCE_BUCKET, CLOUDTRAIL_SOURCE_LOOKUP})
 
 _BLOB_HOUR_RE = re.compile(r"/y=(\d{4})/m=(\d{2})/d=(\d{2})/h=(\d{2})/")
 
@@ -315,9 +313,7 @@ def filter_by_name_or_id(
 
 
 def filter_iam_users(users: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
-    return filter_by_name_or_id(
-        users, params, name_keys=("UserName",), name_param="user_names"
-    )
+    return filter_by_name_or_id(users, params, name_keys=("UserName",), name_param="user_names")
 
 
 def filter_iam_roles(roles: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
@@ -338,9 +334,7 @@ def filter_iam_roles(roles: list[dict[str, Any]], params: dict[str, Any]) -> lis
 
 
 def filter_iam_policies(policies: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
-    return filter_by_name_or_id(
-        policies, params, arn_keys=("Arn",), arn_param="policy_arns"
-    )
+    return filter_by_name_or_id(policies, params, arn_keys=("Arn",), arn_param="policy_arns")
 
 
 def filter_lambda_functions(functions: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
@@ -425,10 +419,7 @@ def filter_rds_log_targets(instances: list[dict[str, Any]], params: dict[str, An
                 continue
             inst = {**inst, "log_exports": [e for e in exports if matches_any(e, log_types)]}
         if log_groups:
-            groups = [
-                _log_group_for_rds_instance(iid, lt)
-                for lt in (inst.get("log_exports") or exports)
-            ]
+            groups = [_log_group_for_rds_instance(iid, lt) for lt in (inst.get("log_exports") or exports)]
             if groups and not any(matches_any(g, log_groups) for g in groups):
                 continue
         kept.append(inst)
@@ -473,7 +464,9 @@ def filter_kms_keys(keys: list[dict[str, Any]], params: dict[str, Any]) -> list[
     return kept
 
 
-def filter_config_compliance(compliance: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
+def filter_config_compliance(
+    compliance: list[dict[str, Any]], params: dict[str, Any]
+) -> list[dict[str, Any]]:
     rules = param_strings(params, "config_rule_names")
     if not rules:
         return compliance
@@ -506,7 +499,9 @@ def filter_elb_load_balancers(lbs: list[dict[str, Any]], params: dict[str, Any])
     return kept
 
 
-def filter_cloudfront_distributions(dists: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
+def filter_cloudfront_distributions(
+    dists: list[dict[str, Any]], params: dict[str, Any]
+) -> list[dict[str, Any]]:
     ids = param_strings(params, "distribution_ids")
     domains = param_strings(params, "domain_names")
     if not (ids or domains):
@@ -518,9 +513,7 @@ def filter_cloudfront_distributions(dists: list[dict[str, Any]], params: dict[st
         aliases = [str(a) for a in (d.get("Aliases") or d.get("aliases") or {}).get("Items") or []]
         if ids and not matches_any(did, ids):
             continue
-        if domains and not (
-            matches_any(domain, domains) or any(matches_any(a, domains) for a in aliases)
-        ):
+        if domains and not (matches_any(domain, domains) or any(matches_any(a, domains) for a in aliases)):
             continue
         kept.append(d)
     return kept
@@ -545,7 +538,9 @@ def filter_route53_query_log_configs(
             if not group or not matches_any(group, log_groups):
                 continue
         if vpc_ids:
-            cfg_vpcs = [str(v.get("VpcId") or v) for v in (cfg.get("DestinationArn") or cfg.get("vpcs") or [])]
+            cfg_vpcs = [
+                str(v.get("VpcId") or v) for v in (cfg.get("DestinationArn") or cfg.get("vpcs") or [])
+            ]
             if isinstance(cfg.get("vpcs"), list):
                 cfg_vpcs = [str(v) for v in cfg["vpcs"]]
             assoc = cfg.get("Associations") or cfg.get("associations") or []
@@ -575,23 +570,19 @@ def filter_ec2_inventory(inventory: dict[str, list], params: dict[str, Any]) -> 
 
     if instance_ids:
         inventory["instances"] = [
-            i for i in inventory["instances"]
-            if matches_any(str(i.get("InstanceId") or ""), instance_ids)
+            i for i in inventory["instances"] if matches_any(str(i.get("InstanceId") or ""), instance_ids)
         ]
     if vpc_ids:
         inventory["instances"] = [
-            i for i in inventory["instances"]
-            if matches_any(str(i.get("VpcId") or ""), vpc_ids)
+            i for i in inventory["instances"] if matches_any(str(i.get("VpcId") or ""), vpc_ids)
         ]
     if sg_ids:
         inventory["security_groups"] = [
-            sg for sg in inventory["security_groups"]
-            if matches_any(str(sg.get("GroupId") or ""), sg_ids)
+            sg for sg in inventory["security_groups"] if matches_any(str(sg.get("GroupId") or ""), sg_ids)
         ]
     if snapshot_ids:
         inventory["snapshots"] = [
-            s for s in inventory["snapshots"]
-            if matches_any(str(s.get("SnapshotId") or ""), snapshot_ids)
+            s for s in inventory["snapshots"] if matches_any(str(s.get("SnapshotId") or ""), snapshot_ids)
         ]
     return inventory
 
@@ -627,7 +618,9 @@ def filter_guardduty_findings(findings: list[dict[str, Any]], params: dict[str, 
     return kept
 
 
-def filter_securityhub_findings(findings: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
+def filter_securityhub_findings(
+    findings: list[dict[str, Any]], params: dict[str, Any]
+) -> list[dict[str, Any]]:
     severities = param_strings(params, "severity_label")
     product_arns = param_strings(params, "product_arns")
     resource_arns = param_strings(params, "resource_arns")
@@ -699,9 +692,7 @@ def filter_inspector_findings(findings: list[dict[str, Any]], params: dict[str, 
 
 
 def filter_detective_graphs(graphs: list[dict[str, Any]], params: dict[str, Any]) -> list[dict[str, Any]]:
-    return filter_by_name_or_id(
-        graphs, params, arn_keys=("Arn",), arn_param="graph_arns"
-    )
+    return filter_by_name_or_id(graphs, params, arn_keys=("Arn",), arn_param="graph_arns")
 
 
 def filter_detective_investigations(
@@ -711,7 +702,8 @@ def filter_detective_investigations(
     if not ids:
         return investigations
     return [
-        inv for inv in investigations
+        inv
+        for inv in investigations
         if matches_any(str(inv.get("InvestigationId") or inv.get("investigationId") or ""), ids)
     ]
 
@@ -730,9 +722,7 @@ def filter_gce_inventory(inventory: dict[str, list], params: dict[str, Any]) -> 
         ]
     if zones:
         inventory["instances"] = [
-            i
-            for i in inventory["instances"]
-            if matches_any(str(i.get("_ventra_zone") or ""), zones)
+            i for i in inventory["instances"] if matches_any(str(i.get("_ventra_zone") or ""), zones)
         ]
     if network_names:
         inventory["instances"] = [
@@ -751,9 +741,7 @@ def filter_gce_inventory(inventory: dict[str, list], params: dict[str, Any]) -> 
             if matches_any(str(s.get("id") or s.get("name") or ""), snapshot_ids)
         ]
     if instance_ids or zones or network_names:
-        allowed_instances = {
-            str(i.get("id") or i.get("name") or "") for i in inventory["instances"]
-        }
+        allowed_instances = {str(i.get("id") or i.get("name") or "") for i in inventory["instances"]}
         inventory["network_interfaces"] = [
             nic
             for nic in inventory["network_interfaces"]
@@ -778,9 +766,7 @@ def filter_network_posture(snapshot: dict[str, Any], params: dict[str, Any]) -> 
             if matches_any(str(s.get("network") or ""), network_names)
         ]
         snapshot["routes"] = [
-            r
-            for r in snapshot.get("routes") or []
-            if matches_any(str(r.get("network") or ""), network_names)
+            r for r in snapshot.get("routes") or [] if matches_any(str(r.get("network") or ""), network_names)
         ]
     if firewall_names:
         snapshot["firewall_rules"] = [
@@ -1108,7 +1094,7 @@ def gcp_logging_filter_extension(params: dict[str, Any]) -> str:
 
     http_status = param_raw(params, "http_status")
     if http_status is not None and str(http_status).strip():
-        clauses.append(f'httpRequest.status={str(http_status).strip()}')
+        clauses.append(f"httpRequest.status={str(http_status).strip()}")
 
     search_text = param_raw(params, "search_text")
     if isinstance(search_text, str) and search_text.strip():

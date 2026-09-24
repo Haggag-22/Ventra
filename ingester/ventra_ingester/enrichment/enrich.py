@@ -21,8 +21,9 @@ class Enricher:
     _asn_reader: object | None = None
 
     @classmethod
-    def build(cls, geoip_city: str | None = None, geoip_asn: str | None = None,
-              iocs: set[str] | None = None) -> "Enricher":
+    def build(
+        cls, geoip_city: str | None = None, geoip_asn: str | None = None, iocs: set[str] | None = None
+    ) -> "Enricher":
         enr = cls(iocs=iocs or set())
         if geoip_city:
             try:
@@ -48,9 +49,7 @@ class Enricher:
             ev.source_asn = self._asn(ip)
         # IOC tagging: any IP/user/resource present in the case IOC list.
         if self.iocs:
-            hit = self.iocs.intersection(
-                set(ev.related_ip) | set(ev.related_user) | set(ev.related_resource)
-            )
+            hit = self.iocs.intersection(set(ev.related_ip) | set(ev.related_user) | set(ev.related_resource))
             if hit:
                 ev.event_severity = _bump(ev.event_severity)
                 ev.message = f"[IOC] {ev.message}"

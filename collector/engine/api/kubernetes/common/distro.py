@@ -186,9 +186,7 @@ def _detect(node: Any) -> DistroInfo:
     if rke2_paths or rke2_units:
         signals.extend(f"path:{p}" for p in rke2_paths)
         signals.extend(f"unit:{u}" for u in rke2_units)
-        server = _dir(node, "/var/lib/rancher/rke2/server") or _unit_installed(
-            node, "rke2-server"
-        )
+        server = _dir(node, "/var/lib/rancher/rke2/server") or _unit_installed(node, "rke2-server")
         return DistroInfo(
             family="rke2",
             role="server" if server else "agent",
@@ -223,8 +221,7 @@ def _detect(node: Any) -> DistroInfo:
             role="control-plane" if control_plane else "worker",
             signals=signals,
             server_units=[u for u in units if "kubelite" in u] or ["snap.microk8s.daemon-kubelite"],
-            agent_units=[u for u in units if "kubelet" in u]
-            or ["snap.microk8s.daemon-kubelite"],
+            agent_units=[u for u in units if "kubelet" in u] or ["snap.microk8s.daemon-kubelite"],
             config_paths=[
                 "/var/snap/microk8s/current/args/kube-apiserver",
                 "/var/snap/microk8s/current/args/kubelet",
@@ -253,9 +250,7 @@ def _detect(node: Any) -> DistroInfo:
             family="kubeadm",
             role="control-plane" if manifests else "worker",
             signals=signals,
-            server_units=["kube-apiserver", "kube-controller-manager", "kube-scheduler"]
-            if manifests
-            else [],
+            server_units=["kube-apiserver", "kube-controller-manager", "kube-scheduler"] if manifests else [],
             agent_units=["kubelet"],
             config_paths=["/etc/kubernetes/manifests/kube-apiserver.yaml"],
             data_dirs=["/var/lib/etcd", "/etc/kubernetes"],
@@ -335,9 +330,7 @@ def datastore_paths(info: DistroInfo) -> list[dict[str, str]]:
     if info.family == "rke2":
         return [{"kind": "etcd", "path": "/var/lib/rancher/rke2/server/db/etcd"}]
     if info.family == "microk8s":
-        return [
-            {"kind": "dqlite", "path": "/var/snap/microk8s/current/var/kubernetes/backend"}
-        ]
+        return [{"kind": "dqlite", "path": "/var/snap/microk8s/current/var/kubernetes/backend"}]
     return [{"kind": "etcd", "path": "/var/lib/etcd"}]
 
 

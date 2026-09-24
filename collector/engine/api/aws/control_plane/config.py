@@ -10,10 +10,10 @@ from __future__ import annotations
 
 from botocore.exceptions import ClientError
 
+from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.scoping import filter_config_compliance
-from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
 
 class ConfigCollector(Collector):
@@ -39,9 +39,7 @@ class ConfigCollector(Collector):
                 recs = cf.call("config", region, "describe_configuration_recorders").get(
                     "ConfigurationRecorders", []
                 )
-                channels = cf.call("config", region, "describe_delivery_channels").get(
-                    "DeliveryChannels", []
-                )
+                channels = cf.call("config", region, "describe_delivery_channels").get("DeliveryChannels", [])
                 if recs:
                     enabled_anywhere = True
                     recorders.append({"region": region, "recorders": recs, "channels": channels})
@@ -79,8 +77,7 @@ class ConfigCollector(Collector):
             return SourceResult(
                 name=self.name,
                 status=SourceStatus.EMPTY,
-                gaps=gaps
-                or [("config", GapReason.SERVICE_NOT_ENABLED, "No Config recorder in scope.")],
+                gaps=gaps or [("config", GapReason.SERVICE_NOT_ENABLED, "No Config recorder in scope.")],
                 notes="AWS Config not recording in any in-scope region.",
             )
 

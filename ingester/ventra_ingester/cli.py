@@ -43,15 +43,15 @@ def ingest_main(argv: list[str] | None = None) -> int:
 
     say = _reporter()
     try:
-        result = ingest_package(
-            Path(args.package), Path(args.case_store), enricher=enricher, reporter=say
-        )
+        result = ingest_package(Path(args.package), Path(args.case_store), enricher=enricher, reporter=say)
     except Exception as exc:  # noqa: BLE001
         print(f"Ingest failed: {exc}", file=sys.stderr)
         return 1
 
-    say(f"\n[bold green]Done.[/bold green] Case [bold]{result.case_id}[/bold] ready "
-        f"({result.event_count} events, integrity={result.integrity_overall}).")
+    say(
+        f"\n[bold green]Done.[/bold green] Case [bold]{result.case_id}[/bold] ready "
+        f"({result.event_count} events, integrity={result.integrity_overall})."
+    )
     say(f"  Event sources: {', '.join(result.sources_loaded) or '—'}")
     say(f"  Inventory:     {', '.join(result.inventory_loaded) or '—'}")
     for w in result.warnings:

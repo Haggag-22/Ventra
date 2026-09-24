@@ -27,8 +27,18 @@ _PERSISTENCE_OPS = (
     "add service principal credentials",
     "add owner to application",
 )
-_MAILBOX_OPS = {"mailitemsaccessed", "messagebind", "send", "sendas", "sendonbehalf", "hardelete",
-                "softdelete", "movetodeleteditems", "create", "update"}
+_MAILBOX_OPS = {
+    "mailitemsaccessed",
+    "messagebind",
+    "send",
+    "sendas",
+    "sendonbehalf",
+    "hardelete",
+    "softdelete",
+    "movetodeleteditems",
+    "create",
+    "update",
+}
 
 
 def _ual_outcome(status: str) -> str:

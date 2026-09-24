@@ -129,9 +129,7 @@ class AzureClientFactory:
         cert_path = self._cert_path_override or os.environ.get("AZURE_CLIENT_CERTIFICATE_PATH")
         secret = self._client_secret_override or os.environ.get("AZURE_CLIENT_SECRET")
         cert_password = (
-            self._cert_password_override
-            or os.environ.get("AZURE_CLIENT_CERTIFICATE_PASSWORD")
-            or None
+            self._cert_password_override or os.environ.get("AZURE_CLIENT_CERTIFICATE_PASSWORD") or None
         )
         try:
             if tenant and client and cert_path:
@@ -270,9 +268,7 @@ class AzureClientFactory:
         if timespan:
             body["timespan"] = timespan
         try:
-            result = self._arm_request(
-                "POST", url, params={"api-version": "2020-08-01"}, json_body=body
-            )
+            result = self._arm_request("POST", url, params={"api-version": "2020-08-01"}, json_body=body)
         except Exception as exc:  # noqa: BLE001
             _raise_typed_azure(exc, f"loganalytics:query:{workspace_id}")
             return []
@@ -296,9 +292,7 @@ class AzureClientFactory:
         """Map content type → feed status. Read-only: Ventra never *starts* a feed (that is a
         tenant mutation); an absent/disabled feed is reported as a Log-Coverage gap instead."""
         tenant = self._tenant_id()
-        resp = self._manage_request(
-            f"{MANAGE_BASE}/{tenant}/activity/feed/subscriptions/list"
-        )
+        resp = self._manage_request(f"{MANAGE_BASE}/{tenant}/activity/feed/subscriptions/list")
         return {s.get("contentType", ""): (s.get("status") or "") for s in (resp.json() or [])}
 
     def management_content(
@@ -422,9 +416,7 @@ class AzureClientFactory:
             "Content-Type": "application/json",
         }
         for attempt in range(MAX_RETRIES + 1):
-            resp = self._session.request(
-                method, url, headers=headers, json=json, params=params, timeout=120
-            )
+            resp = self._session.request(method, url, headers=headers, json=json, params=params, timeout=120)
             if resp.status_code == 429 and attempt < MAX_RETRIES:
                 time.sleep(min(int(resp.headers.get("Retry-After", "5")), 30))
                 continue
@@ -481,9 +473,7 @@ class AzureClientFactory:
 
     # -- generic resource + diagnostic-settings discovery (Tier C/D/E + gap analysis) ------
 
-    def resources_of_type(
-        self, subscription_id: str, resource_types: list[str]
-    ) -> list[dict[str, Any]]:
+    def resources_of_type(self, subscription_id: str, resource_types: list[str]) -> list[dict[str, Any]]:
         """List resources of the given ARM types in a subscription (no per-service SDK needed)."""
         out: list[dict[str, Any]] = []
         try:
@@ -491,8 +481,12 @@ class AzureClientFactory:
             for rt in resource_types:
                 for r in client.resources.list(filter=f"resourceType eq '{rt}'"):
                     out.append(
-                        {"id": r.id or "", "name": r.name or "", "type": r.type or "",
-                         "location": r.location or ""}
+                        {
+                            "id": r.id or "",
+                            "name": r.name or "",
+                            "type": r.type or "",
+                            "location": r.location or "",
+                        }
                     )
         except Exception as exc:  # noqa: BLE001
             _raise_typed_azure(exc, f"resources:{subscription_id}")
@@ -562,8 +556,7 @@ class AzureClientFactory:
             "/providers/Microsoft.Security/alerts"
         )
         try:
-            yield from self._arm_paginate(url, params={"api-version": "2022-01-01"},
-                                          max_records=max_records)
+            yield from self._arm_paginate(url, params={"api-version": "2022-01-01"}, max_records=max_records)
         except Exception as exc:  # noqa: BLE001
             _raise_typed_azure(exc, f"security:alerts:{subscription_id}")
 
@@ -578,9 +571,7 @@ class AzureClientFactory:
         url = "https://management.azure.com/providers/Microsoft.ResourceGraph/resources"
         body = {"query": query, "subscriptions": subscriptions, "options": {"$top": max_records}}
         try:
-            result = self._arm_request(
-                "POST", url, params={"api-version": "2021-03-01"}, json_body=body
-            )
+            result = self._arm_request("POST", url, params={"api-version": "2021-03-01"}, json_body=body)
             return list(result.get("data") or [])[:max_records]
         except Exception as exc:  # noqa: BLE001
             _raise_typed_azure(exc, "resourcegraph:query")
@@ -666,9 +657,7 @@ class AzureClientFactory:
             _raise_typed_azure(exc, f"diagnostic_settings:{resource_id}")
         return out
 
-    def _manage_request(
-        self, url: str, params: dict[str, Any] | None = None
-    ) -> requests.Response:
+    def _manage_request(self, url: str, params: dict[str, Any] | None = None) -> requests.Response:
         headers = {"Authorization": f"Bearer {self._token(MANAGE_SCOPE)}", "Accept": "application/json"}
         for attempt in range(MAX_RETRIES + 1):
             resp = self._session.get(url, headers=headers, params=params, timeout=60)

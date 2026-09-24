@@ -9,11 +9,11 @@ from __future__ import annotations
 
 from botocore.exceptions import ClientError
 
+from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import effective_window, param_strings
 from collector.lib.scoping import filter_guardduty_findings
-from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
 
 class GuardDutyCollector(Collector):
@@ -41,9 +41,7 @@ class GuardDutyCollector(Collector):
 
         for region in self.ctx.regions:
             try:
-                detector_ids = list(
-                    cf.paginate("guardduty", region, "list_detectors", "DetectorIds")
-                )
+                detector_ids = list(cf.paginate("guardduty", region, "list_detectors", "DetectorIds"))
             except AccessDenied as exc:
                 gaps.append(("guardduty", GapReason.ACCESS_DENIED, f"{region}: {exc.message}"))
                 continue
@@ -78,12 +76,19 @@ class GuardDutyCollector(Collector):
                 notes="GuardDuty not enabled — recorded as a gap.",
             )
 
-        files = [self.write_json({"detectors": detectors_meta, "artifact_parameters": params, "window": {"since": start.isoformat(), "until": end.isoformat()}}, "config.json")]
+        files = [
+            self.write_json(
+                {
+                    "detectors": detectors_meta,
+                    "artifact_parameters": params,
+                    "window": {"since": start.isoformat(), "until": end.isoformat()},
+                },
+                "config.json",
+            )
+        ]
         if findings:
             files.append(self.write_jsonl(findings, "events.jsonl.gz"))
-        self.write_meta(
-            {"source": self.name, "detectors": len(detectors_meta), "findings": len(findings)}
-        )
+        self.write_meta({"source": self.name, "detectors": len(detectors_meta), "findings": len(findings)})
         return SourceResult(
             name=self.name,
             status=SourceStatus.COLLECTED,
@@ -96,10 +101,8 @@ class GuardDutyCollector(Collector):
     def _filters(self, cf, region, did) -> list[dict]:
         out = []
         try:
-            for fname in cf.paginate("guardduty", region, "list_filters", "FilterNames",
-                                     DetectorId=did):
-                out.append(cf.call("guardduty", region, "get_filter",
-                                   DetectorId=did, FilterName=fname))
+            for fname in cf.paginate("guardduty", region, "list_filters", "FilterNames", DetectorId=did):
+                out.append(cf.call("guardduty", region, "get_filter", DetectorId=did, FilterName=fname))
         except (AccessDenied, ServiceNotEnabled, ClientError):
             pass
         return out
@@ -107,20 +110,21 @@ class GuardDutyCollector(Collector):
     def _findings(self, cf, region, did, start, end) -> list[dict]:
         out: list[dict] = []
         try:
-            ids = list(cf.paginate("guardduty", region, "list_findings", "FindingIds",
-                                   DetectorId=did))
+            ids = list(cf.paginate("guardduty", region, "list_findings", "FindingIds", DetectorId=did))
         except (AccessDenied, ServiceNotEnabled, ClientError):
             return out
         for i in range(0, len(ids), 50):
             chunk = ids[i : i + 50]
             try:
-                got = cf.call("guardduty", region, "get_findings",
-                              DetectorId=did, FindingIds=chunk).get("Findings", [])
+                got = cf.call("guardduty", region, "get_findings", DetectorId=did, FindingIds=chunk).get(
+                    "Findings", []
+                )
                 for f in got:
                     updated = f.get("UpdatedAt") or f.get("CreatedAt")
                     if updated:
                         try:
                             from datetime import datetime
+
                             ts = datetime.fromisoformat(str(updated).replace("Z", "+00:00"))
                             if ts < start or ts > end:
                                 continue

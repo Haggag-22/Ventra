@@ -41,8 +41,7 @@ def case_id_from_package(package_path: Path) -> str:
         from ventra_ingester.package import EvidencePackage
     except ImportError as exc:
         raise ImportError_(
-            "ventra-ingester is not installed. Install it to import packages "
-            "(pip install -e ./ingester)."
+            "ventra-ingester is not installed. Install it to import packages (pip install -e ./ingester)."
         ) from exc
 
     with EvidencePackage(package_path) as pkg:
@@ -76,8 +75,7 @@ def import_evidence(
         from ventra_ingester.pipeline import ingest_package
     except ImportError as exc:
         raise ImportError_(
-            "ventra-ingester is not installed. Install it to import packages "
-            "(pip install -e ./ingester)."
+            "ventra-ingester is not installed. Install it to import packages (pip install -e ./ingester)."
         ) from exc
 
     result = ingest_package(

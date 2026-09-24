@@ -54,30 +54,22 @@ def test_azure_attack_story_present(azure_demo_case) -> None:
     assert total > 150
 
     signin = con.execute(
-        f"SELECT count(*) FROM '{path}' WHERE ventra_source='entra_signin' "
-        "AND source_ip='203.0.113.66'"
+        f"SELECT count(*) FROM '{path}' WHERE ventra_source='entra_signin' AND source_ip='203.0.113.66'"
     ).fetchone()[0]
     assert signin >= 2
 
-    defender = con.execute(
-        f"SELECT count(*) FROM '{path}' WHERE ventra_source='defender'"
-    ).fetchone()[0]
+    defender = con.execute(f"SELECT count(*) FROM '{path}' WHERE ventra_source='defender'").fetchone()[0]
     assert defender >= 7
 
-    activity = con.execute(
-        f"SELECT count(*) FROM '{path}' WHERE ventra_source='activity_log'"
-    ).fetchone()[0]
+    activity = con.execute(f"SELECT count(*) FROM '{path}' WHERE ventra_source='activity_log'").fetchone()[0]
     assert activity >= 30
 
     exfil = con.execute(
-        f"SELECT count(*) FROM '{path}' WHERE ventra_source='vnet_flow' "
-        "AND dest_ip='185.220.101.45'"
+        f"SELECT count(*) FROM '{path}' WHERE ventra_source='vnet_flow' AND dest_ip='185.220.101.45'"
     ).fetchone()[0]
     assert exfil >= 5
 
-    nsg = con.execute(
-        f"SELECT count(*) FROM '{path}' WHERE ventra_source='nsg_flow'"
-    ).fetchone()[0]
+    nsg = con.execute(f"SELECT count(*) FROM '{path}' WHERE ventra_source='nsg_flow'").fetchone()[0]
     assert nsg >= 10
 
     mail = con.execute(
@@ -93,34 +85,23 @@ def test_azure_attack_story_present(azure_demo_case) -> None:
     assert mail_search >= 1
 
     appgw = con.execute(
-        f"SELECT count(*) FROM '{path}' WHERE ventra_source='app_gateway' "
-        "AND source_ip='203.0.113.66'"
+        f"SELECT count(*) FROM '{path}' WHERE ventra_source='app_gateway' AND source_ip='203.0.113.66'"
     ).fetchone()[0]
     assert appgw >= 1
 
-    oauth = con.execute(
-        f"SELECT count(*) FROM '{path}' WHERE ventra_source='oauth_consent'"
-    ).fetchone()[0]
+    oauth = con.execute(f"SELECT count(*) FROM '{path}' WHERE ventra_source='oauth_consent'").fetchone()[0]
     assert oauth >= 1
 
-    kv = con.execute(
-        f"SELECT count(*) FROM '{path}' WHERE ventra_source='key_vault'"
-    ).fetchone()[0]
+    kv = con.execute(f"SELECT count(*) FROM '{path}' WHERE ventra_source='key_vault'").fetchone()[0]
     assert kv >= 4
 
-    aks = con.execute(
-        f"SELECT count(*) FROM '{path}' WHERE ventra_source='aks_audit'"
-    ).fetchone()[0]
+    aks = con.execute(f"SELECT count(*) FROM '{path}' WHERE ventra_source='aks_audit'").fetchone()[0]
     assert aks >= 2
 
-    dns = con.execute(
-        f"SELECT count(*) FROM '{path}' WHERE ventra_source='dns'"
-    ).fetchone()[0]
+    dns = con.execute(f"SELECT count(*) FROM '{path}' WHERE ventra_source='dns'").fetchone()[0]
     assert dns >= 5
 
-    fw = con.execute(
-        f"SELECT count(*) FROM '{path}' WHERE ventra_source='azure_firewall'"
-    ).fetchone()[0]
+    fw = con.execute(f"SELECT count(*) FROM '{path}' WHERE ventra_source='azure_firewall'").fetchone()[0]
     assert fw >= 3
 
 
@@ -129,8 +110,16 @@ def test_summary_reflects_full_azure_collector_coverage(azure_demo_case) -> None
     summary = json.loads((case_dir / "summary.json").read_text())
     collected = set(summary["collection"]["collected"])
     for name in (
-        "nsg_flow", "dns", "key_vault", "azure_firewall", "app_gateway",
-        "front_door", "aks_audit", "vnet_flow", "activity_log", "defender",
+        "nsg_flow",
+        "dns",
+        "key_vault",
+        "azure_firewall",
+        "app_gateway",
+        "front_door",
+        "aks_audit",
+        "vnet_flow",
+        "activity_log",
+        "defender",
     ):
         assert name in collected, f"expected {name} to be collected"
     assert summary["collection"]["gaps"] == []

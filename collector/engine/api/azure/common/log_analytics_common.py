@@ -47,12 +47,10 @@ LA_SOURCE_SPECS: dict[str, dict[str, list[str]]] = {
 }
 
 DEFAULT_WINDOW_DAYS = 7
-from collector.lib.limits import DEFAULT_MAX_RECORDS as MAX_RECORDS
+from collector.lib.limits import DEFAULT_MAX_RECORDS as MAX_RECORDS  # noqa: E402, F401 — re-exported
 
 CATEGORY_TO_SOURCE: dict[str, str] = {
-    cat: source
-    for source, spec in LA_SOURCE_SPECS.items()
-    for cat in spec["categories"]
+    cat: source for source, spec in LA_SOURCE_SPECS.items() for cat in spec["categories"]
 }
 
 PERMISSION_NOTE = (

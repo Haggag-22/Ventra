@@ -96,9 +96,7 @@ def verify_package(pkg: EvidencePackage) -> IntegrityReport:
             continue
         data = pkg.member_bytes(arc)
         if data is None:
-            checks.append(
-                SourceCheck(src["name"], arc, expected, "", False, src.get("status", ""))
-            )
+            checks.append(SourceCheck(src["name"], arc, expected, "", False, src.get("status", "")))
             any_mismatch = True
             continue
         actual = pkg.member_sha256(arc) or hashlib.sha256(data).hexdigest()
