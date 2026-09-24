@@ -1,14 +1,21 @@
 /** @type {import('next').NextConfig} */
 const API = process.env.VENTRA_API || "http://127.0.0.1:8000";
+const staticExport = process.env.VENTRA_STATIC_EXPORT === "1";
 
 const nextConfig = {
   reactStrictMode: true,
-  // Proxy API calls to the backend so the frontend makes no cross-origin/external calls.
-  async rewrites() {
-    return [{ source: "/api/:path*", destination: `${API}/api/:path*` }];
-  },
-  // No telemetry, no external image domains — the console is offline-first.
   images: { unoptimized: true },
+  ...(staticExport
+    ? {
+        output: "export",
+        trailingSlash: true,
+      }
+    : {
+        // Dev / next start: proxy API calls to the backend (same-origin in packaged mode).
+        async rewrites() {
+          return [{ source: "/api/:path*", destination: `${API}/api/:path*` }];
+        },
+      }),
 };
 
 module.exports = nextConfig;

@@ -11,7 +11,15 @@ from typing import Any
 
 from collector import __version__
 
-from .format import KitError, KitExpiredError, assert_kit_usable, format_iso, open_kit, utcnow
+from .format import (
+    KitError,
+    KitExpiredError,
+    OpenKit,
+    assert_kit_usable,
+    format_iso,
+    open_kit,
+    utcnow,
+)
 
 
 @dataclass

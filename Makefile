@@ -21,7 +21,7 @@ help:
 	@echo "  make backend        Run the console backend (uvicorn :8000, reload)"
 	@echo "  make frontend       Run the console frontend (next dev :8080)"
 	@echo "  make test           Run the Python test suite"
-	@echo "  make lint           ruff + frontend typecheck"
+	@echo "  make lint           ruff check + ruff format --check + frontend typecheck"
 	@echo "  make readonly-guard Verify the collector is read-only"
 	@echo "  make validate-artifacts  Validate the artifact YAML catalog (CI gate)"
 	@echo "  make generate-catalog    Regenerate console/frontend/lib/catalog.ts from artifacts/"
@@ -92,7 +92,8 @@ test: clean-pycache
 	$(UV) run pytest tests/ -q
 
 lint:
-	$(UV) run ruff check collector ingester console/backend
+	$(UV) run ruff check
+	$(UV) run ruff format --check
 	cd console/frontend && npm run typecheck
 
 readonly-guard:

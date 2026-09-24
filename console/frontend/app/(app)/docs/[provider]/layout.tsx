@@ -1,18 +1,10 @@
-import { isHiddenUiPlatform } from "@/lib/catalog";
-import { docsDefaultHref } from "@/lib/docs-routes";
-import { redirect } from "next/navigation";
-import type { ReactNode } from "react";
+import { DOCS_PROVIDER_PARAMS } from "@/lib/static-export-params";
+import DocsProviderLayoutClient from "./docs-layout-client";
 
-/** Hidden platforms (currently Kubernetes) redirect instead of rendering stale docs. */
-export default function DocsProviderLayout({
-  children,
-  params,
-}: {
-  children: ReactNode;
-  params: { provider: string };
-}) {
-  if (isHiddenUiPlatform(params.provider)) {
-    redirect(docsDefaultHref());
-  }
-  return children;
+export function generateStaticParams() {
+  return DOCS_PROVIDER_PARAMS;
+}
+
+export default function DocsProviderLayout({ children }: { children: React.ReactNode }) {
+  return <DocsProviderLayoutClient>{children}</DocsProviderLayoutClient>;
 }

@@ -1,39 +1,61 @@
 [build-system]
-requires = ["setuptools>=68", "wheel", "setuptools-scm>=8"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling>=1.27", "hatch-vcs>=0.4"]
+build-backend = "hatchling.build"
 
 [project]
 name = "ventra"
 dynamic = ["version"]
 description = "Cloud forensic triage — read-only collector, ingester, and analyst console."
 readme = "README.md"
+# datetime.UTC and enum.StrEnum (3.11+) are used throughout collector/ingester/console.
 requires-python = ">=3.11"
-license = { text = "Apache-2.0" }
+license = "Apache-2.0"
+license-files = ["LICENSE"]
 authors = [{ name = "Ventra contributors" }]
-keywords = ["dfir", "incident-response", "aws", "forensics", "cloud"]
+keywords = ["dfir", "incident-response", "aws", "azure", "gcp", "kubernetes", "forensics", "cloud"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Environment :: Console",
     "Intended Audience :: Information Technology",
-    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
     "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Security",
 ]
+# The base install is deliberately "batteries included": every `ventra collect <cloud>` and
+# `ventra gui` works after a plain `uvx ventra` / `uv tool install ventra` / `pipx install ventra`,
+# exactly as in earlier releases. The per-cloud SDK sets are ALSO published as extras below
+# (aws/azure/gcp/kubernetes/all) so installs can name the cloud they need; keep the two in sync.
 dependencies = [
-    "boto3>=1.34",
-    "botocore>=1.34",
-    "requests>=2.31",
+    # Core: evidence packaging, catalog, CLI output.
+    "PyYAML>=6.0",
     "rich>=13.7",
     "zstandard>=0.22",
-    "PyYAML>=6.0",
-    # Fast log filtering (DuckDB SQL over GCS-export NDJSON). Optional at runtime: the collector
-    # falls back to the pure-Python filter path if duckdb is unavailable or VENTRA_GCP_DUCKDB_FILTER
-    # is disabled.
+    # Ingest + console (ventra import / ventra-ingest / ventra gui). duckdb also backs the fast
+    # GCP log filter, which falls back to pure Python when duckdb is unavailable.
     "duckdb>=0.10",
-    # GCP collectors
+    "pyarrow>=15.0",
+    "fastapi>=0.110",
+    "uvicorn[standard]>=0.29",
+    "pydantic>=2.6",
+    "python-multipart>=0.0.9",
+    # AWS collectors — mirror of the `aws` extra.
+    "boto3>=1.34",
+    "botocore>=1.34",
+    # Azure collectors — mirror of the `azure` extra.
+    "requests>=2.31",
+    "azure-identity>=1.16",
+    "azure-mgmt-resource>=23.0",
+    "azure-mgmt-resource-subscriptions>=1.0.0b2",
+    "azure-mgmt-monitor>=6.0",
+    "azure-mgmt-network>=25.0",
+    "azure-mgmt-authorization>=4.0",
+    "azure-storage-blob>=12.19",
+    # GCP collectors — mirror of the `gcp` extra.
     "google-cloud-logging>=3.10",
     "google-cloud-resource-manager>=1.12",
     "google-cloud-iam>=2.15",
@@ -44,97 +66,212 @@ dependencies = [
     "google-auth>=2.29",
     "google-api-core>=2.19",
     "protobuf>=4.25",
-    # Azure collectors
+    # On-prem Kubernetes collectors (API plane) — mirror of the `kubernetes` extra.
+    # Node-plane collectors need only the stdlib.
+    "kubernetes>=29.0",
+]
+
+[project.optional-dependencies]
+aws = [
+    "boto3>=1.34",
+    "botocore>=1.34",
+]
+azure = [
+    "requests>=2.31",
     "azure-identity>=1.16",
     "azure-mgmt-resource>=23.0",
     "azure-mgmt-resource-subscriptions>=1.0.0b2",
     "azure-mgmt-monitor>=6.0",
     "azure-mgmt-network>=25.0",
-    "azure-mgmt-security>=7.0",
     "azure-mgmt-authorization>=4.0",
     "azure-storage-blob>=12.19",
-    # On-prem Kubernetes collectors (API plane). Node-plane collectors need only the stdlib.
+]
+gcp = [
+    "google-cloud-logging>=3.10",
+    "google-cloud-resource-manager>=1.12",
+    "google-cloud-iam>=2.15",
+    "google-cloud-securitycenter>=1.28",
+    "google-cloud-compute>=1.19",
+    "google-cloud-container>=2.45",
+    "google-cloud-storage>=2.16",
+    "google-auth>=2.29",
+    "google-api-core>=2.19",
+    "protobuf>=4.25",
+]
+kubernetes = [
     "kubernetes>=29.0",
 ]
-
-[project.optional-dependencies]
-# Backward compatible — cloud SDKs ship in the base install.
-gcp = []
-azure = []
-kubernetes = []
-console = [
-    "fastapi>=0.110",
-    "uvicorn[standard]>=0.29",
-    "duckdb>=0.10",
-    "pyarrow>=15.0",
-    "pydantic>=2.6",
-    "python-multipart>=0.0.9",
+all = [
+    "ventra[aws,azure,gcp,kubernetes]",
+]
+# Kept so existing `ventra[console]` install specs keep resolving; the console ships in the base.
+console = []
+# `--transport sftp:…` (collector/lib/transport/base.py imports paramiko lazily).
+sftp = [
+    "paramiko>=3.4",
+]
+# GeoIP enrichment during ingest (ventra_ingester/enrichment/enrich.py imports geoip2 lazily).
+enrich = [
+    "geoip2>=4.8",
+]
+dev = [
+    "pytest>=8.0",
+    "ruff>=0.6",
+    "moto>=5.0",
+    "httpx>=0.27",
+    "mypy>=1.10",
 ]
 
 [project.scripts]
 ventra = "collector.cli:main"
 ventra-collect = "collector.cli:main_legacy"
+ventra-ingest = "ventra_ingester.cli:ingest_main"
+ventra-verify = "ventra_ingester.cli:verify_main"
+ventra-export = "ventra_ingester.cli:export_main"
+ventra-ingest-watch = "ventra_ingester.ingest_watch:ingest_watch_main"
+ventra-console = "app.main:run"
 
 [project.urls]
 Homepage = "https://github.com/Haggag-22/Ventra"
 Documentation = "https://github.com/Haggag-22/Ventra#readme"
 Repository = "https://github.com/Haggag-22/Ventra"
 Issues = "https://github.com/Haggag-22/Ventra/issues"
+Changelog = "https://github.com/Haggag-22/Ventra/blob/main/CHANGELOG.md"
 
+# `uv sync` / `uv run` install the dev tools by default (same set as the `dev` extra, which is
+# what `uv pip install -e ".[dev]"` and `pip install -e ".[dev]"` use).
 [dependency-groups]
-dev = [
-    "pytest>=8.0",
-    "moto>=5.0",
-    "ruff>=0.4",
-    "mypy>=1.10",
-    "httpx>=0.27",
-    "fastapi>=0.110",
-    "uvicorn[standard]>=0.29",
-    "duckdb>=0.10",
-    "pyarrow>=15.0",
-    "pydantic>=2.6",
-    "python-multipart>=0.0.9",
-    "ventra-ingester",
-    "ventra-console-backend",
-]
+dev = ["ventra[dev]"]
 
 [tool.uv]
-required-version = ">=0.4"
+required-version = ">=0.5"
 default-groups = ["dev"]
 
+# ingester/ and console/backend/ keep their own pyproject.toml so `ventra gui` (source checkout)
+# can `uv pip install -e` them; their modules also ship inside the single `ventra` wheel below.
 [tool.uv.workspace]
 members = ["ingester", "console/backend"]
 
-[tool.uv.sources]
-ventra-ingester = { workspace = true }
-ventra-console-backend = { workspace = true }
-
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["collector*"]
-namespaces = true
-
-[tool.setuptools.cmdclass]
-build_py = "collector._packaging_hooks.BuildPyWithArtifacts"
-
-[tool.setuptools.package-data]
-collector = ["_artifacts/**/*.yaml", "_artifacts/**/*.yml"]
+# ---------------------------------------------------------------------------------------------
+# Build (hatchling)
+# ---------------------------------------------------------------------------------------------
 
 # Version is derived from git tags — no version string to hand-edit. A tag `vX.Y.Z` builds
 # exactly X.Y.Z (these are what get published to PyPI). A working tree or a git install between
 # tags builds a dev version like `X.Y.(Z+1).devN+g<hash>` — the +g<hash> tells you the exact
 # commit you're testing, which also lands in the evidence package's tool_version.
-# `fallback_version` is only used when building from a source tree with no git metadata.
-[tool.setuptools_scm]
-fallback_version = "0.0.0"
+# `fallback-version` is only used when building from a source tree with no git metadata.
+[tool.hatch.version]
+source = "vcs"
+fallback-version = "0.0.0"
+
+# One wheel, three import packages: `collector` (the ventra CLI), `ventra_ingester`, and `app`
+# (the console backend). hatch_build.py additionally stages artifacts/, schemas/,
+# docs/iam-policies/ and (when built) console/frontend/out/ under collector/_*.
+[tool.hatch.build.targets.wheel]
+packages = ["collector", "ingester/ventra_ingester", "console/backend/app"]
+exclude = ["**/__pycache__", "**/.DS_Store"]
+
+[tool.hatch.build.targets.wheel.hooks.custom]
+path = "hatch_build.py"
+
+# Explicit allow-list: the sdist carries exactly what is needed to build the wheel and run the
+# tests — never local evidence, kits, lab infrastructure, or notes that happen to be tracked.
+[tool.hatch.build.targets.sdist]
+include = [
+    "/collector",
+    "/ingester/ventra_ingester",
+    "/console/backend/app",
+    "/artifacts",
+    "/schemas",
+    "/docs/iam-policies",
+    "/tests",
+    "/conftest.py",
+    "/hatch_build.py",
+    "/README.md",
+    "/LICENSE",
+    "/CHANGELOG.md",
+]
+# console/frontend/out is gitignored build output (scripts/build-console-static.sh); ship it in
+# the sdist when present so a wheel built from the sdist still bundles the console.
+# The negations drop iCloud/Finder conflict copies ("logo 2.svg") — artifacts bypass .gitignore.
+artifacts = ["/console/frontend/out", "!* [0-9].*", "!* [0-9]"]
+exclude = ["**/__pycache__", "**/.DS_Store", "**/*.pyc"]
+
+# ---------------------------------------------------------------------------------------------
+# Tooling
+# ---------------------------------------------------------------------------------------------
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 110
 target-version = "py311"
 src = ["collector", "ingester", "console/backend", "tests"]
+extend-exclude = ["console/frontend", "docs", "infrastructure", "testing", "deploy", "scripts"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = [
+    # `ruff format` owns line length; what is left over are long string literals.
+    "E501",
+    # Deferred modernisation/simplification rewrites. Behaviour-neutral, but they touch collection,
+    # packaging and chain-of-custody code, so they get their own reviewed PR rather than riding
+    # along with the packaging work.
+    "UP017",   # datetime.timezone.utc -> datetime.UTC
+    "UP035",   # typing.X -> collections.abc.X
+    "UP037",   # quoted annotations
+    "UP042",   # (str, Enum) -> StrEnum
+    "SIM103",  # needless bool
+    "SIM105",  # contextlib.suppress
+    "SIM108",  # ternary
+    "SIM113",  # enumerate
+    "SIM114",  # merge if-arms
+    "SIM117",  # merge with-statements
+    "B905",    # zip(strict=) would raise where the code currently truncates
+]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+    "fastapi.Body",
+    "fastapi.Depends",
+    "fastapi.File",
+    "fastapi.Form",
+    "fastapi.Header",
+    "fastapi.Path",
+    "fastapi.Query",
+    "pathlib.Path",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Tests put tests/fixtures or console/backend on sys.path before importing.
+"tests/**" = ["E402"]
+# GRPC_DNS_RESOLVER must be set before anything imports grpc.
+"collector/__init__.py" = ["E402"]
+# FastAPI `Depends(_check("capability"))` dependency factories.
+"console/backend/app/main.py" = ["B008"]
+# Pre-existing findings in collection / verification logic, deliberately left untouched by the
+# packaging pass (see the packaging audit notes in CONTRIBUTING.md). Fix them in their own PRs.
+"collector/clouds/azure/client_factory.py" = ["E402"]
+"collector/engine/api/aws/control_plane/cloudtrail.py" = ["E731"]
+"collector/engine/api/aws/control_plane/cloudwatch.py" = ["F841"]
+"collector/engine/api/aws/network/vpc_flow.py" = ["F811"]
+"collector/engine/api/azure/common/log_analytics.py" = ["B007"]
+"collector/engine/api/azure/control_plane/resource_graph.py" = ["E402"]
+"collector/engine/api/azure/identity/entra_audit.py" = ["E402"]
+"collector/engine/api/azure/identity/entra_signin.py" = ["E402"]
+"collector/engine/api/azure/m365/unified_audit.py" = ["E402", "F601"]
+"collector/engine/api/azure/m365/unified_audit_search.py" = ["E402"]
+"collector/engine/api/gcp/common/logging_collector.py" = ["E402"]
+"collector/engine/gcp_export_bulk.py" = ["B007"]
+"console/backend/app/config_store.py" = ["E402"]
+"console/backend/app/rbac/__init__.py" = ["B904"]
+"console/backend/app/run_store.py" = ["E402"]
+"ingester/ventra_ingester/cli.py" = ["F811"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["collector", "ventra_ingester", "app"]
 
 [tool.mypy]
 python_version = "3.11"
