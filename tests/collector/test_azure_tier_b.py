@@ -119,11 +119,7 @@ def _ctx(tmp_path: Path, cf: _FakeCf, *, subscriptions: list[str] | None = None)
 
 def test_defender_collects_alerts(tmp_path: Path) -> None:
     cf = _FakeCf(
-        alerts={
-            "sub-1": [
-                {"properties": {"alertDisplayName": "Suspicious login", "severity": "High"}}
-            ]
-        }
+        alerts={"sub-1": [{"properties": {"alertDisplayName": "Suspicious login", "severity": "High"}}]}
     )
     result = DefenderCollector(_ctx(tmp_path, cf)).collect()
     assert result.status == SourceStatus.COLLECTED
@@ -161,9 +157,7 @@ def test_azure_firewall_diagnostic_collects(tmp_path: Path) -> None:
     rid = "/subscriptions/sub-1/resourceGroups/rg/providers/Microsoft.Network/azureFirewalls/fw1"
     cf = _FakeCf(
         resources={"sub-1": [{"id": rid, "name": "fw1"}]},
-        diagnostics={
-            rid: [{"storage_account_id": "sa1", "categories": ["AzureFirewallNetworkRule"]}]
-        },
+        diagnostics={rid: [{"storage_account_id": "sa1", "categories": ["AzureFirewallNetworkRule"]}]},
         blobs={
             ("sa1", "insights-logs-azurefirewallnetworkrule"): [
                 {"time": "2026-06-08T01:00:00Z", "properties": {"msg": "deny", "srcIp": "10.0.0.1"}}

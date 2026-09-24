@@ -81,10 +81,19 @@ def _ctx(
 
 
 def test_entra_signin_collects(tmp_path: Path) -> None:
-    cf = _FakeCf(graph={"auditLogs/signIns": [
-        {"id": "1", "userPrincipalName": "victim@corp.com", "ipAddress": "203.0.113.7",
-         "createdDateTime": "2026-06-08T01:00:00Z", "status": {"errorCode": 0}},
-    ]})
+    cf = _FakeCf(
+        graph={
+            "auditLogs/signIns": [
+                {
+                    "id": "1",
+                    "userPrincipalName": "victim@corp.com",
+                    "ipAddress": "203.0.113.7",
+                    "createdDateTime": "2026-06-08T01:00:00Z",
+                    "status": {"errorCode": 0},
+                },
+            ]
+        }
+    )
     result = EntraSignInCollector(_ctx(tmp_path, cf)).collect()
     assert result.status == SourceStatus.COLLECTED
     assert result.record_count == 1
@@ -105,13 +114,22 @@ def test_entra_audit_access_denied_is_a_gap(tmp_path: Path) -> None:
 
 
 def test_activity_log_collects_across_subscriptions(tmp_path: Path) -> None:
-    cf = _FakeCf(activity={
-        "sub-1": [{"operationName": {"value": "Microsoft.Compute/virtualMachines/delete"},
-                   "status": {"value": "Succeeded"}, "caller": "attacker@corp.com",
-                   "callerIpAddress": "203.0.113.7", "resourceId": "/subscriptions/sub-1/...",
-                   "subscriptionId": "sub-1", "eventTimestamp": "2026-06-08T01:05:00Z"}],
-        "sub-2": [],
-    })
+    cf = _FakeCf(
+        activity={
+            "sub-1": [
+                {
+                    "operationName": {"value": "Microsoft.Compute/virtualMachines/delete"},
+                    "status": {"value": "Succeeded"},
+                    "caller": "attacker@corp.com",
+                    "callerIpAddress": "203.0.113.7",
+                    "resourceId": "/subscriptions/sub-1/...",
+                    "subscriptionId": "sub-1",
+                    "eventTimestamp": "2026-06-08T01:05:00Z",
+                }
+            ],
+            "sub-2": [],
+        }
+    )
     result = ActivityLogCollector(
         _ctx(tmp_path, cf, subscriptions=["sub-1", "sub-2"], window=_single_day_window()),
     ).collect()
@@ -126,16 +144,32 @@ def test_activity_log_no_subscriptions_is_a_gap(tmp_path: Path) -> None:
 
 
 def test_activity_log_writes_per_subscription_files(tmp_path: Path) -> None:
-    cf = _FakeCf(activity={
-        "sub-aaa": [{"operationName": {"value": "Microsoft.Compute/virtualMachines/write"},
-                     "status": {"value": "Succeeded"}, "caller": "admin@corp.com",
-                     "eventTimestamp": "2026-06-08T01:05:00Z", "resourceId": "/subscriptions/sub-aaa/r"}],
-        "sub-bbb": [{"operationName": {"value": "Microsoft.Storage/storageAccounts/delete"},
-                     "status": {"value": "Succeeded"}, "caller": "admin@corp.com",
-                     "eventTimestamp": "2026-06-08T02:05:00Z", "resourceId": "/subscriptions/sub-bbb/r"}],
-    })
+    cf = _FakeCf(
+        activity={
+            "sub-aaa": [
+                {
+                    "operationName": {"value": "Microsoft.Compute/virtualMachines/write"},
+                    "status": {"value": "Succeeded"},
+                    "caller": "admin@corp.com",
+                    "eventTimestamp": "2026-06-08T01:05:00Z",
+                    "resourceId": "/subscriptions/sub-aaa/r",
+                }
+            ],
+            "sub-bbb": [
+                {
+                    "operationName": {"value": "Microsoft.Storage/storageAccounts/delete"},
+                    "status": {"value": "Succeeded"},
+                    "caller": "admin@corp.com",
+                    "eventTimestamp": "2026-06-08T02:05:00Z",
+                    "resourceId": "/subscriptions/sub-bbb/r",
+                }
+            ],
+        }
+    )
     win = _single_day_window("2026-06-08")
-    result = ActivityLogCollector(_ctx(tmp_path, cf, subscriptions=["sub-aaa", "sub-bbb"], window=win)).collect()
+    result = ActivityLogCollector(
+        _ctx(tmp_path, cf, subscriptions=["sub-aaa", "sub-bbb"], window=win)
+    ).collect()
     assert result.record_count == 2
     paths = {f.path for f in result.files}
     assert any("events-sub-aaa.jsonl.gz" in p for p in paths)

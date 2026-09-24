@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from collector.clouds.gcp.client_factory import GcpAccessDenied, GcpServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import matches_any, param_raw, param_strings
-from collector.clouds.gcp.client_factory import GcpAccessDenied, GcpServiceNotEnabled
 
 
 class ProjectCollector(Collector):

@@ -75,8 +75,7 @@ def test_data_access_scope_excludes_generic_audit_admin(gcp_store_case) -> None:
         from app.store import DATA_ACCESS_SCOPE
 
         leaked = con.execute(
-            f"SELECT count(*) FROM {events} WHERE {DATA_ACCESS_SCOPE} "
-            "AND ventra_source='cloud_audit_admin'",
+            f"SELECT count(*) FROM {events} WHERE {DATA_ACCESS_SCOPE} AND ventra_source='cloud_audit_admin'",
             [path],
         ).fetchone()[0]
         assert leaked == 0

@@ -9,11 +9,11 @@ from __future__ import annotations
 
 from botocore.exceptions import ClientError
 
+from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import effective_window
 from collector.lib.scoping import filter_macie_findings
-from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
 
 class MacieCollector(Collector):
@@ -106,6 +106,7 @@ class MacieCollector(Collector):
                     if updated:
                         try:
                             from datetime import datetime
+
                             ts = datetime.fromisoformat(str(updated).replace("Z", "+00:00"))
                             if ts < start or ts > end:
                                 continue

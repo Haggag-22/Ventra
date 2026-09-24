@@ -8,13 +8,13 @@ from pathlib import Path
 from typing import Any
 
 from ..lib.models import AzureAuthOptions, TimeWindow
+from .acquire_platform import collector_cloud_for_platform
 from .acquisition import (
     AcquisitionError,
     artifact_refs_for_collectors,
     augment_collectors,
     load_pack,
 )
-from .acquire_platform import collector_cloud_for_platform
 from .gcp_log_backend import validate_gcp_log_backend_dict
 from .matrix_state import ARTIFACT_SEVERITY, DEFAULT_SEVERITY
 from .run_common import RunReporter, parse_window
@@ -109,7 +109,6 @@ def _gcp_factory_from_request(req: RunLaunchRequest, project: str | None):
     return GcpClientFactory(project_id=project, credentials_path=req.credentials_path)
 
 
-
 def _gcp_preflight(_req: RunLaunchRequest, _project: str | None) -> tuple[list[str], None]:
     """GCP preflight hook for the console launcher (no blocking checks)."""
     return [], None
@@ -186,11 +185,7 @@ def launch_collection(req: RunLaunchRequest):
 
         project = req.project or None
         preflight_lines, _ = _gcp_preflight(req, project)
-        gcp_backend = (
-            dict(validate_gcp_log_backend_dict(req.gcp_log_backend))
-            if req.gcp_log_backend
-            else {}
-        )
+        gcp_backend = dict(validate_gcp_log_backend_dict(req.gcp_log_backend)) if req.gcp_log_backend else {}
         cfg = GcpRunConfig(
             case_id=req.case_id,
             collectors=collectors,

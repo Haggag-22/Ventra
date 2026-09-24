@@ -74,9 +74,7 @@ def suspicious_pod_findings(pod: dict[str, Any], *, trusted_registries: list[str
         if not host_path:
             continue
         # Any hostPath is worth noting; a match against DANGEROUS_HOSTPATHS is node takeover.
-        dangerous = any(
-            host_path == d or host_path.startswith(d + "/") for d in DANGEROUS_HOSTPATHS
-        )
+        dangerous = any(host_path == d or host_path.startswith(d + "/") for d in DANGEROUS_HOSTPATHS)
         findings.append(f"hostPath{'!' if dangerous else ''}:{host_path}")
 
     containers = list(spec.get("containers") or []) + list(

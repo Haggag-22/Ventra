@@ -142,8 +142,7 @@ class EtcdCollector(NodePlaneCollector):
                 (
                     self.name,
                     GapReason.NOT_PRESENT,
-                    "etcd endpoint(s) reported unhealthy: "
-                    + ", ".join(topology["unhealthy_endpoints"]),
+                    "etcd endpoint(s) reported unhealthy: " + ", ".join(topology["unhealthy_endpoints"]),
                 )
             )
 
@@ -176,20 +175,17 @@ class EtcdCollector(NodePlaneCollector):
                 "source": self.name,
                 "distro": distro.family,
                 "datastore": datastore.get("kind", "unknown"),
-                "posture_issues": len(posture.get("issues", []))
-                + len(datastore.get("issues", [])),
+                "posture_issues": len(posture.get("issues", [])) + len(datastore.get("issues", [])),
             }
         )
 
         collected = bool(
-            log_files
-            or records
-            or posture.get("determined")
-            or pki.get("files")
-            or datastore.get("present")
+            log_files or records or posture.get("determined") or pki.get("files") or datastore.get("present")
         )
-        status = SourceStatus.PARTIAL if gaps and collected else (
-            SourceStatus.COLLECTED if collected else SourceStatus.EMPTY
+        status = (
+            SourceStatus.PARTIAL
+            if gaps and collected
+            else (SourceStatus.COLLECTED if collected else SourceStatus.EMPTY)
         )
         if not collected and not gaps:
             gaps.append(
@@ -278,9 +274,7 @@ class EtcdCollector(NodePlaneCollector):
             )
         return out
 
-    def _datastore(
-        self, node: Any, distro: DistroInfo, posture: dict[str, Any]
-    ) -> dict[str, Any]:
+    def _datastore(self, node: Any, distro: DistroInfo, posture: dict[str, Any]) -> dict[str, Any]:
         """Find the cluster datastore and describe what kind of protection it can even have.
 
         etcd, sqlite (k3s/kine) and dqlite (microk8s) are not interchangeable: only etcd has
@@ -445,9 +439,7 @@ class EtcdCollector(NodePlaneCollector):
                 continue
             total += size
             if len(entries) < 200:
-                entries.append(
-                    {"path": "/" + path.relative_to(node.root).as_posix(), "bytes": size}
-                )
+                entries.append({"path": "/" + path.relative_to(node.root).as_posix(), "bytes": size})
         out["total_bytes"] = total
         out["files"] = entries
         out["note"] = (
@@ -499,9 +491,14 @@ class EtcdCollector(NodePlaneCollector):
     def _etcdctl_flags(self, flags: dict[str, str]) -> dict[str, str]:
         """TLS + endpoint flags for etcdctl, from the manifest and the ``etcdctl_endpoints`` param."""
         override = param_strings(self.artifact_params(), "etcdctl_endpoints")
-        endpoints = ",".join(override) if override else (
-            flags.get("advertise-client-urls") or flags.get("listen-client-urls") or
-            "https://127.0.0.1:2379"
+        endpoints = (
+            ",".join(override)
+            if override
+            else (
+                flags.get("advertise-client-urls")
+                or flags.get("listen-client-urls")
+                or "https://127.0.0.1:2379"
+            )
         )
         out = {"endpoints": endpoints}
         for flag, key in (

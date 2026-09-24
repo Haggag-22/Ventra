@@ -12,10 +12,10 @@ from __future__ import annotations
 
 from typing import Any
 
+from collector.clouds.gcp.client_factory import GcpAccessDenied, GcpServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.scoping import filter_gce_inventory
-from collector.clouds.gcp.client_factory import GcpAccessDenied, GcpServiceNotEnabled
 
 MAX_INSTANCES = 500
 MAX_DISKS = 500
@@ -58,9 +58,7 @@ class GceCollector(Collector):
                     inst["_ventra_project_id"] = project_id
                     self._redact_instance_metadata(inst)
                     inventory["instances"].append(inst)
-                    inventory["network_interfaces"].extend(
-                        self._extract_nics(inst, project_id)
-                    )
+                    inventory["network_interfaces"].extend(self._extract_nics(inst, project_id))
                 if len(instances) >= MAX_INSTANCES:
                     gaps.append(
                         (

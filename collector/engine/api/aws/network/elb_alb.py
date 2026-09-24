@@ -12,17 +12,18 @@ Raw log lines are shipped untouched (one record per line); the ingester owns par
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
 from typing import Any
 
 from botocore.exceptions import ClientError
 
+from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.limits import DEFAULT_MAX_RECORDS
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import effective_window
 from collector.lib.scoping import filter_elb_load_balancers
-from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
+
 from ..common.s3_logs import bucket_region, collect_s3_line_records, slash_day_prefixes
 
 # Access logs default to the last 7 days unless --since/--until narrows or widens the window;
@@ -66,8 +67,7 @@ class ElbAlbCollector(Collector):
             return SourceResult(
                 name=self.name,
                 status=SourceStatus.EMPTY,
-                gaps=gaps
-                or [("elb_alb", GapReason.NOT_PRESENT, "No load balancers in scope.")],
+                gaps=gaps or [("elb_alb", GapReason.NOT_PRESENT, "No load balancers in scope.")],
                 notes="No load balancers found.",
             )
 
@@ -123,9 +123,7 @@ class ElbAlbCollector(Collector):
             status = SourceStatus.PARTIAL if gaps else SourceStatus.COLLECTED
         elif logging_on:
             status = SourceStatus.PARTIAL if gaps else SourceStatus.EMPTY
-            gaps.append(
-                ("elb_alb", GapReason.NOT_PRESENT, "No access-log records in window.")
-            )
+            gaps.append(("elb_alb", GapReason.NOT_PRESENT, "No access-log records in window."))
         else:
             status = SourceStatus.EMPTY
         return SourceResult(
@@ -163,9 +161,7 @@ class ElbAlbCollector(Collector):
             except (ServiceNotEnabled, ClientError):
                 pass
             try:
-                for lb in cf.paginate(
-                    "elb", region, "describe_load_balancers", "LoadBalancerDescriptions"
-                ):
+                for lb in cf.paginate("elb", region, "describe_load_balancers", "LoadBalancerDescriptions"):
                     name = lb.get("LoadBalancerName", "")
                     al = self._attrs_classic(cf, region, name)
                     out.append(
@@ -187,9 +183,7 @@ class ElbAlbCollector(Collector):
     @staticmethod
     def _attrs_v2(cf, region: str, arn: str) -> dict[str, str]:
         try:
-            resp = cf.call(
-                "elbv2", region, "describe_load_balancer_attributes", LoadBalancerArn=arn
-            )
+            resp = cf.call("elbv2", region, "describe_load_balancer_attributes", LoadBalancerArn=arn)
             return {a["Key"]: a.get("Value", "") for a in resp.get("Attributes", [])}
         except (AccessDenied, ServiceNotEnabled, ClientError):
             return {}
@@ -197,15 +191,21 @@ class ElbAlbCollector(Collector):
     @staticmethod
     def _attrs_classic(cf, region: str, name: str) -> dict[str, Any]:
         try:
-            resp = cf.call(
-                "elb", region, "describe_load_balancer_attributes", LoadBalancerName=name
-            )
+            resp = cf.call("elb", region, "describe_load_balancer_attributes", LoadBalancerName=name)
             return (resp.get("LoadBalancerAttributes") or {}).get("AccessLog") or {}
         except (AccessDenied, ServiceNotEnabled, ClientError):
             return {}
 
     def _read_lb_logs(
-        self, cf, lb: dict[str, Any], start: datetime, end: datetime, gaps, *, writer=None, max_records: int = DEFAULT_MAX_RECORDS
+        self,
+        cf,
+        lb: dict[str, Any],
+        start: datetime,
+        end: datetime,
+        gaps,
+        *,
+        writer=None,
+        max_records: int = DEFAULT_MAX_RECORDS,
     ) -> tuple[list[dict], dict]:
         bucket = lb["bucket"]
         prefix = (lb["prefix"] or "").strip("/")

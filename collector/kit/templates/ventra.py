@@ -210,8 +210,6 @@ def _ensure_ventra(cloud: str) -> Path:
     return ventra_bin
 
 
-
-
 def _kit_relative_path(raw: str) -> Path | None:
     value = (raw or "").strip()
     if not value:
@@ -314,9 +312,7 @@ def _apply_kubernetes_env_from_kit() -> None:
     if context and not os.environ.get("VENTRA_K8S_CONTEXT", "").strip():
         os.environ["VENTRA_K8S_CONTEXT"] = context
     node_root = (
-        os.environ.get("VENTRA_NODE_ROOT", "").strip()
-        or _read_acquisition_field("node_root").strip()
-        or "/"
+        os.environ.get("VENTRA_NODE_ROOT", "").strip() or _read_acquisition_field("node_root").strip() or "/"
     )
     os.environ["VENTRA_NODE_ROOT"] = node_root
     if not os.environ.get("VENTRA_NODE_NAME", "").strip():
@@ -370,8 +366,7 @@ def _cloud_extra_args(cloud: str, args: argparse.Namespace) -> list[str]:
         if kubeconfig:
             extra.extend(["--kubeconfig", kubeconfig])
         context = (
-            _read_acquisition_field("k8s_context").strip()
-            or os.environ.get("VENTRA_K8S_CONTEXT", "").strip()
+            _read_acquisition_field("k8s_context").strip() or os.environ.get("VENTRA_K8S_CONTEXT", "").strip()
         )
         if context:
             extra.extend(["--context", context])
@@ -422,10 +417,7 @@ def main(argv: list[str] | None = None) -> int:
         "--out",
         default=DEFAULT_OUT_NAME,
         metavar="DIR",
-        help=(
-            "Folder for the sealed evidence package, next to ventra.py "
-            f"(default: {DEFAULT_OUT_NAME})"
-        ),
+        help=(f"Folder for the sealed evidence package, next to ventra.py (default: {DEFAULT_OUT_NAME})"),
     )
     args = parser.parse_args(argv)
 

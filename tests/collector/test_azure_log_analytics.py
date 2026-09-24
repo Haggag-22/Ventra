@@ -9,12 +9,10 @@ from collector.engine.api.azure.control_plane.log_analytics import LogAnalyticsC
 from collector.lib.models import CollectionContext, GapReason, SourceStatus, TimeWindow
 
 WORKSPACE = (
-    "/subscriptions/sub-1/resourceGroups/prod-rg/providers/"
-    "Microsoft.OperationalInsights/workspaces/la-prod"
+    "/subscriptions/sub-1/resourceGroups/prod-rg/providers/Microsoft.OperationalInsights/workspaces/la-prod"
 )
 APP_GW = (
-    "/subscriptions/sub-1/resourceGroups/prod-rg/providers/"
-    "Microsoft.Network/applicationGateways/appgw-prod"
+    "/subscriptions/sub-1/resourceGroups/prod-rg/providers/Microsoft.Network/applicationGateways/appgw-prod"
 )
 
 
@@ -29,12 +27,14 @@ class _FakeCf:
 
     def diagnostic_settings(self, resource_id):  # noqa: ANN001
         if resource_id == APP_GW:
-            return [{
-                "workspace_id": WORKSPACE,
-                "storage_account_id": "",
-                "event_hub": "",
-                "categories": ["ApplicationGatewayAccessLog", "ApplicationGatewayFirewallLog"],
-            }]
+            return [
+                {
+                    "workspace_id": WORKSPACE,
+                    "storage_account_id": "",
+                    "event_hub": "",
+                    "categories": ["ApplicationGatewayAccessLog", "ApplicationGatewayFirewallLog"],
+                }
+            ]
         return []
 
     def log_analytics_query(self, workspace_id, query, *, timespan=None, max_records=200_000):  # noqa: ANN001
@@ -89,7 +89,13 @@ def test_log_analytics_collects_la_routed_diagnostics(tmp_path: Path) -> None:
 def test_log_analytics_no_workspace_is_a_gap(tmp_path: Path) -> None:
     class _NoLaCf(_FakeCf):
         def diagnostic_settings(self, resource_id):  # noqa: ANN001
-            return [{"workspace_id": "", "storage_account_id": "sa1", "categories": ["ApplicationGatewayAccessLog"]}]
+            return [
+                {
+                    "workspace_id": "",
+                    "storage_account_id": "sa1",
+                    "categories": ["ApplicationGatewayAccessLog"],
+                }
+            ]
 
     result = LogAnalyticsCollector(_ctx(tmp_path, _NoLaCf())).collect()
     assert result.record_count == 0

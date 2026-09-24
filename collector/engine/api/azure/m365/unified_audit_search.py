@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
+from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import effective_window, param_strings
-from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
-from ..common import window_bounds
+
 from .ual_adaptive import collect_adaptive
 from .ual_common import (
     RETENTION_NOTE,
@@ -20,9 +20,7 @@ from collector.lib.limits import DEFAULT_MAX_RECORDS as MAX_RECORDS
 class UnifiedAuditSearchCollector(Collector):
     name = "unified_audit_search"
     priority = 1
-    description = (
-        "M365 Unified Audit Log (90-day default) via Search-UnifiedAuditLog + adaptive windows."
-    )
+    description = "M365 Unified Audit Log (90-day default) via Search-UnifiedAuditLog + adaptive windows."
     required_actions = ("Exchange.ManageAsApp",)
 
     def collect(self) -> SourceResult:
@@ -71,7 +69,13 @@ class UnifiedAuditSearchCollector(Collector):
             return SourceResult(
                 name=self.name,
                 status=SourceStatus.EMPTY,
-                gaps=[("unified_audit_search", GapReason.ACCESS_DENIED, f"{exc.message} {SEARCH_PERMISSION_RUNBOOK}")],
+                gaps=[
+                    (
+                        "unified_audit_search",
+                        GapReason.ACCESS_DENIED,
+                        f"{exc.message} {SEARCH_PERMISSION_RUNBOOK}",
+                    )
+                ],
                 notes="Search-UnifiedAuditLog denied.",
             )
         except AzureServiceNotEnabled as exc:

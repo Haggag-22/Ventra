@@ -202,9 +202,7 @@ def validation_gaps(
             if res.invalid_details:
                 detail += f" — e.g. {res.invalid_details[0][:200]}"
             gaps.append((f"log_validation:{res.trail_name}", GapReason.LOG_INTEGRITY_FAILED, detail))
-        elif res.status == "error" and res.skip_reason not in (
-            "aws_cli_not_found",
-        ):
+        elif res.status == "error" and res.skip_reason not in ("aws_cli_not_found",):
             gaps.append(
                 (
                     f"log_validation:{res.trail_name}",

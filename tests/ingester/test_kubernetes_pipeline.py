@@ -150,8 +150,7 @@ def test_rogue_mutating_webhook_is_high_severity(k8s_case) -> None:
 def test_noisy_kinds_are_not_turned_into_timeline_rows(k8s_case) -> None:
     """ConfigMaps/Services/ReplicaSets stay in inventory; they are not timeline events."""
     result, root, _pkg = k8s_case
-    actions = {r["event_action"] for r in _events(root, result.case_id,
-                                                  ventra_source="k8s_cluster_state")}
+    actions = {r["event_action"] for r in _events(root, result.case_id, ventra_source="k8s_cluster_state")}
     assert "ConfigMapSnapshot" not in actions
     assert "ServiceSnapshot" not in actions
 

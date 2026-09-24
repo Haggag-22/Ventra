@@ -9,18 +9,17 @@ from __future__ import annotations
 
 from typing import Any
 
+from collector.clouds.gcp.client_factory import GcpAccessDenied, GcpServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.limits import DEFAULT_MAX_RECORDS as MAX_RECORDS
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import logging_window
 from collector.lib.scoping import filter_by_name_or_id, gcp_logging_filter_extension
-from collector.clouds.gcp.client_factory import GcpAccessDenied, GcpServiceNotEnabled
 
 DEFAULT_WINDOW_DAYS = 14
 # Armor-enforced requests are the LB `requests` rows that carry an enforcedSecurityPolicy.
 ARMOR_LOG_FILTER = (
-    'resource.type="http_load_balancer" AND logName:"requests" '
-    "AND jsonPayload.enforcedSecurityPolicy.name:*"
+    'resource.type="http_load_balancer" AND logName:"requests" AND jsonPayload.enforcedSecurityPolicy.name:*'
 )
 
 
@@ -109,9 +108,7 @@ class CloudArmorCollector(Collector):
                 gaps.append(("cloud_armor", GapReason.ACCESS_DENIED, exc.message))
             except GcpServiceNotEnabled as exc:
                 gaps.append(("cloud_armor", GapReason.SERVICE_NOT_ENABLED, exc.message))
-        per_project = [
-            {"project_id": p, "records": counts.get(p, 0)} for p in projects
-        ]
+        per_project = [{"project_id": p, "records": counts.get(p, 0)} for p in projects]
 
         if record_count >= cap:
             self.append_truncation_gap(

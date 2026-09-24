@@ -158,8 +158,7 @@ def test_api_plane_only_run_seals_a_signed_package(tmp_path: Path) -> None:
     # Real evidence came back from the API plane even with no node access. A collector
     # writes several files; the record count lives on the events payload, not on config.json.
     events_files = [
-        s for s in manifest["sources"]
-        if s["name"] == "k8s_events" and s["path"].endswith("events.jsonl.gz")
+        s for s in manifest["sources"] if s["name"] == "k8s_events" and s["path"].endswith("events.jsonl.gz")
     ]
     assert len(events_files) == 1
     assert events_files[0]["record_count"] == 1
@@ -213,17 +212,22 @@ def test_node_plane_run_stamps_node_context_and_needs_no_cluster(tmp_path: Path)
     host = tmp_path / "host"
     for rel, content in (
         ("etc/hostname", "cp-1\n"),
-        ("etc/kubernetes/manifests/kube-apiserver.yaml",
-         "    - --audit-log-path=/var/log/kubernetes/audit/audit.log\n"),
-        ("var/log/kubernetes/audit/audit.log",
-         json.dumps(
-             {
-                 "kind": "Event",
-                 "verb": "create",
-                 "user": {"username": "mallory"},
-                 "objectRef": {"resource": "pods", "subresource": "exec", "namespace": "prod"},
-             }
-         ) + "\n"),
+        (
+            "etc/kubernetes/manifests/kube-apiserver.yaml",
+            "    - --audit-log-path=/var/log/kubernetes/audit/audit.log\n",
+        ),
+        (
+            "var/log/kubernetes/audit/audit.log",
+            json.dumps(
+                {
+                    "kind": "Event",
+                    "verb": "create",
+                    "user": {"username": "mallory"},
+                    "objectRef": {"resource": "pods", "subresource": "exec", "namespace": "prod"},
+                }
+            )
+            + "\n",
+        ),
         ("var/log/pods/prod_web_uid1/app/0.log", "container output\n"),
     ):
         path = host / rel
@@ -256,9 +260,7 @@ def test_node_plane_run_stamps_node_context_and_needs_no_cluster(tmp_path: Path)
     assert manifest["account_id"] == "cp-1"  # falls back to the node's own hostname
     assert manifest["operator"]["principal_arn"] == "kubernetes:node-collector"
 
-    audit_path = next(
-        name for name in members if name.endswith("k8s_apiserver_audit/events.jsonl.gz")
-    )
+    audit_path = next(name for name in members if name.endswith("k8s_apiserver_audit/events.jsonl.gz"))
     record = json.loads(gzip.decompress(members[audit_path]).splitlines()[0])
     assert record["_ventra_node"] == "cp-1"
     assert record["_ventra_runtime"] == "containerd"

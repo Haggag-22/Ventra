@@ -15,9 +15,9 @@ from typing import Any
 
 from botocore.exceptions import ClientError
 
+from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
-from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
 MAX_ITEMS_PER_SERVICE = 200
 
@@ -66,7 +66,9 @@ class LogPostureCollector(Collector):
                 gaps.append((source_id, gap[0], gap[1]))
 
         files = [self.write_json(posture, "config.json")]
-        self.write_meta({"source": self.name, "checks": len(checks), "artifact_parameters": self.artifact_params()})
+        self.write_meta(
+            {"source": self.name, "checks": len(checks), "artifact_parameters": self.artifact_params()}
+        )
         return SourceResult(
             name=self.name,
             status=SourceStatus.COLLECTED,
@@ -85,9 +87,7 @@ class LogPostureCollector(Collector):
         destinations: list[str] = []
         for region in self.ctx.regions:
             try:
-                names = cf.call("opensearch", region, "list_domain_names").get(
-                    "DomainNames", []
-                )
+                names = cf.call("opensearch", region, "list_domain_names").get("DomainNames", [])
             except (AccessDenied, ServiceNotEnabled, ClientError):
                 continue
             for entry in names[:MAX_ITEMS_PER_SERVICE]:
@@ -125,8 +125,7 @@ class LogPostureCollector(Collector):
         else:
             out["_gap"] = (
                 GapReason.OUT_OF_SCOPE,
-                f"Log publishing enabled on {domains_logged}/{domains_total} domain(s). "
-                f"{_PLANNED_COLLECTOR}",
+                f"Log publishing enabled on {domains_logged}/{domains_total} domain(s). {_PLANNED_COLLECTOR}",
             )
         return out
 
@@ -141,9 +140,7 @@ class LogPostureCollector(Collector):
             for name in names[:MAX_ITEMS_PER_SERVICE]:
                 tables_total += 1
                 try:
-                    table = cf.call("dynamodb", region, "describe_table", TableName=name).get(
-                        "Table", {}
-                    )
+                    table = cf.call("dynamodb", region, "describe_table", TableName=name).get("Table", {})
                 except (AccessDenied, ServiceNotEnabled, ClientError):
                     continue
                 if (table.get("StreamSpecification") or {}).get("StreamEnabled"):
@@ -166,9 +163,7 @@ class LogPostureCollector(Collector):
         destinations: list[str] = []
         for region in self.ctx.regions:
             try:
-                fws = list(
-                    cf.paginate("network-firewall", region, "list_firewalls", "Firewalls")
-                )
+                fws = list(cf.paginate("network-firewall", region, "list_firewalls", "Firewalls"))
             except (AccessDenied, ServiceNotEnabled, ClientError):
                 continue
             for fw in fws[:MAX_ITEMS_PER_SERVICE]:
@@ -188,10 +183,7 @@ class LogPostureCollector(Collector):
                     for c in configs:
                         dest = c.get("LogDestination") or {}
                         where = (
-                            dest.get("bucketName")
-                            or dest.get("logGroup")
-                            or dest.get("deliveryStream")
-                            or ""
+                            dest.get("bucketName") or dest.get("logGroup") or dest.get("deliveryStream") or ""
                         )
                         destinations.append(f"{c.get('LogType', '')}→{where}")
         out = {

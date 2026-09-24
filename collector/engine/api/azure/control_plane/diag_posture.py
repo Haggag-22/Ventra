@@ -9,11 +9,11 @@ from __future__ import annotations
 
 from typing import Any
 
+from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import param_strings
 from collector.lib.scoping import filter_azure_resources
-from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 
 MAX_RESOURCES = 200
 
@@ -152,8 +152,7 @@ class DiagPostureCollector(Collector):
         elif eh_only and not storage:
             out["_gap"] = (
                 GapReason.LOGGING_NOT_CONFIGURED,
-                f"{eh_only}/{total} resource(s) route logs to Event Hub only — "
-                "not collectible via Storage.",
+                f"{eh_only}/{total} resource(s) route logs to Event Hub only — not collectible via Storage.",
             )
         elif none > 0 or la_only > 0 or eh_only > 0:
             out["_gap"] = (

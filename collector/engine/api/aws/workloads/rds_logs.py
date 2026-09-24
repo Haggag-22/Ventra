@@ -11,12 +11,13 @@ from typing import Any
 
 from botocore.exceptions import ClientError
 
+from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.limits import DEFAULT_MAX_RECORDS
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import effective_window
 from collector.lib.scoping import filter_rds_log_targets
-from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
+
 from ..common.cw_logs import collect_cw_log_events
 
 DEFAULT_WINDOW_DAYS = 7
@@ -48,8 +49,7 @@ class RdsLogsCollector(Collector):
             return SourceResult(
                 name=self.name,
                 status=SourceStatus.EMPTY,
-                gaps=gaps
-                or [("rds", GapReason.NOT_PRESENT, "No RDS instances in scope.")],
+                gaps=gaps or [("rds", GapReason.NOT_PRESENT, "No RDS instances in scope.")],
                 notes="No RDS instances found.",
             )
 
@@ -87,8 +87,7 @@ class RdsLogsCollector(Collector):
         with self.open_jsonl("events.jsonl.gz") as writer:
             for target in log_targets:
                 self._log(
-                    f"Reading {target['log_type']} logs for {target['instance_id']} "
-                    f"({target['log_group']})…"
+                    f"Reading {target['log_type']} logs for {target['instance_id']} ({target['log_group']})…"
                 )
                 before = writer.count
                 _, stats = collect_cw_log_events(

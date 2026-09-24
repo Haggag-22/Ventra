@@ -25,8 +25,10 @@ class RbacCollector(Collector):
     plane = "api"
     description = "RBAC roles/bindings snapshot with escalation-path analysis."
     required_actions = (
-        "list roles", "list clusterroles",
-        "list rolebindings", "list clusterrolebindings",
+        "list roles",
+        "list clusterroles",
+        "list rolebindings",
+        "list clusterrolebindings",
         "list serviceaccounts",
     )
 
@@ -235,9 +237,7 @@ def _stamp_verdicts(
             role["_ventra_grants"] = grants
     for role in roles:
         meta = role.get("metadata") or {}
-        grants = list(
-            role_powers.get(f"Role/{meta.get('namespace', '')}/{meta.get('name', '')}", [])
-        )
+        grants = list(role_powers.get(f"Role/{meta.get('namespace', '')}/{meta.get('name', '')}", []))
         if grants:
             role["_ventra_grants"] = grants
 
@@ -251,9 +251,7 @@ def _stamp_verdicts(
             grants.extend(role_powers.get(f"Role/{ns}/{name}", []))
         if grants:
             binding["_ventra_grants"] = sorted(set(grants))
-        subjects = [
-            str(s.get("name", "")) for s in (binding.get("subjects") or []) if isinstance(s, dict)
-        ]
+        subjects = [str(s.get("name", "")) for s in (binding.get("subjects") or []) if isinstance(s, dict)]
         anonymous = sorted({s for s in subjects if s in ANONYMOUS_SUBJECTS})
         if anonymous:
             binding["_ventra_anonymous_subjects"] = anonymous

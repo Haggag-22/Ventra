@@ -37,8 +37,16 @@ def sign_manifest(manifest_path: Path, key_path: Path | None = None) -> SigningR
     cosign = _which("cosign")
     if cosign and key_path and key_path.exists():
         subprocess.run(
-            [cosign, "sign-blob", "--yes", "--key", str(key_path),
-             "--output-signature", str(sig_path), str(manifest_path)],
+            [
+                cosign,
+                "sign-blob",
+                "--yes",
+                "--key",
+                str(key_path),
+                "--output-signature",
+                str(sig_path),
+                str(manifest_path),
+            ],
             check=True,
             capture_output=True,
         )
@@ -46,8 +54,7 @@ def sign_manifest(manifest_path: Path, key_path: Path | None = None) -> SigningR
             signature_path=sig_path,
             method="cosign",
             verified_command=(
-                f"cosign verify-blob --key <pub> --signature {sig_path.name} "
-                f"{manifest_path.name}"
+                f"cosign verify-blob --key <pub> --signature {sig_path.name} {manifest_path.name}"
             ),
         )
 

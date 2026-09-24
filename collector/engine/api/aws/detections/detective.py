@@ -3,16 +3,16 @@
 Detective does not expose GuardDuty-style findings; open investigations are the closest
 IR-ready signal. This collector lists graph membership and active investigations per region.
 """
-#Test
+# Test
 
 from __future__ import annotations
 
 from botocore.exceptions import ClientError
 
+from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.scoping import filter_detective_graphs, filter_detective_investigations
-from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
 
 class DetectiveCollector(Collector):
@@ -35,9 +35,7 @@ class DetectiveCollector(Collector):
         # Detective's List* operations have no botocore paginators — page manually.
         for region in self.ctx.regions:
             try:
-                graph_list = list(
-                    cf.paginate_manual("detective", region, "list_graphs", "GraphList")
-                )
+                graph_list = list(cf.paginate_manual("detective", region, "list_graphs", "GraphList"))
             except AccessDenied as exc:
                 gaps.append(("detective", GapReason.ACCESS_DENIED, f"{region}: {exc.message}"))
                 continue
@@ -50,9 +48,7 @@ class DetectiveCollector(Collector):
             if not graph_list:
                 continue
 
-            graph_list = filter_detective_graphs(
-                [dict(g) for g in graph_list], params
-            )
+            graph_list = filter_detective_graphs([dict(g) for g in graph_list], params)
             if not graph_list:
                 continue
 
@@ -72,15 +68,11 @@ class DetectiveCollector(Collector):
                         inv["_ventra_graph_arn"] = graph_arn
                         investigations.append(inv)
                 except AccessDenied as exc:
-                    gaps.append(
-                        ("detective", GapReason.ACCESS_DENIED, f"{graph_arn}: {exc.message}")
-                    )
+                    gaps.append(("detective", GapReason.ACCESS_DENIED, f"{graph_arn}: {exc.message}"))
                 except ServiceNotEnabled:
                     continue
                 except ClientError as exc:
-                    gaps.append(
-                        ("detective", GapReason.COLLECTOR_ERROR, f"{graph_arn}: {exc}")
-                    )
+                    gaps.append(("detective", GapReason.COLLECTOR_ERROR, f"{graph_arn}: {exc}"))
 
         investigations = filter_detective_investigations(investigations, params)
 

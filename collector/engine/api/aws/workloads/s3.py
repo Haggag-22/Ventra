@@ -10,10 +10,10 @@ from __future__ import annotations
 
 from botocore.exceptions import OperationNotPageableError
 
+from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.scoping import filter_s3_buckets
-from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
 
 def _normalize_location(constraint: str | None) -> str:
@@ -72,9 +72,7 @@ class S3Collector(Collector):
             entry["region"] = region
             entry["acl"] = self._safe(cf, "get_bucket_acl", name, "Grants", region)
             entry["policy"] = self._safe(cf, "get_bucket_policy", name, "Policy", region)
-            entry["policy_status"] = self._safe(
-                cf, "get_bucket_policy_status", name, "PolicyStatus", region
-            )
+            entry["policy_status"] = self._safe(cf, "get_bucket_policy_status", name, "PolicyStatus", region)
             entry["logging"] = self._safe(cf, "get_bucket_logging", name, "LoggingEnabled", region)
             entry["public_access_block"] = self._safe(
                 cf, "get_public_access_block", name, "PublicAccessBlockConfiguration", region
@@ -91,8 +89,11 @@ class S3Collector(Collector):
 
         if public_count:
             gaps.append(
-                ("s3_public", GapReason.NOT_PRESENT,
-                 f"{public_count} bucket(s) evaluate as public — review for exposure/exfil.")
+                (
+                    "s3_public",
+                    GapReason.NOT_PRESENT,
+                    f"{public_count} bucket(s) evaluate as public — review for exposure/exfil.",
+                )
             )
 
         wf = self.write_json({"buckets": records}, "snapshot.json")

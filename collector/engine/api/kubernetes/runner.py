@@ -147,9 +147,7 @@ def run_kubernetes_collection(
             host_os=platform.platform(),
             host_runtime=f"python {platform.python_version()}; runtime={runtime}",
         )
-        manifest.artifacts = cfg.artifact_refs or artifact_refs_for_collectors(
-            "kubernetes", cfg.collectors
-        )
+        manifest.artifacts = cfg.artifact_refs or artifact_refs_for_collectors("kubernetes", cfg.collectors)
 
         collection_log: list[dict] = []
         for name in cfg.collectors:
@@ -221,9 +219,7 @@ def _run_preflight(
         return {"available": False, "note": "no API-plane collectors selected."}
 
     report = probe_permissions(cf, declared)
-    (staging / "preflight.json").write_text(
-        json.dumps(report, indent=2, default=str), encoding="utf-8"
-    )
+    (staging / "preflight.json").write_text(json.dumps(report, indent=2, default=str), encoding="utf-8")
     if report.get("denied"):
         reporter.event(
             "preflight",

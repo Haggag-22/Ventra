@@ -2,17 +2,18 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
 from typing import Any
 
 from botocore.exceptions import ClientError
 
+from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.limits import DEFAULT_MAX_RECORDS
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import effective_window
 from collector.lib.scoping import filter_cloudfront_distributions
-from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
+
 from ..common.s3_logs import bucket_region, collect_s3_line_records, dash_day_prefixes
 
 DEFAULT_WINDOW_DAYS = 7
@@ -44,8 +45,7 @@ class CloudFrontCollector(Collector):
             return SourceResult(
                 name=self.name,
                 status=SourceStatus.EMPTY,
-                gaps=gaps
-                or [("cloudfront", GapReason.NOT_PRESENT, "No CloudFront distributions.")],
+                gaps=gaps or [("cloudfront", GapReason.NOT_PRESENT, "No CloudFront distributions.")],
                 notes="No CloudFront distributions found.",
             )
 
@@ -69,9 +69,7 @@ class CloudFrontCollector(Collector):
             for dist in logging_on:
                 self._log(f"Reading access logs for distribution {dist['id']}…")
                 before = writer.count
-                stats = self._read_dist_logs(
-                    cf, dist, start, end, gaps, writer=writer, max_records=cap
-                )
+                stats = self._read_dist_logs(cf, dist, start, end, gaps, writer=writer, max_records=cap)
                 per_dist.append(
                     {
                         **dist,
@@ -106,9 +104,7 @@ class CloudFrontCollector(Collector):
             status = SourceStatus.PARTIAL if gaps else SourceStatus.COLLECTED
         elif logging_on:
             status = SourceStatus.PARTIAL if gaps else SourceStatus.EMPTY
-            gaps.append(
-                ("cloudfront", GapReason.NOT_PRESENT, "No access-log records in window.")
-            )
+            gaps.append(("cloudfront", GapReason.NOT_PRESENT, "No access-log records in window."))
         else:
             status = SourceStatus.EMPTY
         return SourceResult(
@@ -138,9 +134,7 @@ class CloudFrontCollector(Collector):
                             "domain_name": item.get("DomainName", ""),
                             "aliases": (item.get("Aliases") or {}).get("Items") or [],
                             "logging_enabled": bool(logging.get("Enabled")),
-                            "bucket": str(logging.get("Bucket") or "").removesuffix(
-                                ".s3.amazonaws.com"
-                            ),
+                            "bucket": str(logging.get("Bucket") or "").removesuffix(".s3.amazonaws.com"),
                             "prefix": logging.get("Prefix", ""),
                         }
                     )

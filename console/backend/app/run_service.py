@@ -11,7 +11,6 @@ from typing import Any
 from collector.engine.api_reporter import ApiReporter
 from collector.engine.matrix_state import DEFAULT_SEVERITY, MatrixState
 from collector.engine.run_launcher import RunLaunchRequest, launch_collection
-from collector.lib.ingest import ingest_after_collect
 
 from .config import settings
 from .config_store import ConfigNotFound, config_store
@@ -448,9 +447,7 @@ def start_run(body: dict[str, Any]) -> dict[str, Any]:
                     if meta.get("cancel_requested"):
                         _finalize_cancelled(run_id)
                     else:
-                        run_store.finalize(
-                            run_id, status="failed", error="Run ended without finalizing."
-                        )
+                        run_store.finalize(run_id, status="failed", error="Run ended without finalizing.")
                         run_store.append_event(run_id, {"type": "failed"})
             except Exception:  # noqa: BLE001
                 pass
@@ -574,6 +571,7 @@ def test_connection(connection_id: str) -> dict[str, Any]:
     except Exception as exc:  # noqa: BLE001
         return {"ok": False, "platform": platform, "error": str(exc)}
 
+
 def apply_relay_payload(run_id: str, payload: dict[str, Any]) -> None:
     """Apply matrix/event/meta updates posted by a Cloud Shell kit relay."""
     typ = payload.get("type")
@@ -585,4 +583,3 @@ def apply_relay_payload(run_id: str, payload: dict[str, Any]) -> None:
         run_store.update_meta(run_id, payload.get("meta") or {})
     else:
         run_store.append_event(run_id, payload)
-

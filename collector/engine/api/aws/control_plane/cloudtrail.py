@@ -13,23 +13,24 @@ Captures:
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
+from datetime import datetime
 from typing import Any
 
+from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.limits import DEFAULT_MAX_RECORDS, records_unlimited
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import effective_window
 from collector.lib.scoping import (
+    CLOUDTRAIL_SOURCE_BUCKET,
+    CLOUDTRAIL_SOURCE_LOOKUP,
+    CLOUDTRAIL_SOURCE_TRAIL,
     cloudtrail_collection_source,
     cloudtrail_event_matches,
     filter_cloudtrail_trails,
     synthetic_cloudtrail_trails_from_buckets,
-    CLOUDTRAIL_SOURCE_BUCKET,
-    CLOUDTRAIL_SOURCE_LOOKUP,
-    CLOUDTRAIL_SOURCE_TRAIL,
 )
-from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
+
 from .cloudtrail_s3 import (
     DATA_CATEGORIES,
     INSIGHT_CATEGORIES,
@@ -145,9 +146,7 @@ class CloudTrailCollector(Collector):
         )
         config["management_collection"] = mgmt_collection
         mgmt_source = (
-            "lookup_events"
-            if mgmt_collection["mode"] in ("event_history", "lookup_events")
-            else "s3_logs"
+            "lookup_events" if mgmt_collection["mode"] in ("event_history", "lookup_events") else "s3_logs"
         )
         mgmt_count = int(mgmt_collection.get("records") or 0)
 
@@ -231,11 +230,7 @@ class CloudTrailCollector(Collector):
                 if network_w.count:
                     stream_files.append(network_w.finalize())
 
-        if (
-            not lookup_only
-            and config["event_coverage"]["insight_events_configured"]
-            and insight_count == 0
-        ):
+        if not lookup_only and config["event_coverage"]["insight_events_configured"] and insight_count == 0:
             gaps.append(
                 (
                     "insight_events",
@@ -279,9 +274,7 @@ class CloudTrailCollector(Collector):
             status = SourceStatus.PARTIAL
         else:
             status = SourceStatus.EMPTY
-            gaps.append(
-                ("cloudtrail", GapReason.NOT_PRESENT, "No CloudTrail events in window.")
-            )
+            gaps.append(("cloudtrail", GapReason.NOT_PRESENT, "No CloudTrail events in window."))
 
         self.write_meta(
             {
@@ -502,9 +495,7 @@ class CloudTrailCollector(Collector):
 
                 if rec_count:
                     status, reason = "collected", ""
-                    self._merge_s3_bucket_stats(
-                        s3_by_bucket, trail, "management_events", rec_count, stats
-                    )
+                    self._merge_s3_bucket_stats(s3_by_bucket, trail, "management_events", rec_count, stats)
                     if bucket and bucket not in buckets:
                         buckets.append(bucket)
                 elif objects_read > 0:
@@ -629,9 +620,7 @@ class CloudTrailCollector(Collector):
             self._merge_s3_bucket_stats(s3_by_bucket, trail, gap_name, rec_count, stats)
             for key in ("objects_scanned", "objects_read", "records", "truncated"):
                 if key == "truncated":
-                    combined_stats["truncated"] = combined_stats.get("truncated") or stats.get(
-                        "truncated"
-                    )
+                    combined_stats["truncated"] = combined_stats.get("truncated") or stats.get("truncated")
                 else:
                     combined_stats[key] = combined_stats.get(key, 0) + stats.get(key, 0)
 
@@ -757,9 +746,7 @@ class CloudTrailCollector(Collector):
             try:
                 described = cf.call("cloudtrail", region, "describe_trails").get("trailList", [])
             except AccessDenied as exc:
-                gaps.append(
-                    ("cloudtrail_config", GapReason.ACCESS_DENIED, f"{region}: {exc.message}")
-                )
+                gaps.append(("cloudtrail_config", GapReason.ACCESS_DENIED, f"{region}: {exc.message}"))
                 continue
             except ServiceNotEnabled:
                 continue
@@ -773,18 +760,14 @@ class CloudTrailCollector(Collector):
                     any_validation = True
                 home = trail.get("HomeRegion", region)
                 try:
-                    trail["Status"] = cf.call(
-                        "cloudtrail", home, "get_trail_status", Name=arn
-                    )
+                    trail["Status"] = cf.call("cloudtrail", home, "get_trail_status", Name=arn)
                     trail["EventSelectors"] = cf.call(
                         "cloudtrail", home, "get_event_selectors", TrailName=arn
                     )
                 except AccessDenied as exc:
                     # Without status, S3 log collection for this trail is skipped — that
                     # is a gap worth surfacing, not hiding.
-                    gaps.append(
-                        ("cloudtrail_config", GapReason.ACCESS_DENIED, f"{arn}: {exc.message}")
-                    )
+                    gaps.append(("cloudtrail_config", GapReason.ACCESS_DENIED, f"{arn}: {exc.message}"))
                 except Exception:  # noqa: BLE001 - keep the trail entry, just less enriched
                     pass
                 try:

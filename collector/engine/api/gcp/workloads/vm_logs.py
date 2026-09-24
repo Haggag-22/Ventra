@@ -8,8 +8,5 @@ class VmLogsCollector(GcpLoggingCollector):
     priority = 2
     description = "GCE VM logs collected by the Cloud Logging agent."
     required_actions = ("logging.logEntries.list",)
-    log_filter = (
-        'resource.type="gce_instance" '
-        'AND NOT logName:"compute.googleapis.com%2Fvpc_flows"'
-    )
+    log_filter = 'resource.type="gce_instance" AND NOT logName:"compute.googleapis.com%2Fvpc_flows"'
     default_window_days = 14

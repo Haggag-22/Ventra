@@ -4,10 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
-import tempfile
 from pathlib import Path
-
-import pytest
 
 REPO = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(REPO / "tests" / "fixtures"))
@@ -57,7 +54,9 @@ def test_streaming_ingest_and_elastic_export(tmp_path: Path) -> None:
     assert "provider" in sample["cloud"]
     assert "raw" in sample
     template = json.loads((export_dir / "elastic-index-template.json").read_text())
-    assert template["template"]["mappings"]["properties"]["event"]["properties"]["action"]["type"] == "keyword"
+    assert (
+        template["template"]["mappings"]["properties"]["event"]["properties"]["action"]["type"] == "keyword"
+    )
 
 
 def test_elastic_export_cli(tmp_path: Path) -> None:
@@ -115,14 +114,17 @@ def test_large_jsonl_seal_and_ingest(tmp_path: Path) -> None:
     record_count = 25_000
     with gzip.GzipFile(filename=out_path, mode="wb", mtime=0) as gz:
         for i in range(record_count):
-            line = json.dumps(
-                {
-                    "eventID": f"evt-{i}",
-                    "eventName": "ConsoleLogin",
-                    "eventTime": "2026-06-07T02:14:00Z",
-                    "eventSource": "signin.amazonaws.com",
-                }
-            ) + "\n"
+            line = (
+                json.dumps(
+                    {
+                        "eventID": f"evt-{i}",
+                        "eventName": "ConsoleLogin",
+                        "eventTime": "2026-06-07T02:14:00Z",
+                        "eventSource": "signin.amazonaws.com",
+                    }
+                )
+                + "\n"
+            )
             gz.write(line.encode())
     data = out_path.read_bytes()
     wf = WrittenFile(
@@ -150,9 +152,7 @@ def test_large_jsonl_seal_and_ingest(tmp_path: Path) -> None:
         host_environment="test",
         time_window=TimeWindow(since=datetime(2026, 6, 1, tzinfo=UTC)),
     )
-    manifest.add_source_result(
-        SourceResult(name="cloudtrail", status=SourceStatus.COLLECTED, files=[wf])
-    )
+    manifest.add_source_result(SourceResult(name="cloudtrail", status=SourceStatus.COLLECTED, files=[wf]))
     (staging / "collection.log").write_bytes(b"")
     manifest_path = staging / "manifest.json"
     manifest.write(manifest_path)

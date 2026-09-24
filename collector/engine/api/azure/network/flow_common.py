@@ -13,10 +13,11 @@ from collections.abc import Callable, Iterator
 from datetime import UTC, datetime
 from typing import Any
 
+from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import scoped_window
 from collector.lib.scoping import filter_nsg_flow_logs, filter_vnet_flow_logs
-from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
+
 from ..common.storage_logs import FLOW_CONTAINER, read_log_records
 
 FlattenFn = Callable[[dict, str], Iterator[dict]]
@@ -35,13 +36,23 @@ def _iso_from_epoch(value: str) -> str:
         return ""
 
 
-def _flat(parts_time: str, src: str, dst: str, dport: str, action: str,
-          b1: str, b2: str, resource_id: str, region: str) -> dict[str, Any]:
+def _flat(
+    parts_time: str,
+    src: str,
+    dst: str,
+    dport: str,
+    action: str,
+    b1: str,
+    b2: str,
+    resource_id: str,
+    region: str,
+) -> dict[str, Any]:
     def _i(v: str) -> int:
         try:
             return int(v or 0)
         except (TypeError, ValueError):
             return 0
+
     return {
         "srcaddr": src,
         "dstaddr": dst,
@@ -135,15 +146,18 @@ def collect_flow_logs(collector, *, flow_type: str, flatten: FlattenFn) -> Sourc
                 cc = cf.container_client(fl["storage_id"], container)
                 for rec in read_log_records(cc, start=window_start, end=window_end):
                     for flat in flatten(rec, ""):
-                        if window_start is None or window_end is None or _record_in_window(flat, window_start, window_end):
+                        if (
+                            window_start is None
+                            or window_end is None
+                            or _record_in_window(flat, window_start, window_end)
+                        ):
                             records.append(flat)
             except AzureAccessDenied as exc:
                 gaps.append((name, GapReason.ACCESS_DENIED, f"{fl['name']}: {exc.message}"))
             except AzureServiceNotEnabled as exc:
                 gaps.append((name, GapReason.NOT_PRESENT, f"{fl['name']}: {exc.message}"))
             per_log.append(
-                {"flow_log": fl["name"], "target": fl["target_resource_id"],
-                 "records": len(records) - before}
+                {"flow_log": fl["name"], "target": fl["target_resource_id"], "records": len(records) - before}
             )
 
     if not any_enabled and not any(g[1] == GapReason.ACCESS_DENIED for g in gaps):

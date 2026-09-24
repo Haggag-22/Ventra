@@ -12,16 +12,17 @@ Raw lines are shipped untouched; the ingester owns parsing.
 from __future__ import annotations
 
 import re
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Any
 
 from botocore.exceptions import ClientError
 
+from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import effective_window, param_strings
 from collector.lib.scoping import matches_any
-from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
+
 from ..common.s3_logs import bucket_region, collect_s3_line_records, dash_day_prefixes
 
 DEFAULT_WINDOW_DAYS = 7
@@ -58,10 +59,7 @@ class S3AccessCollector(Collector):
         start, end = effective_window(self.ctx, self.name, default_days=DEFAULT_WINDOW_DAYS)
 
         try:
-            buckets = [
-                b.get("Name", "")
-                for b in cf.call("s3", None, "list_buckets").get("Buckets", [])
-            ]
+            buckets = [b.get("Name", "") for b in cf.call("s3", None, "list_buckets").get("Buckets", [])]
         except AccessDenied as exc:
             return SourceResult(
                 name=self.name,
@@ -102,9 +100,7 @@ class S3AccessCollector(Collector):
                 unlogged.append(bucket)
 
         if target_filter:
-            destinations = {
-                k: v for k, v in destinations.items() if k[0] in target_filter
-            }
+            destinations = {k: v for k, v in destinations.items() if k[0] in target_filter}
 
         if unlogged:
             names = ", ".join(unlogged[:10])
@@ -190,9 +186,7 @@ class S3AccessCollector(Collector):
             status = SourceStatus.PARTIAL if gaps else SourceStatus.COLLECTED
         elif destinations:
             status = SourceStatus.PARTIAL if gaps else SourceStatus.EMPTY
-            gaps.append(
-                ("s3_access", GapReason.NOT_PRESENT, "No access-log records in window.")
-            )
+            gaps.append(("s3_access", GapReason.NOT_PRESENT, "No access-log records in window."))
         else:
             status = SourceStatus.EMPTY
         return SourceResult(

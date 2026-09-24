@@ -7,7 +7,7 @@ before collection; the collector never creates buckets or sinks.
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import Any
 
 # Collectors that pull rows via Cloud Logging API or GCS archive.
@@ -108,11 +108,7 @@ _SHARED_GROUP_FILTERS: dict[str, str] = {
 
 def deduplicate_gcp_selection(selected: list[str]) -> dict[str, str]:
     chosen = set(selected)
-    return {
-        subset: broad
-        for subset, broad in GCP_SUBSET_OF.items()
-        if subset in chosen and broad in chosen
-    }
+    return {subset: broad for subset, broad in GCP_SUBSET_OF.items() if subset in chosen and broad in chosen}
 
 
 def shared_log_read_groups(run_collectors: list[str]) -> dict[str, dict[str, Any]]:

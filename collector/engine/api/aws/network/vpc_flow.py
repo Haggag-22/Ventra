@@ -11,8 +11,7 @@ events.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
-
+from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.limits import DEFAULT_MAX_RECORDS, records_unlimited
 from collector.lib.models import GapReason, SourceResult, SourceStatus
@@ -22,9 +21,9 @@ from collector.lib.scoping import (
     normalize_log_group_ref,
     resolve_vpc_ids_from_names,
 )
-from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
+
 from ..common.cw_logs import collect_cw_log_events, parse_log_group_arn
-from .vpc_flow_s3 import collect_s3_flow_records, flow_log_s3_target, _flow_scope_tags
+from .vpc_flow_s3 import _flow_scope_tags, collect_s3_flow_records, flow_log_s3_target
 
 MAX_CW_RECORDS = DEFAULT_MAX_RECORDS
 
@@ -75,9 +74,7 @@ class VpcFlowCollector(Collector):
         for fl in flow_configs:
             if fl.get("LogDestinationType") == "cloud-watch-logs":
                 region = fl.get("_ventra_region", "")
-                group = normalize_log_group_ref(
-                    str(fl.get("LogGroupName") or fl.get("LogDestination") or "")
-                )
+                group = normalize_log_group_ref(str(fl.get("LogGroupName") or fl.get("LogDestination") or ""))
                 if not group:
                     continue
                 entry = f"{region}::{group}"

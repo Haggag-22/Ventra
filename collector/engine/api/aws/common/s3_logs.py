@@ -13,6 +13,7 @@ from collections.abc import Callable, Iterator
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+from collector.clouds.aws.client_factory import AccessDenied
 from collector.lib.limits import (
     DEFAULT_MAX_LOG_OBJECTS,
     DEFAULT_MAX_RECORDS,
@@ -20,7 +21,6 @@ from collector.lib.limits import (
     resolve_max_objects,
 )
 from collector.lib.models import GapReason
-from collector.clouds.aws.client_factory import AccessDenied
 
 if TYPE_CHECKING:
     from collector.lib.base import JsonlWriter
@@ -105,9 +105,7 @@ def collect_s3_line_records(
         if stats["truncated"]:
             break
         try:
-            for obj in cf.paginate(
-                "s3", region, "list_objects_v2", "Contents", Bucket=bucket, Prefix=prefix
-            ):
+            for obj in cf.paginate("s3", region, "list_objects_v2", "Contents", Bucket=bucket, Prefix=prefix):
                 stats["objects_scanned"] += 1
                 if not records_unlimited(obj_cap) and stats["objects_scanned"] > obj_cap:
                     stats["truncated"] = True

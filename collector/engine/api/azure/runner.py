@@ -58,9 +58,7 @@ class AzureRunConfig:
     pipeline_steps: list[str] = field(default_factory=list)
 
 
-def run_azure_collection(
-    cfg: AzureRunConfig, *, factory: AzureClientFactory | None = None
-) -> PackageResult:
+def run_azure_collection(cfg: AzureRunConfig, *, factory: AzureClientFactory | None = None) -> PackageResult:
     started = utcnow_iso()
     cf = factory or AzureClientFactory(**azure_factory_kwargs(cfg.auth, subscription_id=cfg.subscription_id))
     identity = cf.caller_identity()
@@ -107,9 +105,7 @@ def run_azure_collection(
             account_id=identity.tenant_id,
             partition="azure",
             regions=cfg.regions or [],
-            operator=Operator(
-                principal_arn=f"azure-sp:{identity.principal}", user_id=identity.tenant_id
-            ),
+            operator=Operator(principal_arn=f"azure-sp:{identity.principal}", user_id=identity.tenant_id),
             started_at=started,
             completed_at="",
             time_window=cfg.time_window,

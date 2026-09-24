@@ -20,13 +20,33 @@ from .config import settings
 # Columns the frontend may filter/sort on. Anything not here is rejected — this is the
 # allow-list that keeps the dynamic query construction injection-safe.
 FILTERABLE = {
-    "event_kind", "event_action", "event_outcome", "event_severity", "event_provider",
-    "cloud_region", "cloud_service", "user_name", "user_arn", "user_type", "source_ip",
-    "dest_ip", "resource_id", "resource_arn", "ventra_source", "ua_category", "source_country",
+    "event_kind",
+    "event_action",
+    "event_outcome",
+    "event_severity",
+    "event_provider",
+    "cloud_region",
+    "cloud_service",
+    "user_name",
+    "user_arn",
+    "user_type",
+    "source_ip",
+    "dest_ip",
+    "resource_id",
+    "resource_arn",
+    "ventra_source",
+    "ua_category",
+    "source_country",
 }
 SORTABLE = {
-    "timestamp", "event_severity", "event_action", "user_name", "source_ip",
-    "dest_ip", "dest_port", "dest_bytes",
+    "timestamp",
+    "event_severity",
+    "event_action",
+    "user_name",
+    "source_ip",
+    "dest_ip",
+    "dest_port",
+    "dest_bytes",
 }
 
 SEVERITY_RANK = {"critical": 5, "high": 4, "medium": 3, "low": 2, "info": 1}
@@ -99,8 +119,7 @@ FINDING_CLASS_SQL = (
 
 # vpc_flow is shared verbatim between AWS and GCP normalizers (same collector id).
 NETWORK_SOURCES = (
-    "ventra_source IN ('vpc_flow', 'nsg_flow', 'vnet_flow', 'azure_firewall', "
-    "'firewall_logs', 'cloud_nat')"
+    "ventra_source IN ('vpc_flow', 'nsg_flow', 'vnet_flow', 'azure_firewall', 'firewall_logs', 'cloud_nat')"
 )
 
 # VPC / VNet scope on network events — collector tags, raw fields, or related_resource.
@@ -126,7 +145,12 @@ _INVENTORY_RESOURCE_SPECS: list[tuple[str, list[dict[str, str]]]] = [
             {"id": "ec2_volumes", "label": "EBS volumes", "source": "ec2", "key": "volumes"},
             {"id": "ec2_snapshots", "label": "EBS snapshots", "source": "ec2", "key": "snapshots"},
             {"id": "ec2_images", "label": "AMIs", "source": "ec2", "key": "images"},
-            {"id": "ec2_launch_templates", "label": "Launch templates", "source": "ec2", "key": "launch_templates"},
+            {
+                "id": "ec2_launch_templates",
+                "label": "Launch templates",
+                "source": "ec2",
+                "key": "launch_templates",
+            },
             {"id": "lambda_functions", "label": "Lambda functions", "source": "lambda", "key": "functions"},
             {"id": "s3_buckets", "label": "S3 buckets", "source": "s3", "key": "buckets"},
         ],
@@ -135,9 +159,19 @@ _INVENTORY_RESOURCE_SPECS: list[tuple[str, list[dict[str, str]]]] = [
         "Network",
         [
             {"id": "vpc_count", "label": "VPCs", "source": "vpc_flow", "key": "_config.vpcs"},
-            {"id": "vpc_flow_logs", "label": "VPC Flow Log configs", "source": "vpc_flow", "key": "_config.flow_logs"},
+            {
+                "id": "vpc_flow_logs",
+                "label": "VPC Flow Log configs",
+                "source": "vpc_flow",
+                "key": "_config.flow_logs",
+            },
             {"id": "ec2_enis", "label": "Network interfaces", "source": "ec2", "key": "network_interfaces"},
-            {"id": "ec2_security_groups", "label": "Security groups", "source": "ec2", "key": "security_groups"},
+            {
+                "id": "ec2_security_groups",
+                "label": "Security groups",
+                "source": "ec2",
+                "key": "security_groups",
+            },
             {"id": "waf_acls", "label": "WAF Web ACLs", "source": "waf", "key": "_config.web_acls"},
         ],
     ),
@@ -163,51 +197,186 @@ _K8S_INVENTORY_RESOURCE_SPECS: list[tuple[str, list[dict[str, str]]]] = [
         "Workloads",
         [
             {"id": "k8s_pods", "label": "Pods", "source": "k8s_cluster_state", "key": "objects.pods"},
-            {"id": "k8s_deployments", "label": "Deployments", "source": "k8s_cluster_state", "key": "objects.deployments"},
-            {"id": "k8s_daemonsets", "label": "DaemonSets", "source": "k8s_cluster_state", "key": "objects.daemonsets"},
-            {"id": "k8s_statefulsets", "label": "StatefulSets", "source": "k8s_cluster_state", "key": "objects.statefulsets"},
+            {
+                "id": "k8s_deployments",
+                "label": "Deployments",
+                "source": "k8s_cluster_state",
+                "key": "objects.deployments",
+            },
+            {
+                "id": "k8s_daemonsets",
+                "label": "DaemonSets",
+                "source": "k8s_cluster_state",
+                "key": "objects.daemonsets",
+            },
+            {
+                "id": "k8s_statefulsets",
+                "label": "StatefulSets",
+                "source": "k8s_cluster_state",
+                "key": "objects.statefulsets",
+            },
             {"id": "k8s_jobs", "label": "Jobs", "source": "k8s_cluster_state", "key": "objects.jobs"},
-            {"id": "k8s_cronjobs", "label": "CronJobs", "source": "k8s_cluster_state", "key": "objects.cronjobs"},
-            {"id": "k8s_images", "label": "Images running cluster-wide", "source": "k8s_cluster_state", "key": "images.images"},
+            {
+                "id": "k8s_cronjobs",
+                "label": "CronJobs",
+                "source": "k8s_cluster_state",
+                "key": "objects.cronjobs",
+            },
+            {
+                "id": "k8s_images",
+                "label": "Images running cluster-wide",
+                "source": "k8s_cluster_state",
+                "key": "images.images",
+            },
         ],
     ),
     (
         "Cluster & storage",
         [
             {"id": "k8s_nodes", "label": "Nodes", "source": "k8s_cluster_state", "key": "objects.nodes"},
-            {"id": "k8s_namespaces", "label": "Namespaces", "source": "k8s_cluster_state", "key": "objects.namespaces"},
-            {"id": "k8s_services", "label": "Services", "source": "k8s_cluster_state", "key": "objects.services"},
-            {"id": "k8s_ingresses", "label": "Ingresses", "source": "k8s_cluster_state", "key": "objects.ingresses"},
-            {"id": "k8s_networkpolicies", "label": "NetworkPolicies", "source": "k8s_cluster_state", "key": "objects.networkpolicies"},
-            {"id": "k8s_pvs", "label": "PersistentVolumes", "source": "k8s_cluster_state", "key": "objects.persistentvolumes"},
-            {"id": "k8s_pvcs", "label": "PersistentVolumeClaims", "source": "k8s_cluster_state", "key": "objects.persistentvolumeclaims"},
-            {"id": "k8s_configmaps", "label": "ConfigMaps", "source": "k8s_cluster_state", "key": "objects.configmaps"},
+            {
+                "id": "k8s_namespaces",
+                "label": "Namespaces",
+                "source": "k8s_cluster_state",
+                "key": "objects.namespaces",
+            },
+            {
+                "id": "k8s_services",
+                "label": "Services",
+                "source": "k8s_cluster_state",
+                "key": "objects.services",
+            },
+            {
+                "id": "k8s_ingresses",
+                "label": "Ingresses",
+                "source": "k8s_cluster_state",
+                "key": "objects.ingresses",
+            },
+            {
+                "id": "k8s_networkpolicies",
+                "label": "NetworkPolicies",
+                "source": "k8s_cluster_state",
+                "key": "objects.networkpolicies",
+            },
+            {
+                "id": "k8s_pvs",
+                "label": "PersistentVolumes",
+                "source": "k8s_cluster_state",
+                "key": "objects.persistentvolumes",
+            },
+            {
+                "id": "k8s_pvcs",
+                "label": "PersistentVolumeClaims",
+                "source": "k8s_cluster_state",
+                "key": "objects.persistentvolumeclaims",
+            },
+            {
+                "id": "k8s_configmaps",
+                "label": "ConfigMaps",
+                "source": "k8s_cluster_state",
+                "key": "objects.configmaps",
+            },
         ],
     ),
     (
         "Identity & admission",
         [
-            {"id": "k8s_serviceaccounts", "label": "ServiceAccounts", "source": "k8s_cluster_state", "key": "objects.serviceaccounts"},
-            {"id": "k8s_secrets", "label": "Secrets (metadata only)", "source": "k8s_cluster_state", "key": "objects.secrets"},
+            {
+                "id": "k8s_serviceaccounts",
+                "label": "ServiceAccounts",
+                "source": "k8s_cluster_state",
+                "key": "objects.serviceaccounts",
+            },
+            {
+                "id": "k8s_secrets",
+                "label": "Secrets (metadata only)",
+                "source": "k8s_cluster_state",
+                "key": "objects.secrets",
+            },
             {"id": "k8s_roles", "label": "Roles", "source": "k8s_rbac", "key": "objects.roles"},
-            {"id": "k8s_clusterroles", "label": "ClusterRoles", "source": "k8s_rbac", "key": "objects.clusterroles"},
-            {"id": "k8s_rolebindings", "label": "RoleBindings", "source": "k8s_rbac", "key": "objects.rolebindings"},
-            {"id": "k8s_clusterrolebindings", "label": "ClusterRoleBindings", "source": "k8s_rbac", "key": "objects.clusterrolebindings"},
-            {"id": "k8s_mutating_webhooks", "label": "Mutating webhooks", "source": "k8s_cluster_state", "key": "objects.mutatingwebhookconfigurations"},
-            {"id": "k8s_validating_webhooks", "label": "Validating webhooks", "source": "k8s_cluster_state", "key": "objects.validatingwebhookconfigurations"},
-            {"id": "k8s_crds", "label": "CRDs", "source": "k8s_cluster_state", "key": "objects.customresourcedefinitions"},
+            {
+                "id": "k8s_clusterroles",
+                "label": "ClusterRoles",
+                "source": "k8s_rbac",
+                "key": "objects.clusterroles",
+            },
+            {
+                "id": "k8s_rolebindings",
+                "label": "RoleBindings",
+                "source": "k8s_rbac",
+                "key": "objects.rolebindings",
+            },
+            {
+                "id": "k8s_clusterrolebindings",
+                "label": "ClusterRoleBindings",
+                "source": "k8s_rbac",
+                "key": "objects.clusterrolebindings",
+            },
+            {
+                "id": "k8s_mutating_webhooks",
+                "label": "Mutating webhooks",
+                "source": "k8s_cluster_state",
+                "key": "objects.mutatingwebhookconfigurations",
+            },
+            {
+                "id": "k8s_validating_webhooks",
+                "label": "Validating webhooks",
+                "source": "k8s_cluster_state",
+                "key": "objects.validatingwebhookconfigurations",
+            },
+            {
+                "id": "k8s_crds",
+                "label": "CRDs",
+                "source": "k8s_cluster_state",
+                "key": "objects.customresourcedefinitions",
+            },
         ],
     ),
     (
         "Flagged for review",
         [
-            {"id": "k8s_suspicious_pods", "label": "Suspicious pods", "source": "k8s_cluster_state", "key": "suspicious_pods"},
-            {"id": "k8s_untrusted_images", "label": "Untrusted-registry images", "source": "k8s_cluster_state", "key": "images.untrusted"},
-            {"id": "k8s_hostpath_pvs", "label": "hostPath-backed volumes", "source": "k8s_cluster_state", "key": "hostpath_volumes"},
-            {"id": "k8s_automounting_sas", "label": "ServiceAccount token automount", "source": "k8s_cluster_state", "key": "service_accounts.accounts"},
-            {"id": "k8s_privileged_namespaces", "label": "Pod Security per namespace", "source": "k8s_cluster_state", "key": "pod_security.namespaces"},
-            {"id": "k8s_dangerous_bindings", "label": "Escalation-capable bindings", "source": "k8s_rbac", "key": "dangerous_bindings"},
-            {"id": "k8s_anonymous_bindings", "label": "Anonymous bindings", "source": "k8s_rbac", "key": "anonymous_bindings"},
+            {
+                "id": "k8s_suspicious_pods",
+                "label": "Suspicious pods",
+                "source": "k8s_cluster_state",
+                "key": "suspicious_pods",
+            },
+            {
+                "id": "k8s_untrusted_images",
+                "label": "Untrusted-registry images",
+                "source": "k8s_cluster_state",
+                "key": "images.untrusted",
+            },
+            {
+                "id": "k8s_hostpath_pvs",
+                "label": "hostPath-backed volumes",
+                "source": "k8s_cluster_state",
+                "key": "hostpath_volumes",
+            },
+            {
+                "id": "k8s_automounting_sas",
+                "label": "ServiceAccount token automount",
+                "source": "k8s_cluster_state",
+                "key": "service_accounts.accounts",
+            },
+            {
+                "id": "k8s_privileged_namespaces",
+                "label": "Pod Security per namespace",
+                "source": "k8s_cluster_state",
+                "key": "pod_security.namespaces",
+            },
+            {
+                "id": "k8s_dangerous_bindings",
+                "label": "Escalation-capable bindings",
+                "source": "k8s_rbac",
+                "key": "dangerous_bindings",
+            },
+            {
+                "id": "k8s_anonymous_bindings",
+                "label": "Anonymous bindings",
+                "source": "k8s_rbac",
+                "key": "anonymous_bindings",
+            },
         ],
     ),
 ]
@@ -749,10 +918,7 @@ class CaseStore:
         cached = self._parquet_cols.get(path)
         if cached is not None:
             return cached
-        cols = {
-            r[0]
-            for r in con.execute("DESCRIBE SELECT * FROM read_parquet(?)", [path]).fetchall()
-        }
+        cols = {r[0] for r in con.execute("DESCRIBE SELECT * FROM read_parquet(?)", [path]).fetchall()}
         self._parquet_cols[path] = cols
         return cols
 
@@ -770,10 +936,7 @@ class CaseStore:
         if has_v:
             return "read_parquet(?)"
         if has_h:
-            return (
-                "(SELECT * EXCLUDE(harbor_source), harbor_source AS ventra_source "
-                "FROM read_parquet(?))"
-            )
+            return "(SELECT * EXCLUDE(harbor_source), harbor_source AS ventra_source FROM read_parquet(?))"
         return "(SELECT *, CAST('' AS VARCHAR) AS ventra_source FROM read_parquet(?))"
 
     def _vpc_flow_config(self, case_id: str) -> dict[str, Any] | None:
@@ -810,9 +973,7 @@ class CaseStore:
             params.extend(q.services)
         if q.users:
             placeholders = ",".join("?" for _ in q.users)
-            clauses.append(
-                f"(user_name IN ({placeholders}) OR user_arn IN ({placeholders}))"
-            )
+            clauses.append(f"(user_name IN ({placeholders}) OR user_arn IN ({placeholders}))")
             params.extend(q.users)
             params.extend(q.users)
         if q.categories:
@@ -840,10 +1001,10 @@ class CaseStore:
             params.append(f'%"{q.related_ip}"%')
         if q.related_user:
             clauses.append("related_user LIKE ?")
-            params.append(f'%{q.related_user}%')
+            params.append(f"%{q.related_user}%")
         if q.related_resource:
             clauses.append("related_resource LIKE ?")
-            params.append(f'%{q.related_resource}%')
+            params.append(f"%{q.related_resource}%")
         if q.resources:
             placeholders = ",".join("?" for _ in q.resources)
             clauses.append(f"resource_id IN ({placeholders})")
@@ -876,9 +1037,7 @@ class CaseStore:
                 clauses.append(f"dest_port IN ({placeholders})")
                 params.extend(ports)
         if q.vpcs:
-            flow_vpcs = _vpc_ids_from_flow_config(
-                self._vpc_flow_config(case_id) if case_id else None
-            )
+            flow_vpcs = _vpc_ids_from_flow_config(self._vpc_flow_config(case_id) if case_id else None)
             vpc_clause, vpc_params = network_vpc_filter_clause(q.vpcs, flow_vpcs)
             if vpc_clause:
                 clauses.append(vpc_clause)
@@ -910,9 +1069,7 @@ class CaseStore:
         con = self._connect()
         try:
             events = self._events_table(con, path)
-            total = con.execute(
-                f"SELECT count(*) FROM {events} {where}", [path, *params]
-            ).fetchone()[0]
+            total = con.execute(f"SELECT count(*) FROM {events} {where}", [path, *params]).fetchone()[0]
             rows = con.execute(
                 f"SELECT * FROM {events} {where} "
                 f"ORDER BY {sort_expr} {order}, timestamp ASC LIMIT ? OFFSET ?",
@@ -922,9 +1079,12 @@ class CaseStore:
             data = [dict(zip(cols, r)) for r in rows.fetchall()]
         finally:
             con.close()
-        return {"total": total, "count": len(data), "offset": q.offset, "events": [
-            _decode_row(r) for r in data
-        ]}
+        return {
+            "total": total,
+            "count": len(data),
+            "offset": q.offset,
+            "events": [_decode_row(r) for r in data],
+        }
 
     def facets(self, case_id: str, q: EventQuery) -> dict[str, Any]:
         """Aggregations for the filter rail, respecting the current filters.
@@ -938,6 +1098,7 @@ class CaseStore:
         con = self._connect()
         try:
             events = self._events_table(con, path)
+
             def agg(col: str) -> list[dict]:
                 return self._facet_agg(con, events, col, where, params, path)
 
@@ -983,8 +1144,7 @@ class CaseStore:
         else:
             clause = f" WHERE {key} <> ''{extra_where}"
         rows = con.execute(
-            f"SELECT {key} AS k, count(*) AS c FROM {events}{clause} "
-            "GROUP BY 1 ORDER BY c DESC, k ASC",
+            f"SELECT {key} AS k, count(*) AS c FROM {events}{clause} GROUP BY 1 ORDER BY c DESC, k ASC",
             [path, *params],
         ).fetchall()
         return [{"value": r[0], "count": r[1]} for r in rows if r[0] is not None and r[0] != ""]
@@ -1057,9 +1217,7 @@ class CaseStore:
     ) -> list[dict[str, Any]]:
         """Aggregate CloudTrail Management / Data / Insight / Network counts from raw JSON."""
         ct_where = (
-            f"{where} AND ventra_source = 'cloudtrail'"
-            if where
-            else " WHERE ventra_source = 'cloudtrail'"
+            f"{where} AND ventra_source = 'cloudtrail'" if where else " WHERE ventra_source = 'cloudtrail'"
         )
         rows = con.execute(
             f"SELECT {TRAIL_CATEGORY_SQL} AS k, count(*) AS c FROM {events}{ct_where} "
@@ -1077,11 +1235,7 @@ class CaseStore:
         path: str,
     ) -> list[dict[str, Any]]:
         """Aggregate finding classes (Compliance / Vulnerability / Threat / ...) from raw JSON."""
-        f_where = (
-            f"{where} AND event_kind = 'finding'"
-            if where
-            else " WHERE event_kind = 'finding'"
-        )
+        f_where = f"{where} AND event_kind = 'finding'" if where else " WHERE event_kind = 'finding'"
         rows = con.execute(
             f"SELECT {FINDING_CLASS_SQL} AS k, count(*) AS c FROM {events}{f_where} "
             "GROUP BY 1 ORDER BY c DESC, k ASC",
@@ -1108,12 +1262,13 @@ class CaseStore:
         edges: list[dict] = []
         for user_arn, user_name, resource_arn, ip, c in rows:
             if user_arn:
-                nodes.setdefault(user_arn, {"id": user_arn, "label": user_name or user_arn,
-                                            "type": "principal"})
+                nodes.setdefault(
+                    user_arn, {"id": user_arn, "label": user_name or user_arn, "type": "principal"}
+                )
             if resource_arn:
-                nodes.setdefault(resource_arn, {"id": resource_arn,
-                                                "label": resource_arn.split("/")[-1],
-                                                "type": "role"})
+                nodes.setdefault(
+                    resource_arn, {"id": resource_arn, "label": resource_arn.split("/")[-1], "type": "role"}
+                )
             if user_arn and resource_arn:
                 edges.append({"source": user_arn, "target": resource_arn, "weight": c, "ip": ip})
         return {"nodes": list(nodes.values()), "edges": edges}
@@ -1133,8 +1288,7 @@ class CaseStore:
             ).fetchall()
             event_counts = {r[0]: r[1] for r in rows if r[0]}
             untagged = con.execute(
-                f"SELECT count(*) FROM {events} "
-                f"WHERE {NETWORK_SOURCES} AND ({NETWORK_VPC_ID_SQL}) = ''",
+                f"SELECT count(*) FROM {events} WHERE {NETWORK_SOURCES} AND ({NETWORK_VPC_ID_SQL}) = ''",
                 [path],
             ).fetchone()[0]
         finally:
@@ -1236,20 +1390,15 @@ class CaseStore:
                 {"dest_ip": r[0], "bytes": int(r[1] or 0), "flows": r[2], "ports": r[3]}
                 for r in egress_public
             ],
-            "top_talkers": [
-                {"source_ip": r[0], "bytes": int(r[1] or 0), "flows": r[2]} for r in top_talkers
-            ],
+            "top_talkers": [{"source_ip": r[0], "bytes": int(r[1] or 0), "flows": r[2]} for r in top_talkers],
             "top_ports": [
                 {"port": r[0], "flows": r[1], "bytes": int(r[2] or 0), "rejected": int(r[3] or 0)}
                 for r in top_ports
             ],
             "rejected": [
-                {"source_ip": r[0], "dest_ip": r[1], "dest_port": r[2], "count": r[3]}
-                for r in rejected
+                {"source_ip": r[0], "dest_ip": r[1], "dest_port": r[2], "count": r[3]} for r in rejected
             ],
-            "protocols": [
-                {"protocol": r[0] or "", "count": r[1]} for r in protocols if r[0]
-            ],
+            "protocols": [{"protocol": r[0] or "", "count": r[1]} for r in protocols if r[0]],
         }
 
     def web_dns_overview(self, case_id: str) -> dict[str, Any]:
@@ -1271,8 +1420,7 @@ class CaseStore:
             events = self._events_table(con, path)
 
             edge_totals = con.execute(
-                f"SELECT count(*), count(DISTINCT NULLIF(source_ip,'')), {fail} "
-                f"FROM {events} WHERE {edge}",
+                f"SELECT count(*), count(DISTINCT NULLIF(source_ip,'')), {fail} FROM {events} WHERE {edge}",
                 [path],
             ).fetchone()
             edge_clients = con.execute(
@@ -1292,8 +1440,7 @@ class CaseStore:
                 [path],
             ).fetchall()
             edge_by_source = con.execute(
-                f"SELECT ventra_source, count(*) c FROM {events} WHERE {edge} "
-                "GROUP BY 1 ORDER BY c DESC",
+                f"SELECT ventra_source, count(*) c FROM {events} WHERE {edge} GROUP BY 1 ORDER BY c DESC",
                 [path],
             ).fetchall()
             edge_resources = con.execute(
@@ -1322,13 +1469,11 @@ class CaseStore:
 
             waf = "ventra_source IN ('waf', 'cloud_armor')"
             waf_totals = con.execute(
-                f"SELECT count(*), {fail}, count(DISTINCT NULLIF(source_ip,'')) "
-                f"FROM {events} WHERE {waf}",
+                f"SELECT count(*), {fail}, count(DISTINCT NULLIF(source_ip,'')) FROM {events} WHERE {waf}",
                 [path],
             ).fetchone()
             waf_actions = con.execute(
-                f"SELECT event_action, count(*) c FROM {events} "
-                f"WHERE {waf} GROUP BY 1 ORDER BY c DESC",
+                f"SELECT event_action, count(*) c FROM {events} WHERE {waf} GROUP BY 1 ORDER BY c DESC",
                 [path],
             ).fetchall()
             waf_ips = con.execute(
@@ -1343,8 +1488,7 @@ class CaseStore:
             # once that normalizer lands; currently a no-op since no rows carry that source.
             dns = "ventra_source IN ('route53_resolver', 'cloud_dns', 'dns')"
             dns_totals = con.execute(
-                f"SELECT count(*), count(DISTINCT NULLIF(resource_id,'')), {fail} "
-                f"FROM {events} WHERE {dns}",
+                f"SELECT count(*), count(DISTINCT NULLIF(resource_id,'')), {fail} FROM {events} WHERE {dns}",
                 [path],
             ).fetchone()
             dns_domains = con.execute(
@@ -1371,22 +1515,18 @@ class CaseStore:
                 },
                 "by_source": [{"source": r[0], "count": r[1]} for r in edge_by_source],
                 "top_clients": [
-                    {"source_ip": r[0], "requests": r[1], "failures": int(r[2] or 0),
-                     "last_seen": r[3]}
+                    {"source_ip": r[0], "requests": r[1], "failures": int(r[2] or 0), "last_seen": r[3]}
                     for r in edge_clients
                 ],
                 "methods": [{"method": r[0], "count": r[1]} for r in edge_methods],
                 "user_agents": [{"ua": r[0], "count": r[1]} for r in edge_uas],
                 "top_resources": [
-                    {"source": r[0], "resource_id": r[1], "count": r[2],
-                     "failures": int(r[3] or 0)}
+                    {"source": r[0], "resource_id": r[1], "count": r[2], "failures": int(r[3] or 0)}
                     for r in edge_resources
                 ],
                 "status_classes": [{"cls": r[0], "count": r[1]} for r in edge_status],
                 "top_paths": [
-                    {"target": r[0], "count": r[1], "failures": int(r[2] or 0)}
-                    for r in edge_paths
-                    if r[0]
+                    {"target": r[0], "count": r[1], "failures": int(r[2] or 0)} for r in edge_paths if r[0]
                 ],
             },
             "waf": {
@@ -1397,8 +1537,7 @@ class CaseStore:
                 },
                 "actions": [{"action": r[0], "count": r[1]} for r in waf_actions],
                 "top_ips": [
-                    {"source_ip": r[0], "country": r[1], "count": r[2],
-                     "blocked": int(r[3] or 0)}
+                    {"source_ip": r[0], "country": r[1], "count": r[2], "blocked": int(r[3] or 0)}
                     for r in waf_ips
                 ],
             },
@@ -1409,8 +1548,7 @@ class CaseStore:
                     "failures": dns_totals[2] or 0,
                 },
                 "top_domains": [
-                    {"domain": r[0], "count": r[1], "failures": int(r[2] or 0),
-                     "answer": r[3]}
+                    {"domain": r[0], "count": r[1], "failures": int(r[2] or 0), "answer": r[3]}
                     for r in dns_domains
                 ],
                 "qtypes": [{"qtype": r[0] or "?", "count": r[1]} for r in dns_qtypes],
@@ -1448,13 +1586,11 @@ class CaseStore:
                 [path],
             ).fetchone()
             by_source = con.execute(
-                f"SELECT ventra_source, count(*) c FROM {events} WHERE {scope} "
-                "GROUP BY 1 ORDER BY c DESC",
+                f"SELECT ventra_source, count(*) c FROM {events} WHERE {scope} GROUP BY 1 ORDER BY c DESC",
                 [path],
             ).fetchall()
             operations = con.execute(
-                f"SELECT {op_class} op, count(*) c FROM {events} WHERE {scope} "
-                "GROUP BY 1 ORDER BY c DESC",
+                f"SELECT {op_class} op, count(*) c FROM {events} WHERE {scope} GROUP BY 1 ORDER BY c DESC",
                 [path],
             ).fetchall()
             top_objects = con.execute(
@@ -1490,18 +1626,21 @@ class CaseStore:
             "by_source": [{"source": r[0], "count": r[1]} for r in by_source],
             "operations": [{"op": r[0], "count": r[1]} for r in operations],
             "top_objects": [
-                {"resource_id": r[0], "count": r[1], "failures": int(r[2] or 0), "ips": r[3],
-                 "bytes": int(r[4] or 0)}
+                {
+                    "resource_id": r[0],
+                    "count": r[1],
+                    "failures": int(r[2] or 0),
+                    "ips": r[3],
+                    "bytes": int(r[4] or 0),
+                }
                 for r in top_objects
             ],
             "top_principals": [
-                {"principal": r[0], "count": r[1], "failures": int(r[2] or 0),
-                 "bytes": int(r[3] or 0)}
+                {"principal": r[0], "count": r[1], "failures": int(r[2] or 0), "bytes": int(r[3] or 0)}
                 for r in top_principals
             ],
             "top_ips": [
-                {"source_ip": r[0], "count": r[1], "failures": int(r[2] or 0),
-                 "bytes": int(r[3] or 0)}
+                {"source_ip": r[0], "count": r[1], "failures": int(r[2] or 0), "bytes": int(r[3] or 0)}
                 for r in top_ips
             ],
         }
@@ -1524,9 +1663,7 @@ class CaseStore:
         return {
             "trail_count": summary.get("trail_count", len(trails)),
             "trails": trails,
-            "management_source": summary.get("management_source")
-            or meta.get("management_source")
-            or "",
+            "management_source": summary.get("management_source") or meta.get("management_source") or "",
             "management_collection": config.get("management_collection")
             or meta.get("management_collection")
             or {},
@@ -1572,9 +1709,7 @@ class CaseStore:
         live_by_group = self._cloudwatch_live_counts(case_id)
         # Prefer live parquet counts when available.
         if live_by_group.get("by_group"):
-            live_map = {
-                (g["name"], g["region"]): g["count"] for g in live_by_group["by_group"]
-            }
+            live_map = {(g["name"], g["region"]): g["count"] for g in live_by_group["by_group"]}
             merged = []
             for g in groups:
                 key = (g.get("name", ""), g.get("region", ""))
@@ -1630,20 +1765,14 @@ class CaseStore:
                     "status": str(fl.get("FlowLogStatus") or ("ACTIVE" if _flow_log_active(fl) else "")),
                 }
             )
-        uncovered = [
-            str(v)
-            for v in (config.get("vpcs_without_flow_logs") or [])
-            if str(v).strip()
-        ]
+        uncovered = [str(v) for v in (config.get("vpcs_without_flow_logs") or []) if str(v).strip()]
         live_total = self._vpc_flow_live_count(case_id)
         records = live_total or int(meta.get("records") or 0)
         return {
             "flow_log_count": len(flow_logs_out),
             "vpc_count": len(config.get("vpcs") or []),
             "flow_logs": flow_logs_out,
-            "vpcs_without_flow_logs": [
-                {"id": vid, "name": vpc_names.get(vid) or vid} for vid in uncovered
-            ],
+            "vpcs_without_flow_logs": [{"id": vid, "name": vpc_names.get(vid) or vid} for vid in uncovered],
             "records": records,
             "cloudwatch_records": int(meta.get("cloudwatch_records") or 0),
             "s3_records": int(meta.get("s3_records") or 0),
@@ -1685,9 +1814,7 @@ class CaseStore:
             con.close()
         return {
             "total": int(total or 0),
-            "by_group": [
-                {"name": r[0], "region": r[1], "count": int(r[2] or 0)} for r in rows
-            ],
+            "by_group": [{"name": r[0], "region": r[1], "count": int(r[2] or 0)} for r in rows],
         }
 
     def _cloudtrail_live_counts(self, case_id: str) -> dict[str, Any]:
@@ -1728,10 +1855,7 @@ class CaseStore:
         finally:
             con.close()
 
-        by_bucket = [
-            {"bucket": r[0], "events": {"total": int(r[1])}, "trail_arns": []}
-            for r in bucket_rows
-        ]
+        by_bucket = [{"bucket": r[0], "events": {"total": int(r[1])}, "trail_arns": []} for r in bucket_rows]
         return {
             "lookup_total": int(lookup_total or 0),
             "s3_total": int(s3_total or 0),

@@ -4,12 +4,12 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
+from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.limits import records_unlimited
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import effective_window, param_strings
-from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
-from ..common import window_bounds
+
 from .ual_common import (
     FEED_ENABLE_RUNBOOK,
     MANAGEMENT_CONTENT_TYPES,
@@ -20,15 +20,14 @@ from .ual_common import (
 
 DEFAULT_WINDOW_DAYS = 7
 from collector.lib.limits import DEFAULT_MAX_RECORDS as MAX_RECORDS
+
 INGEST_LAG_SECONDS = 1800
 
 
 class UnifiedAuditCollector(Collector):
     name = "unified_audit"
     priority = 1
-    description = (
-        "M365 Unified Audit Log (recent window) via Office 365 Management Activity API feeds."
-    )
+    description = "M365 Unified Audit Log (recent window) via Office 365 Management Activity API feeds."
     required_actions = ("ActivityFeed.Read",)
 
     def collect(self) -> SourceResult:

@@ -160,9 +160,7 @@ class NodeAccess:
         ):
             for sock in sockets:
                 if self.resolve(sock).exists():
-                    storage = next(
-                        (s for s in storages if self.resolve(s).is_dir()), storages[0]
-                    )
+                    storage = next((s for s in storages if self.resolve(s).is_dir()), storages[0])
                     return RuntimeInfo(
                         runtime=name,
                         version=self._runtime_version(),

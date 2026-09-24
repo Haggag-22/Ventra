@@ -8,6 +8,7 @@ from collections.abc import Callable, Iterator
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from collector.lib.limits import (
     DEFAULT_MAX_LOG_OBJECTS,
     DEFAULT_MAX_RECORDS,
@@ -15,7 +16,6 @@ from collector.lib.limits import (
     resolve_max_objects,
 )
 from collector.lib.models import GapReason
-from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
 if TYPE_CHECKING:
     from collector.lib.base import JsonlWriter
@@ -36,7 +36,7 @@ def flow_log_s3_target(flow_log: dict[str, Any]) -> tuple[str, str] | None:
     arn = (flow_log.get("LogDestination") or "").strip()
     if not arn.startswith("arn:aws:s3:::"):
         return None
-    path = arn[len("arn:aws:s3:::"):]
+    path = arn[len("arn:aws:s3:::") :]
     bucket, _, prefix = path.partition("/")
     if not bucket:
         return None
@@ -53,9 +53,7 @@ def _iter_days(start: datetime, end: datetime):
         day += timedelta(days=1)
 
 
-def _day_prefixes(
-    prefix: str, account_id: str, region: str, start: datetime, end: datetime
-) -> list[str]:
+def _day_prefixes(prefix: str, account_id: str, region: str, start: datetime, end: datetime) -> list[str]:
     base = f"{prefix}AWSLogs/{account_id}/vpcflowlogs/{region}"
     return [f"{base}/{d.year:04d}/{d.month:02d}/{d.day:02d}/" for d in _iter_days(start, end)]
 
@@ -69,7 +67,9 @@ def _flow_scope_tags(flow_log: dict[str, Any]) -> dict[str, str]:
     return {}
 
 
-def _iter_plaintext_records(body: bytes, region: str, extra: dict[str, str] | None = None) -> Iterator[dict[str, Any]]:
+def _iter_plaintext_records(
+    body: bytes, region: str, extra: dict[str, str] | None = None
+) -> Iterator[dict[str, Any]]:
     with gzip.GzipFile(fileobj=io.BytesIO(body)) as gz:
         text = gz.read().decode("utf-8", errors="replace")
     lines = text.splitlines()
@@ -175,7 +175,10 @@ def collect_s3_flow_records(
                     stats["objects_read"] += 1
                     body = s3.get_object(Bucket=bucket, Key=key)["Body"].read()
                     for rec in _iter_plaintext_records(body, region, scope_tags):
-                        if not records_unlimited(max_records) and _written_count(writer, records) >= max_records:
+                        if (
+                            not records_unlimited(max_records)
+                            and _written_count(writer, records) >= max_records
+                        ):
                             stats["truncated"] = True
                             break
                         if not _in_window(rec, start, end):
@@ -191,9 +194,7 @@ def collect_s3_flow_records(
                     if stats["truncated"]:
                         break
             except AccessDenied as exc:
-                gaps.append(
-                    ("vpc_flow_s3", GapReason.ACCESS_DENIED, f"{bucket}/{prefix_key}: {exc.message}")
-                )
+                gaps.append(("vpc_flow_s3", GapReason.ACCESS_DENIED, f"{bucket}/{prefix_key}: {exc.message}"))
             except ServiceNotEnabled:
                 continue
     except AccessDenied as exc:

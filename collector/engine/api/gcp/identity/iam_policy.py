@@ -9,18 +9,16 @@ from __future__ import annotations
 
 from typing import Any
 
+from collector.clouds.gcp.client_factory import GcpAccessDenied
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.scoping import filter_iam_bindings
-from collector.clouds.gcp.client_factory import GcpAccessDenied
 
 
 class IamPolicyCollector(Collector):
     name = "iam_policy"
     priority = 1
-    description = (
-        "IAM snapshot: project bindings, service accounts, key metadata, custom roles."
-    )
+    description = "IAM snapshot: project bindings, service accounts, key metadata, custom roles."
     required_actions = (
         "resourcemanager.projects.getIamPolicy",
         "iam.serviceAccounts.list",
@@ -94,9 +92,7 @@ class IamPolicyCollector(Collector):
 
         try:
             project_iam = cf.iam_policy_snapshot(project_id)
-            project_iam["bindings"] = filter_iam_bindings(
-                project_iam.get("bindings") or [], params
-            )
+            project_iam["bindings"] = filter_iam_bindings(project_iam.get("bindings") or [], params)
             entry["project_iam"] = {
                 "bindings": project_iam["bindings"],
                 "etag": project_iam.get("etag"),
@@ -128,9 +124,7 @@ class IamPolicyCollector(Collector):
                         detail["keys"] = []
                     try:
                         sa_policy = cf.service_account_iam_policy(sa_name)
-                        sa_policy["bindings"] = filter_iam_bindings(
-                            sa_policy.get("bindings") or [], params
-                        )
+                        sa_policy["bindings"] = filter_iam_bindings(sa_policy.get("bindings") or [], params)
                         detail["iam_policy"] = sa_policy
                     except GcpAccessDenied as exc:
                         gaps.append(
@@ -150,9 +144,7 @@ class IamPolicyCollector(Collector):
         try:
             entry["custom_roles"] = cf.list_project_custom_roles(project_id)
         except GcpAccessDenied as exc:
-            gaps.append(
-                ("iam_policy_roles", GapReason.ACCESS_DENIED, f"{project_id}: {exc.message}")
-            )
+            gaps.append(("iam_policy_roles", GapReason.ACCESS_DENIED, f"{project_id}: {exc.message}"))
             entry["custom_roles"] = []
 
         return entry

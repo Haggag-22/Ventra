@@ -14,6 +14,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
+from collector.clouds.aws.client_factory import AccessDenied
 from collector.lib.limits import (
     DEFAULT_MAX_LOG_OBJECTS,
     DEFAULT_MAX_RECORDS,
@@ -21,7 +22,6 @@ from collector.lib.limits import (
     resolve_max_objects,
 )
 from collector.lib.models import GapReason
-from collector.clouds.aws.client_factory import AccessDenied
 
 if TYPE_CHECKING:
     from collector.lib.base import JsonlWriter
@@ -182,11 +182,9 @@ def _account_base(cf, trail: dict[str, Any], account_id: str, home: str) -> str 
         return None
     if trail.get("IsOrganizationTrail"):
         try:
-            resp = cf.call(
-                "s3", home, "list_objects_v2", Bucket=bucket, Prefix=base, Delimiter="/"
-            )
+            resp = cf.call("s3", home, "list_objects_v2", Bucket=bucket, Prefix=base, Delimiter="/")
             for cp in resp.get("CommonPrefixes") or []:
-                folder = cp.get("Prefix", "")[len(base):].strip("/")
+                folder = cp.get("Prefix", "")[len(base) :].strip("/")
                 if folder.startswith("o-"):
                     return f"{base}{folder}/{account_id}/"
         except Exception:  # noqa: BLE001
@@ -278,7 +276,10 @@ def collect_s3_trail_records(
                         with gzip.GzipFile(fileobj=io.BytesIO(body)) as gz:
                             payload = json.loads(gz.read().decode("utf-8"))
                         for rec in payload.get("Records") or []:
-                            if not records_unlimited(max_records) and _written_count(writer, records) >= max_records:
+                            if (
+                                not records_unlimited(max_records)
+                                and _written_count(writer, records) >= max_records
+                            ):
                                 stats["truncated"] = True
                                 break
                             cat = rec.get("eventCategory") or ""
@@ -322,9 +323,7 @@ def collect_s3_trail_records(
             if stats["truncated"]:
                 break
     except AccessDenied as exc:
-        gaps.append(
-            ("cloudtrail_s3", GapReason.ACCESS_DENIED, f"{bucket}: {exc.message}")
-        )
+        gaps.append(("cloudtrail_s3", GapReason.ACCESS_DENIED, f"{bucket}: {exc.message}"))
 
     if stats["truncated"] and not records_unlimited(max_records):
         gaps.append(

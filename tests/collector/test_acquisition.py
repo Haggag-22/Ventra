@@ -43,7 +43,10 @@ def test_list_packs_filtered_by_cloud() -> None:
 
 
 def test_load_acquisition_full_form(tmp_path: Path) -> None:
-    spec = load_acquisition(_write(tmp_path, """
+    spec = load_acquisition(
+        _write(
+            tmp_path,
+            """
 case_id: CASE-1
 cloud: gcp
 ventra_version: "0.4.0"
@@ -52,7 +55,9 @@ artifacts:
     name: GCP.ManagementPlane.CloudAuditAdmin
     version: "1.0.0"
     parameters: { since: "30d" }
-"""))
+""",
+        )
+    )
     assert spec.case_id == "CASE-1"
     assert spec.cloud == "gcp"
     assert spec.ventra_version == "0.4.0"
@@ -61,16 +66,24 @@ artifacts:
 
 
 def test_load_acquisition_short_form(tmp_path: Path) -> None:
-    spec = load_acquisition(_write(tmp_path, """
+    spec = load_acquisition(
+        _write(
+            tmp_path,
+            """
 case_id: CASE-2
 cloud: gcp
 artifacts: [cloud_audit_admin, vpc_flow]
-"""))
+""",
+        )
+    )
     assert [a.collector for a in spec.artifacts] == ["cloud_audit_admin", "vpc_flow"]
 
 
 def test_load_acquisition_global_filters(tmp_path: Path) -> None:
-    spec = load_acquisition(_write(tmp_path, """
+    spec = load_acquisition(
+        _write(
+            tmp_path,
+            """
 case_id: CASE-F
 cloud: aws
 since: 2026-05-01
@@ -81,7 +94,9 @@ max_records_per_source: 0
 artifacts:
   - collector: cloudtrail
     parameters: { since: "30d" }
-"""))
+""",
+        )
+    )
     assert spec.since == "2026-05-01"
     assert spec.until == "2026-06-01"
     assert spec.regions == ["us-east-1", "us-west-2"]
@@ -96,11 +111,16 @@ def test_load_acquisition_requires_cloud(tmp_path: Path) -> None:
 
 
 def test_resolve_enriches_and_orders(tmp_path: Path) -> None:
-    spec = load_acquisition(_write(tmp_path, """
+    spec = load_acquisition(
+        _write(
+            tmp_path,
+            """
 case_id: CASE-3
 cloud: gcp
 artifacts: [scc_findings, project]
-"""))
+""",
+        )
+    )
     names, refs = resolve_collectors_from_acquisition(spec, ARTIFACTS)
     # project precedes scc_findings in registry order, regardless of spec order.
     assert names == ["project", "scc_findings"]
@@ -110,7 +130,10 @@ artifacts: [scc_findings, project]
 
 
 def test_resolve_pack_plus_explicit_override(tmp_path: Path) -> None:
-    spec = load_acquisition(_write(tmp_path, """
+    spec = load_acquisition(
+        _write(
+            tmp_path,
+            """
 case_id: CASE-4
 cloud: gcp
 pack: baseline-ir-gcp
@@ -119,7 +142,9 @@ artifacts:
     name: Custom.Name
     version: "9.9.9"
     parameters: { since: "7d" }
-"""))
+""",
+        )
+    )
     names, refs = resolve_collectors_from_acquisition(spec, ARTIFACTS)
     by = {r.collector: r for r in refs}
     # Explicit entry overrides the pack's plain entry for the same collector.
@@ -131,21 +156,31 @@ artifacts:
 
 
 def test_resolve_unknown_collector_raises(tmp_path: Path) -> None:
-    spec = load_acquisition(_write(tmp_path, """
+    spec = load_acquisition(
+        _write(
+            tmp_path,
+            """
 case_id: CASE-5
 cloud: gcp
 artifacts: [not_a_real_collector]
-"""))
+""",
+        )
+    )
     with pytest.raises(AcquisitionError, match="unknown collector"):
         resolve_collectors_from_acquisition(spec, ARTIFACTS)
 
 
 def test_resolve_aws_adds_implicit_log_posture(tmp_path: Path) -> None:
-    spec = load_acquisition(_write(tmp_path, """
+    spec = load_acquisition(
+        _write(
+            tmp_path,
+            """
 case_id: CASE-AWS
 cloud: aws
 artifacts: [guardduty, cloudtrail]
-"""))
+""",
+        )
+    )
     names, refs = resolve_collectors_from_acquisition(spec, ARTIFACTS)
     assert "log_posture" in names
     assert "guardduty" in names

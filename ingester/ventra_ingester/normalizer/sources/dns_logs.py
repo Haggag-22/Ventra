@@ -15,9 +15,7 @@ _FAIL_RCODES = frozenset({"NXDOMAIN", "SERVFAIL", "REFUSED"})
 
 
 @register("route53_resolver")
-def normalize_route53_resolver(
-    records: list[dict], ctx: NormalizeContext
-) -> Iterator[UnifiedEvent]:
+def normalize_route53_resolver(records: list[dict], ctx: NormalizeContext) -> Iterator[UnifiedEvent]:
     for rec in records:
         qname = str(rec.get("query_name", "")).rstrip(".")
         if not qname:
@@ -25,9 +23,7 @@ def normalize_route53_resolver(
         rcode = str(rec.get("rcode", ""))
         src = rec.get("srcaddr", "")
         answers = rec.get("answers") or []
-        answer_ips = [
-            a.get("Rdata", "") for a in answers if a.get("Type") in ("A", "AAAA")
-        ]
+        answer_ips = [a.get("Rdata", "") for a in answers if a.get("Type") in ("A", "AAAA")]
         instance = (rec.get("srcids") or {}).get("instance", "")
         yield UnifiedEvent(
             timestamp=str(rec.get("query_timestamp", "")),

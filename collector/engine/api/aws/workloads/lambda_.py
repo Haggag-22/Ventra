@@ -10,10 +10,10 @@ from __future__ import annotations
 
 import re
 
+from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.scoping import filter_lambda_functions
-from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
 _SECRET_KEY = re.compile(r"(secret|token|password|passwd|key|cred)", re.I)
 
@@ -38,9 +38,9 @@ class LambdaCollector(Collector):
                     self._redact_env(fn)
                     arn = fn.get("FunctionArn")
                     try:
-                        fn["ResourcePolicy"] = cf.call(
-                            "lambda", region, "get_policy", FunctionName=arn
-                        ).get("Policy")
+                        fn["ResourcePolicy"] = cf.call("lambda", region, "get_policy", FunctionName=arn).get(
+                            "Policy"
+                        )
                     except (AccessDenied, ServiceNotEnabled):
                         fn["ResourcePolicy"] = None
                     functions.append(fn)

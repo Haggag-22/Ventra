@@ -5,11 +5,12 @@ from __future__ import annotations
 import os
 
 import pytest
+from google.api_core import exceptions as gcp_exc
+
 from collector.clouds.gcp.client_factory import (
     GcpUnreachable,
     _raise_if_unreachable,
 )
-from google.api_core import exceptions as gcp_exc
 
 
 def test_grpc_dns_resolver_forced_native() -> None:
@@ -19,9 +20,7 @@ def test_grpc_dns_resolver_forced_native() -> None:
 
 
 def test_retry_error_becomes_clear_unreachable() -> None:
-    err = gcp_exc.RetryError(
-        "Timeout of 60.0s exceeded, last exception: 503 ... DNS query cancelled", None
-    )
+    err = gcp_exc.RetryError("Timeout of 60.0s exceeded, last exception: 503 ... DNS query cancelled", None)
     with pytest.raises(GcpUnreachable) as exc:
         _raise_if_unreachable("cloudresourcemanager.googleapis.com", err)
     msg = str(exc.value)

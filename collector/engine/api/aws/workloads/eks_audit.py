@@ -10,16 +10,16 @@ window, and records clusters WITHOUT audit logging as gaps.
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from botocore.exceptions import ClientError
 
+from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import effective_window
 from collector.lib.scoping import filter_eks_clusters
-from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
+
 from ..common.cw_logs import collect_cw_log_events
 
 DEFAULT_WINDOW_DAYS = 7
@@ -53,8 +53,7 @@ class EksAuditCollector(Collector):
             return SourceResult(
                 name=self.name,
                 status=SourceStatus.EMPTY,
-                gaps=gaps
-                or [("eks_audit", GapReason.NOT_PRESENT, "No EKS clusters in scope.")],
+                gaps=gaps or [("eks_audit", GapReason.NOT_PRESENT, "No EKS clusters in scope.")],
                 notes="No EKS clusters found.",
             )
 
@@ -66,8 +65,7 @@ class EksAuditCollector(Collector):
                 (
                     "eks_audit",
                     GapReason.LOGGING_NOT_CONFIGURED,
-                    f"Audit logging disabled on {len(unaudited)}/{len(clusters)} "
-                    f"cluster(s): {names}.",
+                    f"Audit logging disabled on {len(unaudited)}/{len(clusters)} cluster(s): {names}.",
                 )
             )
 
@@ -93,9 +91,7 @@ class EksAuditCollector(Collector):
                     rec["_ventra_cluster"] = cluster["name"]
                     recs.append(rec)
             records.extend(recs)
-            per_cluster.append(
-                {**cluster, "log_group": group, "records": len(recs)}
-            )
+            per_cluster.append({**cluster, "log_group": group, "records": len(recs)})
 
         config = {
             "clusters": clusters,
@@ -122,9 +118,7 @@ class EksAuditCollector(Collector):
             status = SourceStatus.PARTIAL if gaps else SourceStatus.COLLECTED
         elif audited:
             status = SourceStatus.PARTIAL if gaps else SourceStatus.EMPTY
-            gaps.append(
-                ("eks_audit", GapReason.NOT_PRESENT, "No audit events in window.")
-            )
+            gaps.append(("eks_audit", GapReason.NOT_PRESENT, "No audit events in window."))
         else:
             status = SourceStatus.EMPTY
         return SourceResult(
@@ -149,9 +143,7 @@ class EksAuditCollector(Collector):
                 continue
             for name in names:
                 try:
-                    cluster = cf.call("eks", region, "describe_cluster", name=name).get(
-                        "cluster", {}
-                    )
+                    cluster = cf.call("eks", region, "describe_cluster", name=name).get("cluster", {})
                 except (AccessDenied, ServiceNotEnabled, ClientError) as exc:
                     gaps.append(("eks_audit", GapReason.COLLECTOR_ERROR, f"{name}: {exc}"))
                     continue

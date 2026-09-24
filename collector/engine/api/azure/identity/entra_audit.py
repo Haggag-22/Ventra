@@ -8,11 +8,11 @@ service-principal credential additions. Pulled via Microsoft Graph
 
 from __future__ import annotations
 
+from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import effective_window
 from collector.lib.scoping import graph_entra_audit_filter
-from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 
 # Directory audit logs retain ~30 days.
 DEFAULT_WINDOW_DAYS = 30

@@ -8,9 +8,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
-from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
 
 
 class SubscriptionCollector(Collector):

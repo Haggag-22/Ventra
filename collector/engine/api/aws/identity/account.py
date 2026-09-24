@@ -7,9 +7,9 @@ baseline and effectively free.
 
 from __future__ import annotations
 
+from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 from collector.lib.base import Collector
 from collector.lib.models import GapReason, SourceResult, SourceStatus
-from collector.clouds.aws.client_factory import AccessDenied, ServiceNotEnabled
 
 
 class AccountCollector(Collector):

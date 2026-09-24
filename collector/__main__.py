@@ -19,14 +19,17 @@ def _reexec_with_newer_python() -> None:
             continue
         import subprocess
 
-        ok = subprocess.run(
-            [
-                path,
-                "-c",
-                f"import sys; raise SystemExit(0 if sys.version_info >= {_MIN_PYTHON!r} else 1)",
-            ],
-            capture_output=True,
-        ).returncode == 0
+        ok = (
+            subprocess.run(
+                [
+                    path,
+                    "-c",
+                    f"import sys; raise SystemExit(0 if sys.version_info >= {_MIN_PYTHON!r} else 1)",
+                ],
+                capture_output=True,
+            ).returncode
+            == 0
+        )
         if not ok:
             continue
         os.execv(path, [path, "-m", "collector", *sys.argv[1:]])

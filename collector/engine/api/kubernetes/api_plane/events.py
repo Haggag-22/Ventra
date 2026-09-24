@@ -189,8 +189,7 @@ class EventsCollector(Collector):
                 if resolved.determined:
                     return (
                         DEFAULT_EVENT_TTL,
-                        "default 1h0m0s (no --event-ttl set in "
-                        f"{', '.join(resolved.evidence)})",
+                        f"default 1h0m0s (no --event-ttl set in {', '.join(resolved.evidence)})",
                     )
             except Exception:  # noqa: BLE001 - node access is best-effort here
                 pass

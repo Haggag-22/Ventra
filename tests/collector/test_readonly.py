@@ -6,7 +6,6 @@ policy contains one.
 
 from __future__ import annotations
 
-import json
 from pathlib import Path
 
 from collector.lib.base import assert_readonly

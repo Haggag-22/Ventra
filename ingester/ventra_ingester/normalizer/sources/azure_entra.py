@@ -10,7 +10,7 @@ from ..base import NormalizeContext, UnifiedEvent, register
 def _signin_outcome(status: dict[str, Any] | None) -> str:
     if not status:
         return "unknown"
-    code = (status.get("errorCode") or 0)
+    code = status.get("errorCode") or 0
     try:
         return "failure" if int(code) != 0 else "success"
     except (TypeError, ValueError):

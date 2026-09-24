@@ -79,8 +79,7 @@ def normalize_waf(records: list[dict], ctx: NormalizeContext) -> Iterator[Unifie
             related_ip=[ip] if ip else [],
             related_resource=[r for r in (rule,) if r],
             message=(
-                f"WAF {action or 'SAMPLE'} {method} {host}{uri} from {ip}"
-                + (f" [{rule}]" if rule else "")
+                f"WAF {action or 'SAMPLE'} {method} {host}{uri} from {ip}" + (f" [{rule}]" if rule else "")
             ),
             case_id=ctx.case_id,
             ventra_source="waf",

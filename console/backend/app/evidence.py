@@ -74,9 +74,7 @@ def _classify_file(rel: str) -> str:
 
 
 # Sidecar / packaging kinds must not display a source-level inherited record_count.
-_NON_DATA_KINDS = frozenset(
-    {"config", "meta", "manifest", "signature", "collection_log", "error"}
-)
+_NON_DATA_KINDS = frozenset({"config", "meta", "manifest", "signature", "collection_log", "error"})
 
 
 def _record_count_for_file(kind: str, manifest_entry: dict[str, Any] | None) -> int | None:
@@ -104,9 +102,7 @@ def ensure_evidence_extracted(case_dir: Path, case_id: str) -> Path:
     pkg_dir = case_dir / "package"
     package = find_package_for_case(case_id, pkg_dir, settings.upload_dir)
     if package is None:
-        raise EvidenceNotFound(
-            f"No raw evidence files for case {case_id!r}. Re-import the sealed package."
-        )
+        raise EvidenceNotFound(f"No raw evidence files for case {case_id!r}. Re-import the sealed package.")
     extract_package(package, root)
     return root
 

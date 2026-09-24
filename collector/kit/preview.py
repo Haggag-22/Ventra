@@ -7,8 +7,8 @@ from pathlib import Path
 from typing import Any
 
 from collector import __version__
-from collector.engine.acquisition import augment_collectors
 from collector.engine.acquire_platform import collector_cloud_for_platform
+from collector.engine.acquisition import augment_collectors
 from collector.kit.build import _filter_policy, _select_artifacts
 
 
