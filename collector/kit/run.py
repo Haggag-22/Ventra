@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import getpass
 import json
 import os
 from dataclasses import dataclass, field
@@ -39,10 +38,16 @@ class KitRunResult:
 
 
 def _local_user() -> str:
-    try:
-        return getpass.getuser()
-    except Exception:
-        return os.environ.get("USER") or os.environ.get("USERNAME") or "unknown"
+    """The human operator — the sudo caller when the run was elevated, not ``root``."""
+    from collector.lib.elevate import invoking_user
+
+    return invoking_user()
+
+
+def _elevated() -> bool:
+    from collector.lib.elevate import is_elevated_run
+
+    return is_elevated_run()
 
 
 def _apply_aws_credentials(kit: OpenKit) -> dict[str, str]:
@@ -308,6 +313,7 @@ def run_kit_file(kit_path: Path, *, out_dir: Path | None = None) -> KitRunResult
             "collectors": list(kit.manifest.collectors),
             "started_at": format_iso(started),
             "local_user": local_user,
+            "elevated_via_sudo": _elevated(),
             "host": os.uname().nodename if hasattr(os, "uname") else "",
             "ventra_cli_version": __version__,
             "kit_ventra_version": kit.manifest.ventra_version,
