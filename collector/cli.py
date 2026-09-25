@@ -332,6 +332,12 @@ def _add_kubernetes_parser(sub: argparse._SubParsersAction) -> None:
     )
     k8s.add_argument("--list-collectors", action="store_true", help="List collectors and exit.")
     k8s.add_argument(
+        "--no-sudo",
+        action="store_true",
+        help="Don't re-run under sudo for root-only node files (audit logs, pod logs); "
+        "those collectors will report gaps. Also VENTRA_NO_SUDO=1.",
+    )
+    k8s.add_argument(
         "--collectors",
         default="",
         help="Comma-separated collector names to run (default: all registered).",
@@ -396,6 +402,12 @@ def _add_run_parser(sub: argparse._SubParsersAction) -> None:
         "--out",
         default="evidence",
         help="Local output directory for the sealed evidence package (default: ./evidence).",
+    )
+    run.add_argument(
+        "--no-sudo",
+        action="store_true",
+        help="Don't re-run under sudo for root-only node files (audit logs, pod logs); "
+        "those collectors will report gaps. Also VENTRA_NO_SUDO=1.",
     )
 
 
@@ -863,8 +875,12 @@ def _cli_reporter(*, quiet: bool = False, json_mode: bool = False, cloud: str = 
 
 
 def main(argv: list[str] | None = None) -> int:
+    from .lib import elevate
+
+    elevate.load_passthrough_env()
     argv = _normalize_argv(list(argv if argv is not None else sys.argv[1:]))
     args = build_parser().parse_args(argv)
+    args._argv = argv  # re-used verbatim if the run re-launches itself under sudo
 
     if args.command == "dev":
         from .devgui import cmd_dev
@@ -1617,6 +1633,8 @@ def _run_kubernetes(args) -> int:
         print("error: --case is required to run a collection.", file=sys.stderr)
         return 2
 
+    _elevate_for_node_plane(args, collectors, out=args.out, case_store=args.case_store)
+
     window = _window_from_args(args, spec)
     acq_dir = Path(args.acquisition).resolve().parent if getattr(args, "acquisition", "") else Path(".")
 
@@ -1751,9 +1769,50 @@ def _run_kubernetes(args) -> int:
     return 1 if transport_error else ingest_code
 
 
+def _node_plane_collectors() -> set[str]:
+    """Kubernetes collectors that read the node's filesystem (root-only paths)."""
+    from .engine.registry import registry_for_cloud
+
+    return {
+        name
+        for name, cls in registry_for_cloud("kubernetes").all().items()
+        if ".node_plane." in cls.__module__
+    }
+
+
+def _elevate_for_node_plane(args, collectors, *, out, case_store=None) -> None:
+    """Re-run under sudo when node-plane collectors are planned and we aren't root."""
+    from .lib import elevate
+
+    if elevate.is_root():
+        from .lib.ingest import default_case_store
+
+        elevate.hand_back(out, case_store or default_case_store())
+        return
+    if set(collectors) & _node_plane_collectors():
+        elevate.reexec_with_sudo(
+            getattr(args, "_argv", sys.argv[1:]),
+            reason="node files (API-server audit logs, /var/log/pods, CNI and runtime state)",
+            disabled=getattr(args, "no_sudo", False),
+        )
+
+
+def _kit_collectors(kit_path: Path) -> tuple[str, list[str]]:
+    from .kit.format import open_kit
+
+    try:
+        with open_kit(kit_path) as kit:
+            return kit.manifest.cloud, list(kit.manifest.collectors)
+    except Exception:  # noqa: BLE001 — run_kit_file reports kit errors properly
+        return "", []
+
+
 def _run_kit_file(args) -> int:
     from .kit.run import run_kit_file
 
+    cloud, collectors = _kit_collectors(Path(args.kit))
+    if cloud == "kubernetes":
+        _elevate_for_node_plane(args, collectors, out=args.out)
     result = run_kit_file(Path(args.kit), out_dir=Path(args.out))
     return 0 if result.success else 1
 
