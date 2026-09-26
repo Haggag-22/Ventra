@@ -457,3 +457,42 @@ def test_s3_flow_bucket_prefix() -> None:
         "LogDestination": "arn:aws:s3:::bucket/custom",
     }
     assert _s3_flow_bucket_prefix(fl_pref, "1") == ("bucket", "custom/AWSLogs/1/vpcflowlogs/")
+
+
+def test_timestamp_sort_is_chronological_across_formats(store_case, tmp_path) -> None:
+    """Mixed ISO shapes order by instant; unparseable/empty timestamps go last both ways."""
+    import duckdb
+
+    store, case_id = store_case
+    src = store.case_dir(case_id)
+    dst = tmp_path / "cases" / "MIXED-TS"
+    dst.mkdir(parents=True)
+    for f in src.iterdir():
+        if f.is_file() and f.name != "events.parquet":
+            (dst / f.name).write_bytes(f.read_bytes())
+    stamps = [
+        "2026-09-26T06:59:33Z",
+        "2026-09-26 00:46:46+00:00",
+        "",
+        "2026-09-26T12:00:00.5Z",
+        "2026-09-25 23:59:59+00:00",
+    ]
+    con = duckdb.connect()
+    con.execute(
+        f"COPY (SELECT * REPLACE (s.ts AS timestamp) FROM "
+        f"(SELECT * FROM read_parquet('{src / 'events.parquet'}') LIMIT 1) e, "
+        f"(SELECT unnest(?::VARCHAR[]) AS ts) s) TO '{dst / 'events.parquet'}' (FORMAT parquet)",
+        [stamps],
+    )
+    mixed = CaseStore(root=tmp_path / "cases")
+
+    asc = [e["timestamp"] for e in mixed.query_events("MIXED-TS", EventQuery(order="asc"))["events"]]
+    desc = [e["timestamp"] for e in mixed.query_events("MIXED-TS", EventQuery(order="desc"))["events"]]
+    assert asc == [
+        "2026-09-25 23:59:59+00:00",
+        "2026-09-26 00:46:46+00:00",
+        "2026-09-26T06:59:33Z",
+        "2026-09-26T12:00:00.5Z",
+        "",
+    ]
+    assert desc == [*reversed(asc[:-1]), ""]
