@@ -5,10 +5,27 @@ from __future__ import annotations
 import json
 import shutil
 import tarfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 from .limits import MAX_DECOMPRESS_BYTES
 from .package import _decompress_to_tar
+
+
+def safe_member_path(dest: Path, name: str) -> Path:
+    """Resolve an archive member name to a path inside ``dest``, or raise ``ValueError``.
+
+    Packages come from other people, so a member named ``../x``, ``/abs/x`` or ``C:\\x`` must
+    never become a write outside the case directory ("tar-slip").
+    """
+    normalized = name.replace("\\", "/")
+    parts = PurePosixPath(normalized).parts
+    if not parts or normalized.startswith("/") or ".." in parts or ":" in parts[0]:
+        raise ValueError(f"Unsafe path in package: {name!r}")
+    target = (dest / Path(*parts)).resolve()
+    root = dest.resolve()
+    if target != root and root not in target.parents:
+        raise ValueError(f"Unsafe path in package: {name!r}")
+    return target
 
 
 def extract_package(package_path: Path, dest: Path) -> int:
@@ -28,10 +45,9 @@ def extract_package(package_path: Path, dest: Path) -> int:
         tar_path = _decompress_to_tar(package_path, work)
         count = 0
         with tarfile.open(tar_path, mode="r:") as tar:
-            for member in tar.getmembers():
-                if not member.isfile():
-                    continue
-                target = dest / member.name
+            # Validate every name before writing anything, so a hostile package is refused whole.
+            files = [(m, safe_member_path(dest, m.name)) for m in tar.getmembers() if m.isfile()]
+            for member, target in files:
                 target.parent.mkdir(parents=True, exist_ok=True)
                 extracted = tar.extractfile(member)
                 if extracted is None:
