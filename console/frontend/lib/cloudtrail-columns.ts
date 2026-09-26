@@ -13,18 +13,20 @@ export type CloudTrailColKey =
 export interface CloudTrailColumn {
   key: CloudTrailColKey;
   label: string;
+  /** Backend field the header sorts by; omitted for derived columns. */
+  sortField?: string;
   min: number;
   locked?: boolean;
 }
 
 export const CLOUDTRAIL_COLS: CloudTrailColumn[] = [
-  { key: "timestamp", label: "Time (UTC)", min: 120, locked: true },
-  { key: "event_action", label: "Event", min: 140 },
-  { key: "message", label: "Message", min: 200 },
-  { key: "user_name", label: "Principal", min: 90 },
-  { key: "source_ip", label: "Source IP", min: 100 },
-  { key: "cloud_region", label: "Region", min: 80 },
-  { key: "cloud_service", label: "Service", min: 70 },
+  { key: "timestamp", label: "Time (UTC)", min: 120, sortField: "timestamp", locked: true },
+  { key: "event_action", label: "Event", min: 140, sortField: "event_action" },
+  { key: "message", label: "Message", min: 200, sortField: "message" },
+  { key: "user_name", label: "Principal", min: 90, sortField: "user_name" },
+  { key: "source_ip", label: "Source IP", min: 100, sortField: "source_ip" },
+  { key: "cloud_region", label: "Region", min: 80, sortField: "cloud_region" },
+  { key: "cloud_service", label: "Service", min: 70, sortField: "cloud_service" },
   { key: "event_category", label: "Category", min: 90 },
 ];
 

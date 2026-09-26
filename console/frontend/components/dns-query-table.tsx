@@ -1,5 +1,6 @@
 "use client";
 
+import { SortLabel, type SortState } from "@/components/sort-header";
 import { DnsQueryDrawer } from "@/components/dns-query-drawer";
 import { Entity } from "@/components/pivot";
 import { Spinner } from "@/components/ui";
@@ -26,9 +27,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 export function DnsQueryTable({
   events,
   loading,
+  sort,
+  onSort,
 }: {
   events: UnifiedEvent[];
   loading?: boolean;
+  /** Current server-side sort; headers with a `sortField` become toggles. */
+  sort?: SortState;
+  onSort?: (field: string) => void;
 }) {
   const [selected, setSelected] = useState<UnifiedEvent | null>(null);
   const [widths, setWidths] = useState(DEFAULT_DNS_QUERY_WIDTHS);
@@ -190,7 +196,7 @@ export function DnsQueryTable({
                 <tr>
                   {DNS_QUERY_COLS.map((c) => (
                     <th key={c.key} className="relative">
-                      <span className="block truncate pr-2">{c.label}</span>
+                      <SortLabel label={c.label} sortKey={c.sortField} sort={sort} onSort={onSort} />
                       <span
                         role="separator"
                         aria-orientation="vertical"

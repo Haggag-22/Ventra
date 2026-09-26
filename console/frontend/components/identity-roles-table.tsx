@@ -1,6 +1,7 @@
 "use client";
 
 import { IdentityPrincipal } from "@/components/identity-principal";
+import { SortLabel, timeValue, useClientSort, type SortValue } from "@/components/sort-header";
 import { TablePager } from "@/components/table-pager";
 import { fmtDateOnly } from "@/lib/format";
 import { policiesForRole } from "@/lib/iam-policies";
@@ -21,9 +22,15 @@ const DEFAULT_WIDTHS: Record<ColKey, number> = {
 
 const WIDTHS_KEY = "ventra.identity-roles-table.widths";
 
+function roleValue(r: any, key: string): SortValue {
+  if (key === "created") return timeValue(r.CreateDate);
+  return r.Arn ?? r.RoleName;
+}
+
 export function IdentityRolesTable({ roles }: { roles: any[] }) {
   const { startResize, colWidth, totalWidth } = useResizableColumns(COLS, DEFAULT_WIDTHS, WIDTHS_KEY);
   const { page, setPage, pageSize, setPageSize } = usePagination("ventra.identity-roles.page-size");
+  const { sorted, sort, toggle } = useClientSort(roles, roleValue);
 
   if (roles.length === 0) {
     return (
@@ -31,7 +38,7 @@ export function IdentityRolesTable({ roles }: { roles: any[] }) {
     );
   }
 
-  const paged = roles.slice(page * pageSize, page * pageSize + pageSize);
+  const paged = sorted.slice(page * pageSize, page * pageSize + pageSize);
 
   return (
     <>
@@ -49,7 +56,7 @@ export function IdentityRolesTable({ roles }: { roles: any[] }) {
           <tr>
             {COLS.map((c) => (
               <th key={c.key} className="relative">
-                <span className="block truncate pr-2">{c.label}</span>
+                <SortLabel label={c.label} sortKey={c.key} sort={sort} onSort={toggle} />
                 <span
                   role="separator"
                   aria-orientation="vertical"

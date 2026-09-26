@@ -13,19 +13,21 @@ export type FindingColKey =
 export interface FindingColumn {
   key: FindingColKey;
   label: string;
+  /** Backend field the header sorts by; omitted for derived columns. */
+  sortField?: string;
   min: number;
   locked?: boolean;
 }
 
 export const FINDING_COLS: FindingColumn[] = [
-  { key: "timestamp", label: "Time (UTC)", min: 120, locked: true },
-  { key: "severity", label: "Severity", min: 80 },
-  { key: "finding_source", label: "Source", min: 100 },
+  { key: "timestamp", label: "Time (UTC)", min: 120, sortField: "timestamp", locked: true },
+  { key: "severity", label: "Severity", min: 80, sortField: "event_severity" },
+  { key: "finding_source", label: "Source", min: 100, sortField: "event_provider" },
   { key: "finding_class", label: "Class", min: 100 },
-  { key: "event_action", label: "Action", min: 140 },
-  { key: "user_name", label: "Principal", min: 120 },
-  { key: "source_ip", label: "Source IP", min: 120 },
-  { key: "cloud_region", label: "Region", min: 80 },
+  { key: "event_action", label: "Action", min: 140, sortField: "event_action" },
+  { key: "user_name", label: "Principal", min: 120, sortField: "user_name" },
+  { key: "source_ip", label: "Source IP", min: 120, sortField: "source_ip" },
+  { key: "cloud_region", label: "Region", min: 80, sortField: "cloud_region" },
 ];
 
 export const ALL_FINDING_COL_KEYS: FindingColKey[] = FINDING_COLS.map((c) => c.key);

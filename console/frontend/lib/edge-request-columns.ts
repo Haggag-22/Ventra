@@ -15,19 +15,21 @@ export type EdgeRequestColKey =
 export interface EdgeRequestColumn {
   key: EdgeRequestColKey;
   label: string;
+  /** Backend field the header sorts by; omitted for derived columns. */
+  sortField?: string;
   min: number;
   locked?: boolean;
 }
 
 export const EDGE_REQUEST_COLS: EdgeRequestColumn[] = [
-  { key: "timestamp", label: "Time (UTC)", min: 120, locked: true },
-  { key: "source", label: "Source", min: 110 },
-  { key: "method", label: "Method", min: 70 },
-  { key: "request", label: "Request", min: 220 },
-  { key: "client_ip", label: "Client IP", min: 120 },
+  { key: "timestamp", label: "Time (UTC)", min: 120, sortField: "timestamp", locked: true },
+  { key: "source", label: "Source", min: 110, sortField: "ventra_source" },
+  { key: "method", label: "Method", min: 70, sortField: "event_action" },
+  { key: "request", label: "Request", min: 220, sortField: "message" },
+  { key: "client_ip", label: "Client IP", min: 120, sortField: "source_ip" },
   { key: "status", label: "Status", min: 70 },
-  { key: "resource", label: "Resource", min: 140 },
-  { key: "region", label: "Region", min: 90 },
+  { key: "resource", label: "Resource", min: 140, sortField: "resource_id" },
+  { key: "region", label: "Region", min: 90, sortField: "cloud_region" },
 ];
 
 export const DEFAULT_EDGE_REQUEST_WIDTHS: Record<EdgeRequestColKey, number> = {

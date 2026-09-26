@@ -1,6 +1,7 @@
 "use client";
 
 import { useCase } from "@/components/case-context";
+import { SortLabel, useClientSort } from "@/components/sort-header";
 import { PanelBody, PanelHeader } from "@/components/panel";
 import { panelLabel } from "@/lib/panel-labels";
 import { Button, Card, LoadingPanel } from "@/components/ui";
@@ -208,77 +209,119 @@ export default function CollectionPage() {
           <h2 className="mb-2 text-sm font-semibold text-fg">Logs Checked</h2>
           <div className="ct-panel">
             <div className="ct-table-wrap overflow-x-auto overflow-y-auto">
-              <table className="ct-table ct-table-no-row-click w-full border-collapse text-left">
-                <thead className="sticky top-0 z-10">
-                  <tr>
-                    <th className="w-[38%]">Log source</th>
-                    <th className="w-[14%]">Status</th>
-                    <th className="w-[10%]">Records</th>
-                    <th>Notes</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {resolved.map(({ it, r }) => {
-                    const display = displayState(it.id, r.state);
-                    const meta = STATE_META[display];
-                    const Icon = meta.icon;
-                    const notes = rowDetail(r.state, display, r.detail, r.gaps);
-                    const records =
-                      (r.state === "collected" || r.state === "partial") && r.records > 0
-                        ? fmtNum(r.records)
-                        : "—";
-                    // Hand-off to Acquire when this platform can build a collection kit.
-                    const canAcquire =
-                      CLOUD_IMPLEMENTED[cloud] &&
-                      isAcquirePlatform(cloud) &&
-                      IMPLEMENTED_LOG_COLLECTORS.has(it.id) &&
-                      ACQUIRABLE_COVERAGE.has(r.state);
-
-                    return (
-                      <tr key={it.id}>
-                        <td className="font-medium text-fg">
-                          <div className="flex items-center justify-between gap-2">
-                            <span>{it.label}</span>
-                            {canAcquire && (
-                              <Link
-                                href={acquireHref({
-                                  caseId,
-                                  cloud: isAcquirePlatform(cloud) ? cloud : undefined,
-                                  collectors: [it.id],
-                                })}
-                                className="inline-flex items-center gap-1 text-2xs text-accent hover:underline"
-                                title={`Add ${it.id} to collection kit`}
-                              >
-                                <Plus className="h-3 w-3" />
-                                Acquire
-                              </Link>
-                            )}
-                          </div>
-                        </td>
-                        <td>
-                          {Icon ? (
-                            <span className={cn("inline-flex items-center gap-1.5", meta.tone)}>
-                              <Icon className="h-4 w-4 shrink-0" />
-                              {meta.label}
-                            </span>
-                          ) : (
-                            <span className="inline-flex rounded-md border border-border bg-surface-2 px-2 py-0.5 text-xs text-fg-subtle">
-                              {meta.label}
-                            </span>
-                          )}
-                        </td>
-                        <td className="mono text-fg-subtle">{records}</td>
-                        <td className="text-fg-subtle">{notes || "—"}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+              <LogsCheckedTable rows={resolved} cloud={cloud} caseId={caseId} />
             </div>
           </div>
         </div>
       </PanelBody>
     </>
+  );
+}
+
+type ResolvedRow = {
+  it: ReturnType<typeof catalogItems>[number];
+  r: ReturnType<typeof resolveCollectorCoverage>;
+};
+
+function logsCheckedValue({ it, r }: ResolvedRow, key: string) {
+  const display = displayState(it.id, r.state);
+  switch (key) {
+    case "status":
+      return STATE_META[display].label;
+    case "records":
+      return (r.state === "collected" || r.state === "partial") && r.records > 0 ? r.records : null;
+    case "notes":
+      return rowDetail(r.state, display, r.detail, r.gaps);
+    default:
+      return it.label;
+  }
+}
+
+function LogsCheckedTable({
+  rows,
+  cloud,
+  caseId,
+}: {
+  rows: ResolvedRow[];
+  cloud: Cloud;
+  caseId: string;
+}) {
+  const { sorted, sort, toggle } = useClientSort(rows, logsCheckedValue);
+  return (
+    <table className="ct-table ct-table-no-row-click w-full border-collapse text-left">
+      <thead className="sticky top-0 z-10">
+        <tr>
+          <th className="w-[38%]">
+            <SortLabel label="Log source" sortKey="source" sort={sort} onSort={toggle} />
+          </th>
+          <th className="w-[14%]">
+            <SortLabel label="Status" sortKey="status" sort={sort} onSort={toggle} />
+          </th>
+          <th className="w-[10%]">
+            <SortLabel label="Records" sortKey="records" sort={sort} onSort={toggle} />
+          </th>
+          <th>
+            <SortLabel label="Notes" sortKey="notes" sort={sort} onSort={toggle} />
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        {sorted.map(({ it, r }) => {
+          const display = displayState(it.id, r.state);
+          const meta = STATE_META[display];
+          const Icon = meta.icon;
+          const notes = rowDetail(r.state, display, r.detail, r.gaps);
+          const records =
+            (r.state === "collected" || r.state === "partial") && r.records > 0
+              ? fmtNum(r.records)
+              : "—";
+          // Hand-off to Acquire when this platform can build a collection kit.
+          const canAcquire =
+            CLOUD_IMPLEMENTED[cloud] &&
+            isAcquirePlatform(cloud) &&
+            IMPLEMENTED_LOG_COLLECTORS.has(it.id) &&
+            ACQUIRABLE_COVERAGE.has(r.state);
+
+          return (
+            <tr key={it.id}>
+              <td className="font-medium text-fg">
+                <div className="flex items-center justify-between gap-2">
+                  <span>{it.label}</span>
+                  {canAcquire && (
+                    <Link
+                      href={acquireHref({
+                        caseId,
+                        cloud: isAcquirePlatform(cloud) ? cloud : undefined,
+                        collectors: [it.id],
+                      })}
+                      className="inline-flex items-center gap-1 text-2xs text-accent hover:underline"
+                      title={`Add ${it.id} to collection kit`}
+                    >
+                      <Plus className="h-3 w-3" />
+                      Acquire
+                    </Link>
+                  )}
+                </div>
+              </td>
+              <td>
+                {Icon ? (
+                  <span className={cn("inline-flex items-center gap-1.5", meta.tone)}>
+                    <Icon className="h-4 w-4 shrink-0" />
+                    {meta.label}
+                  </span>
+                ) : (
+                  <span className="inline-flex rounded-md border border-border bg-surface-2 px-2 py-0.5 text-xs text-fg-subtle">
+                    {meta.label}
+                  </span>
+                )}
+              </td>
+              <td className="mono text-fg-subtle">{records}</td>
+              <td className="text-fg-subtle">{notes || "—"}</td>
+            </tr>
+          );
+        })}
+      </tbody>
+    </table>
   );
 }
 

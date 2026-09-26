@@ -2,6 +2,7 @@
 
 import { useCase } from "@/components/case-context";
 import { FindingsTable } from "@/components/findings-table";
+import { nextSort, type SortState } from "@/components/sort-header";
 import { FindingsToolbar, type FindingsFilters } from "@/components/findings-toolbar";
 import { PanelBody, PanelHeader } from "@/components/panel";
 import { api, type EventParams } from "@/lib/api";
@@ -73,9 +74,21 @@ export default function SearchPage() {
   }, []);
 
   const filters = useMemo(() => filtersFromParams(params), [params]);
+  const sort = useMemo<SortState>(
+    () => ({ key: params.sort ?? "timestamp", dir: params.order === "asc" ? "asc" : "desc" }),
+    [params.sort, params.order],
+  );
   const effective = useMemo(
-    () => paramsFromFilters(filters, cloud, params.q),
-    [filters, cloud, params.q],
+    () => ({ ...paramsFromFilters(filters, cloud, params.q), sort: sort.key, order: sort.dir }),
+    [filters, cloud, params.q, sort],
+  );
+  const handleSort = useCallback(
+    (field: string) => {
+      const next = nextSort(sort, field);
+      write({ sort: next.key, order: next.dir });
+      setPage(0);
+    },
+    [sort, write, setPage],
   );
 
   useEffect(() => setText(params.q ?? ""), [params.q]);
@@ -183,6 +196,8 @@ export default function SearchPage() {
         <div className="ct-panel">
           <FindingsTable
             events={eventsQ.data?.events ?? []}
+            sort={sort}
+            onSort={handleSort}
             loading={eventsQ.isPending && !eventsQ.data}
             visibleColumns={visibleColumns}
             emptyHint={

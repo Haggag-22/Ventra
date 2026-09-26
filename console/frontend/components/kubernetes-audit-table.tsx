@@ -1,5 +1,6 @@
 "use client";
 
+import { SortLabel, type SortState } from "@/components/sort-header";
 import { KubernetesAuditDrawer } from "@/components/kubernetes-audit-drawer";
 import { Spinner } from "@/components/ui";
 import {
@@ -31,10 +32,15 @@ const OUTCOME_CLASS: Record<string, string> = {
 export function KubernetesAuditTable({
   events,
   loading,
+  sort,
+  onSort,
   visibleColumns,
 }: {
   events: UnifiedEvent[];
   loading?: boolean;
+  /** Current server-side sort; headers with a `sortField` become toggles. */
+  sort?: SortState;
+  onSort?: (field: string) => void;
   visibleColumns: K8sAuditColKey[];
 }) {
   const [selected, setSelected] = useState<UnifiedEvent | null>(null);
@@ -184,7 +190,7 @@ export function KubernetesAuditTable({
                 <tr>
                   {cols.map((c) => (
                     <th key={c.key} className="relative">
-                      <span className="block truncate pr-2">{c.label}</span>
+                      <SortLabel label={c.label} sortKey={c.sortField} sort={sort} onSort={onSort} />
                       <span
                         role="separator"
                         aria-orientation="vertical"

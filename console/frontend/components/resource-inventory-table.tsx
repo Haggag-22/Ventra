@@ -1,5 +1,6 @@
 "use client";
 
+import { SortLabel, useClientSort } from "@/components/sort-header";
 import { useCase } from "@/components/case-context";
 import { Entity } from "@/components/pivot";
 import { ResourceInventoryDrawer } from "@/components/resource-inventory-drawer";
@@ -61,13 +62,24 @@ export function ResourceInventoryTable({
   const [detail, setDetail] = useState<unknown | null>(null);
   const [detailLoading, setDetailLoading] = useState(false);
 
+  // Cells are display strings; ISO dates and numeric ids order correctly with a numeric-aware compare.
+  const cellValue = useCallback(
+    (row: ResourceRow, key: string) => {
+      const text = columns.find((c) => c.key === key)?.cell(row);
+      return text === "—" ? null : text;
+    },
+    [columns],
+  );
+  const { sorted, sort, toggle, setSort } = useClientSort(rows, cellValue);
+
   useEffect(() => setPage(0), [item.id, setPage]);
+  useEffect(() => setSort(undefined), [item.id, setSort]);
   useEffect(() => {
     setSelected(null);
     setDetail(null);
   }, [item.id]);
 
-  const paged = rows.slice(page * pageSize, page * pageSize + pageSize);
+  const paged = sorted.slice(page * pageSize, page * pageSize + pageSize);
 
   const [widths, setWidths] = useState(defaults);
   const resizing = useRef<{ key: string; startX: number; startW: number } | null>(null);
@@ -193,7 +205,7 @@ export function ResourceInventoryTable({
                 <tr>
                   {columns.map((c) => (
                     <th key={c.key} className="relative">
-                      <span className="block truncate pr-2">{c.header}</span>
+                      <SortLabel label={c.header} sortKey={c.key} sort={sort} onSort={toggle} />
                       <span
                         role="separator"
                         aria-orientation="vertical"

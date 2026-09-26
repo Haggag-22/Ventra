@@ -1,5 +1,6 @@
 "use client";
 
+import { SortLabel, type SortState } from "@/components/sort-header";
 import { CloudTrailDrawer } from "@/components/cloudtrail-drawer";
 import { Spinner } from "@/components/ui";
 import {
@@ -22,10 +23,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 export function CloudTrailTable({
   events,
   loading,
+  sort,
+  onSort,
   visibleColumns,
 }: {
   events: UnifiedEvent[];
   loading?: boolean;
+  /** Current server-side sort; headers with a `sortField` become toggles. */
+  sort?: SortState;
+  onSort?: (field: string) => void;
   visibleColumns: CloudTrailColKey[];
 }) {
   const [selected, setSelected] = useState<UnifiedEvent | null>(null);
@@ -171,7 +177,7 @@ export function CloudTrailTable({
                 <tr>
                   {cols.map((c) => (
                     <th key={c.key} className="relative">
-                      <span className="block truncate pr-2">{c.label}</span>
+                      <SortLabel label={c.label} sortKey={c.sortField} sort={sort} onSort={onSort} />
                       <span
                         role="separator"
                         aria-orientation="vertical"
