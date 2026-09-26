@@ -19,7 +19,6 @@ import webbrowser
 from argparse import Namespace
 from pathlib import Path
 
-from collector.console_auth import load_console_token, session_url
 from collector.lib.uv_util import ensure_uv, uv_pip_install, uv_venv
 from collector.lib.uv_util import venv_python as _venv_python_path
 
@@ -27,7 +26,7 @@ _SETUP_MARKER = ".ventra-dev-ready"
 _NPM_MARKER = ".ventra-npm-ready"
 
 
-# The console only ever listens on loopback; see console/backend/app/auth.py.
+# The console only ever listens on loopback; see console/backend/app/host_check.py.
 CONSOLE_HOST = "127.0.0.1"
 
 
@@ -417,10 +416,6 @@ def cmd_dev(args: Namespace) -> int:
     venv_bin = venv_python.parent
 
     env = _dev_env(root, venv_bin)
-    # Pin the config dir (the backend's own default is its cwd) so the launcher and every
-    # --reload worker share one console token.
-    env.setdefault("VENTRA_CONFIG_DIR", str(backend_dir / ".ventra-config"))
-    env["VENTRA_CONSOLE_TOKEN"] = load_console_token(Path(env["VENTRA_CONFIG_DIR"]))
     frontend_preferred = _default_frontend_port(args)
     backend_preferred = args.backend_port
     _free_stale_dev_ports(frontend_preferred, backend_preferred, frontend_preferred + 1)
@@ -442,8 +437,6 @@ def cmd_dev(args: Namespace) -> int:
     print()
     print("Ventra console — save files, refresh the browser to see changes.")
     print(f"  Console (hot reload):  http://127.0.0.1:{frontend_port}")
-    sign_in = session_url(f"http://127.0.0.1:{frontend_port}", env["VENTRA_CONSOLE_TOKEN"])
-    print(f"  Sign in:               {sign_in}")
     print(f"  Backend  (--reload):     http://127.0.0.1:{backend_port}")
     print(f"  Cases:                   {env['VENTRA_CASE_STORE']}")
     if frontend_port != frontend_preferred:
@@ -500,7 +493,7 @@ def cmd_dev(args: Namespace) -> int:
                 file=sys.stderr,
             )
         if frontend_ok:
-            webbrowser.open(sign_in)
+            webbrowser.open(f"http://127.0.0.1:{frontend_port}")
         else:
             print(
                 f"error: frontend did not start on port {frontend_port}. Check the logs above.",
@@ -558,8 +551,6 @@ def cmd_gui(args: Namespace) -> int:
     """
     from collector.paths import bundled_console_static, is_source_checkout
 
-    if getattr(args, "print_link", False):
-        return _print_sign_in_link(args)
     if getattr(args, "dev_source", False):
         return cmd_dev(args)
     if bundled_console_static() is not None and not is_source_checkout():
@@ -569,25 +560,6 @@ def cmd_gui(args: Namespace) -> int:
     if static is not None and "site-packages" in str(static):
         return _cmd_gui_packaged(args)
     return cmd_dev(args)
-
-
-def _print_sign_in_link(args: Namespace) -> int:
-    """Print the console sign-in link (e.g. after closing the tab the launcher opened)."""
-    from collector.paths import bundled_console_static, is_source_checkout, user_data_root
-
-    packaged = bundled_console_static() is not None and (
-        not is_source_checkout() or "site-packages" in str(bundled_console_static())
-    )
-    if os.environ.get("VENTRA_CONFIG_DIR"):
-        config_dir = Path(os.environ["VENTRA_CONFIG_DIR"])
-    elif packaged and not getattr(args, "dev_source", False):
-        config_dir = user_data_root() / ".ventra-config"
-    else:
-        config_dir = find_repo_root() / "console/backend/.ventra-config"
-    port = args.backend_port if packaged else _default_frontend_port(args)
-    print(session_url(f"http://127.0.0.1:{port}", load_console_token(config_dir)))
-    print(f"(If the console runs on a different port, change {port} in the link.)", file=sys.stderr)
-    return 0
 
 
 def _cmd_gui_packaged(args: Namespace) -> int:
@@ -617,11 +589,9 @@ def _cmd_gui_packaged(args: Namespace) -> int:
         os.environ.setdefault(key, value)
 
     url = f"http://127.0.0.1:{port}"
-    sign_in = session_url(url, load_console_token(Path(os.environ["VENTRA_CONFIG_DIR"])))
     print()
     print("Ventra console (packaged)")
     print(f"  UI + API:  {url}")
-    print(f"  Sign in:   {sign_in}")
     print(f"  Cases:     {os.environ['VENTRA_CASE_STORE']}")
     print()
 
@@ -629,7 +599,7 @@ def _cmd_gui_packaged(args: Namespace) -> int:
 
         def _open() -> None:
             if _wait_for_http(f"{url}/api/health", timeout=30):
-                webbrowser.open(sign_in)
+                webbrowser.open(url)
 
         threading.Thread(target=_open, daemon=True).start()
 

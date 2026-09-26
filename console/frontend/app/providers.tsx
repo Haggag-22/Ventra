@@ -1,6 +1,5 @@
 "use client";
 
-import { AuthGate } from "@/components/auth-gate";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
 import {
@@ -76,10 +75,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
 
   return (
     <QueryClientProvider client={client}>
-      <UIContext.Provider value={ui}>
-        {children}
-        <AuthGate />
-      </UIContext.Provider>
+      <UIContext.Provider value={ui}>{children}</UIContext.Provider>
     </QueryClientProvider>
   );
 }

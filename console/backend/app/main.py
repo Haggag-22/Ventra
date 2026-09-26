@@ -15,13 +15,13 @@ from typing import Any, Literal
 
 from fastapi import BackgroundTasks, Depends, FastAPI, Form, HTTPException, Query, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse, RedirectResponse, Response, StreamingResponse
+from fastapi.responses import FileResponse, JSONResponse, Response, StreamingResponse
 from pydantic import BaseModel
 
 from . import __version__
-from .auth import COOKIE, COOKIE_MAX_AGE, ConsoleAuthMiddleware, safe_next, token_matches
 from .config import settings
 from .config_store import ConfigNotFound, config_store, public_connection
+from .host_check import HostCheckMiddleware
 from .rbac import Role, _check, current_role
 from .run_service import (
     apply_relay_payload,
@@ -194,28 +194,8 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PATCH", "DELETE"],
     allow_headers=["*"],
 )
-# Added last so it runs first: nothing, not even a CORS preflight, reaches the API unchecked.
-app.add_middleware(ConsoleAuthMiddleware)
-
-
-@app.get("/api/session", include_in_schema=False)
-def open_session(token: str = "", next: str = "/") -> Response:
-    """Trade the launcher's token for an HttpOnly session cookie, then go to the console."""
-    if not token_matches(token):
-        return JSONResponse(
-            status_code=401,
-            content={"detail": "Invalid console token.", "auth_required": True},
-        )
-    resp = RedirectResponse(safe_next(next), status_code=303)
-    resp.set_cookie(
-        COOKIE,
-        token,
-        max_age=COOKIE_MAX_AGE,
-        httponly=True,
-        samesite="strict",
-        path="/",
-    )
-    return resp
+# Added last so it runs first: every request, CORS preflights included, is host-checked.
+app.add_middleware(HostCheckMiddleware)
 
 
 @app.exception_handler(CaseNotFound)
@@ -1528,12 +1508,6 @@ _mount_packaged_console()
 def run() -> None:  # console-script entry point
     import uvicorn
 
-    from collector.console_auth import session_url
-
-    from .auth import console_token
-
-    if settings.console_auth:
-        print(f"Ventra console sign-in: {session_url('http://127.0.0.1:8000', console_token())}")
     uvicorn.run("app.main:app", host="127.0.0.1", port=8000, reload=False)
 
 
