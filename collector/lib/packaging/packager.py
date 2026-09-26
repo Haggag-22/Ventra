@@ -14,6 +14,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import BinaryIO
 
 from ..chain_of_custody.hashing import sha256_file
 
@@ -37,9 +38,20 @@ def _archive_name(case_id: str, account_id: str) -> str:
     return f"case-{safe_case}-{account_id}-{ts}"
 
 
+def staging_directory(out_dir: Path, prefix: str = "stage") -> tempfile.TemporaryDirectory[str]:
+    """Scratch space for a collection run, created inside ``out_dir`` rather than ``/tmp``.
+
+    Evidence is staged here and then sealed into ``out_dir``, so keeping it on the same filesystem
+    means a run only needs disk where the operator pointed ``--out``. ``/tmp`` is often a small
+    tmpfs (a fraction of RAM) on cluster nodes and would fill long before the real disk does.
+    """
+    out_dir.mkdir(parents=True, exist_ok=True)
+    return tempfile.TemporaryDirectory(prefix=f".ventra-{prefix}-", dir=out_dir)
+
+
 def _write_tar(
     staging: Path,
-    tar_path: Path,
+    fileobj: BinaryIO,
     *,
     on_progress: Callable[[str], None] | None = None,
 ) -> None:
@@ -47,7 +59,8 @@ def _write_tar(
     total = len(files)
     if on_progress is not None:
         on_progress(f"Archiving {total:,} evidence file(s)…")
-    with tarfile.open(tar_path, mode="w") as tar:
+    # Stream mode ("w|"): the tar goes straight into the compressor, never to disk uncompressed.
+    with tarfile.open(fileobj=fileobj, mode="w|") as tar:
         for index, item in enumerate(files, start=1):
             tar.add(item, arcname=item.relative_to(staging).as_posix())
             if on_progress is not None and index % 25 == 0:
@@ -56,8 +69,8 @@ def _write_tar(
         on_progress(f"Archive built ({total:,} file(s))")
 
 
-def _compress_file(
-    src: Path,
+def _write_compressed_tar(
+    staging: Path,
     dst: Path,
     *,
     compression: str,
@@ -65,13 +78,14 @@ def _compress_file(
 ) -> None:
     if on_progress is not None:
         on_progress(f"Compressing archive ({compression})…")
-    if compression == "zstd" and _zstd is not None:
-        cctx = _zstd.ZstdCompressor(level=19)
-        with src.open("rb") as fin, dst.open("wb") as fout:
-            cctx.copy_stream(fin, fout)
-        return
-    with src.open("rb") as fin, dst.open("wb") as fout:
-        fout.write(gzip.compress(fin.read(), compresslevel=9))
+    with dst.open("wb") as fout:
+        if compression == "zstd" and _zstd is not None:
+            cctx = _zstd.ZstdCompressor(level=19)
+            with cctx.stream_writer(fout, closefd=False) as zout:
+                _write_tar(staging, zout, on_progress=on_progress)
+            return
+        with gzip.GzipFile(fileobj=fout, mode="wb", compresslevel=9) as gzout:
+            _write_tar(staging, gzout, on_progress=on_progress)
 
 
 def seal_package(
@@ -87,8 +101,8 @@ def seal_package(
     The staging directory must already contain ``manifest.json``, ``manifest.json.sig``,
     ``collection.log``, and the ``sources/`` tree.
 
-    Uses a temp tar on disk and streaming compression so multi-GB packages do not require
-    holding the full archive in RAM.
+    The tar is streamed through the compressor, so neither RAM nor scratch disk has to hold an
+    uncompressed copy of the archive.
     """
     out_dir.mkdir(parents=True, exist_ok=True)
     base = _archive_name(case_id, account_id)
@@ -96,10 +110,11 @@ def seal_package(
     compression = "zstd" if use_zstd else "gzip"
     out_path = out_dir / (f"{base}.tar.zst" if use_zstd else f"{base}.tar.gz")
 
-    with tempfile.TemporaryDirectory(prefix="ventra-seal-") as tmp:
-        tar_path = Path(tmp) / f"{base}.tar"
-        _write_tar(staging, tar_path, on_progress=on_progress)
-        _compress_file(tar_path, out_path, compression=compression, on_progress=on_progress)
+    try:
+        _write_compressed_tar(staging, out_path, compression=compression, on_progress=on_progress)
+    except BaseException:
+        out_path.unlink(missing_ok=True)
+        raise
 
     if on_progress is not None:
         on_progress("Computing package checksum…")

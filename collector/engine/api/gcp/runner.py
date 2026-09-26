@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import platform
-import tempfile
 import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -46,7 +45,7 @@ from collector.lib.models import (
     TimeWindow,
     utcnow_iso,
 )
-from collector.lib.packaging.packager import PackageResult
+from collector.lib.packaging.packager import PackageResult, staging_directory
 
 __all__ = ["GcpRunConfig", "run_gcp_collection", "parse_window"]
 
@@ -156,8 +155,8 @@ def run_gcp_collection(cfg: GcpRunConfig, *, factory: GcpClientFactory | None = 
     )
 
     with (
-        tempfile.TemporaryDirectory(prefix="ventra-stage-") as tmp,
-        tempfile.TemporaryDirectory(prefix="ventra-spool-") as spool_tmp,
+        staging_directory(cfg.out_dir, "stage") as tmp,
+        staging_directory(cfg.out_dir, "spool") as spool_tmp,
     ):
         staging = Path(tmp)
         (staging / "sources").mkdir(parents=True, exist_ok=True)
