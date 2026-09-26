@@ -15,6 +15,7 @@ something failed, which is exactly what an analyst wants surfaced next to an aud
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime
 from typing import Any, Iterator
 
@@ -48,9 +49,90 @@ def _journal_timestamp(rec: dict[str, Any]) -> str:
             micros = int(str(raw))
         except (TypeError, ValueError):
             continue
-        return datetime.fromtimestamp(micros / 1_000_000, tz=UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
-    # Non-systemd fallback files carry no timestamp of their own.
+        return _iso(datetime.fromtimestamp(micros / 1_000_000, tz=UTC))
     return str(rec.get("_ventra_timestamp") or "")
+
+
+def _iso(dt: datetime) -> str:
+    return dt.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+# -- non-systemd fallback lines ---------------------------------------------------------------
+#
+# Lines read from /var/log/syslog or /var/log/kubelet.log carry their time only in the text.
+# rsyslog's default is RFC 3339 ("2026-09-22T22:25:53.300220+00:00 host prog[pid]: msg"); older
+# setups use BSD syslog ("Sep 26 06:59:33 host prog[pid]: msg") and kubelet.log is klog
+# ("I0926 06:59:33.123456   1234 file.go:12] msg"). The last two omit the year.
+
+_RFC3339_SYSLOG = re.compile(
+    r"^(?P<ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2})?)\s+"
+    r"(?P<host>\S+)\s+(?P<prog>[^\s\[:]+)(?:\[\d+\])?:\s?(?P<msg>.*)$"
+)
+_BSD_SYSLOG = re.compile(
+    r"^(?P<mon>[A-Z][a-z]{2})\s+(?P<day>\d{1,2})\s+(?P<time>\d{2}:\d{2}:\d{2})\s+"
+    r"(?P<host>\S+)\s+(?P<prog>[^\s\[:]+)(?:\[\d+\])?:\s?(?P<msg>.*)$"
+)
+_KLOG = re.compile(
+    r"^(?P<level>[IWEF])(?P<mon>\d{2})(?P<day>\d{2})\s+(?P<time>\d{2}:\d{2}:\d{2})(?:\.\d+)?\s+"
+    r"\d+\s+(?P<msg>.*)$"
+)
+_MONTHS = {
+    m: i
+    for i, m in enumerate(
+        ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"), start=1
+    )
+}
+# klog severity letter -> syslog priority, so _severity() treats both alike.
+_KLOG_PRIORITY = {"I": 6, "W": 4, "E": 3, "F": 2}
+
+
+def _parse_dt(value: str) -> datetime | None:
+    try:
+        dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
+
+
+def _yearless(month: int, day: int, clock: str, collected: datetime | None) -> datetime | None:
+    """Pin a year-less log time to the collection year, stepping back a year if that lands in
+    the future (a December line collected in January). Times are taken as UTC."""
+    ref = collected or datetime.now(UTC)
+    try:
+        hh, mm, ss = (int(x) for x in clock.split(":"))
+        dt = datetime(ref.year, month, day, hh, mm, ss, tzinfo=UTC)
+        if dt > ref:
+            dt = dt.replace(year=ref.year - 1)
+    except ValueError:  # Feb 29 in a non-leap year, bad clock
+        return None
+    return dt
+
+
+def parse_log_line(line: str, collected_at: str = "") -> dict[str, Any]:
+    """Split a plain log line into ``timestamp`` / ``program`` / ``message`` / ``priority``.
+
+    Fields that can't be recovered are left out, so callers keep their own defaults.
+    """
+    collected = _parse_dt(collected_at) if collected_at else None
+    if m := _RFC3339_SYSLOG.match(line):
+        dt = _parse_dt(m["ts"])
+        out: dict[str, Any] = {"program": m["prog"], "host": m["host"], "message": m["msg"]}
+        if dt:
+            out["timestamp"] = _iso(dt)
+        return out
+    if m := _BSD_SYSLOG.match(line):
+        out = {"program": m["prog"], "host": m["host"], "message": m["msg"]}
+        dt = _yearless(_MONTHS.get(m["mon"], 0), int(m["day"]), m["time"], collected)
+        if dt:
+            out["timestamp"] = _iso(dt)
+        return out
+    if m := _KLOG.match(line):
+        out = {"message": m["msg"], "priority": _KLOG_PRIORITY[m["level"]]}
+        dt = _yearless(int(m["mon"]), int(m["day"]), m["time"], collected)
+        if dt:
+            out["timestamp"] = _iso(dt)
+        return out
+    return {}
 
 
 def _message(rec: dict[str, Any]) -> str:
@@ -98,13 +180,23 @@ def _journal_events(
         node = str(rec.get("_ventra_node") or "")
         cluster = str(rec.get("_ventra_cluster") or ctx.account_id)
         unit = _unit(rec, rec.get("_ventra_component") or default_unit)
+        timestamp = _journal_timestamp(rec)
+        priority_rec = rec
+        if rec.get("_ventra_log_file"):
+            # Non-systemd fallback: the time, program and level live in the line itself.
+            parsed = parse_log_line(message, ctx.collected_at)
+            timestamp = timestamp or parsed.get("timestamp", "")
+            unit = parsed.get("program") or unit
+            message = parsed.get("message") or message
+            if "priority" in parsed and "PRIORITY" not in rec:
+                priority_rec = {**rec, "PRIORITY": parsed["priority"]}
         yield UnifiedEvent(
-            timestamp=_journal_timestamp(rec),
+            timestamp=timestamp,
             event_kind="event",
             event_category=["kubernetes", "host"],
             event_action=unit,
             event_outcome="unknown",
-            event_severity=_severity(rec, message),
+            event_severity=_severity(priority_rec, message),
             event_provider=provider,
             cloud_provider="kubernetes",
             cloud_account=cluster,
