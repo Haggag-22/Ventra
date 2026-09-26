@@ -6,6 +6,8 @@ All notable changes to Ventra are documented here. Format follows
 
 ## [Unreleased]
 
+## [0.7.3] - 2026-09-26
+
 ### Security
 - Importing an evidence package can no longer write outside the case directory: archive
   members with `..`, absolute paths or drive letters are refused before anything is written.
@@ -28,6 +30,8 @@ All notable changes to Ventra are documented here. Format follows
 
 ### Added
 - Click-to-sort column headers on every case dashboard table (server-side for event logs).
+
+## Earlier changes (0.7.2 and before)
 
 ### Changed (packaging)
 - Build backend is now **hatchling** + **hatch-vcs** (version still comes from git tags, same
