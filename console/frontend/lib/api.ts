@@ -190,6 +190,8 @@ export type Connection = {
   id: string;
   name: string;
   platform: string;
+  /** Secret fields saved on the server; the API never returns their values. */
+  stored_secrets?: string[];
   alias?: string;
   auth_method?: string;
   aws_access_key_id?: string;

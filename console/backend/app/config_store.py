@@ -3,9 +3,28 @@
 from __future__ import annotations
 
 import json
+import os
 import uuid
 from pathlib import Path
 from typing import Any
+
+# Connection fields that hold credentials. They stay on disk (the collectors need them) but
+# never leave the backend: API responses carry only which ones are set.
+SECRET_FIELDS = (
+    "aws_secret_access_key",
+    "aws_session_token",
+    "azure_client_secret",
+    "azure_client_certificate_content",
+    "gcp_service_account_json",
+    "kubeconfig_content",
+)
+
+
+def public_connection(conn: dict[str, Any]) -> dict[str, Any]:
+    """A connection as the API returns it: secrets removed, ``stored_secrets`` lists what is set."""
+    out = {k: v for k, v in conn.items() if k not in SECRET_FIELDS}
+    out["stored_secrets"] = [k for k in SECRET_FIELDS if conn.get(k)]
+    return out
 
 
 class ConfigNotFound(Exception):
@@ -15,9 +34,25 @@ class ConfigNotFound(Exception):
 class ConfigStore:
     def __init__(self, root: Path) -> None:
         self.root = root
-        self.root.mkdir(parents=True, exist_ok=True)
+        self.root.mkdir(mode=0o700, parents=True, exist_ok=True)
         self.connections_path = self.root / "connections.json"
         self.profiles_path = self.root / "profiles.json"
+        self._restrict_permissions()
+
+    def _restrict_permissions(self) -> None:
+        """Owner-only access for the store (and files written by older versions)."""
+        if os.name != "posix":
+            return
+        for path, mode in (
+            (self.root, 0o700),
+            (self.connections_path, 0o600),
+            (self.profiles_path, 0o600),
+        ):
+            try:
+                if path.exists() and (path.stat().st_mode & 0o777) != mode:
+                    path.chmod(mode)
+            except OSError:
+                pass  # not ours to change (e.g. read-only mount); nothing more we can do
 
     def _read(self, path: Path) -> list[dict[str, Any]]:
         if not path.is_file():
@@ -25,7 +60,16 @@ class ConfigStore:
         return json.loads(path.read_text(encoding="utf-8"))
 
     def _write(self, path: Path, items: list[dict[str, Any]]) -> None:
-        path.write_text(json.dumps(items, indent=2), encoding="utf-8")
+        """Write atomically, owner read/write only: the file holds cloud credentials."""
+        tmp = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+        try:
+            with os.fdopen(fd, "w", encoding="utf-8") as fh:
+                json.dump(items, fh, indent=2)
+            os.replace(tmp, path)
+        except BaseException:
+            tmp.unlink(missing_ok=True)
+            raise
 
     def list_connections(self) -> list[dict[str, Any]]:
         return self._read(self.connections_path)
