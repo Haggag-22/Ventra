@@ -60,6 +60,9 @@ SORTABLE = {
     "source_country",
 }
 
+# Chronological sort key for the text ``timestamp`` column; NULL when it can't be parsed.
+TIME_SORT_SQL = "TRY_CAST(timestamp AS TIMESTAMPTZ)"
+
 SEVERITY_RANK = {"critical": 5, "high": 4, "medium": 3, "low": 2, "info": 1}
 
 # CloudTrail ``eventCategory`` lives in the raw JSON payload; normalize to the labels the UI shows.
@@ -1070,22 +1073,28 @@ class CaseStore:
         where, params = self._build_where(q, case_id)
         sort = q.sort if q.sort in SORTABLE else "timestamp"
         order = "DESC" if q.order.lower() == "desc" else "ASC"
-        # Severity sorts by rank, not alphabetically.
-        sort_expr = (
-            "CASE event_severity WHEN 'critical' THEN 5 WHEN 'high' THEN 4 WHEN 'medium' THEN 3 "
-            "WHEN 'low' THEN 2 ELSE 1 END"
-            if sort == "event_severity"
-            else sort
-        )
+        # Timestamps are stored as text in more than one ISO shape ("…T…Z" and "… …+00:00"),
+        # so order by the parsed instant, not the string. Severity sorts by rank.
+        if sort == "timestamp":
+            sort_expr = TIME_SORT_SQL
+        elif sort == "event_severity":
+            sort_expr = (
+                "CASE event_severity WHEN 'critical' THEN 5 WHEN 'high' THEN 4 WHEN 'medium' THEN 3 "
+                "WHEN 'low' THEN 2 ELSE 1 END"
+            )
+        else:
+            sort_expr = sort
         con = self._connect()
         try:
             events = self._events_table(con, path)
             total = con.execute(f"SELECT count(*) FROM {events} {where}", [path, *params]).fetchone()[0]
             # Empty values sort last in both directions so a header click never opens on blanks.
-            empty_last = f"({sort} IS NULL OR CAST({sort} AS VARCHAR) = '')"
+            empty = f"{TIME_SORT_SQL} IS NULL" if sort == "timestamp" else f"CAST({sort} AS VARCHAR) = ''"
+            empty_last = f"({sort} IS NULL OR {empty})"
             rows = con.execute(
                 f"SELECT * FROM {events} {where} "
-                f"ORDER BY {empty_last} ASC, {sort_expr} {order}, timestamp ASC LIMIT ? OFFSET ?",
+                f"ORDER BY {empty_last} ASC, {sort_expr} {order}, {TIME_SORT_SQL} ASC "
+                "LIMIT ? OFFSET ?",
                 [path, *params, q.limit, q.offset],
             )
             cols = [d[0] for d in rows.description]
