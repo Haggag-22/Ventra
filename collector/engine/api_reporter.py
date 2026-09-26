@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import json
-import os
 import urllib.error
 import urllib.request
 from collections.abc import Callable
@@ -34,12 +33,12 @@ class _HttpRelaySink:
 
     def _post(self, payload: dict[str, Any]) -> None:
         data = json.dumps(payload).encode("utf-8")
-        headers = {"Content-Type": "application/json"}
-        # The console API requires its access token (see console/backend/app/auth.py).
-        token = os.environ.get("VENTRA_CONSOLE_TOKEN", "").strip()
-        if token:
-            headers["Authorization"] = f"Bearer {token}"
-        req = urllib.request.Request(self.relay_url, data=data, headers=headers, method="POST")
+        req = urllib.request.Request(
+            self.relay_url,
+            data=data,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
         try:
             with urllib.request.urlopen(req, timeout=30) as resp:  # noqa: S310
                 resp.read()
