@@ -70,11 +70,34 @@ _COLUMNS = [
 _INT_COLUMNS = {"dest_port", "dest_bytes"}
 
 
+def safe_case_id(case_id: str) -> str:
+    """Return ``case_id`` if it is safe as one directory name under the case store.
+
+    The id comes from the package manifest (or a user), and the store later ``rmtree``s
+    ``root / case_id``, so ``..``, path separators and similar must never get through. Anything
+    else a collector's free-text ``--case`` produces (spaces included) stays valid.
+    """
+    cid = str(case_id or "")
+    if (
+        not cid.strip()
+        or cid in (".", "..")
+        or cid.startswith(".")
+        or len(cid) > 128
+        or any(ch in cid for ch in "/\\:")
+        or any(ord(ch) < 32 for ch in cid)
+    ):
+        raise ValueError(f"Unsafe case id: {case_id!r}")
+    return cid
+
+
 class CaseStore:
     def __init__(self, root: Path, case_id: str) -> None:
         self.root = Path(root)
-        self.case_id = case_id
-        self.case_dir = self.root / case_id
+        self.case_id = safe_case_id(case_id)
+        self.case_dir = self.root / self.case_id
+        # Belt and braces: whatever the id, the case directory must sit directly under root.
+        if self.case_dir.resolve().parent != self.root.resolve():
+            raise ValueError(f"Unsafe case id: {case_id!r}")
         self.inventory_dir = self.case_dir / "inventory"
 
     def reset(self) -> None:
