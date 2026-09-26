@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import json
 import platform
-import tempfile
 import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -31,7 +30,7 @@ from collector.lib.models import (
     TimeWindow,
     utcnow_iso,
 )
-from collector.lib.packaging.packager import PackageResult
+from collector.lib.packaging.packager import PackageResult, staging_directory
 
 __all__ = ["AwsRunConfig", "RunReporter", "parse_window", "run_aws_collection"]
 
@@ -104,7 +103,7 @@ def run_aws_collection(cfg: AwsRunConfig, *, factory: AwsClientFactory | None = 
         pipeline_steps=cfg.pipeline_steps,
     )
 
-    with tempfile.TemporaryDirectory(prefix="ventra-stage-") as tmp:
+    with staging_directory(cfg.out_dir, "stage") as tmp:
         staging = Path(tmp)
         (staging / "sources").mkdir(parents=True, exist_ok=True)
 
