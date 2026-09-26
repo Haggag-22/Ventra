@@ -1,5 +1,6 @@
 "use client";
 
+import { SortLabel, type SortState } from "@/components/sort-header";
 import { EdgeRequestDrawer } from "@/components/edge-request-drawer";
 import { Entity } from "@/components/pivot";
 import { Spinner } from "@/components/ui";
@@ -23,10 +24,15 @@ import { useCallback, useEffect, useRef, useState } from "react";
 export function EdgeRequestTable({
   events,
   loading,
+  sort,
+  onSort,
   visibleColumns,
 }: {
   events: UnifiedEvent[];
   loading?: boolean;
+  /** Current server-side sort; headers with a `sortField` become toggles. */
+  sort?: SortState;
+  onSort?: (field: string) => void;
   visibleColumns: EdgeRequestColKey[];
 }) {
   const columns = orderedVisibleEdgeRequestCols(visibleColumns);
@@ -184,7 +190,7 @@ export function EdgeRequestTable({
                 <tr>
                   {columns.map((c) => (
                     <th key={c.key} className="relative">
-                      <span className="block truncate pr-2">{c.label}</span>
+                      <SortLabel label={c.label} sortKey={c.sortField} sort={sort} onSort={onSort} />
                       <span
                         role="separator"
                         aria-orientation="vertical"

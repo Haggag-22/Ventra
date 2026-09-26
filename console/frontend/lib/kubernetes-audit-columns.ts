@@ -13,19 +13,21 @@ export type K8sAuditColKey =
 export interface K8sAuditColumn {
   key: K8sAuditColKey;
   label: string;
+  /** Backend field the header sorts by; omitted for derived columns. */
+  sortField?: string;
   min: number;
   locked?: boolean;
 }
 
 export const K8S_AUDIT_COLS: K8sAuditColumn[] = [
-  { key: "timestamp", label: "Time (UTC)", min: 120, locked: true },
-  { key: "event_action", label: "Action", min: 140 },
-  { key: "user_name", label: "User", min: 90 },
-  { key: "source_ip", label: "Source IP", min: 100 },
-  { key: "resource_id", label: "Resource", min: 120 },
-  { key: "event_outcome", label: "Outcome", min: 80 },
-  { key: "event_severity", label: "Severity", min: 80 },
-  { key: "cloud_region", label: "Region", min: 80 },
+  { key: "timestamp", label: "Time (UTC)", min: 120, sortField: "timestamp", locked: true },
+  { key: "event_action", label: "Action", min: 140, sortField: "event_action" },
+  { key: "user_name", label: "User", min: 90, sortField: "user_name" },
+  { key: "source_ip", label: "Source IP", min: 100, sortField: "source_ip" },
+  { key: "resource_id", label: "Resource", min: 120, sortField: "resource_id" },
+  { key: "event_outcome", label: "Outcome", min: 80, sortField: "event_outcome" },
+  { key: "event_severity", label: "Severity", min: 80, sortField: "event_severity" },
+  { key: "cloud_region", label: "Region", min: 80, sortField: "cloud_region" },
 ];
 
 export const ALL_K8S_AUDIT_COL_KEYS: K8sAuditColKey[] = K8S_AUDIT_COLS.map((c) => c.key);
