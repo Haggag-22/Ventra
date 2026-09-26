@@ -365,6 +365,11 @@ def build_parser(*, prog: str = "ventra") -> argparse.ArgumentParser:
         parser.add_argument("--backend-port", type=int, default=8000, help="Backend/UI port (default: 8000).")
         parser.add_argument("--no-open", action="store_true", help="Do not open a browser tab.")
         parser.add_argument(
+            "--print-link",
+            action="store_true",
+            help="Print the console sign-in link and exit (the console requires it).",
+        )
+        parser.add_argument(
             "--setup",
             action="store_true",
             help="Re-run pip/npm install even if dependencies look current (source checkout only).",

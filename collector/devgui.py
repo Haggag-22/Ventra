@@ -19,11 +19,16 @@ import webbrowser
 from argparse import Namespace
 from pathlib import Path
 
+from collector.console_auth import load_console_token, session_url
 from collector.lib.uv_util import ensure_uv, uv_pip_install, uv_venv
 from collector.lib.uv_util import venv_python as _venv_python_path
 
 _SETUP_MARKER = ".ventra-dev-ready"
 _NPM_MARKER = ".ventra-npm-ready"
+
+
+# The console only ever listens on loopback; see console/backend/app/auth.py.
+CONSOLE_HOST = "127.0.0.1"
 
 
 def find_repo_root() -> Path:
@@ -263,8 +268,27 @@ def _free_stale_dev_ports(*ports: int) -> None:
                     pass
 
 
+def _port_in_use(port: int) -> bool:
+    """True if something already accepts connections on the port via IPv4 or IPv6 loopback.
+
+    Binding 127.0.0.1 can succeed while another server holds the wildcard address (macOS),
+    and then ``localhost`` may reach that server instead of the console.
+    """
+    for family, host in ((socket.AF_INET, "127.0.0.1"), (socket.AF_INET6, "::1")):
+        try:
+            with socket.socket(family, socket.SOCK_STREAM) as sock:
+                sock.settimeout(0.3)
+                if sock.connect_ex((host, port)) == 0:
+                    return True
+        except OSError:
+            continue
+    return False
+
+
 def _port_available(port: int, *, bind_host: str = "127.0.0.1") -> bool:
     """Return True if ``bind_host:port`` can be bound (matches uvicorn / Next.js)."""
+    if _port_in_use(port):
+        return False
     if bind_host == "::":
         try:
             with socket.socket(socket.AF_INET6, socket.SOCK_STREAM) as sock:
@@ -393,10 +417,15 @@ def cmd_dev(args: Namespace) -> int:
     venv_bin = venv_python.parent
 
     env = _dev_env(root, venv_bin)
+    # Pin the config dir (the backend's own default is its cwd) so the launcher and every
+    # --reload worker share one console token.
+    env.setdefault("VENTRA_CONFIG_DIR", str(backend_dir / ".ventra-config"))
+    env["VENTRA_CONSOLE_TOKEN"] = load_console_token(Path(env["VENTRA_CONFIG_DIR"]))
     frontend_preferred = _default_frontend_port(args)
     backend_preferred = args.backend_port
     _free_stale_dev_ports(frontend_preferred, backend_preferred, frontend_preferred + 1)
-    frontend_port = _pick_port(frontend_preferred, bind_host="::")
+    # Loopback only: the dev server proxies the whole API, so it must not face the LAN.
+    frontend_port = _pick_port(frontend_preferred, bind_host=CONSOLE_HOST)
     backend_port = _pick_port(backend_preferred, bind_host="127.0.0.1")
     env["PORT"] = str(frontend_port)
     env["VENTRA_API"] = f"http://127.0.0.1:{backend_port}"
@@ -413,6 +442,8 @@ def cmd_dev(args: Namespace) -> int:
     print()
     print("Ventra console — save files, refresh the browser to see changes.")
     print(f"  Console (hot reload):  http://127.0.0.1:{frontend_port}")
+    sign_in = session_url(f"http://127.0.0.1:{frontend_port}", env["VENTRA_CONSOLE_TOKEN"])
+    print(f"  Sign in:               {sign_in}")
     print(f"  Backend  (--reload):     http://127.0.0.1:{backend_port}")
     print(f"  Cases:                   {env['VENTRA_CASE_STORE']}")
     if frontend_port != frontend_preferred:
@@ -453,7 +484,7 @@ def cmd_dev(args: Namespace) -> int:
 
     procs.append(
         subprocess.Popen(
-            ["npm", "run", "dev"],
+            ["npm", "run", "dev", "--", "-H", CONSOLE_HOST],
             cwd=frontend_dir,
             env=env,
         )
@@ -469,7 +500,7 @@ def cmd_dev(args: Namespace) -> int:
                 file=sys.stderr,
             )
         if frontend_ok:
-            webbrowser.open(f"http://127.0.0.1:{frontend_port}")
+            webbrowser.open(sign_in)
         else:
             print(
                 f"error: frontend did not start on port {frontend_port}. Check the logs above.",
@@ -527,6 +558,8 @@ def cmd_gui(args: Namespace) -> int:
     """
     from collector.paths import bundled_console_static, is_source_checkout
 
+    if getattr(args, "print_link", False):
+        return _print_sign_in_link(args)
     if getattr(args, "dev_source", False):
         return cmd_dev(args)
     if bundled_console_static() is not None and not is_source_checkout():
@@ -536,6 +569,25 @@ def cmd_gui(args: Namespace) -> int:
     if static is not None and "site-packages" in str(static):
         return _cmd_gui_packaged(args)
     return cmd_dev(args)
+
+
+def _print_sign_in_link(args: Namespace) -> int:
+    """Print the console sign-in link (e.g. after closing the tab the launcher opened)."""
+    from collector.paths import bundled_console_static, is_source_checkout, user_data_root
+
+    packaged = bundled_console_static() is not None and (
+        not is_source_checkout() or "site-packages" in str(bundled_console_static())
+    )
+    if os.environ.get("VENTRA_CONFIG_DIR"):
+        config_dir = Path(os.environ["VENTRA_CONFIG_DIR"])
+    elif packaged and not getattr(args, "dev_source", False):
+        config_dir = user_data_root() / ".ventra-config"
+    else:
+        config_dir = find_repo_root() / "console/backend/.ventra-config"
+    port = args.backend_port if packaged else _default_frontend_port(args)
+    print(session_url(f"http://127.0.0.1:{port}", load_console_token(config_dir)))
+    print(f"(If the console runs on a different port, change {port} in the link.)", file=sys.stderr)
+    return 0
 
 
 def _cmd_gui_packaged(args: Namespace) -> int:
@@ -565,9 +617,11 @@ def _cmd_gui_packaged(args: Namespace) -> int:
         os.environ.setdefault(key, value)
 
     url = f"http://127.0.0.1:{port}"
+    sign_in = session_url(url, load_console_token(Path(os.environ["VENTRA_CONFIG_DIR"])))
     print()
     print("Ventra console (packaged)")
     print(f"  UI + API:  {url}")
+    print(f"  Sign in:   {sign_in}")
     print(f"  Cases:     {os.environ['VENTRA_CASE_STORE']}")
     print()
 
@@ -575,7 +629,7 @@ def _cmd_gui_packaged(args: Namespace) -> int:
 
         def _open() -> None:
             if _wait_for_http(f"{url}/api/health", timeout=30):
-                webbrowser.open(url)
+                webbrowser.open(sign_in)
 
         threading.Thread(target=_open, daemon=True).start()
 
