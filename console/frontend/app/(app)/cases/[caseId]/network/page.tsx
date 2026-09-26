@@ -4,6 +4,7 @@ import { useCase } from "@/components/case-context";
 import { SelectDropdown } from "@/components/multiselect";
 import { PanelBody, PanelHeader } from "@/components/panel";
 import { Entity } from "@/components/pivot";
+import { SortTh, nextSort, useClientSort, type SortState } from "@/components/sort-header";
 import { StatCard } from "@/components/stat";
 import { TablePager } from "@/components/table-pager";
 import { Card, CardHeader, EmptyState, LoadingPanel } from "@/components/ui";
@@ -21,6 +22,7 @@ import {
   loadVisibleVpcFlowCols,
   type VpcFlowColKey,
 } from "@/lib/vpc-flow-columns";
+import type { NetworkResponse } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { ArrowUpFromLine, Ban, Network, Plug, Radio, Upload, Users } from "lucide-react";
@@ -64,6 +66,7 @@ function VpcFlowLog({
   vpcId?: string;
 }) {
   const [filters, setFilters] = useState<VpcFlowFilters>({ order: "desc" });
+  const [sortField, setSortField] = useState("timestamp");
   const [visibleColumns, setVisibleColumns] = useState<VpcFlowColKey[]>(ALL_VPC_FLOW_COL_KEYS);
   const { page, setPage, pageSize, setPageSize } = usePagination("ventra.vpc-flow.page-size");
 
@@ -91,10 +94,10 @@ function VpcFlowLog({
       dest_ips: filters.destIps,
       dest_ports: filters.destPorts,
       vpcs: vpcId ? [vpcId] : undefined,
-      sort: "timestamp" as const,
+      sort: sortField,
       order: filters.order ?? "desc",
     }),
-    [filters, sources, vpcId],
+    [filters, sources, vpcId, sortField],
   );
 
   const eventsQ = useQuery({
@@ -135,8 +138,23 @@ function VpcFlowLog({
 
   const handleReset = useCallback(() => {
     setFilters({ order: "desc" });
+    setSortField("timestamp");
     setPage(0);
   }, [setPage]);
+
+  const sort = useMemo<SortState>(
+    () => ({ key: sortField, dir: filters.order === "asc" ? "asc" : "desc" }),
+    [sortField, filters.order],
+  );
+  const handleSort = useCallback(
+    (field: string) => {
+      const next = nextSort(sort, field);
+      setSortField(next.key);
+      setFilters((prev) => ({ ...prev, order: next.dir }));
+      setPage(0);
+    },
+    [sort, setPage],
+  );
 
   return (
     <div className="cloudtrail-view vpc-flow-log mt-8">
@@ -161,6 +179,8 @@ function VpcFlowLog({
       <div className="ct-panel">
         <VpcFlowTable
           events={eventsQ.data?.events ?? []}
+          sort={sort}
+          onSort={handleSort}
           loading={eventsQ.isPending && !eventsQ.data}
           visibleColumns={visibleColumns}
         />
@@ -329,158 +349,24 @@ export default function NetworkPage() {
             subtitle="Outbound volume to routable addresses"
             icon={ArrowUpFromLine}
           />
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-surface-2/40">
-                <th className="table-header-cell">Destination IP</th>
-                <th className="table-header-cell">Bytes out</th>
-                <th className="table-header-cell-right">Flows</th>
-                <th className="table-header-cell-right">Ports</th>
-              </tr>
-            </thead>
-            <tbody>
-              {n.egress_public.map((e) => (
-                <tr key={e.dest_ip} className="row-hover border-b border-border/60">
-                  <td className="table-cell">
-                    <Entity kind="ip" value={e.dest_ip} />
-                  </td>
-                  <td className="table-cell">
-                    <span className="mono text-xs text-fg">{fmtBytes(e.bytes)}</span>
-                    <Bar value={e.bytes} max={egressMax} tone="bg-high/70" />
-                  </td>
-                  <td className="table-cell !text-right mono">{fmtNum(e.flows)}</td>
-                  <td className="table-cell-muted !text-right mono">{fmtNum(e.ports)}</td>
-                </tr>
-              ))}
-              {n.egress_public.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="table-cell-muted text-center !py-6">
-                    No egress to public IPs in this window.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          <EgressTable rows={n.egress_public} max={egressMax} />
         </Card>
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <Card className="overflow-hidden">
             <CardHeader title="Destination ports" subtitle="Flow volume by destination port" icon={Plug} />
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-surface-2/40">
-                  <th className="table-header-cell">Port</th>
-                  <th className="table-header-cell">Service</th>
-                  <th className="table-header-cell-right">Flows</th>
-                  <th className="table-header-cell-right">Rejected</th>
-                  <th className="table-header-cell-right">Bytes</th>
-                </tr>
-              </thead>
-              <tbody>
-                {n.top_ports.map((p) => {
-                  const risky = RISKY_PORTS.has(p.port);
-                  return (
-                    <tr key={p.port} className="row-hover border-b border-border/60">
-                      <td className="table-cell mono">{p.port}</td>
-                      <td className={cn("table-cell", risky ? "text-high" : "text-fg-subtle")}>
-                        {svc(p.port)}
-                      </td>
-                      <td className="table-cell !text-right mono">{fmtNum(p.flows)}</td>
-                      <td className="table-cell !text-right mono">
-                        {p.rejected > 0 ? (
-                          <span className="text-bad-red">{fmtNum(p.rejected)}</span>
-                        ) : (
-                          <span className="text-fg-subtle">0</span>
-                        )}
-                      </td>
-                      <td className="table-cell-muted !text-right mono">
-                        {p.bytes > 0 ? fmtBytes(p.bytes) : "—"}
-                      </td>
-                    </tr>
-                  );
-                })}
-                {n.top_ports.length === 0 && (
-                  <tr>
-                    <td colSpan={5} className="table-cell-muted text-center !py-6">
-                      No port data.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+            <PortsTable rows={n.top_ports} />
           </Card>
 
           <Card className="overflow-hidden">
             <CardHeader title="Top source talkers" subtitle="Internal hosts by outbound volume" icon={Users} />
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-border bg-surface-2/40">
-                  <th className="table-header-cell">Source IP</th>
-                  <th className="table-header-cell-right">Bytes</th>
-                  <th className="table-header-cell-right">Flows</th>
-                </tr>
-              </thead>
-              <tbody>
-                {n.top_talkers.map((t) => (
-                  <tr key={t.source_ip} className="row-hover border-b border-border/60">
-                    <td className="table-cell">
-                      <Entity kind="ip" value={t.source_ip} />
-                    </td>
-                    <td className="table-cell !text-right mono">{fmtBytes(t.bytes)}</td>
-                    <td className="table-cell-muted !text-right mono">{fmtNum(t.flows)}</td>
-                  </tr>
-                ))}
-                {n.top_talkers.length === 0 && (
-                  <tr>
-                    <td colSpan={3} className="table-cell-muted text-center !py-6">
-                      No source data.
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
+            <TalkersTable rows={n.top_talkers} />
           </Card>
         </div>
 
         <Card>
           <CardHeader title="Rejected flows" subtitle="Blocked connection attempts" icon={Ban} />
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-border bg-surface-2/40">
-                <th className="table-header-cell">Source</th>
-                <th className="table-header-cell">Dest</th>
-                <th className="table-header-cell">Port</th>
-                <th className="table-header-cell">Service</th>
-                <th className="table-header-cell-right">Count</th>
-              </tr>
-            </thead>
-            <tbody>
-              {n.rejected.map((r, i) => {
-                const risky = r.dest_port > 0 && RISKY_PORTS.has(r.dest_port);
-                const service = r.dest_port > 0 ? svc(r.dest_port) : "—";
-                return (
-                <tr key={i} className="row-hover border-b border-border/60">
-                  <td className="table-cell"><Entity kind="ip" value={r.source_ip} /></td>
-                  <td className="table-cell"><Entity kind="ip" value={r.dest_ip} /></td>
-                  <td className="table-cell-muted mono">
-                    {r.dest_port > 0 ? r.dest_port : <span title="No L4 port (e.g. ICMP)">—</span>}
-                  </td>
-                  <td className={cn("table-cell", risky ? "text-high" : "text-fg-subtle")}>
-                    {service}
-                  </td>
-                  <td className="table-cell !text-right mono">{fmtNum(r.count)}</td>
-                </tr>
-                );
-              })}
-              {n.rejected.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="table-cell-muted text-center !py-6">
-                    No rejected flows.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+          <RejectedTable rows={n.rejected} />
         </Card>
           </>
         )}
@@ -515,5 +401,182 @@ function VpcFlowCollectionPanel({ caseId }: { caseId: string }) {
     <div className="ct-panel p-4">
       <VpcFlowCollectionSummary data={q.data} />
     </div>
+  );
+}
+
+type EgressRow = NetworkResponse["egress_public"][number];
+type PortRow = NetworkResponse["top_ports"][number];
+type TalkerRow = NetworkResponse["top_talkers"][number];
+type RejectedRow = NetworkResponse["rejected"][number];
+
+const egressValue = (r: EgressRow, key: string) => r[key as keyof EgressRow];
+const portValue = (r: PortRow, key: string) =>
+  key === "service" ? (r.port > 0 ? svc(r.port) : "") : r[key as keyof PortRow];
+const talkerValue = (r: TalkerRow, key: string) => r[key as keyof TalkerRow];
+const rejectedValue = (r: RejectedRow, key: string) =>
+  key === "service" ? (r.dest_port > 0 ? svc(r.dest_port) : "") : r[key as keyof RejectedRow];
+
+function EgressTable({ rows, max }: { rows: EgressRow[]; max: number }) {
+  const { sorted, sort, toggle } = useClientSort(rows, egressValue);
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b border-border bg-surface-2/40">
+          <SortTh label="Destination IP" sortKey="dest_ip" sort={sort} onSort={toggle} />
+          <SortTh label="Bytes out" sortKey="bytes" sort={sort} onSort={toggle} />
+          <SortTh label="Flows" sortKey="flows" sort={sort} onSort={toggle} align="right" />
+          <SortTh label="Ports" sortKey="ports" sort={sort} onSort={toggle} align="right" />
+        </tr>
+      </thead>
+      <tbody>
+        {sorted.map((e) => (
+          <tr key={e.dest_ip} className="row-hover border-b border-border/60">
+            <td className="table-cell">
+              <Entity kind="ip" value={e.dest_ip} />
+            </td>
+            <td className="table-cell">
+              <span className="mono text-xs text-fg">{fmtBytes(e.bytes)}</span>
+              <Bar value={e.bytes} max={max} tone="bg-high/70" />
+            </td>
+            <td className="table-cell !text-right mono">{fmtNum(e.flows)}</td>
+            <td className="table-cell-muted !text-right mono">{fmtNum(e.ports)}</td>
+          </tr>
+        ))}
+        {rows.length === 0 && (
+          <tr>
+            <td colSpan={4} className="table-cell-muted text-center !py-6">
+              No egress to public IPs in this window.
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  );
+}
+
+function PortsTable({ rows }: { rows: PortRow[] }) {
+  const { sorted, sort, toggle } = useClientSort(rows, portValue);
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b border-border bg-surface-2/40">
+          <SortTh label="Port" sortKey="port" sort={sort} onSort={toggle} />
+          <SortTh label="Service" sortKey="service" sort={sort} onSort={toggle} />
+          <SortTh label="Flows" sortKey="flows" sort={sort} onSort={toggle} align="right" />
+          <SortTh label="Rejected" sortKey="rejected" sort={sort} onSort={toggle} align="right" />
+          <SortTh label="Bytes" sortKey="bytes" sort={sort} onSort={toggle} align="right" />
+        </tr>
+      </thead>
+      <tbody>
+        {sorted.map((p) => {
+          const risky = RISKY_PORTS.has(p.port);
+          return (
+            <tr key={p.port} className="row-hover border-b border-border/60">
+              <td className="table-cell mono">{p.port}</td>
+              <td className={cn("table-cell", risky ? "text-high" : "text-fg-subtle")}>
+                {svc(p.port)}
+              </td>
+              <td className="table-cell !text-right mono">{fmtNum(p.flows)}</td>
+              <td className="table-cell !text-right mono">
+                {p.rejected > 0 ? (
+                  <span className="text-bad-red">{fmtNum(p.rejected)}</span>
+                ) : (
+                  <span className="text-fg-subtle">0</span>
+                )}
+              </td>
+              <td className="table-cell-muted !text-right mono">
+                {p.bytes > 0 ? fmtBytes(p.bytes) : "—"}
+              </td>
+            </tr>
+          );
+        })}
+        {rows.length === 0 && (
+          <tr>
+            <td colSpan={5} className="table-cell-muted text-center !py-6">
+              No port data.
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  );
+}
+
+function TalkersTable({ rows }: { rows: TalkerRow[] }) {
+  const { sorted, sort, toggle } = useClientSort(rows, talkerValue);
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b border-border bg-surface-2/40">
+          <SortTh label="Source IP" sortKey="source_ip" sort={sort} onSort={toggle} />
+          <SortTh label="Bytes" sortKey="bytes" sort={sort} onSort={toggle} align="right" />
+          <SortTh label="Flows" sortKey="flows" sort={sort} onSort={toggle} align="right" />
+        </tr>
+      </thead>
+      <tbody>
+        {sorted.map((t) => (
+          <tr key={t.source_ip} className="row-hover border-b border-border/60">
+            <td className="table-cell">
+              <Entity kind="ip" value={t.source_ip} />
+            </td>
+            <td className="table-cell !text-right mono">{fmtBytes(t.bytes)}</td>
+            <td className="table-cell-muted !text-right mono">{fmtNum(t.flows)}</td>
+          </tr>
+        ))}
+        {rows.length === 0 && (
+          <tr>
+            <td colSpan={3} className="table-cell-muted text-center !py-6">
+              No source data.
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
+  );
+}
+
+function RejectedTable({ rows }: { rows: RejectedRow[] }) {
+  const { sorted, sort, toggle } = useClientSort(rows, rejectedValue);
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b border-border bg-surface-2/40">
+          <SortTh label="Source" sortKey="source_ip" sort={sort} onSort={toggle} />
+          <SortTh label="Dest" sortKey="dest_ip" sort={sort} onSort={toggle} />
+          <SortTh label="Port" sortKey="dest_port" sort={sort} onSort={toggle} />
+          <SortTh label="Service" sortKey="service" sort={sort} onSort={toggle} />
+          <SortTh label="Count" sortKey="count" sort={sort} onSort={toggle} align="right" />
+        </tr>
+      </thead>
+      <tbody>
+        {sorted.map((r) => {
+          const risky = r.dest_port > 0 && RISKY_PORTS.has(r.dest_port);
+          const service = r.dest_port > 0 ? svc(r.dest_port) : "—";
+          return (
+            <tr
+              key={`${r.source_ip}-${r.dest_ip}-${r.dest_port}`}
+              className="row-hover border-b border-border/60"
+            >
+              <td className="table-cell"><Entity kind="ip" value={r.source_ip} /></td>
+              <td className="table-cell"><Entity kind="ip" value={r.dest_ip} /></td>
+              <td className="table-cell-muted mono">
+                {r.dest_port > 0 ? r.dest_port : <span title="No L4 port (e.g. ICMP)">—</span>}
+              </td>
+              <td className={cn("table-cell", risky ? "text-high" : "text-fg-subtle")}>
+                {service}
+              </td>
+              <td className="table-cell !text-right mono">{fmtNum(r.count)}</td>
+            </tr>
+          );
+        })}
+        {rows.length === 0 && (
+          <tr>
+            <td colSpan={5} className="table-cell-muted text-center !py-6">
+              No rejected flows.
+            </td>
+          </tr>
+        )}
+      </tbody>
+    </table>
   );
 }

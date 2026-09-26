@@ -9,13 +9,14 @@ import {
 } from "@/components/edge-request-toolbar";
 import { PanelBody, PanelHeader } from "@/components/panel";
 import { Entity } from "@/components/pivot";
+import { SortTh, nextSort, useClientSort, timeValue, type SortState } from "@/components/sort-header";
 import { StatCard } from "@/components/stat";
 import { TablePager } from "@/components/table-pager";
 import { Card, CardHeader, EmptyState, LoadingPanel } from "@/components/ui";
 import { api } from "@/lib/api";
 import { caseCloud, dnsSources, edgeSources } from "@/lib/cloud-sources";
 import type { Cloud } from "@/lib/catalog";
-import { fmtNum } from "@/lib/format";
+import { fmtNum, fmtTimeCloudTrail } from "@/lib/format";
 import { panelLabel } from "@/lib/panel-labels";
 import {
   ALL_EDGE_REQUEST_COL_KEYS,
@@ -26,6 +27,7 @@ import {
   type EdgeRequestColKey,
 } from "@/lib/edge-request-columns";
 import { usePagination } from "@/lib/pagination";
+import type { WebDnsResponse } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { Globe2, Network, Route, Search, Server, ShieldAlert } from "lucide-react";
@@ -81,17 +83,25 @@ const STATUS_TONE: Record<string, string> = {
 
 function DnsQueryLog({ caseId, cloud }: { caseId: string; cloud: Cloud }) {
   const [q, setQ] = useState("");
+  const [sort, setSort] = useState<SortState>({ key: "timestamp", dir: "desc" });
   const { page, setPage, pageSize, setPageSize } = usePagination("ventra.dns-queries.page-size");
+  const handleSort = useCallback(
+    (field: string) => {
+      setSort((prev) => nextSort(prev, field));
+      setPage(0);
+    },
+    [setPage],
+  );
   const sources = dnsSources(cloud);
 
   const eventsQ = useQuery({
-    queryKey: ["dns-queries", caseId, cloud, q, page, pageSize],
+    queryKey: ["dns-queries", caseId, cloud, q, sort, page, pageSize],
     queryFn: () =>
       api.events(caseId, {
         source: sources,
         q: q || undefined,
-        sort: "timestamp",
-        order: "desc",
+        sort: sort.key,
+        order: sort.dir,
         limit: pageSize,
         offset: page * pageSize,
       }),
@@ -119,7 +129,12 @@ function DnsQueryLog({ caseId, cloud }: { caseId: string; cloud: Cloud }) {
           <span className="mono text-xs text-fg-subtle">{fmtNum(matched)} queries</span>
         </div>
       </div>
-      <DnsQueryTable events={eventsQ.data?.events ?? []} loading={eventsQ.isPending && !eventsQ.data} />
+      <DnsQueryTable
+        events={eventsQ.data?.events ?? []}
+        loading={eventsQ.isPending && !eventsQ.data}
+        sort={sort}
+        onSort={handleSort}
+      />
       <TablePager
         page={page}
         pageSize={pageSize}
@@ -187,6 +202,7 @@ function StatusBar({ classes }: { classes: { cls: string; count: number }[] }) {
 
 function EdgeRequestLog({ caseId, cloud }: { caseId: string; cloud: Cloud }) {
   const [filters, setFilters] = useState<EdgeRequestFilters>({});
+  const [sort, setSort] = useState<SortState>({ key: "timestamp", dir: "desc" });
   const [visibleColumns, setVisibleColumns] = useState<EdgeRequestColKey[]>(
     ALL_EDGE_REQUEST_COL_KEYS,
   );
@@ -216,10 +232,10 @@ function EdgeRequestLog({ caseId, cloud }: { caseId: string; cloud: Cloud }) {
       resources: filters.resources,
       http_status: filters.statuses,
       regions: filters.regions,
-      sort: "timestamp" as const,
-      order: "desc" as const,
+      sort: sort.key,
+      order: sort.dir,
     }),
-    [effectiveSources, filters],
+    [effectiveSources, filters, sort],
   );
 
   const eventsQ = useQuery({
@@ -253,8 +269,17 @@ function EdgeRequestLog({ caseId, cloud }: { caseId: string; cloud: Cloud }) {
 
   const handleReset = useCallback(() => {
     setFilters({});
+    setSort({ key: "timestamp", dir: "desc" });
     setPage(0);
   }, [setPage]);
+
+  const handleSort = useCallback(
+    (field: string) => {
+      setSort((prev) => nextSort(prev, field));
+      setPage(0);
+    },
+    [setPage],
+  );
 
   const requestLogBlurb =
     cloud === "azure"
@@ -286,6 +311,8 @@ function EdgeRequestLog({ caseId, cloud }: { caseId: string; cloud: Cloud }) {
       <div className="ct-panel">
         <EdgeRequestTable
           events={eventsQ.data?.events ?? []}
+          sort={sort}
+          onSort={handleSort}
           loading={eventsQ.isPending && !eventsQ.data}
           visibleColumns={visibleColumns}
         />
@@ -375,154 +402,36 @@ export default function WebDnsPage() {
             <Card className="overflow-hidden">
               <CardHeader title="Top requested paths" subtitle="Admin/login probing surfaces here" icon={Route} />
               <div className="overflow-x-auto">
-                <table className="min-w-full w-max text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-surface-2/40">
-                      <th className="table-header-cell whitespace-nowrap">Target</th>
-                      {showPathCounts && (
-                        <th className="table-header-cell-right whitespace-nowrap w-24">Requests</th>
-                      )}
-                      {showPathFailures && (
-                        <th className="table-header-cell-right whitespace-nowrap w-24">4xx/5xx</th>
-                      )}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {edge.top_paths.map((p) => (
-                      <tr key={p.target} className="row-hover border-b border-border/60">
-                        <td className="table-cell">
-                          <span className="mono block whitespace-nowrap text-xs text-fg">{p.target}</span>
-                        </td>
-                        {showPathCounts && (
-                          <td className="table-cell !text-right mono whitespace-nowrap">
-                            {p.count != null ? fmtNum(p.count) : "—"}
-                          </td>
-                        )}
-                        {showPathFailures && (
-                          <td className="table-cell !text-right mono whitespace-nowrap">
-                            {p.failures != null && p.failures > 0 ? (
-                              <span className="text-high">{fmtNum(p.failures)}</span>
-                            ) : (
-                              <span className="text-fg-subtle">0</span>
-                            )}
-                          </td>
-                        )}
-                      </tr>
-                    ))}
-                    {edge.top_paths.length === 0 && (
-                      <tr><td colSpan={pathColSpan} className="table-cell-muted text-center !py-6">No edge requests.</td></tr>
-                    )}
-                  </tbody>
-                </table>
+                <PathsTable
+                  rows={edge.top_paths}
+                  showCounts={showPathCounts}
+                  showFailures={showPathFailures}
+                  colSpan={pathColSpan}
+                />
               </div>
             </Card>
 
             <Card>
               <CardHeader title="Top clients" subtitle="Requesting IPs across ELB/ALB and CloudFront" icon={Globe2} />
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-surface-2/40">
-                    <th className="table-header-cell">Client IP</th>
-                    <th className="table-header-cell-right">Requests</th>
-                    <th className="table-header-cell-right">4xx/5xx</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {edge.top_clients.map((c) => (
-                    <tr key={c.source_ip} className="row-hover border-b border-border/60">
-                      <td className="table-cell"><Entity kind="ip" value={c.source_ip} /></td>
-                      <td className="table-cell !text-right mono">{fmtNum(c.requests)}</td>
-                      <td className="table-cell !text-right mono">
-                        {c.failures > 0 ? <span className="text-high">{fmtNum(c.failures)}</span>
-                          : <span className="text-fg-subtle">0</span>}
-                      </td>
-                    </tr>
-                  ))}
-                  {edge.top_clients.length === 0 && (
-                    <tr><td colSpan={3} className="table-cell-muted text-center !py-6">No edge requests.</td></tr>
-                  )}
-                </tbody>
-              </table>
+              <ClientsTable rows={edge.top_clients} />
             </Card>
           </div>
 
           <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-2">
             <Card className="overflow-hidden">
               <CardHeader title="Methods" subtitle="HTTP methods seen at the edge" />
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-surface-2/40">
-                    <th className="table-header-cell">Method</th>
-                    <th className="table-header-cell-right">Count</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {edge.methods.map((m) => (
-                    <tr key={m.method} className="row-hover border-b border-border/60">
-                      <td className="table-cell mono font-medium">
-                        {m.method && m.method !== "-" ? m.method : "—"}
-                      </td>
-                      <td className="table-cell !text-right mono">{fmtNum(m.count)}</td>
-                    </tr>
-                  ))}
-                  {edge.methods.length === 0 && (
-                    <tr><td colSpan={2} className="table-cell-muted text-center !py-6">No data.</td></tr>
-                  )}
-                </tbody>
-              </table>
+              <MethodsTable rows={edge.methods} />
             </Card>
             <Card className="overflow-hidden">
               <CardHeader title="Targets" subtitle="Load balancers and distributions" />
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="border-b border-border bg-surface-2/40">
-                    <th className="table-header-cell">Target</th>
-                    <th className="table-header-cell">Type</th>
-                    <th className="table-header-cell-right">Count</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {edge.top_resources.map((r) => (
-                    <tr key={`${r.source}-${r.resource_id}`} className="row-hover border-b border-border/60">
-                      <td className="table-cell mono truncate" title={r.resource_id}>
-                        {r.resource_id}
-                      </td>
-                      <td className="table-cell">
-                        <span
-                          className={cn(
-                            "inline-flex rounded-md border px-1.5 py-0.5 text-2xs font-semibold uppercase",
-                            EDGE_SOURCE_CHIP[r.source] ?? "border-border bg-surface-2 text-fg-subtle",
-                          )}
-                        >
-                          {SOURCE_LABEL[r.source] ?? r.source}
-                        </span>
-                      </td>
-                      <td className="table-cell !text-right mono">{fmtNum(r.count)}</td>
-                    </tr>
-                  ))}
-                  {edge.top_resources.length === 0 && (
-                    <tr><td colSpan={3} className="table-cell-muted text-center !py-6">No data.</td></tr>
-                  )}
-                </tbody>
-              </table>
+              <TargetsTable rows={edge.top_resources} />
             </Card>
           </div>
 
           {edge.user_agents.length > 0 && (
             <Card className="mt-6">
               <CardHeader title="User agents" subtitle="Cluster on unusual or scripted agents" />
-              <table className="w-full text-sm">
-                <tbody>
-                  {edge.user_agents.map((u) => (
-                    <tr key={u.ua} className="row-hover border-b border-border/60">
-                      <td className="table-cell">
-                        <span className="mono block truncate text-sm text-fg" title={u.ua}>{u.ua}</span>
-                      </td>
-                      <td className="table-cell-muted !text-right mono">{fmtNum(u.count)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+              <UserAgentsTable rows={edge.user_agents} />
             </Card>
           )}
 
@@ -555,34 +464,236 @@ export default function WebDnsPage() {
                     tone: /block|captcha|challenge/i.test(a.action) ? "bg-high/70" : "bg-accent/60",
                   }))} />
                 </div>
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-border bg-surface-2/40">
-                      <th className="table-header-cell">Client IP</th>
-                      <th className="table-header-cell">Country</th>
-                      <th className="table-header-cell-right">Requests</th>
-                      <th className="table-header-cell-right">Blocked</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {waf.top_ips.map((c) => (
-                      <tr key={c.source_ip} className="row-hover border-b border-border/60">
-                        <td className="table-cell"><Entity kind="ip" value={c.source_ip} /></td>
-                        <td className="table-cell-muted">{c.country || "—"}</td>
-                        <td className="table-cell !text-right mono">{fmtNum(c.count)}</td>
-                        <td className="table-cell !text-right mono">
-                          {c.blocked > 0 ? <span className="text-high">{fmtNum(c.blocked)}</span>
-                            : <span className="text-fg-subtle">0</span>}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                <WafIpsTable rows={waf.top_ips} />
               </>
             )}
           </Card>
         </div>
       </PanelBody>
     </>
+  );
+}
+
+type Edge = WebDnsResponse["edge"];
+type PathRow = Edge["top_paths"][number];
+type ClientRow = Edge["top_clients"][number];
+type MethodRow = Edge["methods"][number];
+type TargetRow = Edge["top_resources"][number];
+type UserAgentRow = Edge["user_agents"][number];
+type WafIpRow = WebDnsResponse["waf"]["top_ips"][number];
+
+const pathValue = (r: PathRow, key: string) => r[key as keyof PathRow];
+const clientValue = (r: ClientRow, key: string) =>
+  key === "last_seen" ? timeValue(r.last_seen) : r[key as keyof ClientRow];
+const methodValue = (r: MethodRow, key: string) => r[key as keyof MethodRow];
+const targetValue = (r: TargetRow, key: string) =>
+  key === "source" ? (SOURCE_LABEL[r.source] ?? r.source) : r[key as keyof TargetRow];
+const userAgentValue = (r: UserAgentRow, key: string) => r[key as keyof UserAgentRow];
+const wafIpValue = (r: WafIpRow, key: string) => r[key as keyof WafIpRow];
+
+function PathsTable({
+  rows,
+  showCounts,
+  showFailures,
+  colSpan,
+}: {
+  rows: PathRow[];
+  showCounts: boolean;
+  showFailures: boolean;
+  colSpan: number;
+}) {
+  const { sorted, sort, toggle } = useClientSort(rows, pathValue);
+  return (
+    <table className="min-w-full w-max text-sm">
+      <thead>
+        <tr className="border-b border-border bg-surface-2/40">
+          <SortTh label="Target" sortKey="target" sort={sort} onSort={toggle} className="whitespace-nowrap" />
+          {showCounts && (
+            <SortTh label="Requests" sortKey="count" sort={sort} onSort={toggle} align="right" className="whitespace-nowrap w-24" />
+          )}
+          {showFailures && (
+            <SortTh label="4xx/5xx" sortKey="failures" sort={sort} onSort={toggle} align="right" className="whitespace-nowrap w-24" />
+          )}
+        </tr>
+      </thead>
+      <tbody>
+        {sorted.map((p) => (
+          <tr key={p.target} className="row-hover border-b border-border/60">
+            <td className="table-cell">
+              <span className="mono block whitespace-nowrap text-xs text-fg">{p.target}</span>
+            </td>
+            {showCounts && (
+              <td className="table-cell !text-right mono whitespace-nowrap">
+                {p.count != null ? fmtNum(p.count) : "—"}
+              </td>
+            )}
+            {showFailures && (
+              <td className="table-cell !text-right mono whitespace-nowrap">
+                {p.failures != null && p.failures > 0 ? (
+                  <span className="text-high">{fmtNum(p.failures)}</span>
+                ) : (
+                  <span className="text-fg-subtle">0</span>
+                )}
+              </td>
+            )}
+          </tr>
+        ))}
+        {rows.length === 0 && (
+          <tr><td colSpan={colSpan} className="table-cell-muted text-center !py-6">No edge requests.</td></tr>
+        )}
+      </tbody>
+    </table>
+  );
+}
+
+function ClientsTable({ rows }: { rows: ClientRow[] }) {
+  const { sorted, sort, toggle } = useClientSort(rows, clientValue);
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b border-border bg-surface-2/40">
+          <SortTh label="Client IP" sortKey="source_ip" sort={sort} onSort={toggle} />
+          <SortTh label="Requests" sortKey="requests" sort={sort} onSort={toggle} align="right" />
+          <SortTh label="4xx/5xx" sortKey="failures" sort={sort} onSort={toggle} align="right" />
+          <SortTh label="Last seen (UTC)" sortKey="last_seen" sort={sort} onSort={toggle} align="right" />
+        </tr>
+      </thead>
+      <tbody>
+        {sorted.map((c) => (
+          <tr key={c.source_ip} className="row-hover border-b border-border/60">
+            <td className="table-cell"><Entity kind="ip" value={c.source_ip} /></td>
+            <td className="table-cell !text-right mono">{fmtNum(c.requests)}</td>
+            <td className="table-cell !text-right mono">
+              {c.failures > 0 ? <span className="text-high">{fmtNum(c.failures)}</span>
+                : <span className="text-fg-subtle">0</span>}
+            </td>
+            <td className="table-cell-muted !text-right mono whitespace-nowrap">
+              {c.last_seen ? fmtTimeCloudTrail(c.last_seen) : "—"}
+            </td>
+          </tr>
+        ))}
+        {rows.length === 0 && (
+          <tr><td colSpan={4} className="table-cell-muted text-center !py-6">No edge requests.</td></tr>
+        )}
+      </tbody>
+    </table>
+  );
+}
+
+function MethodsTable({ rows }: { rows: MethodRow[] }) {
+  const { sorted, sort, toggle } = useClientSort(rows, methodValue);
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b border-border bg-surface-2/40">
+          <SortTh label="Method" sortKey="method" sort={sort} onSort={toggle} />
+          <SortTh label="Count" sortKey="count" sort={sort} onSort={toggle} align="right" />
+        </tr>
+      </thead>
+      <tbody>
+        {sorted.map((m) => (
+          <tr key={m.method} className="row-hover border-b border-border/60">
+            <td className="table-cell mono font-medium">
+              {m.method && m.method !== "-" ? m.method : "—"}
+            </td>
+            <td className="table-cell !text-right mono">{fmtNum(m.count)}</td>
+          </tr>
+        ))}
+        {rows.length === 0 && (
+          <tr><td colSpan={2} className="table-cell-muted text-center !py-6">No data.</td></tr>
+        )}
+      </tbody>
+    </table>
+  );
+}
+
+function TargetsTable({ rows }: { rows: TargetRow[] }) {
+  const { sorted, sort, toggle } = useClientSort(rows, targetValue);
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b border-border bg-surface-2/40">
+          <SortTh label="Target" sortKey="resource_id" sort={sort} onSort={toggle} />
+          <SortTh label="Type" sortKey="source" sort={sort} onSort={toggle} />
+          <SortTh label="Count" sortKey="count" sort={sort} onSort={toggle} align="right" />
+        </tr>
+      </thead>
+      <tbody>
+        {sorted.map((r) => (
+          <tr key={`${r.source}-${r.resource_id}`} className="row-hover border-b border-border/60">
+            <td className="table-cell mono truncate" title={r.resource_id}>
+              {r.resource_id}
+            </td>
+            <td className="table-cell">
+              <span
+                className={cn(
+                  "inline-flex rounded-md border px-1.5 py-0.5 text-2xs font-semibold uppercase",
+                  EDGE_SOURCE_CHIP[r.source] ?? "border-border bg-surface-2 text-fg-subtle",
+                )}
+              >
+                {SOURCE_LABEL[r.source] ?? r.source}
+              </span>
+            </td>
+            <td className="table-cell !text-right mono">{fmtNum(r.count)}</td>
+          </tr>
+        ))}
+        {rows.length === 0 && (
+          <tr><td colSpan={3} className="table-cell-muted text-center !py-6">No data.</td></tr>
+        )}
+      </tbody>
+    </table>
+  );
+}
+
+function UserAgentsTable({ rows }: { rows: UserAgentRow[] }) {
+  const { sorted, sort, toggle } = useClientSort(rows, userAgentValue);
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b border-border bg-surface-2/40">
+          <SortTh label="User agent" sortKey="ua" sort={sort} onSort={toggle} />
+          <SortTh label="Count" sortKey="count" sort={sort} onSort={toggle} align="right" />
+        </tr>
+      </thead>
+      <tbody>
+        {sorted.map((u) => (
+          <tr key={u.ua} className="row-hover border-b border-border/60">
+            <td className="table-cell">
+              <span className="mono block truncate text-sm text-fg" title={u.ua}>{u.ua}</span>
+            </td>
+            <td className="table-cell-muted !text-right mono">{fmtNum(u.count)}</td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  );
+}
+
+function WafIpsTable({ rows }: { rows: WafIpRow[] }) {
+  const { sorted, sort, toggle } = useClientSort(rows, wafIpValue);
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b border-border bg-surface-2/40">
+          <SortTh label="Client IP" sortKey="source_ip" sort={sort} onSort={toggle} />
+          <SortTh label="Country" sortKey="country" sort={sort} onSort={toggle} />
+          <SortTh label="Requests" sortKey="count" sort={sort} onSort={toggle} align="right" />
+          <SortTh label="Blocked" sortKey="blocked" sort={sort} onSort={toggle} align="right" />
+        </tr>
+      </thead>
+      <tbody>
+        {sorted.map((c) => (
+          <tr key={c.source_ip} className="row-hover border-b border-border/60">
+            <td className="table-cell"><Entity kind="ip" value={c.source_ip} /></td>
+            <td className="table-cell-muted">{c.country || "—"}</td>
+            <td className="table-cell !text-right mono">{fmtNum(c.count)}</td>
+            <td className="table-cell !text-right mono">
+              {c.blocked > 0 ? <span className="text-high">{fmtNum(c.blocked)}</span>
+                : <span className="text-fg-subtle">0</span>}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
   );
 }

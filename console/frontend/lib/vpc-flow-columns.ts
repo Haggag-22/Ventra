@@ -17,21 +17,23 @@ export type VpcFlowColKey =
 export interface VpcFlowColumn {
   key: VpcFlowColKey;
   label: string;
+  /** Backend field the header sorts by; omitted for derived columns. */
+  sortField?: string;
   min: number;
   locked?: boolean;
 }
 
 export const VPC_FLOW_COLS: VpcFlowColumn[] = [
-  { key: "timestamp", label: "Time (UTC)", min: 120, locked: true },
-  { key: "action", label: "Action", min: 80 },
-  { key: "source_ip", label: "Source IP", min: 120 },
-  { key: "dest_ip", label: "Dest IP", min: 120 },
-  { key: "dest_port", label: "Dest port", min: 80 },
+  { key: "timestamp", label: "Time (UTC)", min: 120, sortField: "timestamp", locked: true },
+  { key: "action", label: "Action", min: 80, sortField: "event_action" },
+  { key: "source_ip", label: "Source IP", min: 120, sortField: "source_ip" },
+  { key: "dest_ip", label: "Dest IP", min: 120, sortField: "dest_ip" },
+  { key: "dest_port", label: "Dest port", min: 80, sortField: "dest_port" },
   { key: "protocol", label: "Protocol", min: 80 },
-  { key: "bytes", label: "Bytes", min: 90 },
-  { key: "outcome", label: "Outcome", min: 90 },
+  { key: "bytes", label: "Bytes", min: 90, sortField: "dest_bytes" },
+  { key: "outcome", label: "Outcome", min: 90, sortField: "event_outcome" },
   { key: "interface", label: "ENI", min: 140 },
-  { key: "region", label: "Region", min: 90 },
+  { key: "region", label: "Region", min: 90, sortField: "cloud_region" },
 ];
 
 export const DEFAULT_VPC_FLOW_WIDTHS: Record<VpcFlowColKey, number> = {

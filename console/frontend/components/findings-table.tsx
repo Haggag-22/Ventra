@@ -1,5 +1,6 @@
 "use client";
 
+import { SortLabel, type SortState } from "@/components/sort-header";
 import { ContextDrawer } from "@/components/context-drawer";
 import { Entity } from "@/components/pivot";
 import { Spinner } from "@/components/ui";
@@ -112,11 +113,16 @@ function renderCell(
 export function FindingsTable({
   events,
   loading,
+  sort,
+  onSort,
   emptyHint,
   visibleColumns = ALL_FINDING_COL_KEYS,
 }: {
   events: UnifiedEvent[];
   loading?: boolean;
+  /** Current server-side sort; headers with a `sortField` become toggles. */
+  sort?: SortState;
+  onSort?: (field: string) => void;
   emptyHint?: React.ReactNode;
   visibleColumns?: FindingColKey[];
 }) {
@@ -204,7 +210,7 @@ export function FindingsTable({
                 <tr>
                   {cols.map((c) => (
                     <th key={c.key} className="relative">
-                      <span className="block truncate pr-2">{c.label}</span>
+                      <SortLabel label={c.label} sortKey={c.sortField} sort={sort} onSort={onSort} />
                       <span
                         role="separator"
                         aria-orientation="vertical"

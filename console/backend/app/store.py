@@ -47,6 +47,17 @@ SORTABLE = {
     "dest_ip",
     "dest_port",
     "dest_bytes",
+    "event_outcome",
+    "event_provider",
+    "cloud_region",
+    "cloud_service",
+    "resource_type",
+    "resource_id",
+    "message",
+    "ventra_source",
+    "ua_category",
+    "user_type",
+    "source_country",
 }
 
 SEVERITY_RANK = {"critical": 5, "high": 4, "medium": 3, "low": 2, "info": 1}
@@ -1070,9 +1081,11 @@ class CaseStore:
         try:
             events = self._events_table(con, path)
             total = con.execute(f"SELECT count(*) FROM {events} {where}", [path, *params]).fetchone()[0]
+            # Empty values sort last in both directions so a header click never opens on blanks.
+            empty_last = f"({sort} IS NULL OR CAST({sort} AS VARCHAR) = '')"
             rows = con.execute(
                 f"SELECT * FROM {events} {where} "
-                f"ORDER BY {sort_expr} {order}, timestamp ASC LIMIT ? OFFSET ?",
+                f"ORDER BY {empty_last} ASC, {sort_expr} {order}, timestamp ASC LIMIT ? OFFSET ?",
                 [path, *params, q.limit, q.offset],
             )
             cols = [d[0] for d in rows.description]

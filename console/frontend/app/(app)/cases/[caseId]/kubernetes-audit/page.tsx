@@ -7,6 +7,7 @@ import {
   type K8sAuditFilters,
 } from "@/components/kubernetes-audit-toolbar";
 import { PanelBody, PanelHeader } from "@/components/panel";
+import { nextSort, type SortState } from "@/components/sort-header";
 import { TablePager } from "@/components/table-pager";
 import { api, type EventParams } from "@/lib/api";
 import { caseCloud, kubernetesAuditSources } from "@/lib/cloud-sources";
@@ -84,7 +85,22 @@ export default function KubernetesAuditPage() {
   }, []);
 
   const filters = useMemo(() => filtersFromParams(params), [params]);
-  const effective = useMemo(() => paramsFromFilters(filters, cloud), [filters, cloud]);
+  const effective = useMemo(
+    () => ({ ...paramsFromFilters(filters, cloud), sort: params.sort ?? "timestamp" }),
+    [filters, cloud, params.sort],
+  );
+  const sort = useMemo<SortState>(
+    () => ({ key: params.sort ?? "timestamp", dir: filters.order === "asc" ? "asc" : "desc" }),
+    [params.sort, filters.order],
+  );
+  const handleSort = useCallback(
+    (field: string) => {
+      const next = nextSort(sort, field);
+      write({ sort: next.key, order: next.dir });
+      setPage(0);
+    },
+    [sort, write, setPage],
+  );
 
   const totalQ = useQuery({
     queryKey: ["k8s-total", caseId, cloud],
@@ -120,11 +136,11 @@ export default function KubernetesAuditPage() {
         user: merged.user,
         ip: merged.ip,
         order: merged.order ?? "desc",
-        sort: "timestamp",
+        sort: params.sort,
       });
       setPage(0);
     },
-    [filters, write, sources],
+    [filters, write, sources, params.sort],
   );
 
   const handleApply = useCallback(() => {
@@ -168,6 +184,8 @@ export default function KubernetesAuditPage() {
         <div className="ct-panel">
           <KubernetesAuditTable
             events={eventsQ.data?.events ?? []}
+            sort={sort}
+            onSort={handleSort}
             loading={eventsQ.isPending && !eventsQ.data}
             visibleColumns={visibleColumns}
           />

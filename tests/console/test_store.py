@@ -124,6 +124,38 @@ def test_invalid_sort_falls_back(store_case) -> None:
     assert res["count"] == 5  # query ran safely
 
 
+@pytest.mark.parametrize(
+    "column",
+    [
+        "timestamp",
+        "event_action",
+        "event_outcome",
+        "event_provider",
+        "cloud_region",
+        "cloud_service",
+        "resource_type",
+        "resource_id",
+        "message",
+        "ventra_source",
+        "ua_category",
+        "user_type",
+        "source_country",
+    ],
+)
+@pytest.mark.parametrize("order", ["asc", "desc"])
+def test_table_header_sort_columns(store_case, column: str, order: str) -> None:
+    """Every column a console table header can sort by orders the full result set."""
+    store, case_id = store_case
+    total = store.query_events(case_id, EventQuery(limit=1))["total"]
+    res = store.query_events(case_id, EventQuery(sort=column, order=order, limit=total))
+    raw = [e[column] for e in res["events"]]
+    values = [v for v in raw if v not in (None, "")]
+    assert values, f"demo case has no {column} values"
+    assert values == sorted(values, reverse=order == "desc")
+    # Empty values trail the populated ones whichever way the column is sorted.
+    assert raw[: len(values)] == values
+
+
 def test_severity_sort_ranks_not_alphabetical(store_case) -> None:
     store, case_id = store_case
     res = store.query_events(case_id, EventQuery(sort="event_severity", order="desc", limit=1))

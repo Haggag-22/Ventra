@@ -17,6 +17,7 @@ import {
 import { usePagination } from "@/lib/pagination";
 import { caseCloud, controlPlaneSources } from "@/lib/cloud-sources";
 import { panelLabel } from "@/lib/panel-labels";
+import { nextSort, type SortState } from "@/components/sort-header";
 import { TablePager } from "@/components/table-pager";
 import { useFilters } from "@/lib/useFilters";
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
@@ -98,7 +99,22 @@ export default function CloudTrailPage() {
   }, []);
 
   const filters = useMemo(() => filtersFromParams(params, cloud), [params, cloud]);
-  const effective = useMemo(() => paramsFromFilters(filters, cloud), [filters, cloud]);
+  const effective = useMemo(
+    () => ({ ...paramsFromFilters(filters, cloud), sort: params.sort ?? "timestamp" }),
+    [filters, cloud, params.sort],
+  );
+  const sort = useMemo<SortState>(
+    () => ({ key: params.sort ?? "timestamp", dir: filters.order === "asc" ? "asc" : "desc" }),
+    [params.sort, filters.order],
+  );
+  const handleSort = useCallback(
+    (field: string) => {
+      const next = nextSort(sort, field);
+      write({ sort: next.key, order: next.dir });
+      setPage(0);
+    },
+    [sort, write, setPage],
+  );
 
   const totalQ = useQuery({
     queryKey: ["ct-total", caseId, cloud],
@@ -138,11 +154,11 @@ export default function CloudTrailPage() {
         user: merged.user,
         ip: merged.ip,
         order: merged.order ?? "desc",
-        sort: "timestamp",
+        sort: params.sort,
       });
       setPage(0);
     },
-    [filters, write, cloud],
+    [filters, write, cloud, params.sort],
   );
 
   const handleApply = useCallback(() => {
@@ -185,6 +201,8 @@ export default function CloudTrailPage() {
         <div className="ct-panel">
           <CloudTrailTable
             events={eventsQ.data?.events ?? []}
+            sort={sort}
+            onSort={handleSort}
             loading={eventsQ.isPending && !eventsQ.data}
             visibleColumns={visibleColumns}
           />

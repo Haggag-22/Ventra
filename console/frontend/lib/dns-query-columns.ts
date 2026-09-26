@@ -12,13 +12,13 @@ export type DnsQueryColKey =
   | "instance"
   | "vpc";
 
-export const DNS_QUERY_COLS: { key: DnsQueryColKey; label: string; min: number }[] = [
-  { key: "timestamp", label: "Time (UTC)", min: 120 },
-  { key: "domain", label: "Domain", min: 200 },
+export const DNS_QUERY_COLS: { key: DnsQueryColKey; label: string; min: number; sortField?: string }[] = [
+  { key: "timestamp", label: "Time (UTC)", min: 120, sortField: "timestamp" },
+  { key: "domain", label: "Domain", min: 200, sortField: "resource_id" },
   { key: "qtype", label: "Type", min: 60 },
   { key: "rcode", label: "Response", min: 90 },
-  { key: "answer", label: "Answer", min: 120 },
-  { key: "client", label: "Client IP", min: 110 },
+  { key: "answer", label: "Answer", min: 120, sortField: "dest_ip" },
+  { key: "client", label: "Client IP", min: 110, sortField: "source_ip" },
   { key: "instance", label: "Instance", min: 130 },
   { key: "vpc", label: "VPC", min: 130 },
 ];
