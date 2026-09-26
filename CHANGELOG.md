@@ -14,11 +14,10 @@ All notable changes to Ventra are documented here. Format follows
 - Saved connections (cloud keys, service-account JSON, kubeconfigs) are stored owner-only
   (`0600` file, `0700` directory; older stores are tightened on start) and the API no longer
   returns secret values, only which ones are set (`stored_secrets`).
-- The console now requires a per-install access token on every API call (HttpOnly,
-  SameSite=Strict session cookie via the sign-in link, or `Authorization: Bearer`), rejects
-  unknown `Host` headers (DNS rebinding), and the dev server binds `127.0.0.1` instead of all
-  interfaces. `ventra gui --print-link` reprints the sign-in link. The `X-Ventra-Role` header is
-  a UI role hint, not authentication.
+- The console refuses requests whose `Host` isn't `localhost`/`127.0.0.1`/`::1` (plus
+  `VENTRA_ALLOWED_HOSTS`), so a web page can't reach it through DNS rebinding, and the dev
+  server binds `127.0.0.1` instead of all interfaces. There is still no login: the console is a
+  single-user tool on the analyst's own machine.
 
 ### Fixed
 - Kit runs stage evidence under `--out` instead of `/tmp` (a small tmpfs on many nodes) and

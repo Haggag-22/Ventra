@@ -79,9 +79,6 @@ function qs(params: Record<string, unknown>): string {
 }
 
 /** Shown when the Next.js /api proxy cannot reach the FastAPI backend. */
-/** Fired on window when the API answers 401 (no console session); see components/auth-gate. */
-export const AUTH_REQUIRED_EVENT = "ventra:auth-required";
-
 export const BACKEND_UNREACHABLE =
   "Can't reach backend — run `ventra dev` from the Ventra repo root (starts console on :8080 and API on :8000).";
 
@@ -108,11 +105,7 @@ async function apiFetch(input: RequestInfo | URL, init?: ApiFetchInit): Promise<
     }
     if (signals.length === 1) opts.signal = signals[0];
     else if (signals.length > 1) opts.signal = AbortSignal.any(signals);
-    const res = await fetch(input, opts);
-    if (res.status === 401 && typeof window !== "undefined") {
-      window.dispatchEvent(new Event(AUTH_REQUIRED_EVENT));
-    }
-    return res;
+    return await fetch(input, opts);
   } catch (err) {
     // User-initiated cancel must not be rewritten as "backend unreachable".
     if (userSignal?.aborted) throw err;

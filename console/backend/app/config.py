@@ -52,9 +52,9 @@ class Settings:
     cors_origins: list[str] = os.environ.get(
         "VENTRA_CORS", "http://localhost:3000,http://localhost:8080"
     ).split(",")
-    # Require the console token on /api and an allowed Host header (see app.auth). Only turn
-    # this off for tests or behind your own authenticating proxy.
-    console_auth: bool = os.environ.get("VENTRA_CONSOLE_AUTH", "on").strip().lower() not in (
+    # Refuse requests whose Host isn't this machine (DNS rebinding; see app.host_check). Add
+    # names with VENTRA_ALLOWED_HOSTS rather than turning this off.
+    host_check: bool = os.environ.get("VENTRA_HOST_CHECK", "on").strip().lower() not in (
         "0",
         "off",
         "false",
