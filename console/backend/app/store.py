@@ -15,6 +15,8 @@ from typing import Any
 
 import duckdb
 
+from ventra_ingester.loaders.casestore import safe_case_id
+
 from .config import settings
 
 # Columns the frontend may filter/sort on. Anything not here is rejected — this is the
@@ -611,6 +613,10 @@ class CaseStore:
         return total
 
     def case_dir(self, case_id: str) -> Path:
+        try:
+            case_id = safe_case_id(case_id)
+        except ValueError:
+            raise CaseNotFound(case_id) from None
         d = self.root / case_id
         if not (d / "summary.json").is_file():
             raise CaseNotFound(case_id)
