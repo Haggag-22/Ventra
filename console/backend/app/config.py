@@ -52,6 +52,14 @@ class Settings:
     cors_origins: list[str] = os.environ.get(
         "VENTRA_CORS", "http://localhost:3000,http://localhost:8080"
     ).split(",")
+    # Require the console token on /api and an allowed Host header (see app.auth). Only turn
+    # this off for tests or behind your own authenticating proxy.
+    console_auth: bool = os.environ.get("VENTRA_CONSOLE_AUTH", "on").strip().lower() not in (
+        "0",
+        "off",
+        "false",
+        "no",
+    )
     # Telemetry is OFF and not configurable to on. Stated explicitly for auditors.
     telemetry: bool = False
     # S3 prefix polled by Import from S3 in the console (s3://bucket/prefix/).
