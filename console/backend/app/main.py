@@ -20,7 +20,7 @@ from pydantic import BaseModel
 
 from . import __version__
 from .config import settings
-from .config_store import ConfigNotFound, config_store
+from .config_store import ConfigNotFound, config_store, public_connection
 from .rbac import Role, _check, current_role
 from .run_service import (
     apply_relay_payload,
@@ -1083,7 +1083,7 @@ def download_export_job(
 
 @app.get("/api/config/connections")
 def list_connections(_: Role = Depends(_check("manage_config"))) -> dict[str, Any]:
-    return {"connections": config_store.list_connections()}
+    return {"connections": [public_connection(c) for c in config_store.list_connections()]}
 
 
 @app.post("/api/config/connections")
@@ -1103,7 +1103,7 @@ def create_connection(
             data.get("kubeconfig_content") or "",
             data.get("k8s_context") or "",
         )
-    return config_store.create_connection(data)
+    return public_connection(config_store.create_connection(data))
 
 
 @app.patch("/api/config/connections/{connection_id}")
@@ -1129,7 +1129,7 @@ def update_connection(
         context = patch.get("k8s_context") or existing.get("k8s_context") or ""
         if platform == "kubernetes":
             validate_kubeconfig_connection(kubeconfig_raw, context)
-    return config_store.update_connection(connection_id, patch)
+    return public_connection(config_store.update_connection(connection_id, patch))
 
 
 @app.delete("/api/config/connections/{connection_id}")
