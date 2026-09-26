@@ -6,6 +6,30 @@ All notable changes to Ventra are documented here. Format follows
 
 ## [Unreleased]
 
+### Security
+- Importing an evidence package can no longer write outside the case directory: archive
+  members with `..`, absolute paths or drive letters are refused before anything is written.
+- A package's `case_id` can no longer point outside the case store (it was used as a
+  directory that import deletes and recreates).
+- Saved connections (cloud keys, service-account JSON, kubeconfigs) are stored owner-only
+  (`0600` file, `0700` directory; older stores are tightened on start) and the API no longer
+  returns secret values, only which ones are set (`stored_secrets`).
+- The console now requires a per-install access token on every API call (HttpOnly,
+  SameSite=Strict session cookie via the sign-in link, or `Authorization: Bearer`), rejects
+  unknown `Host` headers (DNS rebinding), and the dev server binds `127.0.0.1` instead of all
+  interfaces. `ventra gui --print-link` reprints the sign-in link. The `X-Ventra-Role` header is
+  a UI role hint, not authentication.
+
+### Fixed
+- Kit runs stage evidence under `--out` instead of `/tmp` (a small tmpfs on many nodes) and
+  stream the tar into the compressor, so collections no longer fail with `ENOSPC`.
+- Non-systemd Kubernetes node logs (syslog / kubelet.log fallback) get their timestamp and
+  program from the line instead of an empty time.
+- Event time sorting orders by the parsed instant, not the timestamp text.
+
+### Added
+- Click-to-sort column headers on every case dashboard table (server-side for event logs).
+
 ### Changed (packaging)
 - Build backend is now **hatchling** + **hatch-vcs** (version still comes from git tags, same
   version strings). `hatch_build.py` replaces the setuptools `build_py` hook and stages the

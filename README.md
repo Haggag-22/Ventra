@@ -422,6 +422,13 @@ Works from any directory after `uv tool install` / `pipx install`. Case data def
 From a git checkout, `ventra gui` still supports hot-reload development (`--dev-source` forces
 that mode even if a static build is present).
 
+**Console access.** The console listens on `127.0.0.1` only and every API call needs a
+per-install token, because it can read evidence, holds saved cloud credentials and can start
+collections. `ventra gui` opens the browser through a one-time sign-in link (also printed in
+the terminal); `ventra gui --print-link` shows it again. The token lives owner-only in the
+config directory; set `VENTRA_CONSOLE_TOKEN` to supply your own (e.g. in a container) and
+`VENTRA_ALLOWED_HOSTS` if you put the console behind your own authenticating proxy.
+
 Import a package from the Cases screen, use **Import from S3** for enterprise handoff, or run
 `ventra import` / `ventra-ingest` from the CLI.
 
