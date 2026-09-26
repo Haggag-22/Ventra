@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import platform
-import tempfile
 import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -29,7 +28,7 @@ from collector.lib.models import (
     UalCollectOptions,
     utcnow_iso,
 )
-from collector.lib.packaging.packager import PackageResult
+from collector.lib.packaging.packager import PackageResult, staging_directory
 
 __all__ = ["AzureRunConfig", "run_azure_collection", "parse_window"]
 
@@ -76,7 +75,7 @@ def run_azure_collection(cfg: AzureRunConfig, *, factory: AzureClientFactory | N
         pipeline_steps=cfg.pipeline_steps,
     )
 
-    with tempfile.TemporaryDirectory(prefix="ventra-stage-") as tmp:
+    with staging_directory(cfg.out_dir, "stage") as tmp:
         staging = Path(tmp)
         (staging / "sources").mkdir(parents=True, exist_ok=True)
 
