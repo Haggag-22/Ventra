@@ -37,7 +37,8 @@ yarn-error.log*
 .ventra-uploads/
 *.tar.zst
 *.tar.gz
-!tests/fixtures/**/*.tar.zst
+# make demo* output (tests generate their own packages)
+tests/fixtures/case-*
 ventra-evidence/
 # `ventra run` writes here by default (--out evidence).
 /evidence/
@@ -45,7 +46,6 @@ ventra-evidence/
 *.kit
 *.duckdb
 *.parquet
-!tests/fixtures/**/*.parquet
 
 # Ventra local state — connections store cloud credentials (AWS keys, GCP SA JSON, etc.)
 **/.ventra-config/
