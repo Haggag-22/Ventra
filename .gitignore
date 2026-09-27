@@ -50,6 +50,7 @@ ventra-evidence/
 # Ventra local state — connections store cloud credentials (AWS keys, GCP SA JSON, etc.)
 **/.ventra-config/
 **/.ventra-runs/
+**/.ventra-ingest-watch/
 
 # Keys & secrets
 *.pem
