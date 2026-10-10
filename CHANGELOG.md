@@ -6,6 +6,19 @@ All notable changes to Ventra are documented here. Format follows
 
 ## [Unreleased]
 
+### Added
+- Acquire can choose where the Azure Activity Log comes from: the Monitor API or the
+  subscription's diagnostic storage archive. Kit IAM is narrowed to the chosen source.
+- Acquire can choose the CloudTrail source for AWS kits (LookupEvents, a bucket, or a trail).
+
+### Removed
+- The M365 Unified Audit Log collectors (`unified_audit`, `unified_audit_search`) and the
+  Azure `log_analytics` collector.
+
+### Changed
+- The README now follows the console workflow (build a Collection Kit in Acquire, run it from
+  the console or with `ventra run`). The per-cloud collector list moved to `docs/collectors.md`.
+
 ## [0.7.3] - 2026-09-26
 
 ### Security
