@@ -131,3 +131,20 @@ override.tf.json
 # iCloud Drive / Finder conflict copies ("cli 2.py", "deployment 2/") — never source.
 * [0-9].*
 * [0-9]
+
+# Maintainer-only material: kept locally, not published.
+/Kubernetes Collectors.md
+/k8s-onprem-collector-build-spec.md
+/ROADMAP.md
+/.cursorignore
+/docs/engine-upgrade.md
+/docs/presentation/
+/docs/ventra-collector-lab-architecture.drawio
+/docs/keys/
+# Live cloud test labs (create real, billable resources)
+/testing/
+/scripts/live-test/
+/infrastructure/
+/docs/deployment/aws/collector-lab/
+# Scratch IAM role definitions with real subscription/account IDs
+/docs/iam-policies/test-*.json

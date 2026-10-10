@@ -6,7 +6,6 @@ Infrastructure as code templates for creating read-only collector principals. Th
 |----------|----------|------|
 | AWS | CloudFormation | `aws/cloudformation/ventra-collector-iam.yaml` |
 | AWS | Terraform | `aws/terraform/main.tf` |
-| AWS | Collector lab (live test env) | `aws/collector-lab/terraform/` |
 | GCP | Terraform | `gcp/terraform/main.tf` |
 | Azure | Terraform | `azure/terraform/main.tf` |
 
