@@ -70,6 +70,9 @@ kubeconfig.*
 **/.terraform/
 **/*.tfstate
 **/*.tfstate.*
+# Saved plans embed a full state snapshot.
+**/*.tfplan
+**/tfplan
 **/terraform.tfvars
 !**/terraform.tfvars.example
 **/assets/function.zip
