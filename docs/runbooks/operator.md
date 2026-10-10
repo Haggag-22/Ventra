@@ -75,13 +75,6 @@ If the collector reports a source as a **gap** (e.g. "vpc_flow: logging_not_conf
 that is expected and useful — it tells the IR team the log didn't exist, not that collection
 failed. Don't try to "fix" it; the gap is recorded in the manifest as evidence.
 
-## Verifying before you run anything
-
-```bash
-cosign verify-blob --key ventra-release.pub \
-  --signature ventra-collector.whl.sig ventra-collector.whl
-```
-
 ## Scale (current)
 
 Ventra collects **every record in the configured ``since`` / ``until`` window** by default

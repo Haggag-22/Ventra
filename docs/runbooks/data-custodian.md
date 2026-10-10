@@ -9,10 +9,10 @@ storage and retention policy governs the archived packages.
 1. Record receipt: who sent it, when, through which channel.
 2. **Verify before storing:**
    ```bash
-   ventra-verify ./case-CASE-2026-0042-....tar.zst --key ventra-release.pub
+   ventra-verify ./case-CASE-2026-0042-....tar.zst
    ```
-   This checks the detached signature and recomputes every per-source SHA-256 against the
-   manifest. Log the result.
+   This recomputes every per-source SHA-256 against the manifest and checks the seal. If the
+   package was signed with a key, pass its public key with `--key`. Log the result.
 3. Store the **original sealed package** read-only. All analysis works on copies — the
    ingester never modifies the original.
 
