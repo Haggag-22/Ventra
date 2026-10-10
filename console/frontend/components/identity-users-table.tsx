@@ -9,20 +9,29 @@ import { usePagination } from "@/lib/pagination";
 import { useResizableColumns } from "@/lib/resizable-columns";
 import { ShieldCheck, ShieldX } from "lucide-react";
 
-const COLS = [
+const IAM_COLS = [
   { key: "user", label: "User", min: 120 },
   { key: "created", label: "Created", min: 100 },
   { key: "access_keys", label: "Access keys", min: 180 },
   { key: "mfa", label: "MFA", min: 80 },
 ] as const;
 
-type ColKey = (typeof COLS)[number]["key"];
+const DIRECTORY_COLS = [
+  { key: "user", label: "Principal", min: 160 },
+  { key: "type", label: "Type", min: 120 },
+  { key: "object_id", label: "Object ID", min: 180 },
+  { key: "created", label: "Created", min: 100 },
+] as const;
+
+type ColKey = (typeof IAM_COLS)[number]["key"] | (typeof DIRECTORY_COLS)[number]["key"];
 
 const DEFAULT_WIDTHS: Record<ColKey, number> = {
-  user: 160,
+  user: 220,
   created: 120,
   access_keys: 320,
   mfa: 90,
+  type: 140,
+  object_id: 280,
 };
 
 const WIDTHS_KEY = "ventra.identity-users-table.widths";
@@ -40,8 +49,12 @@ function userValue(u: any, key: string): SortValue {
     }
     case "mfa":
       return (u.MFADevices ?? []).length > 0 ? 1 : 0;
+    case "type":
+      return u.principal_type ?? "";
+    case "object_id":
+      return u.Arn ?? "";
     default:
-      return u.UserName;
+      return u.display_name || u.UserName;
   }
 }
 
@@ -49,12 +62,17 @@ export function IdentityUsersTable({
   users,
   groups,
   policies,
+  layout = "iam",
 }: {
   users: any[];
   groups: any[];
   policies: any[];
+  /** Directory snapshots (Entra) have no access keys or MFA collection. */
+  layout?: "iam" | "directory";
 }) {
-  const { startResize, colWidth, totalWidth } = useResizableColumns(COLS, DEFAULT_WIDTHS, WIDTHS_KEY);
+  const cols = layout === "directory" ? DIRECTORY_COLS : IAM_COLS;
+  const widthsKey = layout === "directory" ? `${WIDTHS_KEY}.directory` : WIDTHS_KEY;
+  const { startResize, colWidth, totalWidth } = useResizableColumns(cols, DEFAULT_WIDTHS, widthsKey);
   const { page, setPage, pageSize, setPageSize } = usePagination("ventra.identity-users.page-size");
   const { sorted, sort, toggle } = useClientSort(users, userValue);
 
@@ -74,13 +92,13 @@ export function IdentityUsersTable({
         style={{ tableLayout: "fixed", width: totalWidth, minWidth: "100%" }}
       >
         <colgroup>
-          {COLS.map((c) => (
+          {cols.map((c) => (
             <col key={c.key} style={{ width: colWidth(c.key) }} />
           ))}
         </colgroup>
         <thead className="sticky top-0 z-10">
           <tr>
-            {COLS.map((c) => (
+            {cols.map((c) => (
               <th key={c.key} className="relative">
                 <SortLabel label={c.label} sortKey={c.key} sort={sort} onSort={toggle} />
                 <span
@@ -99,17 +117,28 @@ export function IdentityUsersTable({
           {paged.map((u) => {
             const keys = u.AccessKeys ?? [];
             const mfa = (u.MFADevices ?? []).length > 0;
+            const label = u.display_name || u.UserName;
 
             return (
-              <tr key={u.UserName}>
+              <tr key={u.Arn || u.UserName}>
                 <td className="truncate">
                   <IdentityPrincipal
-                    label={u.UserName}
+                    label={label}
                     principalType="user"
                     policies={policiesForUser(u, groups)}
                     mono={false}
                   />
                 </td>
+                {layout === "directory" ? (
+                  <>
+                    <td className="truncate text-fg-subtle">{u.principal_type || "—"}</td>
+                    <td className="mono truncate text-fg-subtle" title={u.Arn}>
+                      {u.Arn || "—"}
+                    </td>
+                    <td className="mono truncate text-fg-subtle">{fmtDateOnly(u.CreateDate)}</td>
+                  </>
+                ) : (
+                  <>
                 <td className="mono truncate text-fg-subtle">{fmtDateOnly(u.CreateDate)}</td>
                 <td>
                   <div className="flex flex-col gap-0.5">
@@ -135,6 +164,8 @@ export function IdentityUsersTable({
                     </span>
                   )}
                 </td>
+                  </>
+                )}
               </tr>
             );
           })}

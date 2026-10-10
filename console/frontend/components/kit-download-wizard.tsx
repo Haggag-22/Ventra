@@ -88,7 +88,7 @@ export function KitDownloadWizard({ open, kit, onClose, onConfirm, downloading, 
           {" "}(see README.md inside the kit). No re-auth until the baked-in credential expires.
         </p>
         <ProviderSelector
-          platform={isAcquirePlatform(cloud) || cloud === "m365" ? cloud : "aws"}
+          platform={isAcquirePlatform(cloud) ? cloud : "aws"}
           value={connectionId}
           onChange={setConnectionId}
           elevated

@@ -53,8 +53,6 @@ locals {
     "Microsoft.Security/alerts/read",
     "Microsoft.Security/locations/alerts/read",
     "Microsoft.ResourceGraph/resources/read",
-    "Microsoft.OperationalInsights/workspaces/read",
-    "Microsoft.OperationalInsights/workspaces/query/action",
   ]
   ventra_data_actions = [
     "Microsoft.Storage/storageAccounts/blobServices/containers/blobs/read",
@@ -94,5 +92,5 @@ output "role_definition_id" {
 
 output "notes" {
   value       = "Grant Microsoft Graph application permissions separately. See docs/iam-policies/azure-collector-graph.json and admin consent in Entra ID."
-  description = "Additional Entra setup required for identity and M365 collectors."
+  description = "Additional Entra setup required for identity collectors."
 }

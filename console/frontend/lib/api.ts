@@ -202,7 +202,6 @@ export type Connection = {
   aws_account_id?: string;
   project?: string;
   subscription?: string;
-  m365_domain?: string;
   azure_tenant_id?: string;
   azure_client_id?: string;
   azure_client_secret?: string;
@@ -596,6 +595,7 @@ export async function exportCasesBatch(body: ExportCasesBatchBody): Promise<void
   }
 }
 
+import type { AzureLogBackendConfig } from "./azure-log-backend";
 import type { GcpLogBackendConfig } from "./gcp-log-backend";
 
 export type AcquisitionBuild = {
@@ -617,6 +617,7 @@ export type AcquisitionBuild = {
   deployment_profile?: string;
   transport?: string;
   gcp_log_backend?: GcpLogBackendConfig;
+  azure_log_backend?: AzureLogBackendConfig;
   bundle_wheel?: boolean;
   require_wheel?: boolean;
   connection_id?: string;

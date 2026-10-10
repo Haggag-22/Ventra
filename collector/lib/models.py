@@ -252,18 +252,6 @@ class Manifest:
 
 
 @dataclass
-class UalCollectOptions:
-    """Optional filters for M365 Unified Audit Log collectors (Management API + Search cmdlet)."""
-
-    users: list[str] = field(default_factory=list)
-    operations: list[str] = field(default_factory=list)
-    record_types: list[str] = field(default_factory=list)
-    ip_addresses: list[str] = field(default_factory=list)
-    target_events_per_window: int = 3000
-    audit_data_only: bool = False
-
-
-@dataclass
 class AzureAuthOptions:
     """Service-principal credentials for host-side Azure collection (CLI flags or env vars)."""
 
@@ -290,7 +278,7 @@ class CollectionContext:
     time_window: TimeWindow
     staging: Path
     case_id: str
-    # Azure/M365 scope. ``account_id`` holds the tenant id for those clouds; ``subscription_ids``
+    # Azure scope. ``account_id`` holds the tenant id; ``subscription_ids``
     # is the set of in-scope subscriptions an ARM-scoped collector iterates. Empty for AWS.
     tenant_id: str = ""
     subscription_ids: list[str] = field(default_factory=list)
@@ -304,10 +292,11 @@ class CollectionContext:
     artifact_parameters: dict[str, dict[str, Any]] = field(default_factory=dict)
     # GCP: how logging collectors read records (Logging API, BigQuery export, GCS archive).
     gcp_log_backend: dict[str, Any] = field(default_factory=dict)
+    # Azure Activity Log: Monitor API (default) or subscription diagnostic storage archive.
+    azure_log_backend: dict[str, Any] = field(default_factory=dict)
     # Injected by the runner; typed loosely to keep this module cloud-agnostic.
     client_factory: Any = None
     logger: Any = None
-    ual: UalCollectOptions = field(default_factory=UalCollectOptions)
 
     def source_dir(self, name: str) -> Path:
         d = self.staging / "sources" / name

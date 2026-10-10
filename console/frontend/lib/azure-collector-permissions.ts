@@ -14,7 +14,6 @@ export const AZURE_GRAPH_PERMISSION_GROUP: AzurePermissionGroup = {
     "User.Read.All",
     "Group.Read.All",
     "Application.Read.All",
-    "ActivityFeed.Read",
   ],
 };
 

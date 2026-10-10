@@ -15,6 +15,7 @@ from .acquisition import (
     augment_collectors,
     load_pack,
 )
+from .azure_log_backend import validate_azure_log_backend_dict
 from .gcp_log_backend import validate_gcp_log_backend_dict
 from .matrix_state import ARTIFACT_SEVERITY, DEFAULT_SEVERITY
 from .run_common import RunReporter, parse_window
@@ -42,6 +43,7 @@ class RunLaunchRequest:
     max_records_per_source: int | None = None
     artifact_parameters: dict[str, dict[str, Any]] = field(default_factory=dict)
     gcp_log_backend: dict[str, Any] | None = None
+    azure_log_backend: dict[str, Any] | None = None
     credentials_path: str | None = None
     gcp_service_account_json: str = ""
     k8s_context: str = ""
@@ -151,7 +153,7 @@ def launch_collection(req: RunLaunchRequest):
         )
         return run_aws_collection(cfg)
 
-    if platform in {"azure", "m365"}:
+    if platform == "azure":
         from .api.azure.runner import AzureRunConfig, run_azure_collection
 
         cfg = AzureRunConfig(
@@ -177,6 +179,9 @@ def launch_collection(req: RunLaunchRequest):
             artifact_labels=artifact_labels,
             artifact_severities=artifact_severities,
             pipeline_steps=req.pipeline_steps,
+            azure_log_backend=(
+                dict(validate_azure_log_backend_dict(req.azure_log_backend)) if req.azure_log_backend else {}
+            ),
         )
         return run_azure_collection(cfg)
 

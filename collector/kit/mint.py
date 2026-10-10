@@ -53,7 +53,7 @@ def mint_connection_credentials(conn: dict[str, Any], *, cloud: str) -> MintedCr
         return _mint_aws(conn)
     if platform == "gcp":
         return _mint_gcp(conn)
-    if platform in ("azure", "m365"):
+    if platform == "azure":
         return _mint_azure(conn)
     if platform == "kubernetes":
         return _mint_kubernetes(conn)

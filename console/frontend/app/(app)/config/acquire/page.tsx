@@ -28,15 +28,33 @@ import {
   type CollectionProfile,
 } from "@/lib/api";
 import { displayArtifactLabel } from "@/lib/artifact-icons";
-import { ACQUIRE_PLATFORM_LABELS, ACQUIRE_PLATFORMS, acquirePermissionModel, artifactIconCloud, compareCollectorCategories, isAcquirePlatform, type AcquirePlatform } from "@/lib/catalog";
+import { ACQUIRE_PLATFORM_LABELS, ACQUIRE_PLATFORMS, acquirePermissionModel, artifactIconCloud, compareCollectorCategories, compareCollectorsByKind, isAcquirePlatform, type AcquirePlatform } from "@/lib/catalog";
+import {
+  cartNeedsCloudtrailSource,
+  cloudtrailSourceError,
+  cloudtrailSourceMode,
+} from "@/lib/cloudtrail-source";
+import { inlineParamFields } from "@/lib/collector-param-definitions";
 import {
   DEFAULT_GCP_LOG_BACKEND_FORM,
+  GCP_LOG_BACKEND_OPTIONS,
   cartNeedsGcpLogBackend,
   gcpConfigToForm,
   validateGcpLogBackendForm,
   type GcpLogBackendFormState,
 } from "@/lib/gcp-log-backend";
+import {
+  AZURE_LOG_BACKEND_OPTIONS,
+  DEFAULT_AZURE_LOG_BACKEND_FORM,
+  azureConfigToForm,
+  cartNeedsAzureLogBackend,
+  validateAzureLogBackendForm,
+  type AzureLogBackendFormState,
+} from "@/lib/azure-log-backend";
+import { AzureLogBackendFields } from "@/components/azure-log-backend-fields";
+import { CloudTrailSourceFields } from "@/components/cloudtrail-source-fields";
 import { GcpLogBackendFields } from "@/components/gcp-log-backend-fields";
+import { StrategyChoiceDialog } from "@/components/strategy-choice-dialog";
 import {
   coerceDeploymentProfileForCloud,
   isEnterpriseProfile,
@@ -84,6 +102,39 @@ function KitSectionTitle({ children }: { children: ReactNode }) {
 
 function KitFieldLabel({ children }: { children: ReactNode }) {
   return <span className="text-sm font-medium text-fg">{children}</span>;
+}
+
+const CLOUDTRAIL_SOURCE_LABELS: Record<string, string> = {
+  lookup_events: "Lookup events (API)",
+  bucket: "S3 bucket",
+  trail: "Trail",
+};
+
+function StrategyReopen({
+  title,
+  detail,
+  onClick,
+}: {
+  title: string;
+  detail: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-start justify-between gap-3 rounded-lg border border-border bg-surface px-3 py-2.5 text-left hover:border-border-strong"
+    >
+      <span>
+        <span className="block text-sm font-semibold text-fg">
+          {title}
+          <span className="ml-1 text-bad-red">*</span>
+        </span>
+        <span className="mt-0.5 block text-xs text-fg-subtle">{detail}</span>
+      </span>
+      <Settings2 className="mt-0.5 h-4 w-4 shrink-0 text-fg-subtle" />
+    </button>
+  );
 }
 
 const KIT_INPUT_CLASS = "acquire-kit-input";
@@ -147,6 +198,7 @@ function applyProfileToState(
     setDeploymentProfile: (v: DeploymentProfile) => void;
     setMaxRecordsPerSource: (v: string) => void;
     setGcpLogBackend: (v: GcpLogBackendFormState) => void;
+    setAzureLogBackend: (v: AzureLogBackendFormState) => void;
     setArtifactParams: (v: Record<string, ParamValues>) => void;
   },
 ) {
@@ -169,6 +221,7 @@ function applyProfileToState(
   if (profile.gcp_log_backend) {
     setters.setGcpLogBackend(gcpConfigToForm(profile.gcp_log_backend));
   }
+  setters.setAzureLogBackend(azureConfigToForm(profile.azure_log_backend));
 }
 
 function AcquireContent() {
@@ -218,6 +271,10 @@ function AcquireContent() {
   const [gcpLogBackend, setGcpLogBackend] = useState<GcpLogBackendFormState>(
     DEFAULT_GCP_LOG_BACKEND_FORM,
   );
+  const [azureLogBackend, setAzureLogBackend] = useState<AzureLogBackendFormState>(
+    DEFAULT_AZURE_LOG_BACKEND_FORM,
+  );
+  const [strategyDialog, setStrategyDialog] = useState<"gcp" | "azure" | "cloudtrail" | null>(null);
   const [kitName, setKitName] = useState("");
   const [editProfile, setEditProfile] = useState<CollectionProfile | null>(null);
   const [kitSaved, setKitSaved] = useState(false);
@@ -284,6 +341,7 @@ function AcquireContent() {
       setDeploymentProfile,
       setMaxRecordsPerSource,
       setGcpLogBackend,
+      setAzureLogBackend,
       setArtifactParams,
     });
     profileHydratedRef.current = editProfile.id;
@@ -332,7 +390,17 @@ function AcquireContent() {
       if (!groups.has(key)) groups.set(key, []);
       groups.get(key)!.push(a);
     }
-    return [...groups.entries()].sort((a, b) => compareCollectorCategories(a[0], b[0]));
+    return [...groups.entries()]
+      .sort((a, b) => compareCollectorCategories(a[0], b[0]))
+      .map(([category, items]) => [
+        category,
+        [...items].sort((a, b) =>
+          compareCollectorsByKind(
+            displayArtifactLabel(a.collector, a.cloud),
+            displayArtifactLabel(b.collector, b.cloud),
+          ),
+        ),
+      ] as [string, typeof visible]);
   }, [visible]);
 
   const cartForCloud = useMemo(
@@ -343,9 +411,15 @@ function AcquireContent() {
   const collectors = useMemo(() => cartForCloud.map((a) => a.collector), [cartForCloud]);
 
   const needsGcpLogBackend = platform === "gcp" && cartNeedsGcpLogBackend(collectors);
+  const needsAzureLogBackend = platform === "azure" && cartNeedsAzureLogBackend(collectors);
+  const needsCloudtrailSource = platform === "aws" && cartNeedsCloudtrailSource(collectors);
   const gcpLogBackendError = useMemo(
     () => validateGcpLogBackendForm(gcpLogBackend, needsGcpLogBackend),
     [gcpLogBackend, needsGcpLogBackend],
+  );
+  const azureLogBackendError = useMemo(
+    () => validateAzureLogBackendForm(azureLogBackend, needsAzureLogBackend),
+    [azureLogBackend, needsAzureLogBackend],
   );
 
   const transportSpec = useMemo(() => {
@@ -373,6 +447,7 @@ function AcquireContent() {
         maxRecordsPerSource,
         isEnterpriseProfile(deploymentProfile) ? transportSpec : undefined,
         gcpLogBackend,
+        azureLogBackend,
       ),
     [
       platform,
@@ -390,6 +465,7 @@ function AcquireContent() {
       deploymentProfile,
       transportSpec,
       gcpLogBackend,
+      azureLogBackend,
     ],
   );
 
@@ -415,17 +491,28 @@ function AcquireContent() {
 
   const toggle = (collector: string) => {
     const wasSelected = cart.has(collector);
-    setCart((prev) => {
-      const next = new Set(prev);
-      next.has(collector) ? next.delete(collector) : next.add(collector);
-      return next;
-    });
+    const next = new Set(cart);
+    if (wasSelected) next.delete(collector);
+    else next.add(collector);
+    setCart(next);
+    const names = [...next];
     if (wasSelected) {
       setExpanded((prev) => {
-        const next = new Set(prev);
-        next.delete(collector);
-        return next;
+        const without = new Set(prev);
+        without.delete(collector);
+        return without;
       });
+      if (strategyDialog === "gcp" && !cartNeedsGcpLogBackend(names)) setStrategyDialog(null);
+      if (strategyDialog === "azure" && !cartNeedsAzureLogBackend(names)) setStrategyDialog(null);
+      if (strategyDialog === "cloudtrail" && !cartNeedsCloudtrailSource(names)) setStrategyDialog(null);
+      return;
+    }
+    if (platform === "gcp" && !needsGcpLogBackend && cartNeedsGcpLogBackend(names)) {
+      setStrategyDialog("gcp");
+    } else if (platform === "azure" && !needsAzureLogBackend && cartNeedsAzureLogBackend(names)) {
+      setStrategyDialog("azure");
+    } else if (platform === "aws" && !needsCloudtrailSource && cartNeedsCloudtrailSource(names)) {
+      setStrategyDialog("cloudtrail");
     }
   };
 
@@ -442,7 +529,10 @@ function AcquireContent() {
       [collector]: values,
     }));
 
-  const clear = () => setCart(new Set());
+  const clear = () => {
+    setCart(new Set());
+    setStrategyDialog(null);
+  };
 
   const downloadIamPreview = () => {
     if (!iamPreview?.iam_policies) return;
@@ -485,6 +575,16 @@ function AcquireContent() {
     const gcpLogErr = validateGcpLogBackendForm(gcpLogBackend, needsGcpLogBackend);
     if (gcpLogErr) {
       setError(gcpLogErr);
+      return;
+    }
+    const azureLogErr = validateAzureLogBackendForm(azureLogBackend, needsAzureLogBackend);
+    if (azureLogErr) {
+      setError(azureLogErr);
+      return;
+    }
+    const cloudtrailErr = cloudtrailSourceError(artifactParams.cloudtrail, needsCloudtrailSource);
+    if (cloudtrailErr) {
+      setError(cloudtrailErr);
       return;
     }
     saveKitMut.mutate();
@@ -551,7 +651,10 @@ function AcquireContent() {
                 return (
                   <button
                     key={t.id}
-                    onClick={() => setPlatform(t.id)}
+                    onClick={() => {
+                      setPlatform(t.id);
+                      setStrategyDialog(null);
+                    }}
                     className={cn(
                       "relative -mb-px flex items-center gap-2 px-4 py-2.5 text-sm transition-colors",
                       active ? "text-fg" : "text-fg-subtle hover:text-fg",
@@ -580,14 +683,6 @@ function AcquireContent() {
               />
             </div>
           </div>
-
-          {needsGcpLogBackend && (
-            <GcpLogBackendFields
-              form={gcpLogBackend}
-              onChange={setGcpLogBackend}
-              required={needsGcpLogBackend}
-            />
-          )}
 
           {artifacts.isPending ? (
             <LoadingPanel label="Loading artifact library…" />
@@ -625,7 +720,7 @@ function AcquireContent() {
                   <div className="space-y-2">
                     {items.map((a) => {
                       const selected = cart.has(a.collector);
-                      const fields = resolvedParamFields(a, platform);
+                      const fields = inlineParamFields(resolvedParamFields(a, platform));
                       const hasParams = fields.length > 0;
                       const paramsExpanded = expanded.has(a.collector);
                       const missing = selected ? missingRequiredParams(a, artifactParams[a.collector]) : [];
@@ -747,6 +842,37 @@ function AcquireContent() {
                     <Trash2 className="h-3 w-3" /> Clear all
                   </button>
                 </div>
+              )}
+
+              {needsGcpLogBackend && (
+                <StrategyReopen
+                  title="GCP Log Collection Strategy"
+                  detail={
+                    GCP_LOG_BACKEND_OPTIONS.find((opt) => opt.mode === gcpLogBackend.mode)?.label ||
+                    "Choose how logs are collected"
+                  }
+                  onClick={() => setStrategyDialog("gcp")}
+                />
+              )}
+              {needsAzureLogBackend && (
+                <StrategyReopen
+                  title="Azure Activity Log source"
+                  detail={
+                    AZURE_LOG_BACKEND_OPTIONS.find((opt) => opt.mode === azureLogBackend.mode)?.label ||
+                    "Choose how Activity Logs are collected"
+                  }
+                  onClick={() => setStrategyDialog("azure")}
+                />
+              )}
+              {needsCloudtrailSource && (
+                <StrategyReopen
+                  title="CloudTrail source"
+                  detail={
+                    CLOUDTRAIL_SOURCE_LABELS[cloudtrailSourceMode(artifactParams.cloudtrail)] ||
+                    "Choose how CloudTrail events are collected"
+                  }
+                  onClick={() => setStrategyDialog("cloudtrail")}
+                />
               )}
 
               <div className="acquire-kit-section">
@@ -995,6 +1121,16 @@ function AcquireContent() {
               {!isEditingKit && needsGcpLogBackend && gcpLogBackendError && (
                 <p className="text-xs text-warn-amber">{gcpLogBackendError}</p>
               )}
+              {!isEditingKit && needsAzureLogBackend && azureLogBackendError && (
+                <p className="text-xs text-warn-amber">{azureLogBackendError}</p>
+              )}
+              {!isEditingKit &&
+                needsCloudtrailSource &&
+                cloudtrailSourceError(artifactParams.cloudtrail, true) && (
+                  <p className="text-xs text-warn-amber">
+                    {cloudtrailSourceError(artifactParams.cloudtrail, true)}
+                  </p>
+                )}
 
               <div className="acquire-kit-actions">
                 <Button
@@ -1020,6 +1156,26 @@ function AcquireContent() {
           </div>
         </aside>
       </div>
+
+      <StrategyChoiceDialog open={strategyDialog === "gcp"} onClose={() => setStrategyDialog(null)}>
+        <div className="[&>div]:mb-0">
+          <GcpLogBackendFields form={gcpLogBackend} onChange={setGcpLogBackend} required />
+        </div>
+      </StrategyChoiceDialog>
+      <StrategyChoiceDialog open={strategyDialog === "azure"} onClose={() => setStrategyDialog(null)}>
+        <div className="[&>div]:mb-0">
+          <AzureLogBackendFields form={azureLogBackend} onChange={setAzureLogBackend} required />
+        </div>
+      </StrategyChoiceDialog>
+      <StrategyChoiceDialog open={strategyDialog === "cloudtrail"} onClose={() => setStrategyDialog(null)}>
+        <div className="[&>div]:mb-0">
+          <CloudTrailSourceFields
+            values={artifactParams.cloudtrail || {}}
+            onChange={(values) => setCollectorParams("cloudtrail", values)}
+            required
+          />
+        </div>
+      </StrategyChoiceDialog>
 
       <IamActionsDialog
         open={iamActionsOpen}

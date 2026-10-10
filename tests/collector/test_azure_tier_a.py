@@ -63,6 +63,7 @@ def _ctx(
     subscriptions: list[str] | None = None,
     window: TimeWindow | None = None,
     max_records_per_source: int | None = None,
+    azure_log_backend: dict | None = None,
 ) -> CollectionContext:
     staging = tmp_path / "staging"
     staging.mkdir(exist_ok=True)
@@ -77,6 +78,7 @@ def _ctx(
         subscription_ids=subscriptions or [],
         client_factory=cf,
         max_records_per_source=max_records_per_source,
+        azure_log_backend=azure_log_backend or {},
     )
 
 
@@ -174,6 +176,84 @@ def test_activity_log_writes_per_subscription_files(tmp_path: Path) -> None:
     paths = {f.path for f in result.files}
     assert any("events-sub-aaa.jsonl.gz" in p for p in paths)
     assert any("events-sub-bbb.jsonl.gz" in p for p in paths)
+
+
+def test_activity_log_storage_reads_subscription_archive(tmp_path: Path) -> None:
+    import json
+
+    blob = "resourceId=/SUBSCRIPTIONS/SUB-1/y=2026/m=06/d=08/h=01/m=00/PT1H.json"
+    body = json.dumps(
+        {
+            "records": [
+                {
+                    "time": "2026-06-08T01:05:00Z",
+                    "operationName": "Microsoft.Compute/virtualMachines/delete",
+                    "resultType": "Success",
+                    "callerIpAddress": "203.0.113.7",
+                    "resourceId": "/subscriptions/sub-1/resourceGroups/rg/providers/Microsoft.Compute/virtualMachines/vm",
+                }
+            ]
+        }
+    ).encode()
+
+    class _Container:
+        def list_blobs(self, name_starts_with=""):  # noqa: ANN001
+            if blob.startswith(name_starts_with):
+                return [type("B", (), {"name": blob})()]
+            return []
+
+        def download_blob(self, name):  # noqa: ANN001
+            assert name == blob
+            return type("D", (), {"readall": staticmethod(lambda: body)})()
+
+    class _StorageCf(_FakeCf):
+        def diagnostic_settings(self, resource_id):  # noqa: ANN001
+            assert resource_id == "/subscriptions/sub-1"
+            return [
+                {
+                    "storage_account_id": (
+                        "/subscriptions/sub-1/resourceGroups/rg/providers/"
+                        "Microsoft.Storage/storageAccounts/logs"
+                    ),
+                    "categories": ["Administrative"],
+                    "category_groups": [],
+                }
+            ]
+
+        def container_client(self, storage_id, container):  # noqa: ANN001
+            assert container == "insights-logs-administrative"
+            assert storage_id.endswith("/logs")
+            return _Container()
+
+    result = ActivityLogCollector(
+        _ctx(
+            tmp_path,
+            _StorageCf(),
+            subscriptions=["sub-1"],
+            window=_single_day_window(),
+            azure_log_backend={"mode": "storage"},
+        )
+    ).collect()
+    assert result.status == SourceStatus.COLLECTED
+    assert result.record_count == 1
+
+
+def test_activity_log_storage_without_diagnostic_setting_is_a_gap(tmp_path: Path) -> None:
+    class _EmptyCf(_FakeCf):
+        def diagnostic_settings(self, resource_id):  # noqa: ANN001
+            return []
+
+    result = ActivityLogCollector(
+        _ctx(
+            tmp_path,
+            _EmptyCf(),
+            subscriptions=["sub-1"],
+            window=_single_day_window(),
+            azure_log_backend={"mode": "storage"},
+        )
+    ).collect()
+    assert result.record_count == 0
+    assert any(g[1] == GapReason.LOGGING_NOT_CONFIGURED for g in result.gaps)
 
 
 def test_activity_log_truncation_warning(tmp_path: Path) -> None:

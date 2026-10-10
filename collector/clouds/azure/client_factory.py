@@ -4,10 +4,9 @@ Wraps azure-identity + the ARM management SDKs + a thin Microsoft Graph REST cli
 collectors never import an Azure SDK directly (which keeps them unit-testable with a fake
 factory, exactly like the AWS ``AwsClientFactory`` pattern).
 
-Two collection paths, one factory (plus a third for long-lookback M365 UAL):
+Two collection paths, one factory:
   * **Graph** — Entra sign-in/audit, OAuth grants, directory objects (``graph_paginate``).
   * **ARM management** — Activity Log, Defender, Resource Graph, RBAC, flow-log config.
-  * **Exchange Online Admin API** — ``Search-UnifiedAuditLog`` for 90–365 day UAL lookback.
 
 Auth is an app-registration service principal read from the environment. Both client-secret
 and **certificate** credentials are supported, because many client tenants forbid long-lived
@@ -21,7 +20,6 @@ import os
 import time
 from collections.abc import Iterator
 from dataclasses import dataclass, field
-from datetime import datetime, timedelta
 from typing import Any
 
 import requests
@@ -29,12 +27,6 @@ import requests
 GRAPH_BASE = "https://graph.microsoft.com/v1.0"
 GRAPH_SCOPE = "https://graph.microsoft.com/.default"
 ARM_SCOPE = "https://management.azure.com/.default"
-# Microsoft 365 Unified Audit Log — Office 365 Management Activity API.
-MANAGE_BASE = "https://manage.office.com/api/v1.0"
-MANAGE_SCOPE = "https://manage.office.com/.default"
-# Search-UnifiedAuditLog — Exchange Online Admin API (90–365 day UAL retention).
-EXO_ADMIN_BASE = "https://outlook.office365.com/adminapi/beta"
-EXO_SCOPE = "https://outlook.office365.com/.default"
 
 from collector.lib.limits import UNLIMITED_RECORDS
 
@@ -254,179 +246,6 @@ class AzureClientFactory:
         except Exception as exc:  # noqa: BLE001
             _raise_typed_azure(exc, f"monitor:activity_logs:{subscription_id}")
 
-    def log_analytics_query(
-        self,
-        workspace_id: str,
-        query: str,
-        *,
-        timespan: str | None = None,
-        max_records: int = MAX_RECORDS,
-    ) -> list[dict[str, Any]]:
-        """Run a KQL query against a Log Analytics workspace (ARM query API)."""
-        url = f"https://management.azure.com{workspace_id}/api/query"
-        body: dict[str, Any] = {"query": query}
-        if timespan:
-            body["timespan"] = timespan
-        try:
-            result = self._arm_request("POST", url, params={"api-version": "2020-08-01"}, json_body=body)
-        except Exception as exc:  # noqa: BLE001
-            _raise_typed_azure(exc, f"loganalytics:query:{workspace_id}")
-            return []
-        out: list[dict[str, Any]] = []
-        for table in result.get("tables") or []:
-            cols = [str(c.get("name") or "") for c in table.get("columns") or []]
-            for row in table.get("rows") or []:
-                if len(out) >= max_records:
-                    return out
-                out.append(dict(zip(cols, row, strict=False)))
-        return out
-
-    # -- Microsoft 365 Unified Audit Log (Management Activity API) -------------------------
-
-    def _tenant_id(self) -> str:
-        import os as _os
-
-        return _os.environ.get("AZURE_TENANT_ID") or self.caller_identity().tenant_id
-
-    def management_subscriptions(self) -> dict[str, str]:
-        """Map content type → feed status. Read-only: Ventra never *starts* a feed (that is a
-        tenant mutation); an absent/disabled feed is reported as a Log-Coverage gap instead."""
-        tenant = self._tenant_id()
-        resp = self._manage_request(f"{MANAGE_BASE}/{tenant}/activity/feed/subscriptions/list")
-        return {s.get("contentType", ""): (s.get("status") or "") for s in (resp.json() or [])}
-
-    def management_content(
-        self,
-        content_type: str,
-        start: datetime,
-        end: datetime,
-        *,
-        max_records: int = MAX_RECORDS,
-    ) -> Iterator[dict[str, Any]]:
-        """Yield UAL records for one content type. Raises ``AzureServiceNotEnabled`` when the
-        Management API feed for that content type is not enabled in the tenant."""
-        tenant = self._tenant_id()
-        status = self.management_subscriptions().get(content_type, "")
-        if status.lower() != "enabled":
-            raise AzureServiceNotEnabled(
-                f"manage:{content_type}",
-                "Management API content feed not enabled (operator must enable it; "
-                "Ventra is read-only and will not start it).",
-            )
-        emitted = 0
-        # The API serves at most a 24h range per query and ~7 days of history.
-        for win_start, win_end in _day_slices(start, end):
-            url: str | None = f"{MANAGE_BASE}/{tenant}/activity/feed/subscriptions/content"
-            params: dict[str, Any] | None = {
-                "contentType": content_type,
-                "startTime": _iso_noz(win_start),
-                "endTime": _iso_noz(win_end),
-            }
-            while url and emitted < max_records:
-                resp = self._manage_request(url, params)
-                params = None  # only on the first page of this slice
-                for desc in resp.json() or []:
-                    blob = self._manage_request(desc["contentUri"]).json() or []
-                    for rec in blob:
-                        if emitted >= max_records:
-                            return
-                        yield rec
-                        emitted += 1
-                url = resp.headers.get("NextPageUri")
-
-    # -- Search-UnifiedAuditLog (Exchange Online Admin API) -------------------------------
-
-    def search_unified_audit_log(
-        self,
-        start: datetime,
-        end: datetime,
-        *,
-        users: list[str] | None = None,
-        operations: list[str] | None = None,
-        record_types: list[str] | None = None,
-        ip_addresses: list[str] | None = None,
-        result_size: int | None = None,
-        max_records: int = MAX_RECORDS,
-        audit_data_only: bool = False,
-    ) -> Iterator[dict[str, Any]]:
-        """Yield UAL records for one time window via ``Search-UnifiedAuditLog`` (≤5000/call).
-
-        Uses ``SessionCommand=ReturnLargeSet`` pagination within the window. Callers that need
-        completeness across dense windows should use :func:`ual_adaptive.collect_adaptive`.
-        """
-        from collector.engine.api.azure.m365.ual_common import API_CAP_PER_SEARCH_CALL, flatten_search_row
-
-        if result_size is None:
-            result_size = API_CAP_PER_SEARCH_CALL
-        tenant = self._tenant_id()
-        params: dict[str, Any] = {
-            "StartDate": _iso_noz(start),
-            "EndDate": _iso_noz(end),
-            "ResultSize": min(result_size, API_CAP_PER_SEARCH_CALL),
-            "SessionCommand": "ReturnLargeSet",
-        }
-        if users:
-            params["UserIds"] = users
-        if operations:
-            params["Operations"] = operations
-        if record_types:
-            params["RecordType"] = record_types
-        if ip_addresses:
-            params["FreeText"] = ",".join(ip_addresses)
-
-        session_id: str | None = None
-        emitted = 0
-        while emitted < max_records:
-            call_params = dict(params)
-            if session_id:
-                call_params["SessionId"] = session_id
-            page = self._exo_invoke_search(tenant, call_params)
-            if not page:
-                break
-            session_id = session_id or _session_id_from_rows(page)
-            for row in page:
-                if emitted >= max_records:
-                    return
-                yield flatten_search_row(row, audit_data_only=audit_data_only)
-                emitted += 1
-            if len(page) < params["ResultSize"]:
-                break
-
-    def _exo_invoke_search(self, tenant_id: str, parameters: dict[str, Any]) -> list[dict[str, Any]]:
-        body = {"CmdletInput": {"CmdletName": "Search-UnifiedAuditLog", "Parameters": parameters}}
-        url = f"{EXO_ADMIN_BASE}/{tenant_id}/InvokeCommand"
-        resp = self._exo_request("POST", url, json=body)
-        data = resp.json()
-        value = data.get("value") if isinstance(data, dict) else data
-        if not isinstance(value, list):
-            return []
-        return [r for r in value if isinstance(r, dict)]
-
-    def _exo_request(
-        self,
-        method: str,
-        url: str,
-        *,
-        json: dict[str, Any] | None = None,
-        params: dict[str, Any] | None = None,
-    ) -> requests.Response:
-        headers = {
-            "Authorization": f"Bearer {self._token(EXO_SCOPE)}",
-            "Accept": "application/json",
-            "Content-Type": "application/json",
-        }
-        for attempt in range(MAX_RETRIES + 1):
-            resp = self._session.request(method, url, headers=headers, json=json, params=params, timeout=120)
-            if resp.status_code == 429 and attempt < MAX_RETRIES:
-                time.sleep(min(int(resp.headers.get("Retry-After", "5")), 30))
-                continue
-            if resp.status_code in (401, 403):
-                raise AzureAccessDenied(f"exo:{url}", _graph_error(resp))
-            if resp.status_code >= 400:
-                raise AzureServiceNotEnabled(f"exo:{url}", _graph_error(resp))
-            return resp
-        raise AzureServiceNotEnabled(f"exo:{url}", "throttled past retry budget")
-
     # -- network flow logs (discovery + blob access) --------------------------------------
 
     def network_flow_logs(self, subscription_id: str) -> list[dict[str, Any]]:
@@ -632,44 +451,59 @@ class AzureClientFactory:
         """Where a resource routes its logs + which log categories are enabled.
 
         Powers both collection (read from the Storage destination) and gap analysis (no setting,
-        or routed only to Log Analytics / Event Hub, = a logging blind spot to report)."""
-        out: list[dict[str, Any]] = []
-        sub = _segment(resource_id, "subscriptions")
-        try:
-            from azure.mgmt.monitor import MonitorManagementClient
+        or routed only to Log Analytics / Event Hub, = a logging blind spot to report).
 
-            client = MonitorManagementClient(self.credential(), sub)
-            for s in client.diagnostic_settings.list(resource_id):
-                cats = [
-                    log.category
-                    for log in (getattr(s, "logs", None) or [])
-                    if getattr(log, "enabled", False) and getattr(log, "category", None)
-                ]
-                out.append(
-                    {
-                        "storage_account_id": getattr(s, "storage_account_id", "") or "",
-                        "workspace_id": getattr(s, "workspace_id", "") or "",
-                        "event_hub": getattr(s, "event_hub_authorization_rule_id", "") or "",
-                        "categories": cats,
-                    }
-                )
-        except Exception as exc:  # noqa: BLE001
-            _raise_typed_azure(exc, f"diagnostic_settings:{resource_id}")
+        Uses ARM REST. azure-mgmt-monitor 7.0.0 dropped ``diagnostic_settings`` from
+        ``MonitorManagementClient``, so the SDK call crashes before any permission check.
+        """
+        url = f"https://management.azure.com{resource_id}/providers/Microsoft.Insights/diagnosticSettings"
+        page = self._arm_request("GET", url, params={"api-version": "2021-05-01-preview"})
+        out: list[dict[str, Any]] = []
+        for setting in page.get("value") or []:
+            props = setting.get("properties") or {}
+            categories: list[str] = []
+            groups: list[str] = []
+            for log in props.get("logs") or []:
+                if not log.get("enabled", False):
+                    continue
+                if log.get("category"):
+                    categories.append(log["category"])
+                if log.get("categoryGroup"):
+                    groups.append(log["categoryGroup"])
+            if any(group.lower() == "alllogs" for group in groups):
+                discovered = self._diagnostic_log_category_names(resource_id)
+                if discovered:
+                    categories = discovered
+            out.append(
+                {
+                    "storage_account_id": props.get("storageAccountId") or "",
+                    "workspace_id": props.get("workspaceId") or "",
+                    "event_hub": props.get("eventHubAuthorizationRuleId") or "",
+                    "categories": categories,
+                    "category_groups": groups,
+                }
+            )
         return out
 
-    def _manage_request(self, url: str, params: dict[str, Any] | None = None) -> requests.Response:
-        headers = {"Authorization": f"Bearer {self._token(MANAGE_SCOPE)}", "Accept": "application/json"}
-        for attempt in range(MAX_RETRIES + 1):
-            resp = self._session.get(url, headers=headers, params=params, timeout=60)
-            if resp.status_code == 429 and attempt < MAX_RETRIES:
-                time.sleep(min(int(resp.headers.get("Retry-After", "5")), 30))
+    def _diagnostic_log_category_names(self, resource_id: str) -> list[str]:
+        """Log category names for a resource. Used when a setting enables the allLogs group."""
+        url = (
+            "https://management.azure.com"
+            f"{resource_id}/providers/Microsoft.Insights/diagnosticSettingsCategories"
+        )
+        try:
+            page = self._arm_request("GET", url, params={"api-version": "2021-05-01-preview"})
+        except AzureServiceNotEnabled:
+            return []
+        names: list[str] = []
+        for item in page.get("value") or []:
+            props = item.get("properties") or {}
+            if str(props.get("categoryType") or "").lower() != "logs":
                 continue
-            if resp.status_code in (401, 403):
-                raise AzureAccessDenied(f"manage:{url}", _graph_error(resp))
-            if resp.status_code >= 400:
-                raise AzureServiceNotEnabled(f"manage:{url}", _graph_error(resp))
-            return resp
-        raise AzureServiceNotEnabled(f"manage:{url}", "throttled past retry budget")
+            name = item.get("name") or props.get("name") or ""
+            if name:
+                names.append(name)
+        return names
 
 
 def _segment(resource_id: str, key: str) -> str:
@@ -688,19 +522,6 @@ def _session_id_from_rows(rows: list[dict[str, Any]]) -> str | None:
         if sid:
             return str(sid)
     return None
-
-
-def _day_slices(start: datetime, end: datetime):
-    """Yield ≤24h (start, end) slices — the Management Activity API caps each query at 24h."""
-    cur = start
-    while cur < end:
-        nxt = min(cur + timedelta(hours=24), end)
-        yield cur, nxt
-        cur = nxt
-
-
-def _iso_noz(dt: datetime) -> str:
-    return dt.strftime("%Y-%m-%dT%H:%M:%S")
 
 
 def _graph_error(resp: requests.Response) -> str:

@@ -82,10 +82,14 @@ def flatten_nsg_record(rec: dict, region: str = "") -> Iterator[dict]:
 
 
 def flatten_vnet_record(rec: dict, region: str = "") -> Iterator[dict]:
-    """VNet flow log v4: properties.flowRecords.flows[].flowGroups[].flowTuples."""
-    rid = rec.get("resourceId", "")
+    """VNet flow log: flowRecords.flows[].flowGroups[].flowTuples.
+
+    Azure writes ``flowRecords`` on the record (flowLogVersion 4). Older fixtures nest
+    the same object under ``properties``.
+    """
+    rid = rec.get("resourceId") or rec.get("targetResourceID") or ""
     props = rec.get("properties") or {}
-    flow_records = props.get("flowRecords") or {}
+    flow_records = rec.get("flowRecords") or props.get("flowRecords") or {}
     for flow in flow_records.get("flows") or []:
         target = flow.get("aclID") or rid
         for group in flow.get("flowGroups") or []:

@@ -28,4 +28,5 @@ class StorageAccessCollector(Collector):
             log_categories=_LOG_CATEGORIES,
             name_param="bucket_names",
             post_filter=True,
+            diagnostic_resource_suffixes=["/blobServices/default"],
         )

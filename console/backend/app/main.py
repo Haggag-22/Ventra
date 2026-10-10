@@ -57,6 +57,7 @@ class AcquisitionBuildRequest(BaseModel):
     deployment_profile: str = "platform"
     transport: str = ""
     gcp_log_backend: dict[str, Any] | None = None
+    azure_log_backend: dict[str, Any] | None = None
     connection_id: str | None = None
     # Saved Acquire kit display name — used for zip + entry script filenames.
     kit_name: str = ""
@@ -91,7 +92,6 @@ class ConnectionCreateRequest(BaseModel):
     aws_account_id: str = ""
     project: str = ""
     subscription: str = ""
-    m365_domain: str = ""
     azure_tenant_id: str = ""
     azure_client_id: str = ""
     azure_client_secret: str = ""
@@ -114,7 +114,6 @@ class ConnectionUpdateRequest(BaseModel):
     aws_account_id: str | None = None
     project: str | None = None
     subscription: str | None = None
-    m365_domain: str | None = None
     azure_tenant_id: str | None = None
     azure_client_id: str | None = None
     azure_client_secret: str | None = None
@@ -151,6 +150,7 @@ class ProfileUpdateRequest(BaseModel):
     deployment_profile: str | None = None
     transport: str | None = None
     gcp_log_backend: dict[str, Any] | None = None
+    azure_log_backend: dict[str, Any] | None = None
 
 
 class RunRequest(AcquisitionBuildRequest):
@@ -400,7 +400,17 @@ def findings(case_id: str, _: Role = Depends(_check("view_case"))) -> dict:
 
 @app.get("/api/cases/{case_id}/identity")
 def identity(case_id: str, _: Role = Depends(_check("view_case"))) -> dict:
-    iam = store.inventory(case_id, "iam") or store.inventory(case_id, "rbac")
+    entra = store.inventory(case_id, "entra_directory")
+    rbac_inv = store.inventory(case_id, "rbac")
+    azure_rbac = isinstance(rbac_inv, dict) and (
+        "role_assignments" in rbac_inv or "role_definitions" in rbac_inv
+    )
+    if entra is not None or azure_rbac:
+        iam = store.normalize_azure_identity(
+            entra if isinstance(entra, dict) else None, rbac_inv if azure_rbac else None
+        )
+    else:
+        iam = store.inventory(case_id, "iam")
     if iam is None:
         gcp = store.inventory(case_id, "iam_policy")
         if gcp is not None:
@@ -622,6 +632,10 @@ def _resolve_acquisition_request(
         iam_policy_paths_for_platform,
     )
     from collector.engine.acquisition import AcquisitionError, augment_collectors, load_pack
+    from collector.engine.azure_log_backend import (
+        cart_needs_azure_log_backend,
+        validate_azure_log_backend_dict,
+    )
     from collector.engine.gcp_log_backend import cart_needs_gcp_log_backend, validate_gcp_log_backend_dict
 
     platform = body.cloud.strip().lower()
@@ -649,6 +663,36 @@ def _resolve_acquisition_request(
             validate_gcp_log_backend_dict(body.gcp_log_backend)
         except ValueError as exc:
             raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if platform == "azure" and (
+        (require_gcp_log_backend and cart_needs_azure_log_backend(names)) or body.azure_log_backend
+    ):
+        if require_gcp_log_backend and cart_needs_azure_log_backend(names) and not body.azure_log_backend:
+            raise HTTPException(
+                status_code=400,
+                detail="Choose how Azure Activity Logs should be collected.",
+            )
+        try:
+            validate_azure_log_backend_dict(body.azure_log_backend)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    if require_gcp_log_backend and platform == "aws" and "cloudtrail" in names:
+        trail = (body.artifact_parameters or {}).get("cloudtrail") or {}
+        source = str(trail.get("collection_source") or "").strip().lower()
+        if source not in ("trail", "bucket", "lookup_events"):
+            raise HTTPException(
+                status_code=400,
+                detail="Choose how CloudTrail events should be collected.",
+            )
+        if source == "bucket":
+            buckets = trail.get("s3_bucket_names")
+            has_bucket = (isinstance(buckets, str) and buckets.strip()) or (
+                isinstance(buckets, list) and any(str(item).strip() for item in buckets)
+            )
+            if not has_bucket:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Enter at least one S3 bucket for CloudTrail.",
+                )
     iam_paths: list[Path] | None = None
     if body.include_iam:
         iam_dir = settings.artifacts_root.parent / "docs" / "iam-policies"
@@ -669,6 +713,7 @@ def preview_acquisition(
             status_code=400, detail=f"Unknown deployment profile: {body.deployment_profile!r}"
         )
     gcp_backend = body.gcp_log_backend if cloud == "gcp" else None
+    azure_backend = body.azure_log_backend if cloud == "azure" else None
     try:
         preview = preview_kit(
             cloud=cloud,
@@ -677,6 +722,7 @@ def preview_acquisition(
             iam_policy_paths=iam_paths,
             include_iam=body.include_iam,
             gcp_log_backend=gcp_backend,
+            azure_log_backend=azure_backend,
         )
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
@@ -693,6 +739,7 @@ def build_acquisition(
 ) -> Response:
     import tempfile
 
+    from collector.engine.azure_log_backend import validate_azure_log_backend_dict
     from collector.engine.gcp_log_backend import validate_gcp_log_backend_dict
     from collector.kit.build import build_kit
 
@@ -709,6 +756,9 @@ def build_acquisition(
     gcp_backend = None
     if cloud == "gcp" and body.gcp_log_backend:
         gcp_backend = validate_gcp_log_backend_dict(body.gcp_log_backend)
+    azure_backend = None
+    if cloud == "azure" and body.azure_log_backend:
+        azure_backend = validate_azure_log_backend_dict(body.azure_log_backend)
 
     connection: dict[str, Any] | None = None
     if not (body.connection_id or "").strip():
@@ -757,6 +807,7 @@ def build_acquisition(
                 artifact_parameters=body.artifact_parameters or None,
                 transport=body.transport.strip(),
                 gcp_log_backend=gcp_backend,
+                azure_log_backend=azure_backend,
                 bundle_wheel=False,
                 require_wheel=False,
                 deployment_profile=profile,

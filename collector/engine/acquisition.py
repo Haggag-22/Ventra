@@ -50,6 +50,7 @@ class AcquisitionSpec:
     aws_profile: str = ""  # AWS named profile from ~/.aws/credentials (workstation kits)
     max_records_per_source: int | None = None  # None/0 = unlimited; positive = cap per source
     gcp_log_backend: dict[str, Any] = field(default_factory=dict)
+    azure_log_backend: dict[str, Any] = field(default_factory=dict)
     # Kubernetes kit auth (paths are relative to the acquisition.yaml directory).
     kubeconfig: str = ""
     k8s_context: str = ""
@@ -98,6 +99,9 @@ def load_acquisition(path: Path) -> AcquisitionSpec:
     gcp_log_backend = data.get("gcp_log_backend")
     if not isinstance(gcp_log_backend, dict):
         gcp_log_backend = {}
+    azure_log_backend = data.get("azure_log_backend")
+    if not isinstance(azure_log_backend, dict):
+        azure_log_backend = {}
     return AcquisitionSpec(
         case_id=str(data.get("case_id") or "").strip(),
         cloud=cloud,
@@ -115,6 +119,7 @@ def load_acquisition(path: Path) -> AcquisitionSpec:
         aws_profile=str(data.get("aws_profile") or "").strip(),
         max_records_per_source=int(cap) if cap is not None and str(cap) != "" else None,
         gcp_log_backend=dict(gcp_log_backend),
+        azure_log_backend=dict(azure_log_backend),
         kubeconfig=str(data.get("kubeconfig") or "").strip(),
         k8s_context=str(data.get("k8s_context") or "").strip(),
         node_root=str(data.get("node_root") or "").strip(),

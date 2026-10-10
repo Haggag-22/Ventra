@@ -38,7 +38,7 @@ async function findCollectorArtifact(
       const artifact = await api.artifact(collector, cloud);
       if (artifact.selectable !== false) return artifact;
     } catch {
-      // Try next cloud scope for multi-cloud providers (e.g. azure + m365).
+      // Try the next cloud scope when a provider maps to more than one artifact cloud.
     }
   }
   return null;

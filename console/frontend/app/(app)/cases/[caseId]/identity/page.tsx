@@ -45,16 +45,6 @@ export default function IdentityPage() {
   // A cluster has no IAM: the principals are ServiceAccounts and the roles are
   // (Cluster)Roles, so the headings say so rather than mislabelling them as IAM.
   const isK8sRbac = cloud === "kubernetes";
-  const principalsLabel = isK8sRbac
-    ? "ServiceAccounts"
-    : isGcpIam
-      ? "Service accounts"
-      : "IAM users";
-  const rolesLabel = isK8sRbac
-    ? "Roles & ClusterRoles"
-    : isGcpIam
-      ? "Custom roles"
-      : "IAM roles";
   const q = useQuery({ queryKey: ["identity", caseId], queryFn: () => api.identity(caseId) });
   const kmsQ = useQuery({
     queryKey: ["inventory", caseId, "kms"],
@@ -70,10 +60,31 @@ export default function IdentityPage() {
   if (q.isLoading || !q.data) return <LoadingPanel label="Loading identity…" />;
   const iam = q.data.iam ?? {};
   const users: any[] = iam.users ?? [];
+  const applications: any[] = iam.applications ?? [];
+  const servicePrincipals: any[] = iam.service_principals ?? [];
   const roles: any[] = iam.roles ?? [];
   const groups: any[] = iam.groups ?? [];
   const policies: any[] = iam.policies ?? [];
-  const noMfa = isGcpIam ? 0 : users.filter((u) => !(u.MFADevices ?? []).length).length;
+  const isAzureDirectory = iam.source === "entra_directory";
+  const principalsLabel = isAzureDirectory
+    ? "Directory principals"
+    : isK8sRbac
+      ? "ServiceAccounts"
+      : isGcpIam
+        ? "Service accounts"
+        : "IAM users";
+  const rolesLabel = isAzureDirectory
+    ? "Role assignments"
+    : isK8sRbac
+      ? "Roles & ClusterRoles"
+      : isGcpIam
+        ? "Custom roles"
+        : "IAM roles";
+  const directoryPrincipals = isAzureDirectory
+    ? [...users, ...applications, ...servicePrincipals, ...groups]
+    : users;
+  const mfaKnown = !isAzureDirectory || iam.mfa_known === true;
+  const noMfa = !mfaKnown || isGcpIam ? 0 : users.filter((u) => !(u.MFADevices ?? []).length).length;
   const unusedKeyUsers = countUnusedActiveKeys(users);
   const kmsKeyList: any[] = kmsQ.data?.data?.keys ?? [];
   const secretsList: any[] = secretsQ.data?.data?.secrets ?? [];
@@ -96,6 +107,19 @@ export default function IdentityPage() {
                 value={fmtNum(users.length)}
                 icon={Users}
               />
+              {isAzureDirectory ? (
+                <>
+                  <StatCard label="Applications" value={fmtNum(applications.length)} icon={KeyRound} />
+                  <StatCard
+                    label="Service principals"
+                    value={fmtNum(servicePrincipals.length)}
+                    icon={Fingerprint}
+                  />
+                  <StatCard label="Groups" value={fmtNum(groups.length)} icon={UsersRound} />
+                  <StatCard label="Role assignments" value={fmtNum(roles.length)} icon={Shield} />
+                </>
+              ) : (
+                <>
               <StatCard
                 label={isGcpIam ? "Custom roles" : "Roles"}
                 value={fmtNum(roles.length)}
@@ -109,7 +133,9 @@ export default function IdentityPage() {
                 value={fmtNum(policies.length)}
                 icon={KeyRound}
               />
-              {!isGcpIam && (
+                </>
+              )}
+              {!isGcpIam && !isAzureDirectory && (
                 <StatCard
                   label="No MFA"
                   value={fmtNum(noMfa)}
@@ -133,10 +159,15 @@ export default function IdentityPage() {
             <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
               <KeyRound className="h-4 w-4 text-fg-subtle" />
               <span className="text-sm font-semibold text-fg">
-                {`${principalsLabel} (${users.length})`}
+                {`${principalsLabel} (${directoryPrincipals.length})`}
               </span>
             </div>
-            <IdentityUsersTable users={users} groups={groups} policies={policies} />
+            <IdentityUsersTable
+              users={directoryPrincipals}
+              groups={groups}
+              policies={policies}
+              layout={isAzureDirectory ? "directory" : "iam"}
+            />
           </div>
 
           <div className="ct-panel">
@@ -146,7 +177,7 @@ export default function IdentityPage() {
                 {`${rolesLabel} (${roles.length})`}
               </span>
             </div>
-            <IdentityRolesTable roles={roles} />
+            <IdentityRolesTable roles={roles} layout={isAzureDirectory ? "assignment" : "iam"} />
           </div>
 
           {collected.has("kms") && (

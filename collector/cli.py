@@ -44,7 +44,7 @@ from .lib.models import utcnow_iso
 from .lib.transport import get_transport
 
 if TYPE_CHECKING:
-    from .lib.models import AzureAuthOptions, TimeWindow, UalCollectOptions
+    from .lib.models import AzureAuthOptions, TimeWindow
 
 
 def _add_acquisition_args(parser: argparse.ArgumentParser) -> None:
@@ -180,37 +180,6 @@ def _add_azure_parser(sub: argparse._SubParsersAction) -> None:
         help="Comma-separated collector names to run (default: all registered).",
     )
     _add_acquisition_args(az)
-    az.add_argument(
-        "--ual-users",
-        default="",
-        help="Comma-separated user ids/emails to filter M365 Unified Audit Log collectors.",
-    )
-    az.add_argument(
-        "--ual-operations",
-        default="",
-        help="Comma-separated UAL operations (e.g. MailItemsAccessed,New-InboxRule).",
-    )
-    az.add_argument(
-        "--ual-record-types",
-        default="",
-        help="Comma-separated RecordType values for unified_audit_search only.",
-    )
-    az.add_argument(
-        "--ual-ip-addresses",
-        default="",
-        help="Comma-separated client IPs for unified_audit_search (FreeText filter).",
-    )
-    az.add_argument(
-        "--ual-target-events-per-window",
-        type=int,
-        default=3000,
-        help="Adaptive search target events per window (1–5000, default 3000).",
-    )
-    az.add_argument(
-        "--ual-audit-data-only",
-        action="store_true",
-        help="Search collector: emit parsed AuditData only (smaller files).",
-    )
 
 
 def _add_gcp_parser(sub: argparse._SubParsersAction) -> None:
@@ -1228,24 +1197,6 @@ def _run_aws(args) -> int:
     return 1 if transport_error else ingest_code
 
 
-def _ual_options_from_args(args) -> UalCollectOptions:
-    from .lib.models import UalCollectOptions
-
-    def _split(val: str) -> list[str]:
-        return [v.strip() for v in val.split(",") if v.strip()]
-
-    target = int(getattr(args, "ual_target_events_per_window", 3000) or 3000)
-    target = max(1, min(target, 5000))
-    return UalCollectOptions(
-        users=_split(getattr(args, "ual_users", "") or ""),
-        operations=_split(getattr(args, "ual_operations", "") or ""),
-        record_types=_split(getattr(args, "ual_record_types", "") or ""),
-        ip_addresses=_split(getattr(args, "ual_ip_addresses", "") or ""),
-        target_events_per_window=target,
-        audit_data_only=bool(getattr(args, "ual_audit_data_only", False)),
-    )
-
-
 def _run_azure(args) -> int:
     from .engine.api.azure.runner import AzureRunConfig, run_azure_collection
     from .engine.registry import AZURE_COLLECTOR_ORDER as COLLECTOR_ORDER
@@ -1292,7 +1243,6 @@ def _run_azure(args) -> int:
         engagement_id=args.engagement or eng_override,
         key_path=Path(args.key) if args.key else None,
         reporter=reporter,
-        ual=_ual_options_from_args(args),
         auth=_azure_auth_from_args(args),
         artifact_refs=artifact_refs,
         max_records_per_source=spec.max_records_per_source if spec else None,
@@ -1300,6 +1250,7 @@ def _run_azure(args) -> int:
         plan_label=plan_label,
         artifact_labels=artifact_labels,
         artifact_severities=artifact_severities,
+        azure_log_backend=dict(spec.azure_log_backend) if spec and spec.azure_log_backend else {},
     )
 
     try:

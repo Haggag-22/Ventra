@@ -7,6 +7,7 @@ import platform
 import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import Any
 
 from collector import __version__
 from collector.clouds.azure.client_factory import AzureClientFactory
@@ -25,7 +26,6 @@ from collector.lib.models import (
     SourceResult,
     SourceStatus,
     TimeWindow,
-    UalCollectOptions,
     utcnow_iso,
 )
 from collector.lib.packaging.packager import PackageResult, staging_directory
@@ -46,7 +46,6 @@ class AzureRunConfig:
     engagement_id: str = ""
     key_path: Path | None = None
     reporter: RunReporter | None = None
-    ual: UalCollectOptions = field(default_factory=UalCollectOptions)
     auth: AzureAuthOptions = field(default_factory=AzureAuthOptions)
     artifact_refs: list[ArtifactRef] = field(default_factory=list)
     max_records_per_source: int | None = None
@@ -55,6 +54,7 @@ class AzureRunConfig:
     artifact_labels: dict[str, str] = field(default_factory=dict)
     artifact_severities: dict[str, str] = field(default_factory=dict)
     pipeline_steps: list[str] = field(default_factory=list)
+    azure_log_backend: dict[str, Any] = field(default_factory=dict)
 
 
 def run_azure_collection(cfg: AzureRunConfig, *, factory: AzureClientFactory | None = None) -> PackageResult:
@@ -90,9 +90,9 @@ def run_azure_collection(cfg: AzureRunConfig, *, factory: AzureClientFactory | N
             case_id=cfg.case_id,
             client_factory=cf,
             logger=reporter,
-            ual=cfg.ual,
             max_records_per_source=cfg.max_records_per_source,
             artifact_parameters=cfg.artifact_parameters,
+            azure_log_backend=dict(cfg.azure_log_backend or {}),
         )
 
         manifest = Manifest(

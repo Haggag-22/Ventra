@@ -80,23 +80,6 @@ export function ProviderStepAuthMethod({
         </div>
       )}
 
-      {platform === "m365" && (
-        <div className="space-y-2">
-          <AuthOptionCard
-            name="m365_auth_method"
-            checked={data.auth_method === "client_secret"}
-            onChange={() => onChange({ auth_method: "client_secret" })}
-            title="App Client Secret Credentials"
-          />
-          <AuthOptionCard
-            name="m365_auth_method"
-            checked={data.auth_method === "certificate"}
-            onChange={() => onChange({ auth_method: "certificate" })}
-            title="App Certificate Credentials"
-          />
-        </div>
-      )}
-
       {platform === "azure" && (
         <div className="space-y-2">
           <AuthOptionCard

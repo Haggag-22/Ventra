@@ -74,14 +74,14 @@ export function ProviderStepDetails({
         </Field>
 
         <Field
-          label={platform === "azure" || platform === "m365" || platform === "kubernetes" ? "Provider alias" : "Alias"}
+          label={platform === "azure" || platform === "kubernetes" ? "Provider alias" : "Alias"}
           className="sm:col-span-2"
         >
           <Input
             value={data.alias}
             onChange={(e) => onChange({ alias: e.target.value })}
             placeholder={
-              platform === "azure" || platform === "m365" || platform === "kubernetes"
+              platform === "azure" || platform === "kubernetes"
                 ? "Enter the provider alias"
                 : "Production"
             }
@@ -107,17 +107,6 @@ export function ProviderStepDetails({
               value={data.project}
               onChange={(e) => onChange({ project: e.target.value })}
               placeholder="my-gcp-project"
-              className="mono"
-            />
-          </Field>
-        )}
-
-        {platform === "m365" && (
-          <Field label="Domain ID" required className="sm:col-span-2">
-            <Input
-              value={data.m365_domain}
-              onChange={(e) => onChange({ m365_domain: e.target.value })}
-              placeholder="e.g. your-domain.onmicrosoft.com"
               className="mono"
             />
           </Field>

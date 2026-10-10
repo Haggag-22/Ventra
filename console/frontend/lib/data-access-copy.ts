@@ -10,7 +10,6 @@ export const DATA_ACCESS_SOURCE_LABELS: Record<Cloud, Record<string, string>> = 
   azure: {
     storage_access: "Storage access logs",
     key_vault: "Key Vault audit",
-    log_analytics: "Log Analytics",
   },
   kubernetes: {
     k8s_apiserver_audit: "API-Server Audit Logs (Secret reads)",

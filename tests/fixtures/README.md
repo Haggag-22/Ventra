@@ -25,12 +25,12 @@ This produces `case-CASE-2026-0042-...-.tar.zst`, used by:
 
 ## Azure demo case generator
 
-[`generate_azure_demo_case.py`](generate_azure_demo_case.py) builds a synthetic Azure/M365
+[`generate_azure_demo_case.py`](generate_azure_demo_case.py) builds a synthetic Azure
 evidence package with `manifest.cloud = "azure"`. It encodes one coherent attack scenario:
 
 > A finance admin's Entra session is hijacked from a foreign IP — OAuth consent to a malicious
-> app, service-principal credential add, RBAC escalation, blob storage reads, mailbox access
-> (Unified Audit Log), and VNet flow exfiltration — with Defender alerts throughout. Several
+> app, service-principal credential add, RBAC escalation, blob storage reads,
+> and VNet flow exfiltration — with Defender alerts throughout. Several
 > log sources are deliberately missing (NSG flow, DNS, Key Vault, App Gateway) to show realistic
 > collection gaps.
 
@@ -41,7 +41,7 @@ ventra gui
 ```
 
 Open case **`CASE-2026-AZ42`** in the console to explore Azure-specific panels (Activity Log,
-Entra sign-in/audit, Defender, VNet flow, M365 UAL, etc.).
+Entra sign-in/audit, Defender, VNet flow, and so on).
 
 Or run the generator directly:
 

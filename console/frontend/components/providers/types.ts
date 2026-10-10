@@ -9,8 +9,8 @@ export const PROVIDER_PLATFORMS = [
 ] as const;
 
 export type SelectableProviderPlatform = (typeof PROVIDER_PLATFORMS)[number]["id"];
-/** Includes legacy M365 connections, and Kubernetes when hidden via `KUBERNETES_UI_ENABLED`. */
-export type ProviderPlatform = SelectableProviderPlatform | "m365";
+/** Connection platforms. Kubernetes stays in the type when the picker hides it. */
+export type ProviderPlatform = SelectableProviderPlatform;
 
 export const WIZARD_STEPS = [
   { id: "link", label: "Link a provider", description: "Choose cloud platform" },
@@ -25,13 +25,11 @@ export type WizardStepId = (typeof WIZARD_STEPS)[number]["id"];
 export type AwsAuthMethod = "assume_role" | "credentials";
 export type GcpAuthMethod = "service_account" | "adc";
 export type AzureAuthMethod = "service_principal";
-export type M365AuthMethod = "client_secret" | "certificate";
 export type K8sAuthMethod = "kubeconfig";
 export type ProviderAuthMethod =
   | AwsAuthMethod
   | GcpAuthMethod
   | AzureAuthMethod
-  | M365AuthMethod
   | K8sAuthMethod;
 
 export type ProviderWizardData = {
@@ -46,11 +44,9 @@ export type ProviderWizardData = {
   aws_account_id: string;
   project: string;
   subscription: string;
-  m365_domain: string;
   azure_tenant_id: string;
   azure_client_id: string;
   azure_client_secret: string;
-  azure_client_certificate_content: string;
   gcp_service_account_json: string;
   k8s_context: string;
   kubeconfig_content: string;
@@ -68,11 +64,9 @@ export const EMPTY_WIZARD_DATA: ProviderWizardData = {
   aws_account_id: "",
   project: "",
   subscription: "",
-  m365_domain: "",
   azure_tenant_id: "",
   azure_client_id: "",
   azure_client_secret: "",
-  azure_client_certificate_content: "",
   gcp_service_account_json: "",
   k8s_context: "",
   kubeconfig_content: "",
@@ -112,20 +106,10 @@ export function azureAuthMethodLabel(_method: ProviderAuthMethod): string {
   return "Service principal";
 }
 
-export function m365AuthMethodLabel(method: ProviderAuthMethod): string {
-  return method === "certificate" ? "App Certificate Credentials" : "App Client Secret Credentials";
-}
-
 function resolveAzureAuthMethod(conn: Connection): AzureAuthMethod {
   const method = (conn.auth_method || "").trim().toLowerCase();
   if (method === "credentials" || method === "service_principal") return "service_principal";
   return "service_principal";
-}
-
-function resolveM365AuthMethod(conn: Connection): M365AuthMethod {
-  const method = (conn.auth_method || "").trim().toLowerCase();
-  if (method === "certificate") return "certificate";
-  return "client_secret";
 }
 
 export function k8sAuthMethodLabel(_method: ProviderAuthMethod): string {
@@ -136,7 +120,6 @@ export function defaultAuthMethodForPlatform(platform: ProviderPlatform): Provid
   if (platform === "gcp") return "service_account";
   if (platform === "aws") return "credentials";
   if (platform === "azure") return "service_principal";
-  if (platform === "m365") return "client_secret";
   if (platform === "kubernetes") return "kubeconfig";
   return "credentials";
 }
@@ -154,9 +137,7 @@ export function connectionToWizardData(conn: Connection): ProviderWizardData {
           ? resolveGcpAuthMethod(conn)
           : platform === "azure"
             ? resolveAzureAuthMethod(conn)
-            : platform === "m365"
-              ? resolveM365AuthMethod(conn)
-              : platform === "kubernetes"
+            : platform === "kubernetes"
                 ? "kubeconfig"
                 : "credentials",
     role_arn: conn.role_arn || "",
@@ -166,11 +147,9 @@ export function connectionToWizardData(conn: Connection): ProviderWizardData {
     aws_account_id: conn.aws_account_id || "",
     project: conn.project || "",
     subscription: conn.subscription || "",
-    m365_domain: conn.m365_domain || "",
     azure_tenant_id: conn.azure_tenant_id || "",
     azure_client_id: conn.azure_client_id || "",
     azure_client_secret: "",
-    azure_client_certificate_content: "",
     gcp_service_account_json: "",
     k8s_context: conn.k8s_context || "",
     kubeconfig_content: "",
@@ -184,7 +163,6 @@ export function wizardDataToConnection(
     omitEmptySessionToken?: boolean;
     omitEmptyGcpKey?: boolean;
     omitEmptyAzureSecret?: boolean;
-    omitEmptyAzureCertificate?: boolean;
     omitEmptyKubeconfig?: boolean;
   },
 ): Omit<Connection, "id" | "created_at" | "last_tested_at" | "last_test_ok"> {
@@ -207,17 +185,12 @@ export function wizardDataToConnection(
             : "service_account"
           : platform === "azure"
             ? "service_principal"
-            : platform === "m365"
-              ? data.auth_method === "certificate"
-                ? "certificate"
-                : "client_secret"
-              : platform === "kubernetes"
+            : platform === "kubernetes"
                 ? "kubeconfig"
                 : "default",
     aws_account_id: data.aws_account_id.trim(),
     project: data.project.trim(),
     subscription: data.subscription.trim(),
-    m365_domain: data.m365_domain.trim(),
     azure_tenant_id: data.azure_tenant_id.trim(),
     azure_client_id: data.azure_client_id.trim(),
   };
@@ -261,18 +234,10 @@ export function wizardDataToConnection(
     }
   }
 
-  if (platform === "azure" || platform === "m365") {
-    if (platform === "azure" || data.auth_method === "client_secret") {
-      const azureSecret = data.azure_client_secret.trim();
-      if (azureSecret || !options?.omitEmptyAzureSecret) {
-        payload.azure_client_secret = azureSecret;
-      }
-    }
-    if (platform === "m365" && data.auth_method === "certificate") {
-      const cert = data.azure_client_certificate_content.trim();
-      if (cert || !options?.omitEmptyAzureCertificate) {
-        payload.azure_client_certificate_content = cert;
-      }
+  if (platform === "azure") {
+    const azureSecret = data.azure_client_secret.trim();
+    if (azureSecret || !options?.omitEmptyAzureSecret) {
+      payload.azure_client_secret = azureSecret;
     }
   }
 
@@ -329,7 +294,6 @@ const SHORT_PLATFORM_LABELS: Record<string, string> = {
   aws: "AWS",
   gcp: "GCP",
   azure: "Azure",
-  m365: "M365",
   kubernetes: "Kubernetes",
 };
 

@@ -16,8 +16,8 @@ import { createPortal } from "react-dom";
 type Props = {
   open: boolean;
   onClose: () => void;
-  /** Acquire tabs plus legacy M365 kits that still open this dialog. */
-  cloud: AcquirePlatform | "m365";
+  /** Acquire platform whose permission model this dialog explains. */
+  cloud: AcquirePlatform;
   actions: string[];
   actionCount: number;
   implicitCount: number;

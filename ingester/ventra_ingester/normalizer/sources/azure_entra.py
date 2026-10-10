@@ -1,4 +1,4 @@
-"""Entra ID sign-in and audit logs → unified events."""
+"""Entra ID sign-in, directory audit, and OAuth consent grants → unified events."""
 
 from __future__ import annotations
 
@@ -80,5 +80,40 @@ def normalize_entra_audit(records: list[dict], ctx: NormalizeContext) -> Iterato
             message=f"{action}: {target_name}" if target_name else action,
             case_id=ctx.case_id,
             ventra_source="entra_audit",
+            raw=rec,
+        )
+
+
+@register("oauth_consent")
+def normalize_oauth_consent(records: list[dict], ctx: NormalizeContext) -> Iterator[UnifiedEvent]:
+    for rec in records:
+        client = rec.get("clientId") or ""
+        principal = rec.get("principalId") or ""
+        consent_type = rec.get("consentType") or ""
+        scope = (rec.get("scope") or "").strip()
+        who = principal or ("all users" if consent_type.lower() == "allprincipals" else "")
+        yield UnifiedEvent(
+            timestamp="",
+            event_kind="finding",
+            event_category=["identity", "persistence"],
+            event_action="oauth2-permission-grant",
+            event_outcome="unknown",
+            event_severity="medium",
+            event_provider="oauth_consent",
+            cloud_provider="azure",
+            cloud_account=ctx.account_id,
+            cloud_service="entra",
+            user_id=principal,
+            resource_id=client,
+            resource_arn=client,
+            related_user=[principal] if principal else [],
+            related_resource=[r for r in (client, rec.get("resourceId") or "") if r],
+            message=(
+                f"OAuth grant to app {client}"
+                + (f" for {who}" if who else "")
+                + (f": {scope}" if scope else "")
+            ),
+            case_id=ctx.case_id,
+            ventra_source="oauth_consent",
             raw=rec,
         )

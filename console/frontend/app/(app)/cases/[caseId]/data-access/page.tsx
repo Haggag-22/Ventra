@@ -1,20 +1,36 @@
 "use client";
 
 import { useCase } from "@/components/case-context";
+import { CloudTrailTable } from "@/components/cloudtrail-table";
 import { DataTable, type DataColumn } from "@/components/data-table";
 import { PanelBody, PanelHeader } from "@/components/panel";
 import { Entity } from "@/components/pivot";
+import { nextSort, type SortState } from "@/components/sort-header";
 import { StatCard } from "@/components/stat";
+import { TablePager } from "@/components/table-pager";
 import { Card, CardHeader, EmptyState, LoadingPanel } from "@/components/ui";
 import { api } from "@/lib/api";
-import { caseCloud } from "@/lib/cloud-sources";
+import { caseCloud, dataAccessSources } from "@/lib/cloud-sources";
+import type { CloudTrailColKey } from "@/lib/cloudtrail-columns";
 import { DATA_ACCESS_COPY, dataAccessSourceLabel } from "@/lib/data-access-copy";
 import { fmtBytes, fmtNum } from "@/lib/format";
+import { usePagination } from "@/lib/pagination";
 import { panelLabel } from "@/lib/panel-labels";
 import type { DataAccessResponse } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { useQuery } from "@tanstack/react-query";
-import { Database, Download, FileSearch, Globe2, UserRound } from "lucide-react";
+import { keepPreviousData, useQuery } from "@tanstack/react-query";
+import { Database, Download, FileSearch, Globe2, ScrollText, Search, UserRound } from "lucide-react";
+import { useCallback, useMemo, useState } from "react";
+
+const ACCESS_LOG_COLS: CloudTrailColKey[] = [
+  "timestamp",
+  "event_action",
+  "message",
+  "user_name",
+  "source_ip",
+  "cloud_region",
+  "cloud_service",
+];
 
 // Operation classes, ordered by IR weight: destruction → modification → exfil → recon.
 const OP_META: Record<string, { label: string; tone: string }> = {
@@ -29,6 +45,86 @@ const OP_ORDER = ["delete", "write", "read", "list", "other"];
 type ObjectRow = DataAccessResponse["top_objects"][number];
 type PrincipalRow = DataAccessResponse["top_principals"][number];
 type IpRow = DataAccessResponse["top_ips"][number];
+
+function AccessEventLog({ caseId, cloud }: { caseId: string; cloud: ReturnType<typeof caseCloud> }) {
+  const sources = dataAccessSources(cloud);
+  const [q, setQ] = useState("");
+  const [sort, setSort] = useState<SortState>({ key: "timestamp", dir: "desc" });
+  const { page, setPage, pageSize, setPageSize } = usePagination("ventra.data-access.events.page-size");
+  const handleSort = useCallback(
+    (field: string) => {
+      setSort((prev) => nextSort(prev, field));
+      setPage(0);
+    },
+    [setPage],
+  );
+  const params = useMemo(
+    () => ({
+      source: sources,
+      q: q || undefined,
+      sort: sort.key,
+      order: sort.dir,
+    }),
+    [sources, q, sort],
+  );
+  const eventsQ = useQuery({
+    queryKey: ["data-access-events", caseId, params, page, pageSize],
+    queryFn: () =>
+      api.events(caseId, { ...params, limit: pageSize, offset: page * pageSize }),
+    placeholderData: keepPreviousData,
+  });
+  const matched = eventsQ.data?.total ?? 0;
+
+  return (
+    <div className="cloudtrail-view">
+      <div className="mb-3 flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h2 className="flex items-center gap-2 text-sm font-semibold text-fg">
+            <ScrollText className="h-4 w-4 text-fg-subtle" />
+            Access log
+          </h2>
+          <p className="mt-0.5 text-xs text-fg-subtle">
+            Storage access and Key Vault audit events, one row each
+          </p>
+        </div>
+        <span className="mono text-xs text-fg-subtle">{fmtNum(matched)} events</span>
+      </div>
+      <div className="ct-panel">
+        <div className="ct-filter-bar border-b border-border/60 px-3 py-2">
+          <div className="ct-filter-controls">
+            <div className="ct-search-wrap">
+              <Search className="ct-search-icon" aria-hidden />
+              <input
+                value={q}
+                onChange={(e) => {
+                  setQ(e.target.value);
+                  setPage(0);
+                }}
+                placeholder="Search operations, objects, principals, IPs…"
+                className="ct-input ct-input-full ct-input-search"
+              />
+            </div>
+          </div>
+        </div>
+        <CloudTrailTable
+          events={eventsQ.data?.events ?? []}
+          loading={eventsQ.isPending && !eventsQ.data}
+          sort={sort}
+          onSort={handleSort}
+          visibleColumns={ACCESS_LOG_COLS}
+        />
+        <TablePager
+          page={page}
+          pageSize={pageSize}
+          total={matched}
+          shown={eventsQ.data?.events.length ?? 0}
+          onPageChange={setPage}
+          onPageSizeChange={setPageSize}
+        />
+      </div>
+    </div>
+  );
+}
 
 function ErrorCount({ value }: { value: number }) {
   return value > 0 ? (
@@ -206,6 +302,8 @@ export default function DataAccessPage() {
             />
           </Card>
         </div>
+
+        <AccessEventLog caseId={caseId} cloud={cloud} />
       </PanelBody>
     </>
   );

@@ -63,15 +63,12 @@ AZURE = {
     "entra_signin": ("03341-icon-service-Entra-Identity-Risky-Signins.svg", "security"),
     "front_door": ("10073-icon-service-Front-Door-and-CDN-Profiles.svg", "networking"),
     "key_vault": ("10245-icon-service-Key-Vaults.svg", "security"),
-    "log_analytics": ("00009-icon-service-Log-Analytics-Workspaces.svg", "analytics"),
     "nsg_flow": ("10067-icon-service-Network-Security-Groups.svg", "networking"),
     "oauth_consent": ("10232-icon-service-App-Registrations.svg", "identity"),
     "rbac": ("10340-icon-service-Entra-Identity-Roles-and-Administrators.svg", "identity"),
     "resource_graph": ("10318-icon-service-Resource-Graph-Explorer.svg", None),
     "storage_access": ("10086-icon-service-Storage-Accounts.svg", "storage"),
     "subscription": ("10002-icon-service-Subscriptions.svg", "general"),
-    "unified_audit": ("02931-icon-service-Compliance-Center.svg", None),
-    "unified_audit_search": ("02931-icon-service-Compliance-Center.svg", None),
     "vnet_flow": ("10061-icon-service-Virtual-Networks.svg", "networking"),
 }
 
@@ -102,12 +99,6 @@ GCP = {
     "storage_access": "Cloud-Storage.svg",
     "vm_logs": "Compute-Engine.svg",
     "vpc_flow": "Virtual-Private-Cloud.svg",
-}
-
-M365 = {
-    "unified_audit": AZURE["unified_audit"],
-    "unified_audit_search": AZURE["unified_audit_search"],
-    "oauth_consent": AZURE["oauth_consent"],
 }
 
 # Official community icons (prefer unlabeled). Values are source filenames under K8S_ROOT/svg.
@@ -188,13 +179,6 @@ def main() -> int:
             copy_icon(src, OUT / "gcp" / f"{collector}.svg")
         except Exception as exc:
             missing.append(f"gcp/{collector}: {exc}")
-
-    for collector, (filename, prefer) in M365.items():
-        try:
-            src = find_named(AZURE_ROOT, filename, prefer)
-            copy_icon(src, OUT / "m365" / f"{collector}.svg")
-        except Exception as exc:
-            missing.append(f"m365/{collector}: {exc}")
 
     for collector, filename in KUBERNETES.items():
         try:

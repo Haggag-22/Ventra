@@ -17,7 +17,6 @@ import { useRef, useState } from "react";
 import { AwsPermissionScope } from "./aws-permission-scope";
 import { AzurePermissionScope } from "./azure-permission-scope";
 import { GcpPermissionScope } from "./gcp-permission-scope";
-import { M365PermissionScope } from "./m365-permission-scope";
 import { KubernetesPermissionScope } from "./kubernetes-permission-scope";
 import {
   validateAccessKeyId,
@@ -371,66 +370,6 @@ export function ProviderStepAuth({
 
       {platform === "gcp" && <GcpPermissionScope />}
 
-      {platform === "m365" && (
-        <div className="space-y-4">
-          <Field label="Tenant ID" required error={tenantErr}>
-            <Input
-              value={data.azure_tenant_id}
-              onChange={(e) => onChange({ azure_tenant_id: e.target.value })}
-              onBlur={() => markTouched("azure_tenant_id")}
-              placeholder="Enter the Tenant ID"
-              autoComplete="off"
-              className={cn(
-                "mono",
-                CREDENTIAL_INPUT_CLASS,
-                tenantErr && "border-bad-red/60 focus:border-bad-red",
-              )}
-            />
-          </Field>
-
-          <Field label="Client ID" required error={clientErr}>
-            <Input
-              value={data.azure_client_id}
-              onChange={(e) => onChange({ azure_client_id: e.target.value })}
-              onBlur={() => markTouched("azure_client_id")}
-              placeholder="Enter the Client ID"
-              autoComplete="off"
-              className={cn(
-                "mono",
-                CREDENTIAL_INPUT_CLASS,
-                clientErr && "border-bad-red/60 focus:border-bad-red",
-              )}
-            />
-          </Field>
-
-          {data.auth_method === "client_secret" ? (
-            <SecretField
-              label="Client Secret"
-              value={data.azure_client_secret}
-              onChange={(v) => onChange({ azure_client_secret: v })}
-              required={!editing}
-              editing={editing}
-              placeholder={editing ? "••••••••••••••••" : "Enter the Client Secret"}
-            />
-          ) : (
-            <Field label="Certificate Content" required={!editing}>
-              <textarea
-                value={data.azure_client_certificate_content}
-                onChange={(e) => onChange({ azure_client_certificate_content: e.target.value })}
-                rows={12}
-                spellCheck={false}
-                placeholder={
-                  editing
-                    ? "Leave blank to keep the saved certificate"
-                    : "Enter the base64 encoded certificate content"
-                }
-                className={LARGE_PASTE_TEXTAREA_CLASS}
-              />
-            </Field>
-          )}
-        </div>
-      )}
-
       {platform === "azure" && data.auth_method === "service_principal" && (
         <div className="space-y-4">
           <Field label="Tenant ID" required error={tenantErr}>
@@ -475,8 +414,6 @@ export function ProviderStepAuth({
       )}
 
       {platform === "azure" && <AzurePermissionScope />}
-
-      {platform === "m365" && <M365PermissionScope />}
 
       {platform === "kubernetes" && data.auth_method === "kubeconfig" && (
         <Field label="Kubeconfig Content" required={!editing} error={kubeconfigErr}>

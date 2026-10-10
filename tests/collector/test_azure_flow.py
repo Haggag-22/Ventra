@@ -111,6 +111,33 @@ def test_flatten_vnet_v4_tuple() -> None:
     assert "VIRTUALNETWORKS/prod-vnet" in r["resource_id"]
 
 
+def test_flatten_vnet_flowrecords_at_record_root() -> None:
+    """Azure's flowLogVersion 4 blob puts flowRecords on the record, not under properties."""
+    rec = {
+        "flowLogVersion": 4,
+        "targetResourceID": "/SUBSCRIPTIONS/S1/RESOURCEGROUPS/RG/PROVIDERS/MICROSOFT.NETWORK/VIRTUALNETWORKS/LAB",
+        "flowRecords": {
+            "flows": [
+                {
+                    "flowGroups": [
+                        {
+                            "rule": "DefaultRule",
+                            "flowTuples": [
+                                "1791098566059,10.0.0.4,10.0.0.5,23456,443,6,I,D,NX,1,40,0,0",
+                            ],
+                        }
+                    ],
+                }
+            ]
+        },
+    }
+    rows = list(flatten_vnet_record(rec))
+    assert len(rows) == 1
+    assert rows[0]["dstport"] == 443
+    assert rows[0]["action"] == "DENY"
+    assert rows[0]["resource_id"] == rec["targetResourceID"]
+
+
 # -- collectors --------------------------------------------------------------------------
 
 

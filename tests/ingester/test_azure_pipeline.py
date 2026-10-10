@@ -72,18 +72,6 @@ def test_azure_attack_story_present(azure_demo_case) -> None:
     nsg = con.execute(f"SELECT count(*) FROM '{path}' WHERE ventra_source='nsg_flow'").fetchone()[0]
     assert nsg >= 10
 
-    mail = con.execute(
-        f"SELECT count(*) FROM '{path}' WHERE ventra_source='unified_audit' "
-        "AND event_action='MailItemsAccessed'"
-    ).fetchone()[0]
-    assert mail >= 1
-
-    mail_search = con.execute(
-        f"SELECT count(*) FROM '{path}' WHERE ventra_source='unified_audit_search' "
-        "AND event_action='MailItemsAccessed'"
-    ).fetchone()[0]
-    assert mail_search >= 1
-
     appgw = con.execute(
         f"SELECT count(*) FROM '{path}' WHERE ventra_source='app_gateway' AND source_ip='203.0.113.66'"
     ).fetchone()[0]

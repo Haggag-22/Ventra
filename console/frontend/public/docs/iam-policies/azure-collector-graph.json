@@ -27,15 +27,9 @@
       "permission": "Application.Read.All",
       "collectors": ["entra_directory"],
       "notes": "Application and service principal inventory."
-    },
-    {
-      "permission": "ActivityFeed.Read",
-      "collectors": ["unified_audit"],
-      "notes": "Office 365 Management Activity API — recent Unified Audit Log (~7 days). Operator must enable audit log ingestion in M365 compliance center; Ventra does not enable feeds."
     }
   ],
   "Notes": [
-    "Assign the service principal Reader (or a custom role) on each in-scope subscription using docs/iam-policies/azure-collector-readonly.json.",
-    "For long-lookback M365 UAL (unified_audit_search), also assign Exchange Administrator and grant Exchange.ManageAsApp — see azure-collector-m365.json."
+    "Assign the service principal Reader (or a custom role) on each in-scope subscription using docs/iam-policies/azure-collector-readonly.json."
   ]
 }

@@ -40,6 +40,18 @@ function tagName(row: ResourceRow): string {
 }
 
 export const RESOURCE_COLUMNS: Record<string, ResourceColumn[]> = {
+  azure_subscriptions: [
+    col("display_name", "Name", (r) => str(r.display_name), { min: 180 }),
+    col("subscription_id", "Subscription", (r) => str(r.subscription_id), { mono: true, min: 280 }),
+    col("state", "State", (r) => str(r.state), { min: 100 }),
+    col("tenant_id", "Tenant", (r) => str(r.tenant_id), { mono: true, min: 280 }),
+  ],
+  arm_resources: [
+    col("name", "Name", (r) => str(r.name), { min: 180 }),
+    col("type", "Type", (r) => str(r.type), { mono: true, min: 280 }),
+    col("resourceGroup", "Resource group", (r) => str(r.resourceGroup), { min: 160 }),
+    col("location", "Location", (r) => str(r.location), { min: 110 }),
+  ],
   // --- On-prem Kubernetes -----------------------------------------------------------------
   // Rows come from the compact object index the ingester builds per kind, plus the derived
   // artefacts the collectors write (suspicious pods, images, RBAC verdicts).
@@ -423,6 +435,7 @@ export function resourcePrimaryId(item: InventoryResourceItem, row: ResourceRow)
     row.ImageId ??
     row.LaunchTemplateId ??
     row.FunctionName ??
+    row.display_name ??
     row.name ??
     row.pod ??
     row.binding ??

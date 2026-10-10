@@ -135,6 +135,7 @@ def build_kit(
     artifact_parameters: dict[str, dict[str, Any]] | None = None,
     transport: str = "",
     gcp_log_backend: dict[str, Any] | None = None,
+    azure_log_backend: dict[str, Any] | None = None,
     bundle_wheel: bool = True,
     require_wheel: bool = False,
     deployment_profile: str = "cloudshell",
@@ -196,6 +197,8 @@ def build_kit(
         acq["transport"] = transport_spec
     if collector_cloud == "gcp" and gcp_log_backend:
         acq["gcp_log_backend"] = dict(gcp_log_backend)
+    if collector_cloud == "azure" and azure_log_backend:
+        acq["azure_log_backend"] = dict(azure_log_backend)
 
     if connection:
         cred_meta = embed_connection_auth(staging, connection, acq)
@@ -239,6 +242,10 @@ def build_kit(
             from collector.engine.gcp_log_backend import apply_gcp_log_backend_iam
 
             wanted_actions = apply_gcp_log_backend_iam(wanted_actions, gcp_log_backend)
+        if collector_cloud == "azure" and azure_log_backend:
+            from collector.engine.azure_log_backend import apply_azure_log_backend_iam
+
+            wanted_actions = apply_azure_log_backend_iam(wanted_actions, azure_log_backend)
         _write_iam(staging / "iam", iam_policy_paths, wanted_actions)
 
     kit_id = str(uuid.uuid4())

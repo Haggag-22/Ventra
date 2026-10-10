@@ -11,8 +11,6 @@ EXPECTED = [
     "entra_directory",
     "activity_log",
     "rbac",
-    "unified_audit",
-    "unified_audit_search",
     "oauth_consent",
     "defender",
     "vnet_flow",
@@ -26,7 +24,6 @@ EXPECTED = [
     "aks_audit",
     "resource_graph",
     "diag_posture",
-    "log_analytics",
 ]
 
 

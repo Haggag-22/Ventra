@@ -13,7 +13,7 @@ import {
   Zap,
 } from "lucide-react";
 import type { ProviderWizardData } from "./types";
-import { awsAuthMethodLabel, azureAuthMethodLabel, gcpAuthMethodLabel, k8sAuthMethodLabel, m365AuthMethodLabel, platformLabel } from "./types";
+import { awsAuthMethodLabel, azureAuthMethodLabel, gcpAuthMethodLabel, k8sAuthMethodLabel, platformLabel } from "./types";
 
 export type ConnectionTestResult = {
   ok: boolean;
@@ -56,7 +56,7 @@ function primaryIdentity(
   if (r.arn) return { label: "Caller ARN", value: r.arn };
   if (platform === "gcp" && r.project_id) return { label: "Project", value: r.project_id };
   if (platform === "kubernetes" && r.context) return { label: "Context", value: r.context };
-  if ((platform === "azure" || platform === "m365") && r.tenant_id)
+  if (platform === "azure" && r.tenant_id)
     return { label: "Tenant", value: r.tenant_id };
   if (r.account_id) return { label: "Account", value: r.account_id };
   return null;
@@ -143,24 +143,6 @@ export function ProviderStepValidate({
               <SummaryRow label="Tenant ID" value={data.azure_tenant_id} />
               <SummaryRow label="Client ID" value={data.azure_client_id} />
               <SummaryRow label="Subscription" value={data.subscription} />
-            </>
-          )}
-          {platform === "m365" && (
-            <>
-              <SummaryRow label="Auth method" value={m365AuthMethodLabel(data.auth_method)} />
-              <SummaryRow label="Domain ID" value={data.m365_domain} />
-              <SummaryRow label="Tenant ID" value={data.azure_tenant_id} />
-              <SummaryRow label="Client ID" value={data.azure_client_id} />
-              {data.auth_method === "certificate" && (
-                <SummaryRow
-                  label="Certificate"
-                  value={
-                    data.azure_client_certificate_content.trim()
-                      ? "Provided"
-                      : "Saved certificate"
-                  }
-                />
-              )}
             </>
           )}
           {platform === "kubernetes" && (

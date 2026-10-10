@@ -1,10 +1,8 @@
-"""Acquire UI platform keys — separate from engine ``cloud`` where M365 collectors use Azure."""
+"""Acquire UI platform keys."""
 
 from __future__ import annotations
 
 from pathlib import Path
-
-M365_CATEGORY = "M365"
 
 ACQUIRE_PLATFORMS = frozenset({"aws", "azure", "gcp", "kubernetes"})
 
@@ -15,13 +13,12 @@ def collector_cloud_for_platform(platform: str) -> str:
 
 
 def artifact_matches_acquire_platform(art: dict, platform: str | None) -> bool:
-    """Filter artifact YAML rows for Acquire tabs (M365 collectors are hidden for now)."""
+    """Filter artifact YAML rows for Acquire tabs."""
     if not platform:
         return True
     p = platform.strip().lower()
-    cat = (art.get("category") or "").strip()
     art_cloud = (art.get("cloud") or "").strip().lower()
-    if cat == M365_CATEGORY or art.get("selectable") is False:
+    if art.get("selectable") is False:
         return False
     return art_cloud == p
 
