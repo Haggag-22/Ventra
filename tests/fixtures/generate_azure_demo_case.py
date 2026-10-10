@@ -1,4 +1,4 @@
-"""Generate a realistic synthetic Azure/M365 Ventra evidence package for demos and tests.
+"""Generate a realistic synthetic Azure Ventra evidence package for demos and tests.
 
 Techniques are mapped to the Azure Threat Research Matrix (ATRM):
 https://microsoft.github.io/Azure-Threat-Research-Matrix/
@@ -636,115 +636,6 @@ def build_nsg_flow() -> list[dict]:
     return out
 
 
-def build_unified_audit() -> list[dict]:
-    return [
-        {
-            "CreationTime": _t(780),
-            "Operation": "Consent to application.",
-            "Workload": "AzureActiveDirectory",
-            "UserId": VICTIM_USER,
-            "ClientIP": ATTACKER_IP,
-            "ResultStatus": "Success",
-            "ObjectId": MALICIOUS_APP_ID,
-            "OrganizationId": TENANT_ID,
-        },
-        {
-            "CreationTime": _t(900),
-            "Operation": "Add service principal credentials.",
-            "Workload": "AzureActiveDirectory",
-            "UserId": VICTIM_USER,
-            "ClientIP": ATTACKER_IP,
-            "ResultStatus": "Success",
-            "ObjectId": MALICIOUS_APP_ID,
-            "OrganizationId": TENANT_ID,
-        },
-        {
-            "CreationTime": _t(1130),
-            "Operation": "Add user.",
-            "Workload": "AzureActiveDirectory",
-            "UserId": VICTIM_USER,
-            "ClientIP": ATTACKER_IP2,
-            "ResultStatus": "Success",
-            "ObjectId": PERSIST_USER,
-            "OrganizationId": TENANT_ID,
-        },
-        {
-            "CreationTime": _t(1560),
-            "Operation": "MailItemsAccessed",
-            "Workload": "Exchange",
-            "UserId": VICTIM_USER,
-            "ClientIP": ATTACKER_IP2,
-            "ResultStatus": "Succeeded",
-            "ObjectId": "msg-customer-list-001",
-            "OrganizationId": TENANT_ID,
-        },
-        {
-            "CreationTime": _t(1620),
-            "Operation": "Send",
-            "Workload": "Exchange",
-            "UserId": VICTIM_USER,
-            "ClientIP": ATTACKER_IP2,
-            "ResultStatus": "Succeeded",
-            "ObjectId": "msg-exfil-draft",
-            "OrganizationId": TENANT_ID,
-        },
-    ]
-
-
-def build_unified_audit_search() -> list[dict]:
-    return [
-        {
-            "CreationTime": _t(1500),
-            "UserId": VICTIM_USER,
-            "Operation": "MailItemsAccessed",
-            "RecordType": 2,
-            "ClientIP": ATTACKER_IP2,
-            "ResultStatus": "Succeeded",
-            "Workload": "Exchange",
-            "OrganizationId": TENANT_ID,
-            "ObjectId": "mbx-finance-001",
-        },
-        {
-            "CreationTime": _t(2400),
-            "UserId": VICTIM_USER,
-            "Operation": "FileDownloaded",
-            "RecordType": 6,
-            "ClientIP": ATTACKER_IP,
-            "ResultStatus": "Succeeded",
-            "Workload": "SharePoint",
-            "OrganizationId": TENANT_ID,
-            "ObjectId": "https://contoso.sharepoint.com/sites/finance/export.zip",
-        },
-    ]
-
-
-def build_log_analytics() -> list[dict]:
-    la_ws = f"{RG}/providers/Microsoft.OperationalInsights/workspaces/prod-la"
-    return [
-        {
-            "TimeGenerated": _t(1700),
-            "ResourceId": APPGW,
-            "Category": "ApplicationGatewayAccessLog",
-            "clientIP_s": ATTACKER_IP,
-            "httpMethod_s": "GET",
-            "requestUri_s": "/finance/export.csv",
-            "httpStatus_d": 200,
-            "_ventra_la_source": "app_gateway",
-            "_ventra_la_workspace": la_ws,
-        },
-        {
-            "TimeGenerated": _t(1710),
-            "ResourceId": APPGW,
-            "Category": "ApplicationGatewayFirewallLog",
-            "clientIP_s": ATTACKER_IP,
-            "action_s": "BLOCK",
-            "ruleId_s": "942100",
-            "_ventra_la_source": "app_gateway",
-            "_ventra_la_workspace": la_ws,
-        },
-    ]
-
-
 def build_app_gateway() -> list[dict]:
     return [
         _diag(
@@ -1309,11 +1200,8 @@ def generate(out_dir: Path, case_id: str = "CASE-2026-AZ42") -> Path:
         defender = build_defender()
         vnet_flow = build_vnet_flow()
         nsg_flow = build_nsg_flow()
-        unified_audit = build_unified_audit()
-        unified_audit_search = build_unified_audit_search()
         oauth = build_oauth_consent()
         storage_access = build_storage_access()
-        log_analytics = build_log_analytics()
         app_gateway = build_app_gateway()
         front_door = build_front_door()
         dns = build_dns()
@@ -1419,37 +1307,6 @@ def generate(out_dir: Path, case_id: str = "CASE-2026-AZ42") -> Path:
             notes="NSG flow (legacy): port scan + exfil (ATRM AZT101/506).",
         )
         src(
-            "unified_audit",
-            [
-                ("events.jsonl.gz", _write_gz_jsonl(sd / "unified_audit/events.jsonl.gz", unified_audit)),
-                (
-                    "_meta.json",
-                    _write_json(
-                        sd / "unified_audit/_meta.json",
-                        {"source": "unified_audit", "records": len(unified_audit)},
-                    ),
-                ),
-            ],
-            notes="UAL: consent, persistence, mailbox access (ATRM AZT203/502).",
-        )
-        src(
-            "unified_audit_search",
-            [
-                (
-                    "events.jsonl.gz",
-                    _write_gz_jsonl(sd / "unified_audit_search/events.jsonl.gz", unified_audit_search),
-                ),
-                (
-                    "_meta.json",
-                    _write_json(
-                        sd / "unified_audit_search/_meta.json",
-                        {"source": "unified_audit_search", "records": len(unified_audit_search)},
-                    ),
-                ),
-            ],
-            notes="Search-UnifiedAuditLog: mail + SharePoint access.",
-        )
-        src(
             "oauth_consent",
             [
                 ("events.jsonl.gz", _write_gz_jsonl(sd / "oauth_consent/events.jsonl.gz", oauth)),
@@ -1468,20 +1325,6 @@ def generate(out_dir: Path, case_id: str = "CASE-2026-AZ42") -> Path:
                 ("events.jsonl.gz", _write_gz_jsonl(sd / "storage_access/events.jsonl.gz", storage_access)),
             ],
             notes="Blob reads via account key + OAuth (ATRM AZT605).",
-        )
-        src(
-            "log_analytics",
-            [
-                ("events.jsonl.gz", _write_gz_jsonl(sd / "log_analytics/events.jsonl.gz", log_analytics)),
-                (
-                    "_meta.json",
-                    _write_json(
-                        sd / "log_analytics/_meta.json",
-                        {"source": "log_analytics", "records": len(log_analytics)},
-                    ),
-                ),
-            ],
-            notes="App Gateway access + WAF from Log Analytics workspace.",
         )
         src(
             "app_gateway",

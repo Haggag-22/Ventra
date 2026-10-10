@@ -7,6 +7,7 @@ clusters without audit logging as Log-Coverage gaps. Does not run in-cluster.
 
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from collector.clouds.azure.client_factory import AzureAccessDenied, AzureServiceNotEnabled
@@ -16,9 +17,34 @@ from collector.lib.params import param_strings, scoped_window
 from collector.lib.scoping import matches_any
 
 from ..common.diagnostics import _container_for
-from ..common.storage_logs import read_log_records
+from ..common.storage_logs import read_log_records, resource_id_prefixes
 
 _AUDIT_CATEGORIES = {"kube-audit", "kube-audit-admin"}
+
+
+def _as_audit_event(rec: dict[str, Any]) -> dict[str, Any]:
+    """Return the kube-audit event inside a diagnostic envelope, or ``rec`` itself.
+
+    Storage diagnostic blobs wrap each audit line as ``properties.log``, a JSON string
+    of the Kubernetes audit object the normalizer expects.
+    """
+    props = rec.get("properties")
+    if not isinstance(props, dict):
+        return rec
+    log = props.get("log")
+    if not isinstance(log, str):
+        return rec
+    try:
+        inner = json.loads(log)
+    except json.JSONDecodeError:
+        return rec
+    if not isinstance(inner, dict):
+        return rec
+    out = dict(inner)
+    for key in ("_ventra_cluster", "_ventra_resource_id"):
+        if rec.get(key) and key not in out:
+            out[key] = rec[key]
+    return out
 
 
 def _audit_routed(settings: list[dict[str, Any]]) -> list[tuple[str, str]]:
@@ -28,9 +54,13 @@ def _audit_routed(settings: list[dict[str, Any]]) -> list[tuple[str, str]]:
         storage_id = setting.get("storage_account_id") or ""
         if not storage_id:
             continue
-        for cat in setting.get("categories") or []:
-            if cat.lower() in _AUDIT_CATEGORIES:
-                out.append((storage_id, cat))
+        enabled = [cat for cat in (setting.get("categories") or []) if cat.lower() in _AUDIT_CATEGORIES]
+        groups = {str(group).lower() for group in (setting.get("category_groups") or [])}
+        if "alllogs" in groups:
+            seen = {cat.lower() for cat in enabled}
+            enabled.extend(cat for cat in _AUDIT_CATEGORIES if cat not in seen)
+        for cat in enabled:
+            out.append((storage_id, cat))
     return out
 
 
@@ -104,11 +134,11 @@ class AksAuditCollector(Collector):
                     try:
                         cc = cf.container_client(storage_id, _container_for(category))
                         for rec in read_log_records(
-                            cc, prefix=f"resourceId={rid.upper()}", start=start, end=end
+                            cc, prefixes=resource_id_prefixes(rid), start=start, end=end
                         ):
                             rec["_ventra_cluster"] = name
                             rec["_ventra_resource_id"] = rid
-                            records.append(rec)
+                            records.append(_as_audit_event(rec))
                     except AzureAccessDenied as exc:
                         gaps.append(("aks_audit", GapReason.ACCESS_DENIED, f"{name}: {exc.message}"))
                     except AzureServiceNotEnabled:

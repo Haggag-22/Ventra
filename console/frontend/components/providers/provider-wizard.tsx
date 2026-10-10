@@ -47,7 +47,6 @@ function scopeComplete(data: ProviderWizardData): boolean {
     const sub = data.subscription.trim();
     if (!sub || validateGuid(sub, "Subscription")) return false;
   }
-  if (platform === "m365" && !data.m365_domain.trim()) return false;
   if (platform === "kubernetes" && !data.k8s_context.trim()) return false;
   return true;
 }
@@ -82,19 +81,6 @@ function azureAuthComplete(data: ProviderWizardData, connectionId?: string | nul
   return true;
 }
 
-function m365AuthComplete(data: ProviderWizardData, connectionId?: string | null): boolean {
-  const tenant = data.azure_tenant_id.trim();
-  const client = data.azure_client_id.trim();
-  if (!tenant || validateGuid(tenant, "Tenant")) return false;
-  if (!client || validateGuid(client, "Client")) return false;
-  if (data.auth_method === "certificate") {
-    if (!connectionId && !data.azure_client_certificate_content.trim()) return false;
-  } else if (!connectionId && !data.azure_client_secret.trim()) {
-    return false;
-  }
-  return true;
-}
-
 function k8sAuthComplete(data: ProviderWizardData, connectionId?: string | null): boolean {
   const kubeconfig = data.kubeconfig_content.trim();
   if (!connectionId && !kubeconfig) return false;
@@ -110,7 +96,6 @@ function wizardComplete(data: ProviderWizardData, connectionId?: string | null):
   if (data.platform === "aws" && !awsAuthComplete(data, connectionId)) return false;
   if (data.platform === "gcp" && !gcpAuthComplete(data, connectionId)) return false;
   if (data.platform === "azure" && !azureAuthComplete(data, connectionId)) return false;
-  if (data.platform === "m365" && !m365AuthComplete(data, connectionId)) return false;
   if (data.platform === "kubernetes" && !k8sAuthComplete(data, connectionId)) return false;
   return true;
 }
@@ -121,7 +106,6 @@ function authMethodSelected(data: ProviderWizardData): boolean {
   if (platform === "aws") return auth_method === "assume_role" || auth_method === "credentials";
   if (platform === "gcp") return auth_method === "service_account" || auth_method === "adc";
   if (platform === "azure") return auth_method === "service_principal";
-  if (platform === "m365") return auth_method === "client_secret" || auth_method === "certificate";
   if (platform === "kubernetes") return auth_method === "kubeconfig";
   return false;
 }
@@ -130,7 +114,6 @@ function authCredentialsComplete(data: ProviderWizardData, connectionId?: string
   if (data.platform === "aws") return awsAuthComplete(data, connectionId);
   if (data.platform === "gcp") return gcpAuthComplete(data, connectionId);
   if (data.platform === "azure") return azureAuthComplete(data, connectionId);
-  if (data.platform === "m365") return m365AuthComplete(data, connectionId);
   if (data.platform === "kubernetes") return k8sAuthComplete(data, connectionId);
   return true;
 }
@@ -232,7 +215,6 @@ export function ProviderWizard({
       omitEmptySessionToken: Boolean(connectionId),
       omitEmptyGcpKey: Boolean(connectionId),
       omitEmptyAzureSecret: Boolean(connectionId),
-      omitEmptyAzureCertificate: Boolean(connectionId),
       omitEmptyKubeconfig: Boolean(connectionId),
     });
     if (connectionId) {

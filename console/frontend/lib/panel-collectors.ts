@@ -172,7 +172,6 @@ const PANEL_COLLECTORS_AZURE: Record<PanelId, PanelCollectorDef> = {
       { id: "vnet_flow", note: "VNet flow records" },
       { id: "nsg_flow", note: "NSG flow records (legacy)" },
       { id: "azure_firewall", note: "firewall application/network rules" },
-      { id: "log_analytics", note: "LA-routed firewall / flow diagnostics" },
     ],
   },
   web: {
@@ -181,7 +180,6 @@ const PANEL_COLLECTORS_AZURE: Record<PanelId, PanelCollectorDef> = {
       { id: "app_gateway", note: "Application Gateway access + WAF" },
       { id: "front_door", note: "Front Door access + WAF" },
       { id: "dns", note: "DNS query logs" },
-      { id: "log_analytics", note: "LA-routed App Gateway / Front Door / DNS" },
     ],
   },
   "kubernetes-audit": {
@@ -193,7 +191,6 @@ const PANEL_COLLECTORS_AZURE: Record<PanelId, PanelCollectorDef> = {
     collectors: [
       { id: "storage_access", note: "storage read/write/delete" },
       { id: "key_vault", note: "Key Vault audit events" },
-      { id: "log_analytics", note: "LA-routed storage / Key Vault diagnostics" },
     ],
   },
   collection: {

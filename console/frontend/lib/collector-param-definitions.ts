@@ -25,6 +25,8 @@ export interface ParamFieldDef {
     key: string;
     values: string[];
   };
+  /** Rendered in the CloudTrail source panel instead of the collector row. */
+  sourcePanel?: boolean;
 }
 
 export type ParamValueMap = Record<string, string | string[] | boolean | undefined>;
@@ -44,9 +46,14 @@ export function isParamFieldVisible(
   let current = paramStringValue(values, field.visibleWhen.key);
   if (!current && field.visibleWhen.key === "collection_source") {
     const sourceField = allFields?.find((f) => f.key === "collection_source");
-    current = sourceField?.defaultValue || "trail";
+    if (!sourceField?.defaultValue) return false;
+    current = sourceField.defaultValue;
   }
   return field.visibleWhen.values.includes(current);
+}
+
+export function inlineParamFields(fields: ParamFieldDef[]): ParamFieldDef[] {
+  return fields.filter((field) => !field.sourcePanel);
 }
 
 export function visibleParamFields(
@@ -366,7 +373,7 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
       key: "collection_source",
       label: "Collection source",
       type: "select",
-      defaultValue: "trail",
+      sourcePanel: true,
       description:
         "Where to pull CloudTrail events from. Trail uses discovered trails and their S3 delivery buckets. Bucket reads log files directly from the S3 buckets you specify. Lookup events uses the CloudTrail Event History API (about 90 days, no S3 access required).",
       options: [
@@ -392,6 +399,7 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
       label: "Trail ARNs",
       type: "list",
       visibleWhen: { key: "collection_source", values: ["trail"] },
+      sourcePanel: true,
       description:
         "CloudTrail trail ARNs to collect from. Use when you know the exact trail resource in the account or organization.",
     },
@@ -400,6 +408,7 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
       label: "Trail names",
       type: "list",
       visibleWhen: { key: "collection_source", values: ["trail"] },
+      sourcePanel: true,
       description: "Trail name as shown in the CloudTrail console. Matches trails in the current account or region scope.",
     },
     {
@@ -407,6 +416,7 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
       label: "S3 bucket names",
       type: "list",
       visibleWhen: { key: "collection_source", values: ["bucket"] },
+      sourcePanel: true,
       description: "S3 buckets where CloudTrail log files are stored. Required when collecting directly from bucket delivery storage.",
     },
     {
@@ -414,6 +424,7 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
       label: "S3 prefixes",
       type: "list",
       visibleWhen: { key: "collection_source", values: ["bucket"] },
+      sourcePanel: true,
       description: "S3 key prefix under the delivery bucket where trail objects are stored (e.g. AWSLogs/123456789012/CloudTrail/).",
     },
     {
@@ -909,20 +920,6 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
       description: "Backend service names with Cloud CDN enabled to filter cache request logs.",
     },
   ],
-  log_analytics: [
-    {
-      key: "workspace_ids",
-      label: "Workspace IDs",
-      type: "list",
-      description: "Log Analytics workspace resource IDs to query tables and saved searches from.",
-    },
-    {
-      key: "resource_ids",
-      label: "Resource IDs",
-      type: "list",
-      description: "Azure resource IDs linked to Log Analytics data sources to scope queries.",
-    },
-  ],
   login_events: [
     {
       key: "principal_email",
@@ -1267,52 +1264,6 @@ export const COLLECTOR_PARAM_SCHEMAS: Record<string, ParamFieldDef[]> = {
       label: "Principal email",
       type: "list",
       description: "Email or service account that accessed Secret Manager secrets.",
-    },
-  ],
-  unified_audit: [
-    {
-      key: "content_types",
-      label: "Content types",
-      type: "list",
-      description: "Microsoft 365 Unified Audit Log content types / workloads to include (e.g. Exchange, SharePoint, AzureActiveDirectory).",
-    },
-    {
-      key: "users",
-      label: "Users",
-      type: "list",
-      description: "User principal names or IDs to filter Unified Audit Log records.",
-    },
-    {
-      key: "operations",
-      label: "Operations",
-      type: "list",
-      description: "Audit operation names to filter on (e.g. FileDownloaded, MailItemsAccessed).",
-    },
-  ],
-  unified_audit_search: [
-    {
-      key: "users",
-      label: "Users",
-      type: "list",
-      description: "User principal names or IDs for targeted Unified Audit Log search.",
-    },
-    {
-      key: "operations",
-      label: "Operations",
-      type: "list",
-      description: "Audit operation names to include in search results.",
-    },
-    {
-      key: "record_types",
-      label: "Record types",
-      type: "list",
-      description: "Unified Audit Log record type values to filter search results.",
-    },
-    {
-      key: "ip_addresses",
-      label: "IP addresses",
-      type: "list",
-      description: "Client IP addresses recorded in audit records for compromise or exfiltration investigations.",
     },
   ],
   vm_logs: [

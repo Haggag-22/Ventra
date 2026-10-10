@@ -3,7 +3,7 @@ export PYTHONDONTWRITEBYTECODE := 1
 
 UV ?= uv
 
-.PHONY: help install dev-setup demo demo-azure demo-gcp demo-kubernetes aws-lab-deploy aws-lab-seed aws-lab-destroy ingest ingest-azure ingest-gcp ingest-kubernetes backend frontend dev gui test lint readonly-guard validate-artifacts generate-catalog clean clean-pycache ensure-no-pycache install-hooks
+.PHONY: help install dev-setup demo demo-azure demo-gcp demo-kubernetes aws-lab-deploy aws-lab-seed aws-lab-destroy azure-lab-deploy azure-lab-generate azure-lab-simulate azure-lab-destroy ingest ingest-azure ingest-gcp ingest-kubernetes backend frontend dev gui test lint readonly-guard validate-artifacts generate-catalog clean clean-pycache ensure-no-pycache install-hooks
 
 help:
 	@echo "Ventra targets:"
@@ -15,6 +15,10 @@ help:
 	@echo "  make aws-lab-deploy Deploy live AWS collector lab (terraform)"
 	@echo "  make aws-lab-seed   Seed attack story activity in the lab"
 	@echo "  make aws-lab-destroy Tear down AWS collector lab"
+	@echo "  make azure-lab-deploy Deploy live Azure collector lab (terraform)"
+	@echo "  make azure-lab-generate Generate normal Azure lab traffic"
+	@echo "  make azure-lab-simulate Run safe Azure simulations (VENTRA_SIM_CONFIRM=YES)"
+	@echo "  make azure-lab-destroy Tear down Azure collector lab"
 	@echo "  make ingest         Ingest the AWS demo package into ./cases"
 	@echo "  make ingest-azure   Ingest the Azure demo package into ./cases"
 	@echo "  make ingest-gcp     Ingest the GCP demo package into ./cases"
@@ -68,6 +72,18 @@ aws-lab-seed:
 
 aws-lab-destroy:
 	cd docs/deployment/aws/collector-lab/terraform && terraform destroy -input=false -auto-approve
+
+azure-lab-deploy:
+	cd infrastructure/azure && terraform init -input=false && terraform apply -input=false
+
+azure-lab-generate:
+	./infrastructure/scripts/azure/generate.sh
+
+azure-lab-simulate:
+	./infrastructure/scripts/azure/simulate.sh
+
+azure-lab-destroy:
+	cd infrastructure/azure && terraform destroy -input=false
 
 ingest:
 	PYTHONPATH=$(CURDIR):$(CURDIR)/ingester $(UV) run ventra-ingest tests/fixtures/case-CASE-2026-0042-*.tar.zst --case-store ./cases

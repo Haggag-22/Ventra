@@ -1,5 +1,6 @@
 import type { ParamValues } from "@/components/acquire-param-fields";
 import { serializeParamValues } from "@/components/acquire-param-fields";
+import { cartNeedsCloudtrailSource } from "@/lib/cloudtrail-source";
 import type { AcquisitionBuild, CollectionProfile } from "@/lib/api";
 import { artifactParamsFromProfile } from "@/lib/artifact-params";
 import { collectorParamSchema } from "@/lib/collector-param-definitions";
@@ -10,6 +11,13 @@ import {
   isPlatformProfile,
   type DeploymentProfile,
 } from "@/lib/deployment-profiles";
+import {
+  DEFAULT_AZURE_LOG_BACKEND_FORM,
+  azureConfigToForm,
+  cartNeedsAzureLogBackend,
+  serializeAzureLogBackend,
+  type AzureLogBackendFormState,
+} from "@/lib/azure-log-backend";
 import {
   DEFAULT_GCP_LOG_BACKEND_FORM,
   gcpConfigToForm,
@@ -39,6 +47,8 @@ export type KitRunScopeState = {
   awsProfile: string;
   maxRecordsPerSource: string;
   gcpLogBackend: GcpLogBackendFormState;
+  azureLogBackend: AzureLogBackendFormState;
+  cloudtrailParams: ParamValues;
 };
 
 export function scopeStateFromProfile(profile: CollectionProfile): KitRunScopeState {
@@ -56,6 +66,8 @@ export function scopeStateFromProfile(profile: CollectionProfile): KitRunScopeSt
     gcpLogBackend: profile.gcp_log_backend
       ? gcpConfigToForm(profile.gcp_log_backend)
       : { ...DEFAULT_GCP_LOG_BACKEND_FORM },
+    azureLogBackend: azureConfigToForm(profile.azure_log_backend),
+    cloudtrailParams: artifactParamsFromProfile(profile.artifact_parameters).cloudtrail ?? {},
   };
 }
 
@@ -105,6 +117,7 @@ export function buildRequestBody(
   maxRecordsPerSource: string,
   transport?: string,
   gcpLogBackend?: GcpLogBackendFormState,
+  azureLogBackend?: AzureLogBackendFormState,
 ): AcquisitionBuild {
   const regionList = regions
     .split(",")
@@ -138,6 +151,10 @@ export function buildRequestBody(
     transport: transport?.trim() || undefined,
     gcp_log_backend:
       platform === "gcp" ? serializeGcpLogBackend(gcpLogBackend ?? DEFAULT_GCP_LOG_BACKEND_FORM) : undefined,
+    azure_log_backend:
+      platform === "azure" && cartNeedsAzureLogBackend(collectors)
+        ? serializeAzureLogBackend(azureLogBackend ?? DEFAULT_AZURE_LOG_BACKEND_FORM)
+        : undefined,
     bundle_wheel: true,
     require_wheel: true,
   };
@@ -183,13 +200,46 @@ export function buildKitDownloadRequest(
   };
 }
 
+const CLOUDTRAIL_SOURCE_KEYS = [
+  "collection_source",
+  "trail_arns",
+  "trail_names",
+  "s3_bucket_names",
+  "s3_prefixes",
+] as const;
+
+function mergeCloudtrailSource(
+  platform: string,
+  collectors: string[],
+  current: Record<string, Record<string, unknown>> | undefined,
+  cloudtrailParams: ParamValues | undefined,
+): Record<string, Record<string, unknown>> | undefined {
+  if (platform !== "aws" || !cartNeedsCloudtrailSource(collectors)) return current;
+  const serialized = serializeParamValues(
+    cloudtrailParams ?? {},
+    collectorParamSchema("cloudtrail", "aws"),
+  );
+  const existing = { ...(current?.cloudtrail ?? {}) };
+  for (const key of CLOUDTRAIL_SOURCE_KEYS) {
+    if (!(key in serialized)) delete existing[key];
+  }
+  return { ...(current ?? {}), cloudtrail: { ...existing, ...serialized } };
+}
+
 export function buildKitRunRequest(
   profile: CollectionProfile,
   caseId: string,
   scope: KitRunScopeState,
 ): AcquisitionBuild {
   const platform = profile.cloud.toLowerCase();
-  const usesAzureAuth = platform === "azure" || platform === "m365";
+  const usesAzureAuth = platform === "azure";
+  const artifactParameters = mergeCloudtrailSource(
+    platform,
+    profile.artifacts ?? [],
+    normalizeArtifactParameters(profile.artifacts ?? [], profile.artifact_parameters) ??
+      profile.artifact_parameters,
+    scope.cloudtrailParams,
+  );
   const regionList = scope.regions
     .split(",")
     .map((r) => r.trim())
@@ -197,9 +247,7 @@ export function buildKitRunRequest(
   return {
     ...profileToRunBody(profile),
     case_id: normalizeCaseId(caseId),
-    artifact_parameters:
-      normalizeArtifactParameters(profile.artifacts ?? [], profile.artifact_parameters) ??
-      profile.artifact_parameters,
+    artifact_parameters: artifactParameters,
     since: scope.since.trim() || undefined,
     until: scope.until.trim() || undefined,
     regions: regionList.length ? regionList : undefined,
@@ -211,6 +259,10 @@ export function buildKitRunRequest(
     max_records_per_source: parseMaxRecords(scope.maxRecordsPerSource),
     gcp_log_backend:
       platform === "gcp" ? serializeGcpLogBackend(scope.gcpLogBackend) : undefined,
+    azure_log_backend:
+      platform === "azure" && cartNeedsAzureLogBackend(profile.artifacts ?? [])
+        ? serializeAzureLogBackend(scope.azureLogBackend)
+        : undefined,
     include_iam: true,
     deployment_profile: coerceDeploymentProfileForCloud(platform, profile.deployment_profile),
     bundle_wheel: true,

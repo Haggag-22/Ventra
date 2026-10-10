@@ -13,6 +13,7 @@ from collector.engine.api.azure.identity.rbac import RbacCollector
 from collector.engine.api.azure.identity.subscription import SubscriptionCollector
 from collector.engine.api.azure.network.azure_firewall import AzureFirewallCollector
 from collector.engine.api.azure.workloads.aks_audit import AksAuditCollector
+from collector.engine.api.azure.workloads.storage_access import StorageAccessCollector
 from collector.lib.models import CollectionContext, GapReason, SourceStatus, TimeWindow
 
 
@@ -175,6 +176,30 @@ def test_azure_firewall_no_diagnostic_is_a_gap(tmp_path: Path) -> None:
     result = AzureFirewallCollector(_ctx(tmp_path, cf)).collect()
     assert result.record_count == 0
     assert any(g[1] == GapReason.LOGGING_NOT_CONFIGURED for g in result.gaps)
+
+
+def test_storage_access_discovers_blob_service_diagnostics(tmp_path: Path) -> None:
+    rid = "/subscriptions/sub-1/resourceGroups/rg/providers/Microsoft.Storage/storageAccounts/app"
+    blob_service_id = f"{rid}/blobServices/default"
+    cf = _FakeCf(
+        resources={"sub-1": [{"id": rid, "name": "app"}]},
+        diagnostics={
+            rid: [{"storage_account_id": "metrics-only", "categories": []}],
+            blob_service_id: [{"storage_account_id": "sa1", "categories": ["StorageRead"]}],
+        },
+        blobs={
+            ("sa1", "insights-logs-storageread"): [
+                {
+                    "time": "2026-06-08T01:00:00Z",
+                    "operationName": "GetBlob",
+                    "statusCode": 200,
+                }
+            ]
+        },
+    )
+    result = StorageAccessCollector(_ctx(tmp_path, cf)).collect()
+    assert result.record_count == 1
+    assert result.status == SourceStatus.COLLECTED
 
 
 def test_aks_audit_disabled_is_a_gap(tmp_path: Path) -> None:

@@ -69,8 +69,8 @@ export const ACQUIRE_PLATFORM_LABELS: Record<AcquirePlatform, string> = {
 export const CASE_PLATFORM_LABELS: Record<CasePlatform, string> = { ...CLOUD_LABELS };
 
 /** Icon folder under ``public/icons/`` for artifact chips on the Acquire tab. */
-export function artifactIconCloud(platform: string): Cloud | "m365" {
-  return platform.toLowerCase() === "m365" ? "m365" : (platform.toLowerCase() as Cloud);
+export function artifactIconCloud(platform: string): Cloud {
+  return platform.toLowerCase() as Cloud;
 }
 
 export function isAcquirePlatform(value: string): value is AcquirePlatform {
@@ -98,8 +98,6 @@ export const EXTRA_COLLECTOR_LABELS: Record<string, string> = {
   resource_graph: "Resource Graph Inventory",
   diag_posture: "Diagnostic Posture",
   vnet_flow: "VNet Flow Logs",
-  unified_audit: "M365 Unified Audit Logs",
-  unified_audit_search: "M365 Unified Audit Search",
   oauth_consent: "OAuth Consent Grants",
   azure_firewall: "Azure Firewall Logs",
   app_gateway: "App Gateway Access Logs",
@@ -111,7 +109,6 @@ export const EXTRA_COLLECTOR_LABELS: Record<string, string> = {
   secret_manager: "Secret Manager Access Logs",
   key_vault: "Key Vault Audit Logs",
   aks_audit: "AKS Audit Logs",
-  log_analytics: "Log Analytics Diagnostics",
   gce: "GCE Inventory",
   logging_posture: "Logging Posture",
   network_posture: "Network Posture",
@@ -179,12 +176,9 @@ const AZURE: CatalogGroup[] = [
       { id: "entra_signin", label: "Entra ID sign-ins", description: "" },
       { id: "front_door", label: "Front Door access / WAF", description: "" },
       { id: "key_vault", label: "Key Vault audit", description: "" },
-      { id: "log_analytics", label: "Log Analytics (LA-routed diagnostics)", description: "" },
       { id: "nsg_flow", label: "NSG flow logs", description: "" },
       { id: "oauth_consent", label: "OAuth consent grants", description: "" },
       { id: "storage_access", label: "GCS Access Logs", description: "" },
-      { id: "unified_audit", label: "M365 Unified Audit Log", description: "" },
-      { id: "unified_audit_search", label: "M365 UAL (Search-UnifiedAuditLog)", description: "" },
       { id: "vnet_flow", label: "VNet flow logs", description: "" },
     ],
   },
@@ -252,13 +246,6 @@ const GCP: CatalogGroup[] = [
  *  component (control plane, node, API objects). */
 const KUBERNETES: CatalogGroup[] = [
   {
-    category: "ClusterState",
-    items: [
-      { id: "k8s_cluster_state", label: "Cluster Inventory", description: "" },
-      { id: "k8s_rbac", label: "RBAC Snapshot", description: "" },
-    ],
-  },
-  {
     category: "Audit",
     items: [
       { id: "k8s_apiserver_audit", label: "API-Server Audit Log", description: "" },
@@ -267,10 +254,17 @@ const KUBERNETES: CatalogGroup[] = [
     ],
   },
   {
+    category: "ClusterState",
+    items: [
+      { id: "k8s_cluster_state", label: "Cluster Inventory", description: "" },
+      { id: "k8s_rbac", label: "RBAC Snapshot", description: "" },
+    ],
+  },
+  {
     category: "Node",
     items: [
-      { id: "k8s_container_logs", label: "Container Logs", description: "" },
       { id: "k8s_cni_logs", label: "CNI Plugin Logs", description: "" },
+      { id: "k8s_container_logs", label: "Container Logs", description: "" },
       { id: "k8s_etcd", label: "Cluster Datastore (etcd / sqlite) + Posture", description: "" },
       { id: "k8s_kubelet_logs", label: "Kubelet / Node Agent Logs", description: "" },
       { id: "k8s_runtime_logs", label: "CRI Logs", description: "" },
@@ -314,6 +308,19 @@ export function compareCollectorCategories(a: string, b: string): number {
   };
   const diff = rank(a) - rank(b);
   return diff !== 0 ? diff : a.localeCompare(b);
+}
+
+/** Within a category: log collectors, then snapshots, then context / posture / inventory. */
+export function collectorKindRank(label: string): number {
+  const normalized = label.toLowerCase();
+  if (/\blogs?\b/.test(normalized)) return 0;
+  if (/\bsnapshot\b/.test(normalized)) return 1;
+  return 2;
+}
+
+export function compareCollectorsByKind(labelA: string, labelB: string): number {
+  const diff = collectorKindRank(labelA) - collectorKindRank(labelB);
+  return diff !== 0 ? diff : labelA.localeCompare(labelB);
 }
 
 export function catalogItemForId(cloud: Cloud, id: string): CatalogItem | undefined {

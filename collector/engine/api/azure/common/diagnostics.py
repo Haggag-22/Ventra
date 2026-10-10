@@ -20,11 +20,21 @@ from collector.lib.models import GapReason, SourceResult, SourceStatus
 from collector.lib.params import scoped_window
 from collector.lib.scoping import filter_azure_resources, filter_storage_access_records
 
-from .storage_logs import read_log_records
+from .storage_logs import read_log_records, resource_id_prefixes
 
 
 def _container_for(category: str) -> str:
     return f"insights-logs-{category.lower()}"
+
+
+def _enabled_categories(setting: dict, wanted: set[str]) -> list[str]:
+    """Categories this diagnostic setting actually delivers, including an allLogs group."""
+    enabled = [c for c in (setting.get("categories") or []) if str(c).lower() in wanted]
+    groups = {str(g).lower() for g in (setting.get("category_groups") or [])}
+    if "alllogs" in groups:
+        seen = {str(c).lower() for c in enabled}
+        enabled.extend(c for c in wanted if c not in seen)
+    return enabled
 
 
 def collect_diagnostic_logs(
@@ -35,6 +45,7 @@ def collect_diagnostic_logs(
     default_window_days: int = 7,
     name_param: str = "resource_ids",
     post_filter: bool = False,
+    diagnostic_resource_suffixes: list[str] | None = None,
 ) -> SourceResult:
     cf = collector.ctx.client_factory
     name = collector.name
@@ -58,13 +69,24 @@ def collect_diagnostic_logs(
         for res in resources:
             resource_count += 1
             rid = res["id"]
-            try:
-                settings = cf.diagnostic_settings(rid)
-            except AzureAccessDenied as exc:
-                gaps.append((name, GapReason.ACCESS_DENIED, f"{res['name']}: {exc.message}"))
+            diagnostic_ids = (
+                [f"{rid}{suffix}" for suffix in diagnostic_resource_suffixes]
+                if diagnostic_resource_suffixes
+                else [rid]
+            )
+            settings = []
+            settings_denied = False
+            for diagnostic_id in diagnostic_ids:
+                try:
+                    settings.extend(cf.diagnostic_settings(diagnostic_id))
+                except AzureAccessDenied as exc:
+                    gaps.append((name, GapReason.ACCESS_DENIED, f"{res['name']}: {exc.message}"))
+                    settings_denied = True
+                    break
+                except AzureServiceNotEnabled:
+                    continue
+            if settings_denied:
                 continue
-            except AzureServiceNotEnabled:
-                settings = []
 
             if not settings:
                 gaps.append(
@@ -80,8 +102,7 @@ def collect_diagnostic_logs(
                 (s["storage_account_id"], c)
                 for s in settings
                 if s.get("storage_account_id")
-                for c in (s.get("categories") or [])
-                if c.lower() in wanted
+                for c in _enabled_categories(s, wanted)
             ]
             if not storage_cats:
                 gaps.append(
@@ -98,7 +119,7 @@ def collect_diagnostic_logs(
             for storage_id, category in storage_cats:
                 try:
                     cc = cf.container_client(storage_id, _container_for(category))
-                    for rec in read_log_records(cc, prefix=f"resourceId={rid.upper()}", start=start, end=end):
+                    for rec in read_log_records(cc, prefixes=resource_id_prefixes(rid), start=start, end=end):
                         rec["_ventra_resource_id"] = rid
                         records.append(rec)
                 except AzureAccessDenied as exc:

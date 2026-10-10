@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from collector.engine.api.azure.control_plane.activity_log import ActivityLogCollector
 from collector.engine.api.azure.control_plane.diag_posture import DiagPostureCollector
-from collector.engine.api.azure.control_plane.log_analytics import LogAnalyticsCollector
 from collector.engine.api.azure.control_plane.resource_graph import ResourceGraphCollector
 from collector.engine.api.azure.detections.defender import DefenderCollector
 from collector.engine.api.azure.identity.entra_audit import EntraAuditCollector
@@ -13,8 +12,6 @@ from collector.engine.api.azure.identity.entra_signin import EntraSignInCollecto
 from collector.engine.api.azure.identity.oauth_consent import OAuthConsentCollector
 from collector.engine.api.azure.identity.rbac import RbacCollector
 from collector.engine.api.azure.identity.subscription import SubscriptionCollector
-from collector.engine.api.azure.m365.unified_audit import UnifiedAuditCollector
-from collector.engine.api.azure.m365.unified_audit_search import UnifiedAuditSearchCollector
 from collector.engine.api.azure.network.app_gateway import AppGatewayCollector
 from collector.engine.api.azure.network.azure_firewall import AzureFirewallCollector
 from collector.engine.api.azure.network.dns import DnsCollector
@@ -35,8 +32,6 @@ _COLLECTOR_CLASSES = (
     EntraDirectoryCollector,
     ActivityLogCollector,
     RbacCollector,
-    UnifiedAuditCollector,
-    UnifiedAuditSearchCollector,
     OAuthConsentCollector,
     DefenderCollector,
     VNetFlowCollector,
@@ -50,7 +45,6 @@ _COLLECTOR_CLASSES = (
     AksAuditCollector,
     ResourceGraphCollector,
     DiagPostureCollector,
-    LogAnalyticsCollector,
 )
 
 _registry: CollectorRegistry | None = None

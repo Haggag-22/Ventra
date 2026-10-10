@@ -48,7 +48,7 @@ export const FINDING_SOURCES: Record<Cloud, string[]> = {
 export const WEB_SOURCES: Record<Cloud, string[]> = {
   kubernetes: [],
   aws: ["elb_alb", "cloudfront", "waf", "route53_resolver"],
-  azure: ["app_gateway", "front_door", "dns", "log_analytics"],
+  azure: ["app_gateway", "front_door", "dns"],
   gcp: ["load_balancer", "cloud_cdn", "api_gateway", "cloud_dns", "cloud_armor"],
 };
 
@@ -72,7 +72,7 @@ export const DATA_ACCESS_SOURCES: Record<Cloud, string[]> = {
   // Secret reads are the data-access story in a cluster, and they live in the audit log.
   kubernetes: ["k8s_apiserver_audit", "k8s_etcd"],
   aws: ["s3_access", "cloudtrail"],
-  azure: ["storage_access", "key_vault", "log_analytics"],
+  azure: ["storage_access", "key_vault"],
   gcp: ["storage_access", "bigquery_audit", "cloud_sql", "secret_manager", "cloud_audit_data"],
 };
 

@@ -1,11 +1,11 @@
 """OAuth2 consent-grant collector — illicit-application persistence.
 
-Illicit OAuth consent is the dominant Entra/M365 persistence technique: an attacker tricks a
+Illicit OAuth consent is a common Entra persistence technique: an attacker tricks a
 user (or admin) into consenting to a malicious app, which then holds standing delegated access
-to mail and data without needing the user's password again. This collector enumerates the
-tenant's current ``oauth2PermissionGrants`` via Microsoft Graph so the analyst can spot
-suspicious apps and over-broad scopes. The *consent events* themselves are captured by the
-Entra audit + Unified Audit Log; this is the standing-grant inventory that complements them.
+without needing the user's password again. This collector enumerates the tenant's current
+``oauth2PermissionGrants`` via Microsoft Graph so the analyst can spot suspicious apps and
+over-broad scopes. The consent events themselves are captured by Entra audit logs; this
+collector is the standing-grant inventory that complements them.
 """
 
 from __future__ import annotations

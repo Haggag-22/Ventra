@@ -8,33 +8,58 @@ import { policiesForRole } from "@/lib/iam-policies";
 import { usePagination } from "@/lib/pagination";
 import { useResizableColumns } from "@/lib/resizable-columns";
 
-const COLS = [
+const IAM_COLS = [
   { key: "role", label: "Role", min: 200 },
   { key: "created", label: "Created", min: 100 },
 ] as const;
 
-type ColKey = (typeof COLS)[number]["key"];
+const ASSIGNMENT_COLS = [
+  { key: "role", label: "Role", min: 180 },
+  { key: "principal", label: "Principal", min: 180 },
+  { key: "type", label: "Type", min: 120 },
+  { key: "scope", label: "Scope", min: 220 },
+  { key: "created", label: "Created", min: 100 },
+] as const;
+
+type ColKey = (typeof IAM_COLS)[number]["key"] | (typeof ASSIGNMENT_COLS)[number]["key"];
 
 const DEFAULT_WIDTHS: Record<ColKey, number> = {
-  role: 520,
+  role: 240,
   created: 120,
+  principal: 220,
+  type: 140,
+  scope: 320,
 };
 
 const WIDTHS_KEY = "ventra.identity-roles-table.widths";
 
 function roleValue(r: any, key: string): SortValue {
   if (key === "created") return timeValue(r.CreateDate);
-  return r.Arn ?? r.RoleName;
+  if (key === "principal") return r.principal ?? "";
+  if (key === "type") return r.principal_type ?? "";
+  if (key === "scope") return r.scope ?? "";
+  return r.RoleName ?? r.Arn;
 }
 
-export function IdentityRolesTable({ roles }: { roles: any[] }) {
-  const { startResize, colWidth, totalWidth } = useResizableColumns(COLS, DEFAULT_WIDTHS, WIDTHS_KEY);
+export function IdentityRolesTable({
+  roles,
+  layout = "iam",
+}: {
+  roles: any[];
+  /** Azure RBAC rows are assignments, not IAM role documents. */
+  layout?: "iam" | "assignment";
+}) {
+  const cols = layout === "assignment" ? ASSIGNMENT_COLS : IAM_COLS;
+  const widthsKey = layout === "assignment" ? `${WIDTHS_KEY}.assignment` : WIDTHS_KEY;
+  const { startResize, colWidth, totalWidth } = useResizableColumns(cols, DEFAULT_WIDTHS, widthsKey);
   const { page, setPage, pageSize, setPageSize } = usePagination("ventra.identity-roles.page-size");
   const { sorted, sort, toggle } = useClientSort(roles, roleValue);
 
   if (roles.length === 0) {
     return (
-      <div className="px-4 py-16 text-center text-sm text-fg-subtle">No roles collected.</div>
+      <div className="px-4 py-16 text-center text-sm text-fg-subtle">
+        {layout === "assignment" ? "No role assignments collected." : "No roles collected."}
+      </div>
     );
   }
 
@@ -48,13 +73,13 @@ export function IdentityRolesTable({ roles }: { roles: any[] }) {
         style={{ tableLayout: "fixed", width: totalWidth, minWidth: "100%" }}
       >
         <colgroup>
-          {COLS.map((c) => (
+          {cols.map((c) => (
             <col key={c.key} style={{ width: colWidth(c.key) }} />
           ))}
         </colgroup>
         <thead className="sticky top-0 z-10">
           <tr>
-            {COLS.map((c) => (
+            {cols.map((c) => (
               <th key={c.key} className="relative">
                 <SortLabel label={c.label} sortKey={c.key} sort={sort} onSort={toggle} />
                 <span
@@ -71,14 +96,26 @@ export function IdentityRolesTable({ roles }: { roles: any[] }) {
         </thead>
         <tbody>
           {paged.map((r) => (
-            <tr key={r.RoleName}>
+            <tr key={r.assignment_id ?? r.Arn ?? r.RoleName}>
               <td className="truncate">
                 <IdentityPrincipal
-                  label={r.Arn ?? r.RoleName}
+                  label={layout === "assignment" ? r.RoleName : (r.Arn ?? r.RoleName)}
                   principalType="role"
                   policies={policiesForRole(r)}
+                  mono={layout !== "assignment"}
                 />
               </td>
+              {layout === "assignment" && (
+                <>
+                  <td className="truncate text-fg" title={r.principal_id}>
+                    {r.principal || "—"}
+                  </td>
+                  <td className="truncate text-fg-subtle">{r.principal_type || "—"}</td>
+                  <td className="mono truncate text-fg-subtle" title={r.scope}>
+                    {r.scope || "—"}
+                  </td>
+                </>
+              )}
               <td className="mono truncate text-fg-subtle">{fmtDateOnly(r.CreateDate)}</td>
             </tr>
           ))}

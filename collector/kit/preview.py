@@ -20,6 +20,7 @@ def preview_kit(
     iam_policy_paths: list[Path] | None = None,
     include_iam: bool = True,
     gcp_log_backend: dict[str, Any] | None = None,
+    azure_log_backend: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Return IAM action counts and artifact summary for the Acquire UI."""
     collector_cloud = collector_cloud_for_platform(cloud)
@@ -36,6 +37,10 @@ def preview_kit(
         from collector.engine.gcp_log_backend import apply_gcp_log_backend_iam
 
         wanted = apply_gcp_log_backend_iam(wanted, gcp_log_backend)
+    if collector_cloud == "azure" and azure_log_backend:
+        from collector.engine.azure_log_backend import apply_azure_log_backend_iam
+
+        wanted = apply_azure_log_backend_iam(wanted, azure_log_backend)
 
     actions: set[str] = set()
     policy_files: list[str] = []

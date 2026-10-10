@@ -5,12 +5,11 @@ import Image from "next/image";
 /** Shared size for all cloud provider logos across the console UI (24px). */
 export const PROVIDER_ICON_SIZE = 24;
 
-const LOGOS: Record<Cloud | "m365", { src: string; alt: string }> = {
+const LOGOS: Record<Cloud, { src: string; alt: string }> = {
   aws: { src: "/logos/aws.png", alt: "Amazon Web Services" },
   azure: { src: "/logos/azure.png", alt: "Microsoft Azure" },
   gcp: { src: "/logos/gcp.png", alt: "Google Cloud" },
   kubernetes: { src: "/logos/kubernetes.svg", alt: "Kubernetes" },
-  m365: { src: "/logos/m365.png", alt: "M365" },
 };
 
 export function CloudProviderIcon({
@@ -26,7 +25,7 @@ export function CloudProviderIcon({
   size?: number;
 }) {
   const key = cloud.toLowerCase();
-  const meta = LOGOS[key as Cloud | "m365"];
+  const meta = LOGOS[key as Cloud];
 
   if (!meta) {
     return (

@@ -89,7 +89,7 @@ DATA_ACCESS_SCOPE = (
     "AND json_extract_string(raw, '$.eventSource')='s3.amazonaws.com') "
     "OR ventra_source IN ("
     "'storage_access', 'bigquery_audit', 'cloud_sql', 'secret_manager', "
-    "'key_vault', 'log_analytics', 'cloud_audit_data'"
+    "'key_vault', 'cloud_audit_data'"
     ") "
     # On-prem Kubernetes: "data access" is a Secret read, and the API-server audit log is
     # the only place it is recorded. resource_type carries objectRef.resource, so Secret
@@ -99,6 +99,232 @@ DATA_ACCESS_SCOPE = (
 )
 
 DATA_ACCESS_PRINCIPAL_SQL = "COALESCE(NULLIF(user_arn,''), NULLIF(user_name,''), '')"
+
+# Already-ingested Azure rows often left the forensic fields in ``raw`` (SDK snake_case
+# activity records, diagnostic logs whose operation sits beside ``properties``). Project
+# them onto the columns the investigation tables already read. New ingests fill the same
+# columns; COALESCE keeps a populated column when raw has nothing better.
+_AZURE_DISPLAY_SQL: dict[str, str] = {
+    "timestamp": """
+CASE ventra_source
+  WHEN 'activity_log' THEN COALESCE(
+    NULLIF(timestamp, ''),
+    NULLIF(json_extract_string(raw, '$.event_timestamp'), ''),
+    NULLIF(json_extract_string(raw, '$.submission_timestamp'), ''),
+    NULLIF(json_extract_string(raw, '$.eventTimestamp'), ''),
+    NULLIF(json_extract_string(raw, '$.submissionTimestamp'), ''),
+    NULLIF(json_extract_string(raw, '$.time'), '')
+  )
+  WHEN 'storage_access' THEN COALESCE(NULLIF(timestamp, ''), NULLIF(json_extract_string(raw, '$.time'), ''))
+  WHEN 'key_vault' THEN COALESCE(NULLIF(timestamp, ''), NULLIF(json_extract_string(raw, '$.time'), ''))
+  WHEN 'app_gateway' THEN COALESCE(
+    NULLIF(timestamp, ''),
+    NULLIF(json_extract_string(raw, '$.time'), ''),
+    NULLIF(json_extract_string(raw, '$.timeStamp'), '')
+  )
+  ELSE timestamp
+END AS timestamp
+""",
+    "event_action": """
+CASE ventra_source
+  WHEN 'activity_log' THEN COALESCE(
+    NULLIF(json_extract_string(raw, '$.operation_name.value'), ''),
+    NULLIF(json_extract_string(raw, '$.operationName.value'), ''),
+    NULLIF(json_extract_string(raw, '$.authorization.action'), ''),
+    NULLIF(event_action, '')
+  )
+  WHEN 'storage_access' THEN COALESCE(
+    NULLIF(json_extract_string(raw, '$.operationName'), ''),
+    NULLIF(json_extract_string(raw, '$.properties.operationName'), ''),
+    NULLIF(event_action, '')
+  )
+  WHEN 'key_vault' THEN COALESCE(
+    NULLIF(json_extract_string(raw, '$.operationName'), ''),
+    NULLIF(json_extract_string(raw, '$.properties.operationName'), ''),
+    NULLIF(event_action, '')
+  )
+  WHEN 'app_gateway' THEN COALESCE(
+    NULLIF(json_extract_string(raw, '$.properties.httpMethod'), ''),
+    NULLIF(json_extract_string(raw, '$.properties.action'), ''),
+    CASE
+      WHEN json_extract(raw, '$.properties.httpStatus') IS NOT NULL THEN ''
+      ELSE NULLIF(event_action, '')
+    END
+  )
+  ELSE event_action
+END AS event_action
+""",
+    "message": """
+CASE ventra_source
+  WHEN 'activity_log' THEN trim(concat_ws(' ',
+    COALESCE(
+      NULLIF(json_extract_string(raw, '$.operation_name.localized_value'), ''),
+      NULLIF(json_extract_string(raw, '$.operationName.localizedValue'), ''),
+      NULLIF(json_extract_string(raw, '$.operation_name.value'), ''),
+      NULLIF(json_extract_string(raw, '$.operationName.value'), ''),
+      NULLIF(json_extract_string(raw, '$.authorization.action'), ''),
+      NULLIF(event_action, '')
+    ),
+    'on',
+    COALESCE(
+      NULLIF(resource_id, ''),
+      NULLIF(json_extract_string(raw, '$.resource_id'), ''),
+      NULLIF(json_extract_string(raw, '$.resourceId'), ''),
+      'subscription'
+    )
+  ))
+  WHEN 'storage_access' THEN trim(concat_ws(' ',
+    COALESCE(
+      NULLIF(json_extract_string(raw, '$.operationName'), ''),
+      NULLIF(event_action, ''),
+      'storage'
+    ),
+    COALESCE(
+      NULLIF(json_extract_string(raw, '$.properties.objectKey'), ''),
+      NULLIF(json_extract_string(raw, '$.uri'), ''),
+      NULLIF(json_extract_string(raw, '$.properties.uri'), '')
+    )
+  ))
+  WHEN 'key_vault' THEN trim(concat_ws(' ',
+    'Key Vault',
+    COALESCE(NULLIF(json_extract_string(raw, '$.operationName'), ''), NULLIF(event_action, '')),
+    NULLIF(json_extract_string(raw, '$.properties.id'), ''),
+    CASE
+      WHEN COALESCE(
+        NULLIF(json_extract_string(raw, '$.identity.claim.upn'), ''),
+        NULLIF(json_extract_string(raw, '$.identity.claim.appid'), '')
+      ) IS NOT NULL
+      THEN 'by ' || COALESCE(
+        NULLIF(json_extract_string(raw, '$.identity.claim.upn'), ''),
+        NULLIF(json_extract_string(raw, '$.identity.claim.appid'), '')
+      )
+    END
+  ))
+  WHEN 'app_gateway' THEN
+    CASE
+      WHEN json_extract(raw, '$.properties.httpStatus') IS NOT NULL
+        OR NULLIF(json_extract_string(raw, '$.properties.httpMethod'), '') IS NOT NULL
+      THEN trim(concat_ws(' ',
+        COALESCE(
+          NULLIF(json_extract_string(raw, '$.properties.clientIP'), ''),
+          NULLIF(json_extract_string(raw, '$.properties.clientIp'), ''),
+          NULLIF(source_ip, '')
+        ),
+        NULLIF(json_extract_string(raw, '$.properties.httpMethod'), ''),
+        COALESCE(
+          NULLIF(json_extract_string(raw, '$.properties.requestUri'), ''),
+          NULLIF(json_extract_string(raw, '$.properties.originalRequestUriWithArgs'), '')
+        ),
+        CASE
+          WHEN json_extract(raw, '$.properties.httpStatus') IS NOT NULL
+          THEN '→ ' || json_extract_string(raw, '$.properties.httpStatus')
+        END,
+        CASE
+          WHEN COALESCE(json_extract_string(raw, '$.properties.error_info'), '')
+            NOT IN ('', 'ERRORINFO_NO_ERROR')
+          THEN json_extract_string(raw, '$.properties.error_info')
+        END
+      ))
+      ELSE trim(concat_ws(' ',
+        COALESCE(
+          NULLIF(json_extract_string(raw, '$.properties.clientIp'), ''),
+          NULLIF(json_extract_string(raw, '$.properties.clientIP'), ''),
+          NULLIF(source_ip, '')
+        ),
+        COALESCE(NULLIF(json_extract_string(raw, '$.properties.action'), ''), 'WAF'),
+        NULLIF(json_extract_string(raw, '$.properties.ruleId'), ''),
+        NULLIF(json_extract_string(raw, '$.properties.requestUri'), ''),
+        NULLIF(json_extract_string(raw, '$.properties.message'), '')
+      ))
+    END
+  ELSE message
+END AS message
+""",
+    "source_ip": """
+CASE ventra_source
+  WHEN 'activity_log' THEN COALESCE(
+    NULLIF(source_ip, ''),
+    NULLIF(json_extract_string(raw, '$.callerIpAddress'), ''),
+    NULLIF(json_extract_string(raw, '$.claims.ipaddr'), '')
+  )
+  WHEN 'storage_access' THEN regexp_replace(
+    COALESCE(NULLIF(source_ip, ''), NULLIF(json_extract_string(raw, '$.callerIpAddress'), ''), ''),
+    ':[0-9]+$',
+    ''
+  )
+  WHEN 'key_vault' THEN COALESCE(
+    NULLIF(source_ip, ''),
+    NULLIF(json_extract_string(raw, '$.callerIpAddress'), '')
+  )
+  WHEN 'app_gateway' THEN COALESCE(
+    NULLIF(source_ip, ''),
+    NULLIF(json_extract_string(raw, '$.properties.clientIP'), ''),
+    NULLIF(json_extract_string(raw, '$.properties.clientIp'), '')
+  )
+  ELSE source_ip
+END AS source_ip
+""",
+    "user_name": """
+CASE ventra_source
+  WHEN 'storage_access' THEN COALESCE(
+    NULLIF(user_name, ''),
+    NULLIF(json_extract_string(raw, '$.identity.type'), '')
+  )
+  WHEN 'key_vault' THEN COALESCE(
+    NULLIF(user_name, ''),
+    NULLIF(json_extract_string(raw, '$.identity.claim.upn'), ''),
+    NULLIF(json_extract_string(raw, '$.identity.claim.appid'), '')
+  )
+  WHEN 'activity_log' THEN COALESCE(
+    NULLIF(user_name, ''),
+    NULLIF(json_extract_string(raw, '$.caller'), '')
+  )
+  ELSE user_name
+END AS user_name
+""",
+    "resource_id": """
+CASE ventra_source
+  WHEN 'storage_access' THEN COALESCE(
+    NULLIF(json_extract_string(raw, '$.properties.objectKey'), ''),
+    NULLIF(json_extract_string(raw, '$.uri'), ''),
+    NULLIF(resource_id, ''),
+    NULLIF(json_extract_string(raw, '$._ventra_resource_id'), ''),
+    NULLIF(json_extract_string(raw, '$.resourceId'), '')
+  )
+  WHEN 'activity_log' THEN COALESCE(
+    NULLIF(resource_id, ''),
+    NULLIF(json_extract_string(raw, '$.resource_id'), ''),
+    NULLIF(json_extract_string(raw, '$.resourceId'), '')
+  )
+  ELSE resource_id
+END AS resource_id
+""",
+    "cloud_region": """
+CASE
+  WHEN ventra_source = 'storage_access'
+  THEN COALESCE(NULLIF(cloud_region, ''), NULLIF(json_extract_string(raw, '$.location'), ''))
+  ELSE cloud_region
+END AS cloud_region
+""",
+    "cloud_service": """
+CASE ventra_source
+  WHEN 'storage_access' THEN COALESCE(NULLIF(cloud_service, ''), 'storage')
+  WHEN 'key_vault' THEN COALESCE(NULLIF(cloud_service, ''), 'keyvault')
+  ELSE cloud_service
+END AS cloud_service
+""",
+}
+
+
+def _azure_display_replace(columns: set[str]) -> str | None:
+    """SQL ``REPLACE`` list that fills empty Azure event columns from ``raw``."""
+    if "raw" not in columns or "ventra_source" not in columns:
+        return None
+    parts = [expr.strip() for col, expr in _AZURE_DISPLAY_SQL.items() if col in columns]
+    if not parts:
+        return None
+    return ", ".join(parts)
+
 
 # Classify a finding by what its raw payload represents (compliance control, vulnerability,
 # threat detection, sensitive-data, etc.) so the Findings panel can column/filter on it. Mirrored
@@ -397,11 +623,37 @@ _K8S_INVENTORY_RESOURCE_SPECS: list[tuple[str, list[dict[str, str]]]] = [
     ),
 ]
 
+_AZURE_INVENTORY_RESOURCE_SPECS: list[tuple[str, list[dict[str, str]]]] = [
+    (
+        "Subscription",
+        [
+            {
+                "id": "azure_subscriptions",
+                "label": "Subscriptions",
+                "source": "subscription",
+                "key": "subscriptions",
+            },
+        ],
+    ),
+    (
+        "ARM inventory",
+        [
+            {
+                "id": "arm_resources",
+                "label": "Resources",
+                "source": "resource_graph",
+                "key": "resources",
+            },
+        ],
+    ),
+]
+
 # Which roll-up set a case uses. AWS is the default because the Azure and GCP panels have
 # always rendered the AWS rows; Kubernetes objects have no AWS equivalent at all, so a
 # Kubernetes case gets its own set rather than a screen of empty EC2/S3 rows.
 _INVENTORY_SPECS_BY_CLOUD: dict[str, list[tuple[str, list[dict[str, str]]]]] = {
     "kubernetes": _K8S_INVENTORY_RESOURCE_SPECS,
+    "azure": _AZURE_INVENTORY_RESOURCE_SPECS,
 }
 
 
@@ -873,6 +1125,135 @@ class CaseStore:
             "anonymous_bindings": (rbac or {}).get("anonymous_bindings") or [],
         }
 
+    @staticmethod
+    def normalize_azure_identity(
+        directory: dict[str, Any] | None, rbac: dict[str, Any] | None
+    ) -> dict[str, Any]:
+        """Map Entra directory + Azure RBAC snapshots into the Identity panel fields.
+
+        The panel was built for IAM users / roles / groups. Azure keeps the same tables:
+        directory objects are the principals, and role assignments (not the hundreds of
+        built-in role definitions) are the roles. MFA is not part of this snapshot, so
+        ``mfa_known`` stays false and the panel does not treat a missing device list as
+        "no MFA".
+        """
+
+        def _principal(name: str, object_id: str, kind: str, created: Any = None) -> dict[str, Any]:
+            label = name or object_id
+            return {
+                "UserName": label,
+                "Arn": object_id or label,
+                "CreateDate": created or None,
+                "AccessKeys": [],
+                "MFADevices": [],
+                "GroupList": [],
+                "AttachedManagedPolicies": [],
+                "Tags": [],
+                "principal_type": kind,
+                "display_name": name or label,
+                "mfa_known": False,
+            }
+
+        directory = directory or {}
+        rbac = rbac or {}
+        users = []
+        for u in directory.get("users") or []:
+            if not isinstance(u, dict):
+                continue
+            upn = str(u.get("userPrincipalName") or "")
+            display = str(u.get("displayName") or upn)
+            if not (u.get("id") or upn or display):
+                continue
+            row = _principal(display or upn, str(u.get("id") or ""), "User", u.get("createdDateTime"))
+            if upn:
+                row["UserName"] = upn
+            users.append(row)
+        applications = [
+            _principal(
+                str(a.get("displayName") or a.get("appId") or ""),
+                str(a.get("id") or a.get("appId") or ""),
+                "Application",
+                a.get("createdDateTime"),
+            )
+            for a in directory.get("applications") or []
+            if isinstance(a, dict) and (a.get("id") or a.get("displayName") or a.get("appId"))
+        ]
+        service_principals = [
+            _principal(
+                str(s.get("displayName") or s.get("appDisplayName") or s.get("appId") or ""),
+                str(s.get("id") or ""),
+                "Service principal",
+                s.get("createdDateTime"),
+            )
+            for s in directory.get("service_principals") or []
+            if isinstance(s, dict) and (s.get("id") or s.get("displayName"))
+        ]
+        groups = []
+        for g in directory.get("groups") or []:
+            if not isinstance(g, dict):
+                continue
+            name = str(g.get("displayName") or g.get("mail") or "")
+            object_id = str(g.get("id") or "")
+            if not name and not object_id:
+                continue
+            row = _principal(name, object_id, "Group", g.get("createdDateTime"))
+            row["GroupName"] = row["UserName"]
+            groups.append(row)
+
+        names: dict[str, str] = {}
+        for row in (*users, *applications, *service_principals, *groups):
+            object_id = str(row.get("Arn") or "")
+            if object_id:
+                names[object_id.lower()] = str(row.get("display_name") or row.get("UserName") or object_id)
+
+        role_names: dict[str, str] = {}
+        for rd in rbac.get("role_definitions") or []:
+            if not isinstance(rd, dict):
+                continue
+            rid = str(rd.get("id") or "")
+            label = str(rd.get("role_name") or rd.get("roleName") or "")
+            if rid and label:
+                role_names[rid.lower()] = label
+
+        roles: list[dict[str, Any]] = []
+        for ra in rbac.get("role_assignments") or []:
+            if not isinstance(ra, dict):
+                continue
+            props = ra.get("properties") if isinstance(ra.get("properties"), dict) else ra
+            role_id = str(props.get("role_definition_id") or props.get("roleDefinitionId") or "")
+            principal_id = str(props.get("principal_id") or props.get("principalId") or "")
+            role_name = role_names.get(role_id.lower()) or (role_id.rsplit("/", 1)[-1] if role_id else "")
+            if not role_name and not principal_id:
+                continue
+            roles.append(
+                {
+                    "RoleName": role_name or role_id,
+                    "Arn": role_id or role_name,
+                    "CreateDate": props.get("created_on") or props.get("createdOn") or None,
+                    "principal": names.get(principal_id.lower(), principal_id),
+                    "principal_id": principal_id,
+                    "principal_type": str(props.get("principal_type") or props.get("principalType") or ""),
+                    "scope": str(props.get("scope") or ""),
+                    "assignment_id": str(ra.get("name") or ra.get("id") or principal_id or role_id),
+                    "AttachedManagedPolicies": [],
+                    "RoleLastUsed": {},
+                }
+            )
+
+        return {
+            "users": users,
+            "applications": applications,
+            "service_principals": service_principals,
+            "roles": roles,
+            "groups": groups,
+            "policies": [],
+            "credential_report": [],
+            "password_policy": {},
+            "mfa_known": False,
+            "role_definition_count": len(rbac.get("role_definitions") or []),
+            "source": "entra_directory",
+        }
+
     def inventory_sources(self, case_id: str) -> list[str]:
         inv = self.case_dir(case_id) / "inventory"
         if not inv.is_dir():
@@ -943,21 +1324,32 @@ class CaseStore:
         return cols
 
     def _events_table(self, con: duckdb.DuckDBPyConnection, path: str) -> str:
-        """Read events.parquet, normalizing legacy ``harbor_source`` to ``ventra_source``."""
+        """Read events.parquet, normalizing legacy ``harbor_source`` to ``ventra_source``.
+
+        Azure rows collected before the diagnostic normalizer read top-level fields are
+        repaired here from ``raw``, so investigation tables show the operation, time, caller,
+        and object without a re-ingest.
+        """
         cols = self._parquet_columns(con, path)
         has_v = "ventra_source" in cols
         has_h = "harbor_source" in cols
         if has_v and has_h:
-            return (
+            base = (
                 "(SELECT * EXCLUDE(ventra_source, harbor_source), "
                 "COALESCE(NULLIF(ventra_source, ''), harbor_source) AS ventra_source "
                 "FROM read_parquet(?))"
             )
-        if has_v:
-            return "read_parquet(?)"
-        if has_h:
-            return "(SELECT * EXCLUDE(harbor_source), harbor_source AS ventra_source FROM read_parquet(?))"
-        return "(SELECT *, CAST('' AS VARCHAR) AS ventra_source FROM read_parquet(?))"
+        elif has_v:
+            base = "read_parquet(?)"
+        elif has_h:
+            base = "(SELECT * EXCLUDE(harbor_source), harbor_source AS ventra_source FROM read_parquet(?))"
+        else:
+            base = "(SELECT *, CAST('' AS VARCHAR) AS ventra_source FROM read_parquet(?))"
+        projection = _azure_display_replace(cols)
+        if not projection:
+            return base
+        source = f"{base} _events" if base.startswith("(") else base
+        return f"(SELECT * REPLACE ({projection}) FROM {source})"
 
     def _vpc_flow_config(self, case_id: str) -> dict[str, Any] | None:
         inv = self.inventory(case_id, "vpc_flow") or {}
@@ -1595,12 +1987,14 @@ class CaseStore:
         # Classify the access verb: exfil (read) vs ransomware/destruction (write/delete).
         op_class = (
             "CASE "
-            "WHEN upper(event_action) LIKE '%DELETE%' THEN 'delete' "
+            "WHEN upper(event_action) LIKE '%DELETE%' OR upper(event_action) LIKE '%PURGE%' THEN 'delete' "
             "WHEN upper(event_action) LIKE '%PUT%' OR upper(event_action) LIKE '%POST%' "
-            "  OR upper(event_action) LIKE '%COPY%' OR upper(event_action) LIKE '%CREATE%' THEN 'write' "
+            "  OR upper(event_action) LIKE '%COPY%' OR upper(event_action) LIKE '%CREATE%' "
+            "  OR upper(event_action) LIKE '%SET%' OR upper(event_action) LIKE '%PATCH%' "
+            "  OR upper(event_action) LIKE '%UPDATE%' OR upper(event_action) LIKE '%WRITE%' THEN 'write' "
             "WHEN upper(event_action) LIKE '%LIST%' THEN 'list' "
             "WHEN upper(event_action) LIKE '%GET%' OR upper(event_action) LIKE '%HEAD%' "
-            "  OR upper(event_action) LIKE '%SELECT%' THEN 'read' "
+            "  OR upper(event_action) LIKE '%SELECT%' OR upper(event_action) LIKE '%READ%' THEN 'read' "
             "ELSE 'other' END"
         )
         try:

@@ -25,6 +25,15 @@ def _resource_id(rec: dict[str, Any]) -> str:
     return str(rec.get("resourceId") or rec.get("_ventra_resource_id") or "")
 
 
+def _host_ip(value: str) -> str:
+    """Drop a trailing ``:port`` from an IPv4 caller address. Leave IPv6 untouched."""
+    text = (value or "").strip()
+    host, sep, port = text.rpartition(":")
+    if sep and port.isdigit() and host.count(":") == 0:
+        return host
+    return text
+
+
 def _diag_event(
     rec: dict[str, Any],
     ctx: NormalizeContext,
@@ -39,8 +48,10 @@ def _diag_event(
     severity: str = "info",
     outcome: str = "unknown",
     event_kind: str = "event",
+    resource_id: str = "",
+    cloud_region: str = "",
 ) -> UnifiedEvent:
-    rid = _resource_id(rec)
+    rid = resource_id or _resource_id(rec)
     return UnifiedEvent(
         timestamp=_ts(rec),
         event_kind=event_kind,
@@ -51,6 +62,7 @@ def _diag_event(
         event_provider=source,
         cloud_provider="azure",
         cloud_account=ctx.account_id,
+        cloud_region=cloud_region,
         cloud_service=service,
         user_name=user_name,
         source_ip=source_ip,
@@ -68,17 +80,37 @@ def _diag_event(
 
 def _normalize_web(rec: dict, ctx: NormalizeContext, source: str, service: str) -> UnifiedEvent:
     p = _props(rec)
-    ip = str(p.get("clientIP") or p.get("clientIp") or p.get("clientIpAddress") or "")
+    ip = _host_ip(str(p.get("clientIP") or p.get("clientIp") or p.get("clientIpAddress") or ""))
     method = str(p.get("httpMethod") or p.get("requestMethod") or "")
     uri = str(p.get("requestUri") or p.get("originalRequestUriWithArgs") or p.get("uri") or "")
-    status = str(p.get("httpStatus") or p.get("statusCode") or "")
-    action = str(p.get("action") or rec.get("category") or "request")
-    blocked = action.upper() in {"BLOCK", "BLOCKED", "DENY", "REJECT"}
-    outcome = "failure" if blocked or (status.isdigit() and int(status) >= 400) else "success"
-    severity = "medium" if blocked else "info"
-    msg = f"{method} {uri}".strip() or action
-    if ip:
-        msg = f"{ip} {msg}"
+    status = p.get("httpStatus") if p.get("httpStatus") not in (None, "") else p.get("statusCode")
+    status_s = str(status) if status not in (None, "") else ""
+    waf_action = str(p.get("action") or "")
+    rule = str(p.get("ruleId") or "")
+    detail = str(p.get("message") or "")
+    category = str(rec.get("category") or "")
+    is_waf = "Firewall" in category or bool(rule)
+    if is_waf:
+        action = waf_action or category or "waf"
+        bits = [b for b in (ip, action, rule, uri, detail) if b]
+        msg = " ".join(bits) or action
+    else:
+        action = method or category or "request"
+        err = str(p.get("error_info") or "")
+        if err.upper() in {"", "ERRORINFO_NO_ERROR"}:
+            err = ""
+        msg = " ".join(b for b in (method, uri) if b).strip()
+        if status_s:
+            msg = f"{msg} → {status_s}".strip()
+        if err:
+            msg = f"{msg} {err}".strip()
+        if ip:
+            msg = f"{ip} {msg}".strip()
+        if not msg:
+            msg = action
+    blocked = waf_action.upper() in {"BLOCK", "BLOCKED", "DENY", "REJECT"}
+    outcome = "failure" if blocked or (status_s.isdigit() and int(status_s) >= 400) else "success"
+    severity = "medium" if blocked or outcome == "failure" else "info"
     return _diag_event(
         rec,
         ctx,
@@ -112,14 +144,32 @@ def _normalize_dns(rec: dict, ctx: NormalizeContext) -> UnifiedEvent:
     )
 
 
+def _claim(rec: dict, *keys: str) -> str:
+    identity = rec.get("identity")
+    if not isinstance(identity, dict):
+        identity = _props(rec).get("identity")
+    if not isinstance(identity, dict):
+        return ""
+    claim = identity.get("claim")
+    if isinstance(claim, dict):
+        for key in keys:
+            val = claim.get(key)
+            if val:
+                return str(val)
+    typed = identity.get("type")
+    return str(typed) if typed else ""
+
+
 def _normalize_storage(rec: dict, ctx: NormalizeContext) -> UnifiedEvent:
     p = _props(rec)
-    op = str(p.get("operationName") or rec.get("category") or "storage")
-    uri = str(p.get("uri") or p.get("requestUri") or "")
-    caller = str(p.get("callerIpAddress") or p.get("clientIp") or "")
-    auth = str(p.get("authenticationType") or p.get("identity", {}).get("type", ""))
-    status = str(p.get("statusCode") or p.get("statusText") or "")
+    op = str(rec.get("operationName") or p.get("operationName") or rec.get("category") or "storage")
+    obj = str(p.get("objectKey") or "")
+    uri = str(rec.get("uri") or p.get("uri") or p.get("requestUri") or "")
+    caller = _host_ip(str(rec.get("callerIpAddress") or p.get("callerIpAddress") or p.get("clientIp") or ""))
+    auth = str(p.get("authenticationType") or _claim(rec) or "")
+    status = str(rec.get("statusCode") or p.get("statusCode") or p.get("statusText") or "")
     outcome = "failure" if status.startswith(("4", "5")) else "success"
+    target = obj or uri
     return _diag_event(
         rec,
         ctx,
@@ -127,22 +177,28 @@ def _normalize_storage(rec: dict, ctx: NormalizeContext) -> UnifiedEvent:
         service="storage",
         category=["data"],
         action=op,
-        message=f"{op} {uri}".strip() or op,
+        message=f"{op} {target}".strip() or op,
         source_ip=caller,
         user_name=auth,
         outcome=outcome,
+        resource_id=target,
+        cloud_region=str(rec.get("location") or ""),
     )
 
 
 def _normalize_key_vault(rec: dict, ctx: NormalizeContext) -> UnifiedEvent:
     p = _props(rec)
-    op = str(p.get("operationName") or "AuditEvent")
-    caller = str(p.get("callerIpAddress") or p.get("clientIp") or "")
-    identity = str(
-        p.get("identity", {}).get("claim", {}).get("upn", "") if isinstance(p.get("identity"), dict) else ""
-    )
-    result = str(p.get("resultSignature") or p.get("resultType") or "")
+    op = str(rec.get("operationName") or p.get("operationName") or "AuditEvent")
+    caller = _host_ip(str(rec.get("callerIpAddress") or p.get("callerIpAddress") or p.get("clientIp") or ""))
+    identity = _claim(rec, "upn", "appid")
+    target = str(p.get("id") or "")
+    result = str(rec.get("resultType") or p.get("resultType") or rec.get("resultSignature") or "")
     outcome = "failure" if result.lower() in {"unauthorized", "failure"} else "success"
+    msg = f"Key Vault {op}"
+    if target:
+        msg = f"{msg} {target}"
+    if identity:
+        msg = f"{msg} by {identity}"
     return _diag_event(
         rec,
         ctx,
@@ -150,7 +206,7 @@ def _normalize_key_vault(rec: dict, ctx: NormalizeContext) -> UnifiedEvent:
         service="keyvault",
         category=["data"],
         action=op,
-        message=f"Key Vault {op}" + (f" by {identity}" if identity else ""),
+        message=msg,
         source_ip=caller,
         user_name=identity,
         outcome=outcome,

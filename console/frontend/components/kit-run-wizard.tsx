@@ -1,6 +1,8 @@
 "use client";
 
 import { MultiValueInput } from "@/components/acquire-param-fields";
+import { AzureLogBackendFields } from "@/components/azure-log-backend-fields";
+import { CloudTrailSourceFields } from "@/components/cloudtrail-source-fields";
 import { GcpLogBackendFields } from "@/components/gcp-log-backend-fields";
 import { IamActionsDialog } from "@/components/iam-actions-dialog";
 import { ProviderSelector } from "@/components/provider-selector";
@@ -15,6 +17,8 @@ import {
 import { ACQUIRE_PLATFORM_LABELS, CASE_PLATFORM_LABELS, acquirePermissionModel, isAcquirePlatform } from "@/lib/catalog";
 import { displayCaseId, validateCaseId } from "@/lib/case-id";
 import { downloadTextFile } from "@/lib/download";
+import { cartNeedsAzureLogBackend, validateAzureLogBackendForm } from "@/lib/azure-log-backend";
+import { cartNeedsCloudtrailSource, cloudtrailSourceError } from "@/lib/cloudtrail-source";
 import {
   cartNeedsGcpLogBackend,
   validateGcpLogBackendForm,
@@ -218,14 +222,20 @@ export function KitRunWizard({ open, kit, onClose, onConfirm, running, error }: 
 
   const cloud = kit?.cloud ?? "aws";
   const platformKey = cloud.toLowerCase();
-  const platform = isAcquirePlatform(platformKey) ? platformKey : platformKey === "m365" ? "m365" : "aws";
+  const platform = isAcquirePlatform(platformKey) ? platformKey : "aws";
   const providerLabel = platformLabel(cloud);
   const collectors = kit?.artifacts ?? [];
   const steps = useMemo(() => wizardSteps(platform), [platform]);
   const needsGcpLogBackend = platform === "gcp" && cartNeedsGcpLogBackend(collectors);
+  const needsAzureLogBackend = platform === "azure" && cartNeedsAzureLogBackend(collectors);
+  const needsCloudtrailSource = platform === "aws" && cartNeedsCloudtrailSource(collectors);
   const gcpLogBackendError = useMemo(
     () => validateGcpLogBackendForm(scope.gcpLogBackend, needsGcpLogBackend),
     [scope.gcpLogBackend, needsGcpLogBackend],
+  );
+  const azureLogBackendError = useMemo(
+    () => validateAzureLogBackendForm(scope.azureLogBackend, needsAzureLogBackend),
+    [scope.azureLogBackend, needsAzureLogBackend],
   );
 
   const cases = useQuery({
@@ -311,6 +321,9 @@ export function KitRunWizard({ open, kit, onClose, onConfirm, running, error }: 
       }
     }
     if (gcpLogBackendError) return gcpLogBackendError;
+    if (azureLogBackendError) return azureLogBackendError;
+    const cloudtrailErr = cloudtrailSourceError(scope.cloudtrailParams, needsCloudtrailSource);
+    if (cloudtrailErr) return cloudtrailErr;
     return null;
   };
 
@@ -586,31 +599,6 @@ export function KitRunWizard({ open, kit, onClose, onConfirm, running, error }: 
                   </>
                 )}
 
-                {platform === "m365" && (
-                  <>
-                    <label className="block space-y-1.5">
-                      <span className="text-sm font-medium text-fg">Entra tenant ID (optional)</span>
-                      <Input
-                        value={scope.azureTenantId}
-                        onChange={(e) => patchScope({ azureTenantId: e.target.value })}
-                        placeholder="Or use AZURE_TENANT_ID at runtime"
-                        disabled={running}
-                        className={cn("mono", KIT_INPUT_CLASS)}
-                      />
-                    </label>
-                    <label className="block space-y-1.5">
-                      <span className="text-sm font-medium text-fg">App client ID (optional)</span>
-                      <Input
-                        value={scope.azureClientId}
-                        onChange={(e) => patchScope({ azureClientId: e.target.value })}
-                        placeholder="Or use AZURE_CLIENT_ID at runtime"
-                        disabled={running}
-                        className={cn("mono", KIT_INPUT_CLASS)}
-                      />
-                    </label>
-                  </>
-                )}
-
                 <label className="block space-y-1.5">
                   <span className="text-sm font-medium text-fg">Records count to collect (optional)</span>
                   <Input
@@ -630,6 +618,20 @@ export function KitRunWizard({ open, kit, onClose, onConfirm, running, error }: 
                     form={scope.gcpLogBackend}
                     onChange={(gcpLogBackend) => patchScope({ gcpLogBackend })}
                     required={needsGcpLogBackend}
+                  />
+                )}
+                {needsAzureLogBackend && (
+                  <AzureLogBackendFields
+                    form={scope.azureLogBackend}
+                    onChange={(azureLogBackend) => patchScope({ azureLogBackend })}
+                    required={needsAzureLogBackend}
+                  />
+                )}
+                {needsCloudtrailSource && (
+                  <CloudTrailSourceFields
+                    values={scope.cloudtrailParams}
+                    onChange={(cloudtrailParams) => patchScope({ cloudtrailParams })}
+                    required={needsCloudtrailSource}
                   />
                 )}
               </div>

@@ -17,8 +17,6 @@ from . import (
     k8s_events,  # noqa: F401
     k8s_logs,  # noqa: F401
     k8s_state,  # noqa: F401
-    log_analytics,  # noqa: F401
-    m365,  # noqa: F401
     network,  # noqa: F401
     waf,  # noqa: F401
 )

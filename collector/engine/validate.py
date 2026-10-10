@@ -166,7 +166,7 @@ def _validate_packs(root: Path, cloud: str | None) -> list[str]:
 def diff_artifacts(artifacts_root: Path = Path("artifacts")) -> dict[str, dict[str, list[str]]]:
     """Report collectors with no YAML and YAML with no collector, per cloud (for ``artifacts diff``).
 
-    Scans every artifact YAML under ``artifacts/<cloud>/`` (including M365 and
+    Scans every artifact YAML under ``artifacts/<cloud>/`` (including
     ``selectable: false`` entries that Acquire hides). Packs are ignored.
     """
     root = Path(artifacts_root)

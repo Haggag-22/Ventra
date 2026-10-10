@@ -253,7 +253,7 @@ def run_kit_file(kit_path: Path, *, out_dir: Path | None = None) -> KitRunResult
                 aws_creds = _apply_aws_credentials(kit)
             elif cloud == "gcp":
                 gcp_creds = _apply_gcp_credentials(kit)
-            elif cloud in ("azure", "m365"):
+            elif cloud == "azure":
                 azure_creds = _apply_azure_credentials(kit)
                 cloud = "azure"
             elif cloud == "kubernetes":
@@ -548,6 +548,7 @@ def _execute_collection(
             plan_label=f"{len(collectors)} artifacts from kit",
             artifact_labels=labels,
             artifact_severities=sevs,
+            azure_log_backend=dict(spec.azure_log_backend) if spec and spec.azure_log_backend else {},
         )
         package = run_azure_collection(cfg)
         reporter.finalize()

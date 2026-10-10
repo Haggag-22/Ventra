@@ -1,4 +1,5 @@
-import { compareCollectorCategories } from "./catalog";
+import { displayArtifactLabel } from "./artifact-icons";
+import { compareCollectorCategories, compareCollectorsByKind } from "./catalog";
 import type { Artifact } from "./types";
 
 export type ArtifactCategoryGroup = {
@@ -21,6 +22,11 @@ export function groupArtifactsByCategory(artifacts: Artifact[]): ArtifactCategor
     .sort(([a], [b]) => compareCollectorCategories(a, b))
     .map(([category, items]) => ({
       category,
-      items: items.sort((a, b) => a.name.localeCompare(b.name)),
+      items: items.sort((a, b) =>
+        compareCollectorsByKind(
+          displayArtifactLabel(a.collector, a.cloud),
+          displayArtifactLabel(b.collector, b.cloud),
+        ),
+      ),
     }));
 }

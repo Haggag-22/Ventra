@@ -15,11 +15,25 @@ CATALOG_TS = ROOT / "console" / "frontend" / "lib" / "catalog.ts"
 OVERRIDES = ROOT / "scripts" / "catalog-label-overrides.json"
 PLANNED = ROOT / "scripts" / "catalog-planned.json"
 
-_SKIP_COLLECTORS = frozenset({
-    "account", "iam", "kms", "secrets", "ec2", "s3", "lambda", "log_posture",
-    "rbac", "subscription", "entra_directory", "resource_graph", "diag_posture",
-    "project", "iam_policy",
-})
+_SKIP_COLLECTORS = frozenset(
+    {
+        "account",
+        "iam",
+        "kms",
+        "secrets",
+        "ec2",
+        "s3",
+        "lambda",
+        "log_posture",
+        "rbac",
+        "subscription",
+        "entra_directory",
+        "resource_graph",
+        "diag_posture",
+        "project",
+        "iam_policy",
+    }
+)
 _SINGLE_GROUP_CLOUDS = frozenset({"aws", "azure"})
 
 
@@ -34,32 +48,35 @@ def _label(collector: str, description: str, overrides: dict[str, str]) -> str:
 def _load_artifacts() -> list[dict]:
     sys.path.insert(0, str(ROOT))
     from collector.engine.loader import load_artifacts_dir
+
     return load_artifacts_dir(ARTIFACTS_ROOT)
 
 
 def _build_catalog(artifacts: list[dict], overrides: dict[str, str], planned: dict) -> dict[str, list[dict]]:
-    by_cloud: dict[str, dict[str, list[dict]]] = {
-        c: {} for c in ("aws", "azure", "gcp", "kubernetes")
-    }
+    by_cloud: dict[str, dict[str, list[dict]]] = {c: {} for c in ("aws", "azure", "gcp", "kubernetes")}
     for art in artifacts:
         cloud = str(art.get("cloud", "")).lower()
         collector = str(art.get("collector", "")).strip()
         if cloud not in by_cloud or not collector or collector in _SKIP_COLLECTORS:
             continue
         category = "Logs Checked" if cloud in _SINGLE_GROUP_CLOUDS else str(art.get("category") or "Other")
-        by_cloud[cloud].setdefault(category, []).append({
-            "id": collector,
-            "label": _label(collector, str(art.get("description", "")), overrides),
-            "description": "",
-        })
+        by_cloud[cloud].setdefault(category, []).append(
+            {
+                "id": collector,
+                "label": _label(collector, str(art.get("description", "")), overrides),
+                "description": "",
+            }
+        )
     for cloud, entries in planned.items():
         for entry in entries:
             cat = entry.get("category") or "Logs Checked"
-            by_cloud.setdefault(cloud, {}).setdefault(cat, []).append({
-                "id": entry["id"],
-                "label": entry.get("label") or overrides.get(entry["id"], entry["id"]),
-                "description": "",
-            })
+            by_cloud.setdefault(cloud, {}).setdefault(cat, []).append(
+                {
+                    "id": entry["id"],
+                    "label": entry.get("label") or overrides.get(entry["id"], entry["id"]),
+                    "description": "",
+                }
+            )
     out: dict[str, list[dict]] = {}
     for cloud, groups in by_cloud.items():
         catalog_groups = []

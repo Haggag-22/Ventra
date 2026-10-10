@@ -37,12 +37,6 @@ export const PROVIDER_META: Record<ProviderPlatform, ProviderMeta> = {
     credentialLabel: "Service principal (client secret)",
     scopeNoun: "subscription",
   },
-  m365: {
-    label: "M365",
-    short: "M365",
-    credentialLabel: "App registration (Graph + UAL)",
-    scopeNoun: "tenant",
-  },
   kubernetes: {
     label: "Kubernetes",
     short: "K8s",

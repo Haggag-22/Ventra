@@ -20,7 +20,7 @@ _TERMINAL_STATUSES = {"completed", "failed", "cancelled"}
 
 
 def _severity_for_registry(cloud: str):
-    if cloud in {"azure", "m365"}:
+    if cloud == "azure":
         from collector.engine.registry import AZURE_REGISTRY as REGISTRY
     elif cloud == "gcp":
         from collector.engine.registry import GCP_REGISTRY as REGISTRY
@@ -246,6 +246,7 @@ def _apply_connection(req: RunLaunchRequest, connection_id: str | None) -> RunLa
         max_records_per_source=req.max_records_per_source,
         artifact_parameters=req.artifact_parameters,
         gcp_log_backend=req.gcp_log_backend,
+        azure_log_backend=req.azure_log_backend,
         pipeline_steps=req.pipeline_steps,
         credentials_path=req.credentials_path,
         out_dir=req.out_dir,
@@ -322,6 +323,7 @@ def _execute_run(run_id: str, body: dict[str, Any]) -> None:
         max_records_per_source=body.get("max_records_per_source"),
         artifact_parameters=body.get("artifact_parameters") or {},
         gcp_log_backend=body.get("gcp_log_backend"),
+        azure_log_backend=body.get("azure_log_backend"),
         artifacts_root=settings.artifacts_root,
         reporter=reporter,
         pipeline_steps=["package"] + (["ingest"] if auto_ingest else []),
@@ -532,7 +534,7 @@ def test_connection(connection_id: str) -> dict[str, Any]:
                 "account_id": ident.get("Account"),
                 "arn": ident.get("Arn"),
             }
-        if platform in {"azure", "m365"}:
+        if platform == "azure":
             from collector.clouds.azure.client_factory import AzureClientFactory
             from collector.lib.auth import azure_factory_kwargs
 
