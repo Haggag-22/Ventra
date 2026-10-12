@@ -24,7 +24,6 @@ _SKIP_COLLECTORS = frozenset(
         "ec2",
         "s3",
         "lambda",
-        "log_posture",
         "rbac",
         "subscription",
         "entra_directory",
@@ -41,8 +40,13 @@ def _load_json(path: Path):
     return json.loads(path.read_text(encoding="utf-8"))
 
 
-def _label(collector: str, description: str, overrides: dict[str, str]) -> str:
-    return overrides.get(collector) or description.strip() or collector
+def _label(cloud: str, collector: str, description: str, overrides: dict[str, str]) -> str:
+    return (
+        overrides.get(f"{cloud}:{collector}")
+        or overrides.get(collector)
+        or description.strip()
+        or collector
+    )
 
 
 def _load_artifacts() -> list[dict]:
@@ -60,20 +64,27 @@ def _build_catalog(artifacts: list[dict], overrides: dict[str, str], planned: di
         if cloud not in by_cloud or not collector or collector in _SKIP_COLLECTORS:
             continue
         category = "Logs Checked" if cloud in _SINGLE_GROUP_CLOUDS else str(art.get("category") or "Other")
-        by_cloud[cloud].setdefault(category, []).append(
+        bucket = by_cloud[cloud].setdefault(category, [])
+        if any(item["id"] == collector for item in bucket):
+            continue
+        bucket.append(
             {
                 "id": collector,
-                "label": _label(collector, str(art.get("description", "")), overrides),
+                "label": _label(cloud, collector, str(art.get("description", "")), overrides),
                 "description": "",
             }
         )
     for cloud, entries in planned.items():
         for entry in entries:
             cat = entry.get("category") or "Logs Checked"
-            by_cloud.setdefault(cloud, {}).setdefault(cat, []).append(
+            bucket = by_cloud.setdefault(cloud, {}).setdefault(cat, [])
+            if any(item["id"] == entry["id"] for item in bucket):
+                continue
+            bucket.append(
                 {
                     "id": entry["id"],
-                    "label": entry.get("label") or overrides.get(entry["id"], entry["id"]),
+                    "label": entry.get("label")
+                    or _label(cloud, entry["id"], "", overrides),
                     "description": "",
                 }
             )

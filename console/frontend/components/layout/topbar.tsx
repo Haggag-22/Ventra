@@ -2,7 +2,6 @@
 
 import { CloudPlatformLabel } from "@/components/cloud-provider-icon";
 import { ExportElasticButton } from "@/components/export-elastic-button";
-import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { CASES_HREF } from "@/lib/routes";
 import type { CaseSummary } from "@/lib/types";
 import { fmtDateOnly } from "@/lib/format";
@@ -87,7 +86,6 @@ export function TopBar({
           </div>
         )}
         {caseId && <ExportElasticButton caseId={caseId} />}
-        <ThemeToggle />
       </div>
     </header>
   );

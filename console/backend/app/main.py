@@ -584,12 +584,17 @@ def _artifact_view(art: dict[str, Any], *, full: bool = False) -> dict[str, Any]
 def list_artifacts(
     cloud: str | None = Query(None),
     search: str | None = Query(None),
+    include_implicit: bool = Query(
+        False,
+        description="Include collectors that run automatically and are hidden from Acquire.",
+    ),
     _: Role = Depends(current_role),
 ) -> dict:
     from collector.engine.loader import load_artifacts_dir
 
     arts = [_artifact_view(a) for a in load_artifacts_dir(settings.artifacts_root, cloud=cloud)]
-    arts = [a for a in arts if a.get("selectable", True)]
+    if not include_implicit:
+        arts = [a for a in arts if a.get("selectable", True)]
     if search:
         s = search.lower()
         arts = [

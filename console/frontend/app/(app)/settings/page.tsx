@@ -3,7 +3,6 @@
 import { Card, CardHeader } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useUI } from "@/app/providers";
-import { DARK_THEMES, OTHER_THEMES } from "@/lib/themes";
 import { useQuery } from "@tanstack/react-query";
 import { Eye, Lock, Monitor, Settings, ShieldOff } from "lucide-react";
 
@@ -15,7 +14,7 @@ const ROLES = [
 ];
 
 export default function SettingsPage() {
-  const { theme, setTheme, density, setDensity } = useUI();
+  const { density, setDensity } = useUI();
   const health = useQuery({ queryKey: ["health"], queryFn: api.health });
   const me = useQuery({ queryKey: ["me"], queryFn: api.me });
 
@@ -32,37 +31,6 @@ export default function SettingsPage() {
         <Card>
           <CardHeader title="Appearance" icon={Monitor} />
           <div className="space-y-5 p-4">
-            <div>
-              <div className="stat-label mb-2">Dark themes</div>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {DARK_THEMES.map((t) => (
-                  <ThemeSwatch
-                    key={t.id}
-                    name={t.name}
-                    bg={t.bg}
-                    accent={t.accent}
-                    active={theme === t.id}
-                    onSelect={() => setTheme(t.id)}
-                  />
-                ))}
-              </div>
-            </div>
-            <div>
-              <div className="stat-label mb-2">Other themes</div>
-              <div className="flex flex-wrap gap-2">
-                {OTHER_THEMES.map((t) => (
-                  <ThemeSwatch
-                    key={t.id}
-                    name={t.name}
-                    bg={t.bg}
-                    accent={t.accent}
-                    active={theme === t.id}
-                    onSelect={() => setTheme(t.id)}
-                    compact
-                  />
-                ))}
-              </div>
-            </div>
             <div>
               <div className="stat-label mb-2">Density</div>
               <div className="flex gap-2">
@@ -131,49 +99,6 @@ export default function SettingsPage() {
         </Card>
       </div>
     </div>
-  );
-}
-
-function ThemeSwatch({
-  name,
-  bg,
-  accent,
-  active,
-  onSelect,
-  compact = false,
-}: {
-  name: string;
-  bg: string;
-  accent: string;
-  active: boolean;
-  onSelect: () => void;
-  compact?: boolean;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={`rounded-lg border p-2 text-left transition-colors ${
-        compact ? "min-w-[9rem]" : "w-full"
-      } ${
-        active
-          ? "border-accent/50 bg-accent/8 ring-1 ring-accent/30"
-          : "border-border hover:border-border-strong hover:bg-surface-2"
-      }`}
-      aria-pressed={active}
-      aria-label={`${name} theme`}
-    >
-      <div
-        className="h-9 overflow-hidden rounded-md border border-border/40"
-        style={{
-          background: `linear-gradient(135deg, rgb(${bg}) 58%, rgb(${accent}) 58%)`,
-        }}
-        aria-hidden
-      />
-      <span className={`mt-1.5 block truncate ${compact ? "text-xs" : "text-2xs"} text-fg-subtle`}>
-        {name}
-      </span>
-    </button>
   );
 }
 

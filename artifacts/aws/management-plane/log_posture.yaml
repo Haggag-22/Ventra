@@ -4,8 +4,7 @@ aliases:
 - aws.log_posture
 cloud: aws
 category: ManagementPlane
-description: 'Logging posture for sources without a Ventra log collector yet: OpenSearch,
-  DynamoDB Streams, Network Firewall.'
+description: 'Logging posture for OpenSearch, DynamoDB Streams, and Network Firewall. Ventra records whether logging is enabled and where it is published, and does not export those log bodies.'
 version: 1.0.0
 collector: log_posture
 type: log_posture

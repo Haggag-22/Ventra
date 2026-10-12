@@ -1144,38 +1144,40 @@ def generate(out_dir: Path, case_id: str = "CASE-2026-0042") -> Path:
             [("snapshot.json", _write_json(sd / "account/snapshot.json", build_account_snapshot()))],
             notes="Environment context.",
         )
-        # Logging posture for sources Ventra detects but does not pull yet.
+        # Collectors that exist, recorded as their own sources when the demo account has nothing to pull.
+        for name, reason, detail in (
+            ("cloudfront", GapReason.NOT_PRESENT, "No CloudFront distributions."),
+            ("eks_audit", GapReason.NOT_PRESENT, "No EKS clusters in scope."),
+            (
+                "apigateway",
+                GapReason.OUT_OF_SCOPE,
+                "Access logging enabled on 1/2 stage(s) → "
+                "arn:aws:logs:us-east-1:123456789012:log-group:apigw-prod.",
+            ),
+            ("lambda_logs", GapReason.OUT_OF_SCOPE, "4 Lambda log group(s) in CloudWatch Logs."),
+            ("rds", GapReason.LOGGING_NOT_CONFIGURED, "Log export disabled on all 1 RDS instance(s)."),
+            ("inspector2", GapReason.SERVICE_NOT_ENABLED, "Inspector2 not enabled in scope."),
+        ):
+            manifest.add_source_result(
+                SourceResult(
+                    name=name,
+                    status=SourceStatus.SKIPPED,
+                    gaps=[(name, reason, detail)],
+                    notes=detail,
+                )
+            )
+
+        # OpenSearch, DynamoDB Streams, and Network Firewall are posture checks, not collectors.
         manifest.add_source_result(
             SourceResult(
                 name="log_posture",
                 status=SourceStatus.COLLECTED,
                 gaps=[
-                    ("cloudfront", GapReason.NOT_PRESENT, "No CloudFront distributions."),
-                    ("eks_audit", GapReason.NOT_PRESENT, "No EKS clusters in scope."),
-                    (
-                        "apigateway",
-                        GapReason.OUT_OF_SCOPE,
-                        "Access logging enabled on 1/2 stage(s) → "
-                        "arn:aws:logs:us-east-1:123456789012:log-group:apigw-prod. "
-                        "Coming soon — Ventra does not collect this source yet.",
-                    ),
-                    (
-                        "lambda_logs",
-                        GapReason.OUT_OF_SCOPE,
-                        "4 Lambda log group(s) in CloudWatch Logs. "
-                        "Coming soon — Ventra does not collect this source yet.",
-                    ),
                     ("opensearch", GapReason.NOT_PRESENT, "No OpenSearch domains in scope."),
-                    (
-                        "rds",
-                        GapReason.LOGGING_NOT_CONFIGURED,
-                        "Log export disabled on all 1 RDS instance(s).",
-                    ),
                     ("dynamodb_streams", GapReason.NOT_PRESENT, "No DynamoDB tables in scope."),
                     ("network_firewall", GapReason.NOT_PRESENT, "No Network Firewall in scope."),
-                    ("inspector2", GapReason.SERVICE_NOT_ENABLED, "Inspector2 not enabled in scope."),
                 ],
-                notes="Logging posture recorded for uncollected sources.",
+                notes="Logging posture recorded for OpenSearch, DynamoDB Streams, and Network Firewall.",
             )
         )
 

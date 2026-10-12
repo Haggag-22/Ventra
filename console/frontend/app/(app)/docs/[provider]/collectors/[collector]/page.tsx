@@ -11,6 +11,7 @@ import { Badge, EmptyState, LoadingPanel } from "@/components/ui";
 import { api } from "@/lib/api";
 import { displayArtifactLabel } from "@/lib/artifact-icons";
 import { acquirePermissionModel } from "@/lib/catalog";
+import { loadDocArtifacts } from "@/lib/docs-data";
 import {
   DOC_PROVIDER_LABELS,
   PROVIDER_IAM_POLICIES,
@@ -35,8 +36,7 @@ async function findCollectorArtifact(
   const clouds = artifactCloudsForProvider(provider);
   for (const cloud of clouds) {
     try {
-      const artifact = await api.artifact(collector, cloud);
-      if (artifact.selectable !== false) return artifact;
+      return await api.artifact(collector, cloud);
     } catch {
       // Try the next cloud scope when a provider maps to more than one artifact cloud.
     }
@@ -56,20 +56,7 @@ export default function DocsCollectorPage({
 
   const providerArtifacts = useQuery({
     queryKey: ["docs", "artifacts", provider],
-    queryFn: async () => {
-      const clouds = artifactCloudsForProvider(provider);
-      const results = await Promise.all(clouds.map((cloud) => api.artifacts(cloud)));
-      const items: Artifact[] = [];
-      const seen = new Set<string>();
-      for (const result of results) {
-        for (const artifact of result.artifacts) {
-          if (artifact.selectable === false || seen.has(artifact.collector)) continue;
-          seen.add(artifact.collector);
-          items.push(artifact);
-        }
-      }
-      return items;
-    },
+    queryFn: () => loadDocArtifacts(provider),
     staleTime: 120_000,
   });
 
@@ -128,6 +115,12 @@ export default function DocsCollectorPage({
                   <p>{data.description}</p>
                 ) : (
                   <DocComingSoon />
+                )}
+                {data.implicit && (
+                  <p>
+                    This collector runs automatically with every {DOC_PROVIDER_LABELS[provider]} kit.
+                    Acquire does not list it as a separate choice.
+                  </p>
                 )}
               </DocSection>
 
@@ -234,7 +227,7 @@ export default function DocsCollectorPage({
               >
                 All {DOC_PROVIDER_LABELS[provider]} collectors
               </Link>
-              {acquirePlatform && (
+              {acquirePlatform && !data.implicit && (
                 <Link
                   href={acquireHref({
                     cloud: acquirePlatform,

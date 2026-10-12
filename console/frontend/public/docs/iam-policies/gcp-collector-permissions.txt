@@ -12,15 +12,19 @@ iam.roles.list
 
 [Cloud Audit Admin]
 logging.logEntries.list
+logging.logs.list
 
 [Cloud Audit System]
 logging.logEntries.list
+logging.logs.list
 
 [Cloud Audit Data]
 logging.logEntries.list
+logging.logs.list
 
 [Login Events]
 logging.logEntries.list
+logging.logs.list
 
 [Logging Posture]
 compute.subnetworks.list
@@ -29,13 +33,16 @@ logging.sinks.list
 
 [VPC Flow Logs]
 logging.logEntries.list
+logging.logs.list
 compute.subnetworks.list
 
 [Firewall Logs]
 logging.logEntries.list
+logging.logs.list
 
 [Cloud NAT]
 logging.logEntries.list
+logging.logs.list
 
 [Network Posture]
 compute.firewalls.list
@@ -46,22 +53,28 @@ compute.packetMirrorings.list
 
 [Cloud Load Balancing Logs]
 logging.logEntries.list
+logging.logs.list
 
 [Cloud CDN Access Logs]
 logging.logEntries.list
+logging.logs.list
 
 [API Gateway]
 logging.logEntries.list
+logging.logs.list
 
 [Cloud DNS]
 logging.logEntries.list
+logging.logs.list
 
 [Cloud Armor]
 compute.securityPolicies.list
 logging.logEntries.list
+logging.logs.list
 
 [VM Logs]
 logging.logEntries.list
+logging.logs.list
 
 [GCE / Persistent Disks]
 compute.instances.list
@@ -70,28 +83,35 @@ compute.snapshots.list
 
 [Cloud Functions]
 logging.logEntries.list
+logging.logs.list
 
 [GKE Audit]
 container.clusters.list
 logging.logEntries.list
+logging.logs.list
 
 [GCS Access Logs]
 logging.logEntries.list
+logging.logs.list
 
 [BigQuery Audit Logs]
 logging.logEntries.list
+logging.logs.list
 
 [Cloud SQL Logs]
 logging.logEntries.list
+logging.logs.list
 
 [Secret Manager Access]
 logging.logEntries.list
+logging.logs.list
 
 [Security Command Center Findings]
 securitycenter.findings.list
 
 [Cloud Monitoring]
 logging.logEntries.list
+logging.logs.list
 monitoring.alertPolicies.list
 
 [Log collection — Cloud Storage Archive backend]

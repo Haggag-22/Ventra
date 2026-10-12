@@ -3,11 +3,11 @@
 import { DeploymentTemplateLinks } from "@/components/deployment-template-links";
 import { LoadingPanel } from "@/components/ui";
 import { docSectionContent, renderDocBlocks } from "@/lib/doc-content";
-import { groupArtifactsByCategory } from "@/lib/docs-data";
+import { groupArtifactsByCategory, loadDocArtifacts } from "@/lib/docs-data";
 import {
   DOC_PROVIDER_LABELS,
   PROVIDER_IAM_POLICIES,
-  artifactCloudsForProvider,
+  acquirePlatformForArtifact,
   docSectionLabel,
   docsCollectorHref,
   docsSectionHref,
@@ -19,8 +19,6 @@ import {
 import { deploymentTemplatesForProvider } from "@/lib/deployment-templates";
 import { displayCategoryLabel } from "@/lib/format";
 import { acquireHref } from "@/lib/routes";
-import type { Artifact } from "@/lib/types";
-import { api } from "@/lib/api";
 import { ChevronRight, Download, FileKey, Play } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -33,19 +31,6 @@ import {
 import { ArtifactIcon } from "@/components/artifact-icon";
 import { displayArtifactLabel } from "@/lib/artifact-icons";
 import { useQuery } from "@tanstack/react-query";
-
-async function loadProviderArtifacts(provider: DocProvider): Promise<Artifact[]> {
-  const clouds = artifactCloudsForProvider(provider);
-  const results = await Promise.all(clouds.map((cloud) => api.artifacts(cloud)));
-  const byCollector = new Map<string, Artifact>();
-  for (const result of results) {
-    for (const artifact of result.artifacts) {
-      if (artifact.selectable === false) continue;
-      if (!byCollector.has(artifact.collector)) byCollector.set(artifact.collector, artifact);
-    }
-  }
-  return [...byCollector.values()];
-}
 
 function DocSectionBody({
   provider,
@@ -112,7 +97,7 @@ function DocSectionBody({
 function CollectorsSection({ provider }: { provider: DocProvider }) {
   const artifacts = useQuery({
     queryKey: ["docs", "artifacts", provider],
-    queryFn: () => loadProviderArtifacts(provider),
+    queryFn: () => loadDocArtifacts(provider),
     staleTime: 120_000,
   });
 
@@ -121,17 +106,13 @@ function CollectorsSection({ provider }: { provider: DocProvider }) {
     [artifacts.data],
   );
 
-  if (provider === "kubernetes") {
-    return (
-      <DocComingSoon label="Kubernetes collectors are on the roadmap. Check back for audit and workload evidence documentation." />
-    );
-  }
-
   if (artifacts.isPending) return <LoadingPanel label="Loading collectors…" />;
 
   if (groups.length === 0) {
     return <DocComingSoon label="Collector documentation for this provider is coming soon." />;
   }
+
+  const acquireCloud = acquirePlatformForArtifact(provider);
 
   return (
     <div className="space-y-8">
@@ -161,6 +142,11 @@ function CollectorsSection({ provider }: { provider: DocProvider }) {
                       {artifact.description}
                     </p>
                   )}
+                  {artifact.implicit && (
+                    <p className="mt-1 text-2xs text-fg-faint">
+                      Runs with every kit. Not listed separately in Acquire.
+                    </p>
+                  )}
                 </div>
                 <ChevronRight className="mt-1 h-4 w-4 shrink-0 text-fg-faint group-hover:text-accent" />
               </Link>
@@ -169,20 +155,17 @@ function CollectorsSection({ provider }: { provider: DocProvider }) {
         </section>
       ))}
 
-      <div className="flex justify-end border-t border-border pt-6">
-        <Link
-          href={acquireHref({
-            cloud:
-              provider === "aws" || provider === "azure" || provider === "gcp"
-                ? provider
-                : "aws",
-          })}
-          className="inline-flex h-8 items-center gap-1.5 rounded-md bg-accent px-3 text-xs font-medium text-accent-fg transition-colors hover:bg-accent/90"
-        >
-          <Play className="h-4 w-4" aria-hidden />
-          Open Acquire
-        </Link>
-      </div>
+      {acquireCloud && (
+        <div className="flex justify-end border-t border-border pt-6">
+          <Link
+            href={acquireHref({ cloud: acquireCloud })}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-accent px-3 text-xs font-medium text-accent-fg transition-colors hover:bg-accent/90"
+          >
+            <Play className="h-4 w-4" aria-hidden />
+            Open Acquire
+          </Link>
+        </div>
+      )}
     </div>
   );
 }
@@ -200,7 +183,7 @@ export default function DocProviderSectionPage({
 
   const artifacts = useQuery({
     queryKey: ["docs", "artifacts", provider],
-    queryFn: () => loadProviderArtifacts(provider),
+    queryFn: () => loadDocArtifacts(provider),
     staleTime: 120_000,
     enabled: section === "collectors",
   });

@@ -8,7 +8,13 @@ export const DOCS_PROVIDER_PARAMS = [
   { provider: "aws" },
   { provider: "azure" },
   { provider: "gcp" },
+  { provider: "kubernetes" },
 ];
 /** Nested under [provider] — only the child segment key. */
-export const DOCS_SECTION_PARAMS = [{ section: "overview" }, { section: "collectors" }];
+export const DOCS_SECTION_PARAMS = [
+  { section: "authentication" },
+  { section: "permissions" },
+  { section: "connections" },
+  { section: "collectors" },
+];
 export const DOCS_COLLECTOR_PARAMS = [{ collector: "_" }];

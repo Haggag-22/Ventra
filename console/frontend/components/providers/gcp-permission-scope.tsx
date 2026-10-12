@@ -21,6 +21,16 @@ export function GcpPermissionScope() {
           <span className="font-medium text-fg">Collection</span> — read-only IAM across{" "}
           {groupCount} service areas. Use the collector policy templates linked below.
         </p>
+        <ul className="flex flex-wrap gap-1.5 pt-1">
+          {GCP_COLLECTOR_PERMISSION_GROUPS.map((group) => (
+            <li
+              key={group.label}
+              className="rounded-md border border-border bg-surface px-2 py-0.5 text-2xs text-fg"
+            >
+              {group.label}
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );

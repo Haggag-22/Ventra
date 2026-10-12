@@ -19,6 +19,7 @@
     "logging.logEntries.list",
     "logging.logs.list",
     "logging.sinks.list",
+    "monitoring.alertPolicies.list",
     "resourcemanager.projects.get",
     "resourcemanager.projects.getIamPolicy",
     "securitycenter.findings.list",

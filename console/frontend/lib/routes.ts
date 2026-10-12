@@ -9,6 +9,22 @@ import {
 
 /** Canonical URL for the cases list (outside any open case). */
 export const CASES_HREF = "/cases";
+
+/** Drop a trailing slash so `/cases` and `/cases/` compare the same. Root stays `/`. */
+export function normalizePathname(pathname: string): string {
+  if (!pathname || pathname === "/") return pathname || "/";
+  return pathname.replace(/\/+$/, "") || "/";
+}
+
+/**
+ * True for an open case (`/cases/<id>/...`).
+ * The cases list (`/cases` and `/cases/`) is the main page and keeps the global sidebar.
+ */
+export function isCaseWorkspacePath(pathname: string): boolean {
+  const path = normalizePathname(pathname);
+  return path.startsWith("/cases/") && !path.endsWith("/settings");
+}
+
 export const EXPORT_HREF = "/export";
 export const CONFIG_ACQUIRE_HREF = "/config/acquire";
 /** @deprecated Bookmarks — use CONFIG_ACQUIRE_HREF. */
@@ -89,60 +105,61 @@ const PANEL_LABELS: Record<string, string> = {
 
 /** Build breadcrumb trail from a pathname (client-side). */
 export function breadcrumbsFromPath(pathname: string, caseId?: string): BreadcrumbItem[] {
+  const path = normalizePathname(pathname);
   const items: BreadcrumbItem[] = [{ label: "Cases", href: CASES_HREF }];
 
-  if (pathname === CASES_HREF) return items;
+  if (path === CASES_HREF) return items;
 
-  if (pathname.startsWith(EXPORT_HREF)) {
+  if (path.startsWith(EXPORT_HREF)) {
     items.push({ label: "Configuration" });
     items.push({ label: "Export" });
     return items;
   }
 
-  if (pathname.startsWith("/collection-kits")) {
+  if (path.startsWith("/collection-kits")) {
     items.push({ label: "Configuration" });
     items.push({ label: "Collection Kits" });
     return items;
   }
 
-  if (pathname.startsWith(CONFIG_ACQUIRE_HREF) || pathname.startsWith("/acquire")) {
+  if (path.startsWith(CONFIG_ACQUIRE_HREF) || path.startsWith("/acquire")) {
     items.push({ label: "Configuration" });
     items.push({ label: "Acquire" });
     return items;
   }
 
-  if (pathname.startsWith("/runs")) {
+  if (path.startsWith("/runs")) {
     items.push({ label: "Configuration" });
     items.push({ label: "Scans", href: CONFIG_COLLECTION_HREF });
-    if (pathname.startsWith("/runs/")) {
-      const runId = pathname.split("/")[2];
+    if (path.startsWith("/runs/")) {
+      const runId = path.split("/")[2];
       if (runId && runId !== "new") items.push({ label: runId });
     }
     return items;
   }
 
-  if (pathname.startsWith("/config/")) {
+  if (path.startsWith("/config/")) {
     items.push({ label: "Configuration" });
     if (
-      pathname.startsWith(CONFIG_PROVIDERS_HREF) ||
-      pathname.startsWith(CONFIG_CONNECTIONS_HREF)
+      path.startsWith(CONFIG_PROVIDERS_HREF) ||
+      path.startsWith(CONFIG_CONNECTIONS_HREF)
     ) {
       items.push({ label: "Authentication" });
-    } else if (pathname.startsWith(CONFIG_ACQUIRE_HREF)) items.push({ label: "Acquire" });
-    else if (pathname.startsWith(CONFIG_PROFILES_HREF)) items.push({ label: "Collection Kits" });
-    else if (pathname.startsWith(CONFIG_LOG_BACKENDS_HREF)) items.push({ label: "Acquire" });
-    else if (pathname.startsWith(CONFIG_COLLECTION_HREF)) items.push({ label: "Scans" });
+    } else if (path.startsWith(CONFIG_ACQUIRE_HREF)) items.push({ label: "Acquire" });
+    else if (path.startsWith(CONFIG_PROFILES_HREF)) items.push({ label: "Collection Kits" });
+    else if (path.startsWith(CONFIG_LOG_BACKENDS_HREF)) items.push({ label: "Acquire" });
+    else if (path.startsWith(CONFIG_COLLECTION_HREF)) items.push({ label: "Scans" });
     return items;
   }
 
-  if (pathname === SETTINGS_HREF) {
+  if (path === SETTINGS_HREF) {
     items.push({ label: "Settings" });
     return items;
   }
 
-  if (pathname.startsWith("/docs")) {
+  if (path.startsWith("/docs")) {
     items.push({ label: "Documentation", href: docsDefaultHref() });
-    const parts = pathname.split("/").filter(Boolean);
+    const parts = path.split("/").filter(Boolean);
     const provider = parts[1];
     if (provider && isDocProvider(provider)) {
       items.push({
@@ -163,7 +180,7 @@ export function breadcrumbsFromPath(pathname: string, caseId?: string): Breadcru
     return items;
   }
 
-  const caseMatch = pathname.match(/^\/cases\/([^/]+)(?:\/(.*))?$/);
+  const caseMatch = path.match(/^\/cases\/([^/]+)(?:\/(.*))?$/);
   if (caseMatch) {
     const id = decodeURIComponent(caseMatch[1]);
     items.push({ label: id, href: caseHref(id) });
