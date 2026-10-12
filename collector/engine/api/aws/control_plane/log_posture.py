@@ -1,12 +1,7 @@
-"""Logging-posture collector — presence detection for log sources Ventra does not yet pull.
+"""Logging-posture collector for OpenSearch, DynamoDB Streams, and Network Firewall.
 
-For each IR cheat-sheet log source without a dedicated collector, this records whether it is
-enabled in the account and where it ships (S3 bucket / CloudWatch group / Firehose). A
-disabled log source is a forensic finding; an enabled one tells the responder exactly where
-to collect manually. Each source is reported as a manifest gap named by its catalog id so
-the console's Logs Coverage panel can show real per-source status instead of "unknown".
-
-Checked: OpenSearch log publishing, DynamoDB Streams, Network Firewall logging.
+These sources have no log-body collector. Ventra records whether logging is enabled and
+where it is published. The checks roll up to the Logging Posture row in Logs Coverage.
 """
 
 from __future__ import annotations
@@ -21,16 +16,16 @@ from collector.lib.models import GapReason, SourceResult, SourceStatus
 
 MAX_ITEMS_PER_SERVICE = 200
 
-# Shown in manifest gaps for sources Ventra detects but does not collect yet.
-_PLANNED_COLLECTOR = "Coming soon — Ventra does not collect this source yet."
+# Shown when logging is enabled. Ventra records the destination and does not export the bodies.
+_POSTURE_ONLY = "Ventra records where these logs are published and does not export the log bodies."
 
 
 class LogPostureCollector(Collector):
     name = "log_posture"
     priority = 2
     description = (
-        "Logging posture for sources without a Ventra log collector yet: "
-        "OpenSearch, DynamoDB Streams, Network Firewall."
+        "Logging posture for OpenSearch, DynamoDB Streams, and Network Firewall. "
+        "Records whether logging is enabled and where it is published."
     )
     required_actions = (
         "logs:DescribeLogGroups",
@@ -125,7 +120,7 @@ class LogPostureCollector(Collector):
         else:
             out["_gap"] = (
                 GapReason.OUT_OF_SCOPE,
-                f"Log publishing enabled on {domains_logged}/{domains_total} domain(s). {_PLANNED_COLLECTOR}",
+                f"Log publishing enabled on {domains_logged}/{domains_total} domain(s). {_POSTURE_ONLY}",
             )
         return out
 
@@ -202,6 +197,6 @@ class LogPostureCollector(Collector):
             out["_gap"] = (
                 GapReason.OUT_OF_SCOPE,
                 f"Logging enabled on {firewalls_logged}/{firewalls_total} firewall(s) → "
-                f"{', '.join(destinations[:3])}. {_PLANNED_COLLECTOR}",
+                f"{', '.join(destinations[:3])}. {_POSTURE_ONLY}",
             )
         return out

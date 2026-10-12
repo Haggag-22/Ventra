@@ -12,6 +12,10 @@ export const GAP_PARENT: Record<string, string> = {
   network_activity: "cloudtrail",
   management_events: "cloudtrail",
   log_validation: "cloudtrail",
+  // AWS log_posture records these. They are not separate collectors.
+  opensearch: "log_posture",
+  dynamodb_streams: "log_posture",
+  network_firewall: "log_posture",
 };
 
 /** Resolve a gap name (possibly suffixed, e.g. ``log_validation:trail``) to its catalog id. */
@@ -100,11 +104,29 @@ export const IMPLEMENTED_LOG_COLLECTORS = new Set([
   "route53_resolver",
   "rds",
   "eks_audit",
+  "log_posture",
+  "iam",
+  "kms",
+  "secrets",
+  "ec2",
+  "s3",
+  "lambda",
   "aks_audit",
   "activity_log",
   "entra_signin",
   "entra_audit",
   "nsg_flow",
+  "vnet_flow",
+  "app_gateway",
+  "front_door",
+  "dns",
+  "azure_firewall",
+  "key_vault",
+  "oauth_consent",
+  "entra_directory",
+  "rbac",
+  "subscription",
+  "resource_graph",
   "defender",
   "cloud_audit_admin",
   "cloud_audit_system",
@@ -113,8 +135,14 @@ export const IMPLEMENTED_LOG_COLLECTORS = new Set([
   "firewall_logs",
   "load_balancer",
   "cloud_cdn",
+  "cloud_nat",
+  "cloud_dns",
+  "cloud_armor",
   "api_gateway",
+  "network_posture",
   "vm_logs",
+  "gce",
+  "gke_audit",
   "cloud_functions",
   "storage_access",
   "bigquery_audit",
@@ -122,6 +150,9 @@ export const IMPLEMENTED_LOG_COLLECTORS = new Set([
   "secret_manager",
   "scc_findings",
   "cloud_monitoring",
+  "logging_posture",
+  "iam_policy",
+  "project",
   // On-prem Kubernetes
   "k8s_events",
   "k8s_audit_posture",
@@ -134,6 +165,9 @@ export const IMPLEMENTED_LOG_COLLECTORS = new Set([
   "k8s_etcd",
   "k8s_cni_logs",
 ]);
+
+/** Runs with every kit. Shown on coverage, not offered as a separate Acquire pick. */
+export const IMPLICIT_COVERAGE_COLLECTORS = new Set(["log_posture", "logging_posture"]);
 
 export function aggregateManifestSources(sources: ManifestSource[] = []) {
   const bySource = new Map<string, { status: string; records: number; notes: string }>();

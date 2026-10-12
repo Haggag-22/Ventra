@@ -34,6 +34,10 @@ import {
 import Link from "next/link";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 
+function importArticle(tab: CasePlatform): "an" | "a" {
+  return tab === "aws" || tab === "azure" ? "an" : "a";
+}
+
 function readImportCaseParam(): string {
   if (typeof window === "undefined") return "";
   return new URLSearchParams(window.location.search).get("import_case")?.trim() || "";
@@ -148,19 +152,11 @@ export default function CasesPage() {
             <CloudTabEmpty
               cloud={tab}
               title={`No ${CASE_PLATFORM_LABELS[tab]} cases`}
-              description={
-                tab === "aws"
-                  ? "Import an AWS evidence package collected with Ventra to begin."
-                  : tab === "kubernetes"
-                    ? "Standalone Kubernetes evidence packages are coming soon. Cases will appear here once in-cluster collection is available."
-                    : `The ${CASE_PLATFORM_LABELS[tab]} collector is on the roadmap. Cases will appear here once ${CASE_PLATFORM_LABELS[tab]} packages are imported.`
-              }
+              description={`Import ${importArticle(tab)} ${CASE_PLATFORM_LABELS[tab]} evidence package collected with Ventra to begin.`}
               action={
-                tab === "aws" ? (
-                  <Button variant="primary" icon={Upload} onClick={() => setImportOpen(true)}>
-                    Import package
-                  </Button>
-                ) : undefined
+                <Button variant="primary" icon={Upload} onClick={() => setImportOpen(true)}>
+                  Import package
+                </Button>
               }
             />
           </Card>

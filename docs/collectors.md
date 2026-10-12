@@ -40,7 +40,7 @@ with the account owner before any engagement.
 | **EC2 / EBS** | Instance and volume inventory; snapshot share/copy evidence trail |
 | **S3** | Bucket inventory, public exposure, policies, logging, Object Lock |
 | **Lambda** | Function inventory, resource policies, redacted environment config |
-| **Log posture** | Presence detection for sources without a dedicated log collector yet (OpenSearch, DynamoDB Streams, Network Firewall) |
+| **Log posture** | Whether OpenSearch, DynamoDB Streams, and Network Firewall logging is enabled, and where those logs are published. Ventra does not export the log bodies |
 | **CloudWatch Logs** | Events from selected log groups (by name, ARN, or prefix); prefer domain collectors when the service is known |
 | **API Gateway** | REST/HTTP API stage access logs from CloudWatch (Logs Coverage; no dedicated edge panel chip yet) |
 | **Lambda logs** | Function execution logs from CloudWatch Logs (Logs Coverage) |

@@ -9,13 +9,13 @@ import { clearKitHandoff, getKitHandoff } from "@/lib/acquire-handoff";
 import { handoffModeLabel, parseHandoffMode } from "@/lib/handoff-modes";
 import { api } from "@/lib/api";
 import { displayArtifactLabel } from "@/lib/artifact-icons";
-import { CASE_PLATFORM_LABELS, CLOUD_IMPLEMENTED, isAcquirePlatform, type CasePlatform, type Cloud } from "@/lib/catalog";
+import { CLOUD_IMPLEMENTED, isAcquirePlatform, type Cloud } from "@/lib/catalog";
 import {
   ACQUIRABLE_COVERAGE,
   aggregateManifestSources,
   catalogItems,
   IMPLEMENTED_LOG_COLLECTORS,
-  missingCollectorIds,
+  IMPLICIT_COVERAGE_COLLECTORS,
   plannedCollectorDetail,
   resolveCollectorCoverage,
   type CoverageState,
@@ -176,13 +176,6 @@ export default function CollectionPage() {
           </div>
         )}
 
-        {!CLOUD_IMPLEMENTED[cloud] && (
-          <div className="rounded-lg border border-warn-amber/30 bg-warn-amber/10 px-4 py-3 text-xs text-warn-amber">
-            {(CASE_PLATFORM_LABELS[cloud as CasePlatform] ?? cloud)} collectors are coming soon — coverage below shows posture
-            detection until collection is available.
-          </div>
-        )}
-
         <Card className="p-4">
           <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-fg-subtle">
             <span className="stat-label">Logs coverage</span>
@@ -201,7 +194,9 @@ export default function CollectionPage() {
             <Legend icon={XSquare} tone="text-bad-red" label="Not enabled" />
             <Legend icon={XSquare} tone="text-bad-red" label="Access denied" />
             <Legend icon={Square} tone="text-fg-subtle" label="Not run" />
-            <LegendBadge label="Coming soon" />
+            {resolved.some((row) => displayState(row.it.id, row.r.state) === "planned") && (
+              <LegendBadge label="Coming soon" />
+            )}
           </div>
         </Card>
 
@@ -280,6 +275,7 @@ function LogsCheckedTable({
             CLOUD_IMPLEMENTED[cloud] &&
             isAcquirePlatform(cloud) &&
             IMPLEMENTED_LOG_COLLECTORS.has(it.id) &&
+            !IMPLICIT_COVERAGE_COLLECTORS.has(it.id) &&
             ACQUIRABLE_COVERAGE.has(r.state);
 
           return (

@@ -174,8 +174,14 @@ export const api = {
     ),
   evidenceDownloadUrl: (c: string, path: string) =>
     `/api/cases/${encodeURIComponent(c)}/evidence/download?path=${encodeURIComponent(path)}`,
-  artifacts: (cloud?: string, search?: string) =>
-    get<{ artifacts: Artifact[]; count: number }>(`/artifacts${qs({ cloud, search })}`),
+  artifacts: (cloud?: string, search?: string, opts?: { includeImplicit?: boolean }) =>
+    get<{ artifacts: Artifact[]; count: number }>(
+      `/artifacts${qs({
+        cloud,
+        search,
+        include_implicit: opts?.includeImplicit ? true : undefined,
+      })}`,
+    ),
   artifact: (collector: string, cloud?: string) =>
     get<Artifact>(`/artifacts/${encodeURIComponent(collector)}${qs({ cloud })}`),
   packs: (cloud?: string) => get<{ packs: ArtifactPack[] }>(`/packs${qs({ cloud })}`),

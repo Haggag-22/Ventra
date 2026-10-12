@@ -22,6 +22,16 @@ export function AzurePermissionScope() {
           {armGroups.length} areas plus Microsoft Graph application permissions. Use the policy
           templates linked below.
         </p>
+        <ul className="flex flex-wrap gap-1.5 pt-1">
+          {AZURE_COLLECTOR_PERMISSION_GROUPS.map((group) => (
+            <li
+              key={group.label}
+              className="rounded-md border border-border bg-surface px-2 py-0.5 text-2xs text-fg"
+            >
+              {group.label}
+            </li>
+          ))}
+        </ul>
       </div>
     </div>
   );

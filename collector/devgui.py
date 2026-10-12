@@ -493,7 +493,7 @@ def cmd_dev(args: Namespace) -> int:
                 file=sys.stderr,
             )
         if frontend_ok:
-            webbrowser.open(f"http://127.0.0.1:{frontend_port}")
+            webbrowser.open(f"http://127.0.0.1:{frontend_port}/cases")
         else:
             print(
                 f"error: frontend did not start on port {frontend_port}. Check the logs above.",
@@ -599,7 +599,7 @@ def _cmd_gui_packaged(args: Namespace) -> int:
 
         def _open() -> None:
             if _wait_for_http(f"{url}/api/health", timeout=30):
-                webbrowser.open(url)
+                webbrowser.open(f"{url}/cases")
 
         threading.Thread(target=_open, daemon=True).start()
 

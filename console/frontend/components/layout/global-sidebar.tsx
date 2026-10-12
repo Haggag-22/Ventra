@@ -8,6 +8,7 @@ import {
   CONFIG_PROVIDERS_HREF,
   EXPORT_HREF,
   GITHUB_REPO_URL,
+  normalizePathname,
 } from "@/lib/routes";
 import {
   DOC_PROVIDERS,
@@ -18,7 +19,6 @@ import {
   type DocProvider,
 } from "@/lib/docs-routes";
 import { CloudProviderIcon } from "@/components/cloud-provider-icon";
-import { ThemeToggle } from "@/components/layout/theme-toggle";
 import { cn } from "@/lib/utils";
 import {
   Activity,
@@ -157,7 +157,7 @@ function DocsProviderNav({
 }
 
 export function GlobalSidebar() {
-  const pathname = usePathname();
+  const pathname = normalizePathname(usePathname() || "/");
   const [manualExpand, setManualExpand] = useState<Record<string, boolean>>({});
   return (
     <aside className="app-sidebar">
@@ -169,7 +169,6 @@ export function GlobalSidebar() {
           <div className="sb-brand-title">Ventra</div>
         </Link>
         <div className="sb-brand-actions">
-          <ThemeToggle className="sb-brand-action" />
           <a
             href={GITHUB_REPO_URL}
             target="_blank"

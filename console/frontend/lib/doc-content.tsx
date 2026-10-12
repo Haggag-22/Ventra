@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { AWS_COLLECTOR_PERMISSION_GROUPS } from "./aws-collector-permissions";
+import { AZURE_COLLECTOR_PERMISSION_GROUPS } from "./azure-collector-permissions";
 import { GCP_COLLECTOR_PERMISSION_GROUPS } from "./gcp-collector-permissions";
 import type { DocProvider, DocSectionId } from "./docs-routes";
 
@@ -38,7 +39,7 @@ const AWS_AUTH: DocSectionContent = {
   blocks: [
     {
       type: "p",
-      text: "Ventra reaches AWS through an IAM identity that carries read only access. You save that identity once as a connection under Config, Providers, and Ventra reuses it for platform collection runs and for building acquisition kits. Nothing is stored in the browser.",
+      text: "Ventra reaches AWS through an IAM identity that carries read only access. You save that identity once as a connection under Configuration, Authentication, and Ventra reuses it for platform collection runs and for building acquisition kits. Nothing is stored in the browser.",
     },
     {
       type: "p",
@@ -70,7 +71,7 @@ const AWS_AUTH: DocSectionContent = {
         "Create an IAM user or role called ventra collector and attach the read only policy.",
         "For the Credentials method, create an access key for that user.",
         "For the IAM Role method, note the role ARN and allow the Ventra host identity to assume it.",
-        "Open Config, Providers and choose Add cloud connection, then select Amazon Web Services.",
+        "Open Configuration, Authentication, and choose Add cloud connection, then select Amazon Web Services.",
         "On Provider details, enter a display name and the twelve digit account ID.",
         "On Authentication method, choose Credentials or IAM Role.",
         "On Authenticate, paste the access keys or the role ARN.",
@@ -165,7 +166,7 @@ const GCP_AUTH: DocSectionContent = {
         "Grant the role on every project in scope, or bind once at the folder or organization level.",
         "Enable the Cloud Logging, Cloud Resource Manager, and Security Command Center APIs wherever you plan to collect.",
         "For the Service Account Key method, create a JSON key if your policy permits keys.",
-        "Open Config, Providers, add a connection, and select Google Cloud Platform.",
+        "Open Configuration, Authentication, add a connection, and select Google Cloud Platform.",
         "On Provider details, set the project ID. For several projects, list them separated by commas.",
         "On Authenticate, paste or upload the service account key, or choose Application Default Credentials.",
         "Run Validate connection to confirm Ventra can reach the project.",
@@ -183,7 +184,7 @@ const GCP_PERMISSIONS: DocSectionContent = {
   blocks: [
     {
       type: "p",
-      text: "GCP access is granted as a custom role, or as predefined read only roles that cover the same API methods. The BigQuery jobs.create method is included so the log export backend can query partitioned audit tables.",
+      text: "GCP access is granted as a custom role, or as predefined read only roles that cover the same API methods. Log collectors read Cloud Logging. When those logs are archived to Cloud Storage, the collector also needs bucket and object read on the archive buckets.",
     },
     ...permissionGroupSummary(GCP_COLLECTOR_PERMISSION_GROUPS),
     {
@@ -246,7 +247,7 @@ const AZURE_AUTH: DocSectionContent = {
         "Create a client secret with an expiry that covers the engagement.",
         "Assign the read only role on the subscription, or deploy the Terraform module.",
         "Grant the Microsoft Graph application permissions and record tenant administrator consent.",
-        "Open Config, Providers, add a connection, and select Microsoft Azure.",
+        "Open Configuration, Authentication, add a connection, and select Microsoft Azure.",
         "Enter the Tenant ID, Client ID, client secret, and Subscription ID, then run Validate connection.",
       ],
     },
@@ -264,12 +265,15 @@ const AZURE_PERMISSIONS: DocSectionContent = {
       type: "p",
       text: "Azure access spans Resource Manager provider actions and Microsoft Graph application permissions. Every scope is read only.",
     },
+    ...permissionGroupSummary(
+      AZURE_COLLECTOR_PERMISSION_GROUPS.map((group) => ({
+        label: group.label,
+        actions: group.permissions,
+      })),
+    ),
     {
-      type: "ul",
-      items: [
-        "Resource Manager read only: subscriptions, activity logs, network watchers, storage metadata, Key Vault inventory, AKS clusters, Defender alerts, and Log Analytics query.",
-        "Microsoft Graph: AuditLog.Read.All, Directory.Read.All, User.Read.All, Group.Read.All, and Application.Read.All.",
-      ],
+      type: "p",
+      text: "Diagnostic settings posture records whether a resource sends logs to Storage, Log Analytics, or Event Hub. Ventra reads the blobs in Storage. A Log Analytics-only route is recorded as a gap; there is no Log Analytics collector.",
     },
     {
       type: "p",
@@ -299,23 +303,40 @@ const AZURE_CONNECTIONS: DocSectionContent = {
   ],
 };
 
-// ---- Kubernetes (roadmap; left as-is for now) ------------------------------------------
+// ---- Kubernetes ------------------------------------------------------------------------
 
 const K8S_AUTH: DocSectionContent = {
   title: "Authentication",
   blocks: [
     {
       type: "p",
-      text: "Ventra Kubernetes connections authenticate with a kubeconfig file and a named context. Paste the full kubeconfig YAML on the authenticate step; Ventra validates the YAML and confirms the context exists before saving.",
+      text: "Kubernetes collection uses a kubeconfig and a named context. API-plane collectors call the cluster with that identity. Node-plane collectors read log files on the node that runs the kit, so the collection host must be able to see those paths.",
     },
     {
-      type: "ul",
-      items: [
-        "Kubernetes Context: the context name from your kubeconfig (provider details step).",
-        "Kubeconfig Content: full kubeconfig YAML pasted server-side (authenticate step).",
-        "Provider alias: optional short label shown in the connections table.",
-        "On edit, leave kubeconfig blank to keep the saved content.",
+      type: "table",
+      headers: ["Method", "What you provide", "When to use"],
+      rows: [
+        [
+          "Kubeconfig",
+          "Full kubeconfig YAML and the context name",
+          "Every Kubernetes connection. Ventra checks that the YAML parses and that the context exists before saving",
+        ],
       ],
+    },
+    {
+      type: "ol",
+      items: [
+        "Create a service account and bind the read-only ClusterRole from the RBAC page.",
+        "Build a kubeconfig whose current or named context uses that identity.",
+        "Open Configuration, Authentication, and add a Kubernetes connection.",
+        "On Provider details, enter a display name and the Kubernetes context.",
+        "On Authenticate, paste the kubeconfig YAML.",
+        "Run Validate connection. Ventra parses the YAML and confirms the context is present.",
+      ],
+    },
+    {
+      type: "note",
+      text: "On edit, leave Kubeconfig Content blank to keep the file already saved on the server.",
     },
   ],
 };
@@ -325,7 +346,20 @@ const K8S_PERMISSIONS: DocSectionContent = {
   blocks: [
     {
       type: "p",
-      text: "Grant read-only RBAC to the identity in your kubeconfig. Required verbs are get, list, and watch on core workloads, events, and audit-related API groups. No create, update, patch, or delete permissions are required (except create on SelfSubjectAccessReview for the collector preflight probe).",
+      text: "API-plane collectors need read-only access. The verbs are get, list, and watch. The only write is create on SelfSubjectAccessReview, which the collector uses to probe its own permissions. Secret values are stripped in code; the secrets rule is metadata only.",
+    },
+    {
+      type: "ul",
+      items: [
+        "Events, RBAC, cluster state, and audit posture: core, apps, batch, networking, rbac, events, apiextensions, and admissionregistration resources.",
+        "Discovery: get on /version, /api, and /apis.",
+        "Preflight: create on selfsubjectaccessreviews.",
+        "Node plane (API-server audit, container logs, kubelet, container runtime, etcd, and CNI): these read files on the node. RBAC does not grant that access. Run the kit on a node that can read those paths.",
+      ],
+    },
+    {
+      type: "note",
+      text: "A missing verb becomes an access-denied gap and the rest of the run continues. Do not grant cluster-admin.",
     },
   ],
 };
@@ -335,7 +369,17 @@ const K8S_CONNECTIONS: DocSectionContent = {
   blocks: [
     {
       type: "p",
-      text: "Create a Kubernetes connection from Config → Providers. Step 1 selects Kubernetes; step 2 sets the display name, optional alias, and context name; step 3 stores the kubeconfig YAML. The validate step runs a structural check (YAML parse + context lookup) before save.",
+      text: "A Kubernetes connection stores the kubeconfig on the server and the context name used to select a cluster. Authentication and the collection host are separate: the kubeconfig reaches the API, and node-plane collectors still need the kit to run where the log files are.",
+    },
+    {
+      type: "table",
+      headers: ["Field", "Step", "Purpose"],
+      rows: [
+        ["Display name", "Provider details", "How the connection appears in dropdowns and run history"],
+        ["Alias", "Provider details", "Optional short label in the connections table"],
+        ["Kubernetes Context", "Provider details", "The context name inside the kubeconfig"],
+        ["Kubeconfig Content", "Authenticate", "Full kubeconfig YAML. Leave blank on edit to keep the saved file"],
+      ],
     },
   ],
 };

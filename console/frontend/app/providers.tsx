@@ -2,11 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createContext, useContext, useEffect, useMemo, useState } from "react";
-import {
-  THEME_CLASS_NAMES,
-  type Theme,
-  isValidTheme,
-} from "@/lib/themes";
+import { THEME_CLASS_NAMES } from "@/lib/themes";
 
 // ---- React Query -----------------------------------------------------------------------
 
@@ -23,8 +19,6 @@ function makeClient() {
 type Density = "comfortable" | "compact";
 
 interface UIState {
-  theme: Theme;
-  setTheme: (t: Theme) => void;
   density: Density;
   setDensity: (d: Density) => void;
 }
@@ -37,41 +31,29 @@ export function useUI(): UIState {
   return ctx;
 }
 
-export type { Theme };
-
 export function Providers({ children }: { children: React.ReactNode }) {
   const [client] = useState(makeClient);
-  const [theme, setThemeState] = useState<Theme>("dark");
   const [density, setDensityState] = useState<Density>("comfortable");
 
   useEffect(() => {
-    const stored = localStorage.getItem("ventra.theme");
-    const t: Theme = isValidTheme(stored) ? stored : "dark";
     const d = (localStorage.getItem("ventra.density") as Density) || "comfortable";
-    setThemeState(t);
     setDensityState(d);
+    localStorage.removeItem("ventra.theme");
   }, []);
 
   useEffect(() => {
     const el = document.documentElement;
     el.classList.remove(...THEME_CLASS_NAMES);
-    el.classList.add(`theme-${theme}`);
+    el.classList.add("theme-dark");
     el.dataset.density = density;
-  }, [theme, density]);
+  }, [density]);
 
-  const setTheme = (t: Theme) => {
-    setThemeState(t);
-    localStorage.setItem("ventra.theme", t);
-  };
   const setDensity = (d: Density) => {
     setDensityState(d);
     localStorage.setItem("ventra.density", d);
   };
 
-  const ui = useMemo(
-    () => ({ theme, setTheme, density, setDensity }),
-    [theme, density],
-  );
+  const ui = useMemo(() => ({ density, setDensity }), [density]);
 
   return (
     <QueryClientProvider client={client}>
