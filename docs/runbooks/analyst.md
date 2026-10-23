@@ -6,23 +6,29 @@ IR workstation (or forensic VPC) and makes no outbound calls.
 ## 1. Start the console
 
 ```bash
-ventra gui        # http://localhost:8080  (hot reload; first run sets up .venv + npm)
+ventra gui        # opens http://127.0.0.1:8000 (or the next free port)
 ```
 
-No Docker — a packaged desktop app is planned for the v1 release. To run the pieces by hand
-during development, see [`console/README.md`](../../console/README.md).
+No Docker or Node.js needed: the console ships inside the `ventra` package. To work on the
+console itself from a checkout, see [`console/README.md`](../../console/README.md).
 
 ## 2. Import the evidence package
 
 In **Cases → Import package**, drop the `.tar.zst`. Ventra will, in order:
 
-1. **Verify** the signature and every per-source SHA-256.
+1. **Verify** the manifest seal and every per-source SHA-256.
 2. **Parse** each source.
 3. **Normalize** records into the unified event schema.
 4. **Load** into the case store (DuckDB/Parquet by default).
 
-If integrity fails, the import stops and shows exactly which hash/signature mismatched. A
-clean import shows a **green integrity badge** on the case header.
+The case header shows the result:
+
+- **Sealed · advisory** (amber) — every hash matched, and the manifest carries a SHA-256
+  stamp. This is the normal result: it proves nothing changed in transit, but it is not
+  key-backed. A cosign/minisign signature also shows amber until you verify it yourself with
+  the signer's public key (`cosign verify-blob` / `minisign -V`).
+- **Integrity failed** (red) — a hash or the stamp did not match, or the package is unsealed.
+  The integrity view lists exactly which file failed.
 
 > Prefer the CLI? `ventra-ingest ./case-....tar.zst --case-store ./cases`
 
