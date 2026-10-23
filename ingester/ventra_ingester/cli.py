@@ -70,7 +70,6 @@ def verify_main(argv: list[str] | None = None) -> int:
     from .package import EvidencePackage
     from .verify import verify_package
 
-    pkg = EvidencePackage(Path(args.package))
     with EvidencePackage(Path(args.package)) as pkg:
         report = verify_package(pkg)
     if args.json:

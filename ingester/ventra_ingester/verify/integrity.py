@@ -3,9 +3,10 @@
 Recomputes the SHA-256 of every source file recorded in the manifest and checks the detached
 manifest signature. The result drives the console's green/amber/red integrity badge:
 
-  * green  — signature valid (or sha256-stamp matched) AND every source hash matched.
-  * amber  — all present hashes matched but an optional source is missing, or the weaker
-             sha256-stamp signature mode was used.
+  * green  — a cryptographic signature was verified AND every source hash matched.
+  * amber  — all present hashes matched but an optional source is missing, the weaker
+             sha256-stamp mode was used, or a cryptographic signature is present but was not
+             verified (the ingester has no public key, so it cannot tell a real one from junk).
   * red    — any source hash mismatch, or a cryptographic signature failed.
 """
 
@@ -77,10 +78,13 @@ def _verify_signature(pkg: EvidencePackage) -> tuple[str, bool, list[str]]:
             "collection time). Tamper-evident in transit but not key-backed."
         )
         return ("sha256-stamp", valid, notes)
-    # A real cosign/minisign signature: presence recorded; full crypto verify is a CLI step
-    # with the public key (ventra-verify --key ...).
-    notes.append("Cryptographic signature present; verify with the release public key.")
-    return ("cosign/minisign", True, notes)
+    # Looks like a cosign/minisign signature, but without the public key it can't be checked.
+    # Anyone can write bytes here, so it must not earn more trust than the sha256 stamp.
+    notes.append(
+        "Manifest has a cosign/minisign signature that was NOT verified (no public key). "
+        "Verify it with cosign verify-blob or minisign -V before relying on it."
+    )
+    return ("cosign/minisign-unverified", True, notes)
 
 
 def verify_package(pkg: EvidencePackage) -> IntegrityReport:
@@ -111,7 +115,7 @@ def verify_package(pkg: EvidencePackage) -> IntegrityReport:
         overall = "red"
     elif not sig_valid:
         overall = "red"
-    elif method == "sha256-stamp" or missing:
+    elif method in ("sha256-stamp", "cosign/minisign-unverified") or missing:
         overall = "amber"
     else:
         overall = "green"
