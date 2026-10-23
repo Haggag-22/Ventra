@@ -4,47 +4,56 @@ All notable changes to Ventra are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning is
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [1.0.0] - 2026-10-23
+
+First stable release. Earlier 0.x builds were previews and have been withdrawn from PyPI and
+GitHub; their notes are kept at the end of this file.
 
 ### Added
 - Acquire can choose where the Azure Activity Log comes from: the Monitor API or the
   subscription's diagnostic storage archive. Kit IAM is narrowed to the chosen source.
 - Acquire can choose the CloudTrail source for AWS kits (LookupEvents, a bucket, or a trail).
+- `ventra run` delivers the sealed package to the handoff set in Acquire's Enterprise profile
+  (your IR bucket or a presigned URL). Bucket uploads use the machine's own AWS credentials, not
+  the kit's read-only ones; the local copy is kept, and a failed upload makes the run exit
+  non-zero. A bad transport spec stops the run before it collects anything.
+
+### Changed
+- `ventra import` (and auto-ingest after `ventra collect`) writes to the console's case store
+  (`$VENTRA_HOME/cases`, else the user data folder for installs, else `./cases` in a source
+  checkout), so CLI imports show up in `ventra gui`. `--case-store` and `VENTRA_CASE_STORE`
+  still win.
+- The console frontend moved to Next.js 15.5 and React 19.
+- The README and runbooks follow the console workflow: build a Collection Kit in Acquire, run it
+  from the console or with `ventra run`, then import the package under Cases.
+- CI typechecks, lints and builds the console, bundles it into the wheel, and smoke-tests the
+  installed console in headless Chromium.
+
+### Fixed
+- The installed console (`pip`/`uv`/`pipx`) can open cases and runs again. Case and run pages read
+  the static-export placeholder `_` instead of the real ID, so every case showed a load error.
+  Links between pages no longer force full page reloads, and pages hydrate without a React
+  mismatch.
+- Load errors no longer tell installed users to run `make ingest`.
+- The AWS permissions list the console offers for download includes the CloudWatch Logs
+  actions again.
+- Kits no longer suggest a `--stream-to` flag that doesn't exist.
 
 ### Removed
 - The M365 Unified Audit Log collectors (`unified_audit`, `unified_audit_search`) and the
   Azure `log_analytics` collector.
 
-### Fixed
-- `ventra run` now delivers the sealed package to the handoff set in Acquire's Enterprise
-  profile (your IR bucket or a presigned URL), as the console's handoff steps say. It used to
-  ignore the kit's `transport` and always stop at the local package. Bucket uploads use the
-  machine's own AWS credentials, not the kit's read-only ones; the local copy is kept, and a
-  failed upload makes the run exit non-zero. A bad transport spec stops the run before it
-  collects anything.
-- Kits no longer suggest a `--stream-to` flag that doesn't exist; the Cloud Shell notes say
-  to run multi-GB collections on EC2 instead.
-
-### Changed
-- CI typechecks, lints and builds the console frontend, bundles it into the wheel, and smoke-tests
-  the installed console: import a demo case, then load a case page in headless Chromium. This
-  catches case pages reading the static-export placeholder `_` instead of the real case ID.
-- The README now follows the console workflow (build a Collection Kit in Acquire, run it from
-  the console or with `ventra run`). The per-cloud collector list moved to `docs/collectors.md`.
-
-### Fixed
-- `ventra import` (and auto-ingest after `ventra collect`) now writes to the console's case
-  store (`$VENTRA_HOME/cases`, else the user data folder for installs, else `./cases` in a
-  source checkout) instead of `./cases`, so CLI imports show up in `ventra gui`.
-  `--case-store` and `VENTRA_CASE_STORE` still win.
-
 ### Security
-- The console frontend moved to Next.js 15.5 and React 19, clearing the Next 14 advisories that
-  `npm audit` reports. Next's bundled PostCSS is overridden to 8.5.31 for the same reason.
+- A package whose manifest carries a cryptographic signature that Ventra cannot verify is no
+  longer shown as "Sealed · verified" (green). Without a public key it can't tell a real
+  signature from junk, so such packages are amber, like SHA-256-stamped ones.
+- The console's frontend dependencies have no known advisories (`npm audit`).
 
-## [0.7.3] - 2026-09-26
+## Pre-1.0 previews (withdrawn)
 
-### Security
+### [0.7.3] - 2026-09-26
+
+#### Security
 - Importing an evidence package can no longer write outside the case directory: archive
   members with `..`, absolute paths or drive letters are refused before anything is written.
 - A package's `case_id` can no longer point outside the case store (it was used as a
@@ -57,19 +66,19 @@ All notable changes to Ventra are documented here. Format follows
   server binds `127.0.0.1` instead of all interfaces. There is still no login: the console is a
   single-user tool on the analyst's own machine.
 
-### Fixed
+#### Fixed
 - Kit runs stage evidence under `--out` instead of `/tmp` (a small tmpfs on many nodes) and
   stream the tar into the compressor, so collections no longer fail with `ENOSPC`.
 - Non-systemd Kubernetes node logs (syslog / kubelet.log fallback) get their timestamp and
   program from the line instead of an empty time.
 - Event time sorting orders by the parsed instant, not the timestamp text.
 
-### Added
+#### Added
 - Click-to-sort column headers on every case dashboard table (server-side for event logs).
 
-## Earlier changes (0.7.2 and before)
+### Earlier changes (0.7.2 and before)
 
-### Changed (packaging)
+#### Changed (packaging)
 - Build backend is now **hatchling** + **hatch-vcs** (version still comes from git tags, same
   version strings). `hatch_build.py` replaces the setuptools `build_py` hook and stages the
   artifact catalog, schemas, IAM policies, and static console into the wheel.
@@ -86,7 +95,7 @@ All notable changes to Ventra are documented here. Format follows
 - CI: pull-request workflow (ruff, pytest on 3.11–3.14, read-only guard, catalog validation,
   fresh-install smoke test); tag release workflow split into build → PyPI (OIDC) → GitHub Release.
 
-### Added
+#### Added
 - Project foundation: README, license (Apache-2.0), security policy, contributing guide.
 - **Evidence Package Format (EPF) v1** specification and JSON Schemas (manifest, package,
   unified event).
@@ -101,4 +110,4 @@ All notable changes to Ventra are documented here. Format follows
 - Demo case fixtures and an end-to-end collect → ingest → render path.
 - Terraform reference forensics environment for the analyst workstation.
 
-[Unreleased]: https://github.com/Haggag-22/Ventra/commits/main
+[1.0.0]: https://github.com/Haggag-22/Ventra/releases/tag/v1.0.0

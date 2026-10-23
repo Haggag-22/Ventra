@@ -26,7 +26,7 @@ try:
     # Resolved from the installed distribution's metadata, which hatch-vcs (setuptools-scm)
     # derives from the git tag at build/install time. Recorded in every manifest as ``tool_version``, so an
     # evidence package always shows exactly which build collected it (a tagged release like
-    # ``0.2.0``, or a dev build like ``0.2.0.dev3+g1a2b3c4`` when run from a working tree).
+    # ``1.0.0``, or a dev build like ``1.0.1.dev3+g1a2b3c4`` when run from a working tree).
     __version__ = _pkg_version("ventra")
 except PackageNotFoundError:  # running from a source tree that was never installed
     __version__ = "0.0.0+unknown"
