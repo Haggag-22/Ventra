@@ -1,4 +1,4 @@
-Ventra AWS collectors — read-only permissions (you assign Resource ARNs)
+Ventra AWS collectors read-only permissions
 
 [Account Context]
 sts:GetCallerIdentity
@@ -50,6 +50,10 @@ cloudtrail:GetInsightSelectors
 cloudtrail:LookupEvents
 s3:ListBucket
 s3:GetObject
+
+[CloudWatch Logs]
+logs:DescribeLogGroups
+logs:FilterLogEvents
 
 [AWS Config]
 config:DescribeConfigurationRecorders

@@ -166,8 +166,9 @@ export default function KubernetesAuditPage() {
       <PanelBody className="cloudtrail-view cloudtrail-events space-y-4">
         {eventsFailed && (
           <div className="rounded-lg border border-bad-red/30 bg-bad-red/10 px-4 py-3 text-sm text-bad-red">
-            Could not load Kubernetes audit events from the case store. Restart the backend after
-            upgrading, or re-import the case with <span className="mono">make ingest</span>.
+            Could not load Kubernetes audit events from the case store. Restart{" "}
+            <span className="mono">ventra gui</span> after upgrading, or re-import the case from Cases →
+            Import package.
           </div>
         )}
 
