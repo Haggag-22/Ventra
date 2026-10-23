@@ -105,3 +105,18 @@ def user_data_root() -> Path:
     if xdg:
         return (Path(xdg).expanduser() / "ventra").resolve()
     return (Path.home() / ".ventra").resolve()
+
+
+def default_data_root() -> Path:
+    """Root the console and CLI share for cases, uploads and config.
+
+    Resolution order: ``VENTRA_HOME``; then :func:`user_data_root` for packaged / pipx
+    installs (bundled console, or no source checkout); otherwise the current directory,
+    so a source checkout keeps ``./cases`` next to the repo.
+    """
+    env = os.environ.get("VENTRA_HOME", "").strip()
+    if env:
+        return Path(env).expanduser().resolve()
+    if bundled_console_static() is not None or not is_source_checkout():
+        return user_data_root()
+    return Path.cwd().resolve()

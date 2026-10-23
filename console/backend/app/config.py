@@ -10,12 +10,12 @@ def _default_data_root() -> Path:
     env = os.environ.get("VENTRA_HOME", "").strip()
     if env:
         return Path(env).expanduser().resolve()
-    # Packaged / pipx installs: keep state under the user data dir, not cwd.
+    # Packaged / pipx installs: keep state under the user data dir, not cwd. Shared with
+    # the CLI (`ventra import`, collect auto-ingest) so both use the same case store.
     try:
-        from collector.paths import bundled_console_static, is_source_checkout, user_data_root
+        from collector.paths import default_data_root
 
-        if bundled_console_static() is not None or not is_source_checkout():
-            return user_data_root()
+        return default_data_root()
     except Exception:
         pass
     return Path.cwd().resolve()

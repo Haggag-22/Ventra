@@ -30,8 +30,9 @@ parameterized path (`app/store.py`). RBAC is enforced here, server-side.
 
 | Var | Default | Meaning |
 |-----|---------|---------|
-| `VENTRA_CASE_STORE` | `./cases` | Root the ingester writes to. |
-| `VENTRA_UPLOAD_DIR` | `./.ventra-uploads` | Staging for uploaded packages. |
+| `VENTRA_HOME` | user data dir (installs) or `.` (source checkout) | Data root for the paths below. `ventra import` uses the same one. |
+| `VENTRA_CASE_STORE` | `$VENTRA_HOME/cases` | Root the ingester writes to. |
+| `VENTRA_UPLOAD_DIR` | `$VENTRA_HOME/.ventra-uploads` | Staging for uploaded packages. |
 | `VENTRA_CORS` | `localhost:3000,8080` | Allowed frontend origins (dev servers in a source checkout). |
 | `VENTRA_EXPORT_DROP_DIR` | _(unset)_ | Optional SIEM drop zone — Export writes NDJSON here for Logstash/forwarders. |
 

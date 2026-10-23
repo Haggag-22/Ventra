@@ -10,7 +10,18 @@ from typing import Any
 
 
 def default_case_store() -> Path:
-    return Path(os.environ.get("VENTRA_CASE_STORE", "./cases"))
+    """Case store used when no ``--case-store`` is given.
+
+    ``VENTRA_CASE_STORE`` wins; otherwise ``<data root>/cases``, resolved exactly as the
+    console backend does (see :func:`collector.paths.default_data_root`), so cases imported
+    from the CLI show up in ``ventra gui``.
+    """
+    env = os.environ.get("VENTRA_CASE_STORE", "").strip()
+    if env:
+        return Path(env).expanduser()
+    from collector.paths import default_data_root
+
+    return default_data_root() / "cases"
 
 
 def running_in_cloudshell() -> bool:

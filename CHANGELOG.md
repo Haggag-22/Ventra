@@ -22,6 +22,12 @@ All notable changes to Ventra are documented here. Format follows
 - The README now follows the console workflow (build a Collection Kit in Acquire, run it from
   the console or with `ventra run`). The per-cloud collector list moved to `docs/collectors.md`.
 
+### Fixed
+- `ventra import` (and auto-ingest after `ventra collect`) now writes to the console's case
+  store (`$VENTRA_HOME/cases`, else the user data folder for installs, else `./cases` in a
+  source checkout) instead of `./cases`, so CLI imports show up in `ventra gui`.
+  `--case-store` and `VENTRA_CASE_STORE` still win.
+
 ## [0.7.3] - 2026-09-26
 
 ### Security

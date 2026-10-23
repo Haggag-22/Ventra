@@ -75,7 +75,10 @@ def _add_aws_parser(sub: argparse._SubParsersAction) -> None:
     aws.add_argument(
         "--case-store",
         default=None,
-        help="Case store for auto-ingest after collect (default: $VENTRA_CASE_STORE or ./cases).",
+        help=(
+            "Case store for auto-ingest after collect "
+            "(default: $VENTRA_CASE_STORE, else the console case store)."
+        ),
     )
     aws.add_argument(
         "--no-ingest",
@@ -150,7 +153,10 @@ def _add_azure_parser(sub: argparse._SubParsersAction) -> None:
     az.add_argument(
         "--case-store",
         default=None,
-        help="Case store for auto-ingest after collect (default: $VENTRA_CASE_STORE or ./cases).",
+        help=(
+            "Case store for auto-ingest after collect "
+            "(default: $VENTRA_CASE_STORE, else the console case store)."
+        ),
     )
     az.add_argument(
         "--no-ingest",
@@ -205,7 +211,10 @@ def _add_gcp_parser(sub: argparse._SubParsersAction) -> None:
     gcp.add_argument(
         "--case-store",
         default=None,
-        help="Case store for auto-ingest after collect (default: $VENTRA_CASE_STORE or ./cases).",
+        help=(
+            "Case store for auto-ingest after collect "
+            "(default: $VENTRA_CASE_STORE, else the console case store)."
+        ),
     )
     gcp.add_argument(
         "--no-ingest",
@@ -276,7 +285,10 @@ def _add_kubernetes_parser(sub: argparse._SubParsersAction) -> None:
     k8s.add_argument(
         "--case-store",
         default=None,
-        help="Case store for auto-ingest after collect (default: $VENTRA_CASE_STORE or ./cases).",
+        help=(
+            "Case store for auto-ingest after collect "
+            "(default: $VENTRA_CASE_STORE, else the console case store)."
+        ),
     )
     k8s.add_argument(
         "--no-ingest",
@@ -397,7 +409,10 @@ def _add_import_parser(sub: argparse._SubParsersAction) -> None:
     imp.add_argument(
         "--case-store",
         default="",
-        help="Case store root (default: VENTRA_CASE_STORE or ./cases).",
+        help=(
+            "Case store root (default: VENTRA_CASE_STORE, else the console's data folder: "
+            "$VENTRA_HOME/cases, the user data dir for installs, ./cases in a source checkout)."
+        ),
     )
 
 

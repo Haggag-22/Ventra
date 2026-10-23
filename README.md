@@ -162,7 +162,7 @@ exfiltration). Azure, GCP and Kubernetes generators live next to it in `tests/fi
 |---------|--------------|
 | `ventra gui` | Open the console (`--no-open` to skip opening a browser tab) |
 | `ventra run <kit>.kit` | Run a Collection Kit downloaded from Acquire (`--out`, `--no-sudo`) |
-| `ventra import <path> --case-store <dir>` | Import a package from a terminal into a case store (default `./cases`; the console reads the data folder below) |
+| `ventra import <path>` | Import a package from a terminal into the console's case store (`--case-store <dir>` to use another one) |
 | `ventra-verify <package>` | Check a package's hashes and seal without importing it |
 | `ventra-export --case-dir <dir> --out <dir>` | Export a case's events as Elastic NDJSON |
 | `ventra artifacts list` | List every log source Ventra can collect (`--cloud aws`) |
