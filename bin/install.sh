@@ -150,10 +150,10 @@ main() {
 
   echo "Ventra $(ventra --version 2>/dev/null | awk '{print $NF}')"
   echo
-  echo "Collect evidence:"
-  echo "  ventra collect gcp --case CASE-001 --project MY-PROJECT --pack baseline-ir-gcp --out ./evidence"
+  echo "Open the console (build and run Collection Kits, investigate cases):"
+  echo "  ventra gui"
   echo "Run a downloaded kit:"
-  echo "  ventra run ./My-Kit.kit --out ./evidence"
+  echo "  ventra run <your-kit>.kit"
   echo "Upgrade later:"
   echo "  pipx upgrade ventra"
 }

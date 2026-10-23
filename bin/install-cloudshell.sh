@@ -113,8 +113,8 @@ main() {
       echo "  # or: $HOME/.local/bin/ventra ..."
     fi
     echo
-    echo "Collect evidence:"
-    echo "  ventra collect aws --case CASE-2026-0042 --since 2026-05-11 --out ~/ventra-evidence"
+    echo "Run a Collection Kit (upload the .kit from the console's Collection Kits page first):"
+    echo "  ventra run <your-kit>.kit"
   fi
 }
 
