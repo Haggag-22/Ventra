@@ -1,4 +1,5 @@
-# Pull-request / main-branch checks: lint, tests, forensic guards, and a fresh-install smoke test.
+# Pull-request / main-branch checks: lint, tests, forensic guards, the console frontend, and
+# fresh-install smoke tests of the wheel — including the analyst console bundled inside it.
 name: CI
 
 on:
@@ -54,7 +55,43 @@ jobs:
       - name: Artifact catalog
         run: uv run ventra artifacts validate --strict
 
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: console/frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: console/frontend/package-lock.json
+      - name: Install (locked)
+        run: npm ci --no-audit --no-fund
+      - name: tsc --noEmit
+        run: npx tsc --noEmit
+      - name: next lint
+        run: npx next lint
+      - name: Static export (what the wheel bundles)
+        working-directory: .
+        run: bash scripts/build-console-static.sh
+      - name: Working tree must stay clean (a dirty tree gives a +d<date> version PyPI rejects)
+        working-directory: .
+        run: |
+          if [ -n "$(git status --porcelain)" ]; then
+            git status --porcelain
+            echo "::error::the console build modified tracked files"; exit 1
+          fi
+      - uses: actions/upload-artifact@v7
+        with:
+          name: console-static
+          path: console/frontend/out/
+          if-no-files-found: error
+          retention-days: 3
+
   package:
+    needs: frontend
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -63,7 +100,11 @@ jobs:
       - uses: astral-sh/setup-uv@v10.2.0
         with:
           python-version: "3.12"
-      - name: Build sdist + wheel
+      - uses: actions/download-artifact@v8
+        with:
+          name: console-static
+          path: console/frontend/out/
+      - name: Build sdist + wheel (with the static console)
         run: uv build
       - name: Check distribution metadata
         run: uvx twine check --strict dist/*
@@ -78,3 +119,15 @@ jobs:
           "$bin/ventra" collect aws --list-packs | grep baseline-ir-aws >/dev/null
           "$bin/ventra" artifacts validate --strict
           "$bin/ventra-verify" --help >/dev/null
+          unzip -l "$wheel" | grep -q 'collector/_console_static/index.html'
+      - name: Packaged console smoke test (import a case, open it in headless Chromium)
+        run: |
+          venv="$RUNNER_TEMP/console-venv"
+          uv venv --python 3.12 "$venv"
+          uv pip install --python "$venv/bin/python" dist/*.whl playwright==1.64.1
+          "$venv/bin/playwright" install --with-deps --only-shell chromium
+          "$venv/bin/python" tests/fixtures/generate_demo_case.py --out "$RUNNER_TEMP/demo"
+          "$venv/bin/python" scripts/smoke-packaged-console.py --browser \
+            --ventra "$venv/bin/ventra" \
+            --package "$(ls "$RUNNER_TEMP"/demo/*.tar.zst)" \
+            --home "$RUNNER_TEMP/ventra-home"

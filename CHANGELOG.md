@@ -16,6 +16,9 @@ All notable changes to Ventra are documented here. Format follows
   Azure `log_analytics` collector.
 
 ### Changed
+- CI typechecks, lints and builds the console frontend, bundles it into the wheel, and smoke-tests
+  the installed console: import a demo case, then load a case page in headless Chromium. This
+  catches case pages reading the static-export placeholder `_` instead of the real case ID.
 - The README now follows the console workflow (build a Collection Kit in Acquire, run it from
   the console or with `ventra run`). The per-cloud collector list moved to `docs/collectors.md`.
 

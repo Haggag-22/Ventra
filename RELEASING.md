@@ -82,7 +82,11 @@ before `uv build` so the wheel includes the UI.
 
 - **Pull requests / `main`** — [`.github/workflows/ci.yml`](.github/workflows/ci.yml): `ruff check`,
   `ruff format --check`, `pytest` on Python 3.11–3.14, the read-only guard, artifact catalog
-  validation, and a build + fresh `uvx` / `uv tool install` smoke test of the wheel.
+  validation, a `frontend` job (`tsc --noEmit`, `next lint`, static export), and a build of the
+  wheel with that static console bundled. The built wheel gets a fresh `uvx` / `uv tool install`
+  smoke test, then `scripts/smoke-packaged-console.py` runs: it starts `ventra gui`, imports a
+  demo case and loads a case page in headless Chromium, failing if the page calls
+  `/api/cases/_/…` (the static-export placeholder) instead of the real case ID.
 - **Tags `v*`** — [`.github/workflows/publish.yml`](.github/workflows/publish.yml): builds the
   static console, `uv build`, checks the built version equals the tag, `twine check`, then
   publishes via PyPI Trusted Publishing (OIDC) and creates the GitHub Release.

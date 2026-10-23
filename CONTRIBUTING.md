@@ -42,8 +42,19 @@ uv run python -m collector.tools.verify_readonly --collectors
 uv run ventra artifacts validate --strict  # artifact YAML catalog
 ```
 
-These are exactly what `.github/workflows/ci.yml` runs on every pull request, plus a build of the
-sdist/wheel and a fresh `uvx`/`uv tool install` smoke test of the built wheel.
+If you touched the console frontend, also run (from `console/frontend`):
+
+```bash
+npx tsc --noEmit                           # typecheck
+npx next lint                              # lint
+```
+
+These are exactly what `.github/workflows/ci.yml` runs on every pull request, plus a static export
+of the console, a build of the sdist/wheel with that console bundled in, a fresh `uvx`/`uv tool
+install` smoke test of the wheel, and `scripts/smoke-packaged-console.py`: it imports a demo case
+into the installed `ventra gui` and opens a case page in headless Chromium to check it calls the
+API with the real case ID. Don't run `next build` in `console/frontend` while a `ventra gui` dev
+server is running from the same checkout; it breaks the dev server's `.next`.
 
 ## Repository layout (for packaging)
 

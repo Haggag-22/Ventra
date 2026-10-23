@@ -22,5 +22,5 @@
 
 - [ ] Added/updated tests (parser round-trip, collector moto test, or console e2e).
 - [ ] `uv run pytest`, `uv run ruff check`, and `uv run ruff format --check` pass locally.
-- [ ] Console changes: the frontend `build` passes (`cd console/frontend && npm run build`).
+- [ ] Console changes: `npx tsc --noEmit` and `npx next lint` pass in `console/frontend` (CI also builds the static export and smoke-tests it inside the wheel).
 - [ ] New dependencies are declared in `pyproject.toml` (and the matching cloud extra), and `uv.lock` is updated.
