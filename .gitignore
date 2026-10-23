@@ -65,7 +65,6 @@ kubeconfig
 kubeconfig.*
 .aws/
 
-
 # Terraform state & local vars (any provider)
 **/.terraform/
 **/*.tfstate
@@ -141,7 +140,8 @@ override.tf.json
 /docs/presentation/
 /docs/ventra-collector-lab-architecture.drawio
 /docs/keys/
-# Live cloud test labs (create real, billable resources)
+# Live cloud test labs (create real, billable resources) and their make targets
+/Makefile.local
 /testing/
 /scripts/live-test/
 /infrastructure/

@@ -260,7 +260,6 @@ extend-immutable-calls = [
 "collector/engine/api/azure/control_plane/resource_graph.py" = ["E402"]
 "collector/engine/api/azure/identity/entra_audit.py" = ["E402"]
 "collector/engine/api/azure/identity/entra_signin.py" = ["E402"]
-"collector/engine/api/azure/m365/unified_audit.py" = ["E402", "F601"]
 "collector/engine/api/gcp/common/logging_collector.py" = ["E402"]
 "collector/engine/gcp_export_bulk.py" = ["B007"]
 "console/backend/app/config_store.py" = ["E402"]
