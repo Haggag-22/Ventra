@@ -50,9 +50,7 @@ class S3Transport(Transport):
     ``session`` pins the boto3 session to upload with; ``None`` uses boto3's default session.
     """
 
-    def __init__(
-        self, bucket: str, prefix: str = "", *, region: str | None = None, session=None
-    ) -> None:
+    def __init__(self, bucket: str, prefix: str = "", *, region: str | None = None, session=None) -> None:
         self.bucket = bucket
         self.prefix = prefix.strip("/")
         self.region = region

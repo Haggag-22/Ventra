@@ -126,9 +126,7 @@ def test_s3_delivery_gets_a_fresh_session_from_host_env(
     pkg = tmp_path / "pkg.tar.zst"
     pkg.write_bytes(b"x")
 
-    out = deliver_package(
-        transport, "s3://ir-bucket/drop", pkg, host_aws_env={"AWS_ACCESS_KEY_ID": "HOST"}
-    )
+    out = deliver_package(transport, "s3://ir-bucket/drop", pkg, host_aws_env={"AWS_ACCESS_KEY_ID": "HOST"})
 
     assert out.location == "s3://ir-bucket/x"
     assert created == ["HOST"]
@@ -233,9 +231,7 @@ def test_run_kit_without_transport_stays_local(tmp_path: Path, stub_collection: 
     assert "transport" not in json.loads((out / "cli_run.json").read_text())
 
 
-def test_run_kit_bad_transport_fails_before_collecting(
-    tmp_path: Path, stub_collection: list
-) -> None:
+def test_run_kit_bad_transport_fails_before_collecting(tmp_path: Path, stub_collection: list) -> None:
     result = kit_run.run_kit_file(_write_kit(tmp_path, "ftp://nope"), out_dir=tmp_path / "ev")
     assert not result.success
     assert "invalid transport" in result.error
