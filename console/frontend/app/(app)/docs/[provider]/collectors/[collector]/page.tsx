@@ -23,6 +23,7 @@ import {
 } from "@/lib/docs-routes";
 import { displayCategoryLabel } from "@/lib/format";
 import { acquireHref } from "@/lib/routes";
+import { useRouteParam } from "@/lib/use-route-param";
 import type { Artifact } from "@/lib/types";
 import { useQuery } from "@tanstack/react-query";
 import { BookOpen, Download, FileKey, Play } from "lucide-react";
@@ -44,14 +45,9 @@ async function findCollectorArtifact(
   return null;
 }
 
-export default function DocsCollectorPage({
-  params,
-}: {
-  params: { provider: string; collector: string };
-}) {
-  const { provider: rawProvider, collector: rawCollector } = params;
-  const provider = rawProvider.toLowerCase();
-  const collector = decodeURIComponent(rawCollector);
+export default function DocsCollectorPage() {
+  const provider = useRouteParam("provider", 1).toLowerCase();
+  const collector = useRouteParam("collector", 3);
   if (!isDocProvider(provider)) notFound();
 
   const providerArtifacts = useQuery({

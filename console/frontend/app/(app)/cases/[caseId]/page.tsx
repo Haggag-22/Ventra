@@ -1,6 +1,16 @@
-import { DEFAULT_CASE_PANEL } from "@/lib/routes";
-import { redirect } from "next/navigation";
+"use client";
 
-export default function CaseIndex({ params }: { params: { caseId: string } }) {
-  redirect(`/cases/${params.caseId}/${DEFAULT_CASE_PANEL}`);
+import { caseHref } from "@/lib/routes";
+import { useRouteParam } from "@/lib/use-route-param";
+import { useRouter } from "next/navigation";
+import { useEffect } from "react";
+
+/** `/cases/<id>` opens the default panel. Client-side so the packaged static shell keeps the real ID. */
+export default function CaseIndex() {
+  const caseId = useRouteParam("caseId", 1);
+  const router = useRouter();
+  useEffect(() => {
+    if (caseId) router.replace(caseHref(caseId));
+  }, [caseId, router]);
+  return null;
 }

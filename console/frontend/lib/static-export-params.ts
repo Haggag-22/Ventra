@@ -3,7 +3,8 @@ import path from "node:path";
 
 /**
  * Params for `next export` (VENTRA_STATIC_EXPORT=1).
- * Case and run IDs stay on a `_` shell that FastAPI rewrites onto.
+ * Case and run IDs stay on a `_` shell that FastAPI rewrites onto; pages read the real ID from
+ * the browser URL with `useRouteParam` (plain `useParams()` returns "_" in the packaged console).
  * Collector doc pages are pre-rendered per artifact so the client router
  * matches the real URL. `_` remains so unknown collector ids still resolve.
  */

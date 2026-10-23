@@ -8,7 +8,8 @@ import { TopBar } from "@/components/layout/topbar";
 import { LoadingPanel } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
-import { useParams, useRouter } from "next/navigation";
+import { useRouteParam } from "@/lib/use-route-param";
+import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 const GOTO: Record<string, string> = {
@@ -21,9 +22,8 @@ const GOTO: Record<string, string> = {
 };
 
 export default function CaseLayout({ children }: { children: React.ReactNode }) {
-  const params = useParams();
+  const caseId = useRouteParam("caseId", 1);
   const router = useRouter();
-  const caseId = decodeURIComponent(String(params.caseId));
   const [paletteOpen, setPaletteOpen] = useState(false);
 
   const summary = useQuery({

@@ -2,14 +2,14 @@
 
 import { isHiddenUiPlatform } from "@/lib/catalog";
 import { docsDefaultHref } from "@/lib/docs-routes";
-import { useParams, useRouter } from "next/navigation";
+import { useRouteParam } from "@/lib/use-route-param";
+import { useRouter } from "next/navigation";
 import { useEffect, type ReactNode } from "react";
 
 /** Hidden platforms redirect client-side (compatible with static export). */
 export default function DocsProviderLayoutClient({ children }: { children: ReactNode }) {
-  const params = useParams();
+  const provider = useRouteParam("provider", 1);
   const router = useRouter();
-  const provider = String(params?.provider || "");
 
   useEffect(() => {
     if (provider && isHiddenUiPlatform(provider)) {

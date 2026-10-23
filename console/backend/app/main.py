@@ -1519,7 +1519,11 @@ def _console_static_root() -> Path | None:
 
 
 def _rewrite_spa_path(path: str) -> str:
-    """Map dynamic URLs onto the static-export placeholder shells."""
+    """Map dynamic URLs onto the static-export placeholder shells.
+
+    Page URLs map to the shell's ``index.html``; the ``index.txt`` RSC payloads Next fetches on
+    client-side navigation map to the shell's own payload, so links don't fall back to full reloads.
+    """
     parts = [p for p in path.strip("/").split("/") if p]
     if not parts:
         return "index.html"
@@ -1530,7 +1534,7 @@ def _rewrite_spa_path(path: str) -> str:
     elif parts[0] == "docs" and len(parts) >= 4 and parts[2] == "collectors" and parts[3] != "_":
         parts[3] = "_"
     rel = "/".join(parts)
-    return rel if rel.endswith(".html") else f"{rel}/index.html"
+    return rel if rel.endswith((".html", ".txt")) else f"{rel}/index.html"
 
 
 def _mount_packaged_console() -> None:

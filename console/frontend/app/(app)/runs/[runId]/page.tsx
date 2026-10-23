@@ -30,7 +30,9 @@ import { AlertCircle, Ban, ExternalLink, Play, RotateCcw } from "lucide-react";
 
 import Link from "next/link";
 
-import { useParams, useRouter } from "next/navigation";
+import { useRouteParam } from "@/lib/use-route-param";
+
+import { useRouter } from "next/navigation";
 
 import { useMemo, useRef, useState, useEffect } from "react";
 
@@ -38,9 +40,7 @@ import { useMemo, useRef, useState, useEffect } from "react";
 
 export default function RunDetailPage() {
 
-  const params = useParams();
-
-  const runId = decodeURIComponent(String(params.runId));
+  const runId = useRouteParam("runId", 1);
 
   const router = useRouter();
 
