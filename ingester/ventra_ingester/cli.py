@@ -70,8 +70,17 @@ def verify_main(argv: list[str] | None = None) -> int:
     from .package import EvidencePackage
     from .verify import verify_package
 
-    with EvidencePackage(Path(args.package)) as pkg:
-        report = verify_package(pkg)
+    try:
+        with EvidencePackage(Path(args.package)) as pkg:
+            report = verify_package(pkg)
+    except Exception as exc:  # noqa: BLE001 — any unreadable input is a usage error, not a crash
+        print(f"error: cannot read {args.package} as a Ventra package: {exc}", file=sys.stderr)
+        return 2
+    if args.key:
+        report.notes.append(
+            "--key is not implemented yet: the manifest signature was NOT checked against it. "
+            "Verify it with cosign verify-blob or minisign -V."
+        )
     if args.json:
         import json
 

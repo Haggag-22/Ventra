@@ -135,6 +135,7 @@ main() {
   if [ "$backend" = pipx ]; then
     install_with_pipx || {
       echo "pipx install failed — falling back to uv…" >&2
+      backend=uv
       install_with_uv
     }
   else
@@ -155,7 +156,11 @@ main() {
   echo "Run a downloaded kit:"
   echo "  ventra run <your-kit>.kit"
   echo "Upgrade later:"
-  echo "  pipx upgrade ventra"
+  if [ "$backend" = pipx ]; then
+    echo "  pipx upgrade ventra"
+  else
+    echo "  uv tool upgrade ventra"
+  fi
 }
 
 main "$@"

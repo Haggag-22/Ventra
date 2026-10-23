@@ -4,6 +4,14 @@ All notable changes to Ventra are documented here. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning is
 [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- `ventra-verify` reports a missing or unreadable package as a one-line error (exit 2) instead
+  of a Python traceback, and `--key` now says it isn't implemented rather than being ignored.
+- `bin/install.sh` suggests the upgrade command for the installer it actually used
+  (`uv tool upgrade ventra` or `pipx upgrade ventra`).
+
 ## [1.0.0] - 2026-10-23
 
 First stable release. Earlier 0.x builds were previews and have been withdrawn from PyPI and
@@ -110,4 +118,5 @@ GitHub; their notes are kept at the end of this file.
 - Demo case fixtures and an end-to-end collect → ingest → render path.
 - Terraform reference forensics environment for the analyst workstation.
 
+[Unreleased]: https://github.com/Haggag-22/Ventra/compare/v1.0.0...main
 [1.0.0]: https://github.com/Haggag-22/Ventra/releases/tag/v1.0.0
