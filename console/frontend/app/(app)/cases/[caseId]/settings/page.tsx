@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
-export default function CaseSettingsRedirect({ params }: { params: { caseId: string } }) {
+export default function CaseSettingsRedirect() {
   redirect("/settings");
 }

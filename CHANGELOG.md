@@ -38,6 +38,10 @@ All notable changes to Ventra are documented here. Format follows
   source checkout) instead of `./cases`, so CLI imports show up in `ventra gui`.
   `--case-store` and `VENTRA_CASE_STORE` still win.
 
+### Security
+- The console frontend moved to Next.js 15.5 and React 19, clearing the Next 14 advisories that
+  `npm audit` reports. Next's bundled PostCSS is overridden to 8.5.31 for the same reason.
+
 ## [0.7.3] - 2026-09-26
 
 ### Security

@@ -22,7 +22,7 @@ import { acquireHref } from "@/lib/routes";
 import { ChevronRight, Download, FileKey, Play } from "lucide-react";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { useMemo } from "react";
+import { use, useMemo } from "react";
 import {
   DocComingSoon,
   DocLayout,
@@ -173,9 +173,9 @@ function CollectorsSection({ provider }: { provider: DocProvider }) {
 export default function DocProviderSectionPage({
   params,
 }: {
-  params: { provider: string; section: string };
+  params: Promise<{ provider: string; section: string }>;
 }) {
-  const { provider: rawProvider, section: rawSection } = params;
+  const { provider: rawProvider, section: rawSection } = use(params);
   const provider = rawProvider.toLowerCase();
   const section = rawSection.toLowerCase();
 
