@@ -55,6 +55,8 @@ class AcquisitionSpec:
     kubeconfig: str = ""
     k8s_context: str = ""
     node_root: str = ""
+    # Where ``ventra run`` delivers the sealed package (``get_transport`` spec); empty = local.
+    transport: str = ""
 
     def artifact_parameters(self) -> dict[str, dict[str, Any]]:
         """Per-collector parameter values, keyed by collector — for CollectionContext."""
@@ -123,6 +125,7 @@ def load_acquisition(path: Path) -> AcquisitionSpec:
         kubeconfig=str(data.get("kubeconfig") or "").strip(),
         k8s_context=str(data.get("k8s_context") or "").strip(),
         node_root=str(data.get("node_root") or "").strip(),
+        transport=str(data.get("transport") or "").strip(),
     )
 
 

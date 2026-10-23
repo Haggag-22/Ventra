@@ -45,12 +45,18 @@ class S3PresignedTransport(Transport):
 
 
 class S3Transport(Transport):
-    """Upload a sealed package to S3 using operator IAM credentials (multipart for large files)."""
+    """Upload a sealed package to S3 using operator IAM credentials (multipart for large files).
 
-    def __init__(self, bucket: str, prefix: str = "", *, region: str | None = None) -> None:
+    ``session`` pins the boto3 session to upload with; ``None`` uses boto3's default session.
+    """
+
+    def __init__(
+        self, bucket: str, prefix: str = "", *, region: str | None = None, session=None
+    ) -> None:
         self.bucket = bucket
         self.prefix = prefix.strip("/")
         self.region = region
+        self.session = session
 
     def deliver(self, package_path: Path) -> str:
         try:
@@ -59,7 +65,7 @@ class S3Transport(Transport):
         except ImportError as exc:  # pragma: no cover
             raise RuntimeError("S3 transport requires boto3 (pip install boto3)") from exc
 
-        client = boto3.client("s3", region_name=self.region or None)
+        client = (self.session or boto3).client("s3", region_name=self.region or None)
         key = f"{self.prefix}/{package_path.name}" if self.prefix else package_path.name
         config = TransferConfig(
             multipart_threshold=64 * 1024 * 1024,

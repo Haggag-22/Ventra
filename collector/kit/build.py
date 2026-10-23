@@ -81,7 +81,7 @@ _PROFILE_TRADEOFFS: dict[str, str] = {
 TRADEOFFS (summary — full detail in README-operator.md)
 - Best for: quick proof-of-access; client runs in {{CLOUD}} Cloud Shell with no local install.
 - Collects all records in the configured since/until window unless max_records_per_source is set in acquisition.yaml.
-- ~1 GB home disk and ~20 min idle timeout — very large pulls may fail on disk or session timeout; use EC2 or --stream-to s3:// for multi-GB handoff.
+- ~1 GB home disk and ~20 min idle timeout — very large pulls may fail on disk or session timeout; run multi-GB collections on EC2 instead.
 - Switch to workstation for long unattended runs or multi-TB S3 sources.
 """,
     "workstation": """profile: workstation

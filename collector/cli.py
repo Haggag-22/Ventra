@@ -1780,7 +1780,8 @@ def _run_kit_file(args) -> int:
     if cloud == "kubernetes":
         _elevate_for_node_plane(args, collectors, out=args.out)
     result = run_kit_file(Path(args.kit), out_dir=Path(args.out))
-    return 0 if result.success else 1
+    # A failed delivery is a failed run for scripts, even though the package is sealed.
+    return 0 if result.success and not result.delivery_error else 1
 
 
 def _run_import(args) -> int:

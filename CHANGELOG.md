@@ -15,6 +15,16 @@ All notable changes to Ventra are documented here. Format follows
 - The M365 Unified Audit Log collectors (`unified_audit`, `unified_audit_search`) and the
   Azure `log_analytics` collector.
 
+### Fixed
+- `ventra run` now delivers the sealed package to the handoff set in Acquire's Enterprise
+  profile (your IR bucket or a presigned URL), as the console's handoff steps say. It used to
+  ignore the kit's `transport` and always stop at the local package. Bucket uploads use the
+  machine's own AWS credentials, not the kit's read-only ones; the local copy is kept, and a
+  failed upload makes the run exit non-zero. A bad transport spec stops the run before it
+  collects anything.
+- Kits no longer suggest a `--stream-to` flag that doesn't exist; the Cloud Shell notes say
+  to run multi-GB collections on EC2 instead.
+
 ### Changed
 - CI typechecks, lints and builds the console frontend, bundles it into the wheel, and smoke-tests
   the installed console: import a demo case, then load a case page in headless Chromium. This

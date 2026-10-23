@@ -31,7 +31,7 @@ chmod +x run.sh {{ENTRY_SCRIPT}}
 **Data completeness**
 
 - Cloud Shell collects the full configured time window for API-backed sources when disk and session time allow.
-- **S3-heavy sources** (VPC Flow from buckets, CloudTrail archives, large access-log prefixes) may **fail or stall** when local staging space or session time runs out — use EC2 and `--stream-to s3://...` for multi-GB handoff.
+- **S3-heavy sources** (VPC Flow from buckets, CloudTrail archives, large access-log prefixes) may **fail or stall** when local staging space or session time runs out — run multi-GB collections on EC2 instead.
 
 **Other**
 

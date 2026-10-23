@@ -10,6 +10,7 @@ from typing import Any
 
 from collector import __version__
 
+from .deliver import Delivery, deliver_package, kit_transport, redact_transport, snapshot_aws_env
 from .format import (
     KitError,
     KitExpiredError,
@@ -35,6 +36,10 @@ class KitRunResult:
     per_collector: list[dict[str, Any]] = field(default_factory=list)
     success: bool = True
     error: str = ""
+    # Set when the kit names a transport: the redacted target and where the package went.
+    transport: str = ""
+    delivered_to: str = ""
+    delivery_error: str = ""
 
 
 def _local_user() -> str:
@@ -187,6 +192,11 @@ def _print_summary(result: KitRunResult) -> None:
         print(f"  collectors: {', '.join(result.collectors)}")
     if result.package_path:
         print(f"  package:    {result.package_path}")
+    if result.delivered_to:
+        print(f"  delivered:  {result.delivered_to}")
+    elif result.delivery_error:
+        print(f"  delivery:   FAILED ({result.transport}): {result.delivery_error}")
+        print("              the sealed package above is intact; upload or hand-carry it")
     print(f"  out:        {result.out_dir}")
     if result.error:
         print(f"  error:      {result.error}")
@@ -194,7 +204,11 @@ def _print_summary(result: KitRunResult) -> None:
 
 
 def run_kit_file(kit_path: Path, *, out_dir: Path | None = None) -> KitRunResult:
-    """Load ``.kit``, refuse if expired, collect offline, write local package + custody."""
+    """Load ``.kit``, refuse if expired, collect, seal locally, then deliver if the kit says so.
+
+    Delivery uses the ``transport`` in the kit's acquisition.yaml (see :mod:`.deliver`); the
+    sealed package is always written under ``out_dir`` first and kept there.
+    """
     started = utcnow()
     local_user = _local_user()
     out = (out_dir or Path("evidence")).expanduser().resolve()
@@ -248,7 +262,10 @@ def run_kit_file(kit_path: Path, *, out_dir: Path | None = None) -> KitRunResult
         gcp_creds: dict[str, str] | None = None
         azure_creds: dict[str, str] | None = None
         k8s_creds: dict[str, str] | None = None
+        # Before the kit's AWS keys land in the environment: delivery uploads as the host.
+        host_aws_env = snapshot_aws_env()
         try:
+            transport_spec, transport = kit_transport(kit.acquisition_path)
             if cloud == "aws":
                 aws_creds = _apply_aws_credentials(kit)
             elif cloud == "gcp":
@@ -303,6 +320,8 @@ def run_kit_file(kit_path: Path, *, out_dir: Path | None = None) -> KitRunResult
         print(f"  version: kit={kit.manifest.ventra_version}  cli={__version__}")
         print(f"  expires: {kit.manifest.expires_at}")
         print(f"  out:     {out}")
+        if transport is not None:
+            print(f"  deliver: {redact_transport(transport_spec)}")
         print()
 
         custody = {
@@ -352,6 +371,23 @@ def run_kit_file(kit_path: Path, *, out_dir: Path | None = None) -> KitRunResult
             _print_summary(result)
             return result
 
+        delivery: Delivery | None = None
+        if transport is not None and package and package.path:
+            print(f"Delivering sealed package to {redact_transport(transport_spec)} ...")
+            delivery = deliver_package(
+                transport, transport_spec, Path(package.path), host_aws_env=host_aws_env
+            )
+            if delivery.error:
+                print(f"Delivery failed: {delivery.error}")
+                print(f"Package remains at {package.path}")
+            else:
+                print(f"Delivered: {delivery.location}")
+            custody["transport"] = {
+                "target": delivery.target,
+                "location": delivery.location or None,
+                "error": delivery.error or None,
+            }
+
         completed = format_iso(utcnow())
         _write_custody(
             out,
@@ -388,6 +424,9 @@ def run_kit_file(kit_path: Path, *, out_dir: Path | None = None) -> KitRunResult
             collectors=list(kit.manifest.collectors),
             per_collector=per_collector,
             success=True,
+            transport=delivery.target if delivery else "",
+            delivered_to=delivery.location if delivery else "",
+            delivery_error=delivery.error if delivery else "",
         )
         _print_summary(result)
         return result
@@ -438,7 +477,7 @@ def _execute_collection(
         kubeconfig = ""
         context = ""
         node_root = ""
-        transport = "local"
+        transport = "local"  # run_kit_file delivers after sealing (see .deliver)
         no_ingest = True
         ingest = False
 
