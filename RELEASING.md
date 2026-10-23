@@ -1,92 +1,55 @@
-# Releasing & versioning Ventra
+# Releasing Ventra
 
-PyPI holds **only clean, tagged releases** (`0.1.0`, `0.1.1`, `1.0.0`). Day-to-day testing pulls
-your latest code straight from **git** — so the public PyPI page stays tidy while you can still
-fetch any push with one command.
+Maintainer notes. PyPI holds only tagged releases; pushing to `main` publishes nothing.
 
-| Who | Runs | Gets |
-|-----|------|------|
-| **You** | the repo | `ventra gui` (hot reload) + run the collector locally or from git in CloudShell |
-| **Client** | `ventra` in CloudShell | the latest **tagged** release from PyPI |
-| **Analyst** | IR workstation | `uv tool install ventra` (or `pipx install ventra`) then `ventra gui` (console bundled in the wheel) |
+## Versioning
 
-## How versioning works
+The version comes from git (hatch-vcs) — there is no version string to edit.
 
-The version comes from git — there's no version string to hand-edit.
+- **Tag `vX.Y.Z`** → builds exactly `X.Y.Z`. Only tags are published.
+- **Between tags** → a dev version like `0.7.4.dev4+g1a2b3c4`. The `+g<hash>` names the exact
+  commit and lands in each evidence package's `manifest.tool_version`.
 
-- **Tag `vX.Y.Z`** → builds exactly `X.Y.Z`. This is what gets published to PyPI.
-- **A working tree / git install between tags** → a dev version like `0.1.2.dev4+g1a2b3c4`. The
-  `+g<hash>` is the exact commit, so you always know what you're testing — and it lands in the
-  evidence package's `manifest.tool_version`.
+## Cutting a release
 
-Dev versions never go to PyPI; only tags do.
+1. Make sure `main` is green in CI and move the `[Unreleased]` notes in
+   [`CHANGELOG.md`](CHANGELOG.md) under the new version.
+2. Optional dry run: **Actions → Release → Run workflow** (or `gh workflow run publish.yml`).
+   It builds the console and wheel and runs every check, but publishes nothing.
+3. Tag and push:
 
-## Your day-to-day loop
-
-1. **Edit code.** `ventra gui` shows the console with hot reload.
-2. **Test the collector** — easiest is locally against your AWS test account (boto3 uses your
-   local creds, same as CloudShell uses its role); editable install runs your working tree, so
-   no push needed:
    ```bash
-   aws sso login                  # or a profile
-   ventra collect aws --case TEST-001 --out ~/ventra-evidence --no-ingest
+   git tag vX.Y.Z
+   git push origin vX.Y.Z
    ```
-3. **Push** whenever you like — pushing to `main` does **not** publish anything.
 
-## Testing your latest push in CloudShell
+[`publish.yml`](.github/workflows/publish.yml) then builds the static console into the wheel,
+runs `uv build`, checks the built version equals the tag, runs `twine check` and a fresh-install
+smoke test, publishes to PyPI via Trusted Publishing (OIDC — no stored tokens), and creates a
+GitHub Release with generated notes and the built files attached.
 
-CloudShell uses the uv-based installer — it installs `uv` if needed, then `uv tool install ventra`:
+Users get it with `uv tool upgrade ventra` / `pipx upgrade ventra`, or the installers in
+[`bin/`](bin/).
+
+## Testing unreleased code in CloudShell
 
 ```bash
 VENTRA_INSTALL_SPEC='git+https://github.com/Haggag-22/Ventra.git@main' \
   bash -c "$(curl -fsSL https://raw.githubusercontent.com/Haggag-22/Ventra/main/bin/install-cloudshell.sh)"
-
-ventra collect aws --case TEST-001 --out ~/ventra-evidence
 ```
 
-On a Mac or Linux workstation, use [`bin/install.sh`](bin/install.sh) the same way (with `VENTRA_INSTALL_SPEC` to pin or test from git).
+[`bin/install.sh`](bin/install.sh) accepts the same `VENTRA_INSTALL_SPEC` on a workstation.
 
-## Cutting a release (what clients get)
+## PyPI setup
 
-When something is ready for clients, tag it:
-
-```bash
-git tag v1.0.0
-git push origin v1.0.0
-```
-
-That publishes `1.0.0` to PyPI and creates a GitHub Release. Then a client gets it with
-[`bin/install.sh`](bin/install.sh) or [`bin/install-cloudshell.sh`](bin/install-cloudshell.sh)
-(`uv tool install ventra`). Workflow: [`.github/workflows/publish.yml`](.github/workflows/publish.yml).
-
-## First-time setup (once)
-
-- PyPI: configure the trusted publisher (owner `Haggag-22`, repo `Ventra`, workflow
-  `publish.yml`, environment left blank / "(any)"). Already done.
-- Push a baseline tag so dev versions read `0.1.2.devN` rather than `0.0.0.devN`:
-  `git tag v0.1.1 && git push origin v0.1.1` (matches the `0.1.1` already on PyPI; the publish
-  step skips it via `skip-existing`).
-- Tidy up any stray `0.0.0.post*` dev builds on PyPI (Options → delete on that row) — those came
-  from the brief continuous-publish experiment and aren't real releases.
-
-## The console GUI
-
-`pipx install ventra` ships the collector **and** a pre-built console UI. `ventra gui` serves
-both from one process — no Docker, no Node.js, no git clone.
-
-Developers still use a checkout for hot reload (`ventra gui --dev-source` or run from the repo
-without a static `console/frontend/out`). Release builds run `scripts/build-console-static.sh`
-before `uv build` so the wheel includes the UI.
+The trusted publisher is configured (owner `Haggag-22`, repo `Ventra`, workflow `publish.yml`,
+environment "(any)"). Keep the workflow filename: the PyPI entry is bound to it.
 
 ## CI
 
-- **Pull requests / `main`** — [`.github/workflows/ci.yml`](.github/workflows/ci.yml): `ruff check`,
-  `ruff format --check`, `pytest` on Python 3.11–3.14, the read-only guard, artifact catalog
-  validation, a `frontend` job (`tsc --noEmit`, `next lint`, static export), and a build of the
-  wheel with that static console bundled. The built wheel gets a fresh `uvx` / `uv tool install`
-  smoke test, then `scripts/smoke-packaged-console.py` runs: it starts `ventra gui`, imports a
-  demo case and loads a case page in headless Chromium, failing if the page calls
-  `/api/cases/_/…` (the static-export placeholder) instead of the real case ID.
-- **Tags `v*`** — [`.github/workflows/publish.yml`](.github/workflows/publish.yml): builds the
-  static console, `uv build`, checks the built version equals the tag, `twine check`, then
-  publishes via PyPI Trusted Publishing (OIDC) and creates the GitHub Release.
+[`ci.yml`](.github/workflows/ci.yml) runs on pull requests and `main`: `ruff check`,
+`ruff format --check`, `pytest` on Python 3.11–3.14, the read-only guard, artifact catalog
+validation, a `frontend` job (`tsc --noEmit`, `next lint`, static export), and a build of the
+wheel with that console bundled. The wheel gets a fresh-install smoke test, then
+`scripts/smoke-packaged-console.py` starts `ventra gui`, imports a demo case and loads a case page
+in headless Chromium, failing if the page calls `/api/cases/_/…` instead of the real case ID.
