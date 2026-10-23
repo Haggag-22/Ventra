@@ -9,26 +9,31 @@ The analyst investigation GUI. Two parts:
 
 ## Run it
 
-From a clone, one command starts both halves with hot reload (no Docker):
+**Installed from PyPI** (`uv tool install ventra` / `pipx install ventra`): the console is
+bundled in the package. Run `ventra gui` and open `http://127.0.0.1:8000` — one process serves
+both the API and the UI. No Node.js, npm or clone needed; everything below is for developers.
+
+**From a source checkout**, `ventra gui` (alias `ventra dev`) starts both halves with hot
+reload (no Docker; the first run sets up `.venv` and runs `npm install`):
 
 ```bash
-ventra dev        # or: ventra gui — http://localhost:8080  (first run sets up .venv + npm)
+ventra gui        # console at http://localhost:8080, API at :8000
 ```
 
-This starts the FastAPI backend (default `:8000`) and the Next.js console (default `:8080`).
-The frontend proxies `/api/*` to the backend via `VENTRA_API`.
+This starts the FastAPI backend (default `:8000`, `--backend-port`) and the Next.js dev server
+(default `:8080`, `--port`). The frontend proxies `/api/*` to the backend via `VENTRA_API`.
+Pass `--dev-source` to force this mode when a bundled build is also present.
 
 **Do not run `npm run dev` alone on `:3000` without the backend** — pages like Acquire
 call `/api/artifacts` and will hang or fail if nothing is listening on `:8000`. If you see
-"Can't reach backend", stop stray dev servers and run `ventra dev` from the repo root:
+"Can't reach backend", stop stray dev servers and run `ventra gui` from the repo root:
 
 ```bash
 lsof -ti :8000,:8080,:3000 | xargs kill -9   # free stuck ports (optional)
-ventra dev
+ventra gui
 ```
 
-A packaged desktop app is planned for the v1 release. To run the pieces by hand during
-development:
+To run the pieces by hand during development:
 
 ```bash
 # Backend (serves the case store the ingester writes to)

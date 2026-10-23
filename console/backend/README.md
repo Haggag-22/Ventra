@@ -32,12 +32,18 @@ parameterized path (`app/store.py`). RBAC is enforced here, server-side.
 |-----|---------|---------|
 | `VENTRA_CASE_STORE` | `./cases` | Root the ingester writes to. |
 | `VENTRA_UPLOAD_DIR` | `./.ventra-uploads` | Staging for uploaded packages. |
-| `VENTRA_CORS` | `localhost:3000,8080` | Allowed frontend origins. |
+| `VENTRA_CORS` | `localhost:3000,8080` | Allowed frontend origins (dev servers in a source checkout). |
 | `VENTRA_EXPORT_DROP_DIR` | _(unset)_ | Optional SIEM drop zone — Export writes NDJSON here for Logstash/forwarders. |
 
 Telemetry is off and not configurable. The service makes no outbound calls.
 
 ## Run
+
+Installed users don't run this directly: `ventra gui` starts this service on
+`http://127.0.0.1:8000` and serves the bundled UI from the same process.
+
+From a source checkout, `ventra gui` runs it on `:8000` behind the Next.js dev server on
+`:8080` (see [`../README.md`](../README.md)). To run the backend alone during development:
 
 ```bash
 pip install .
