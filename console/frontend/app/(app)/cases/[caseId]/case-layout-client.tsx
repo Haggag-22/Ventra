@@ -8,7 +8,7 @@ import { TopBar } from "@/components/layout/topbar";
 import { LoadingPanel } from "@/components/ui";
 import { api } from "@/lib/api";
 import { useQuery } from "@tanstack/react-query";
-import { useRouteParam } from "@/lib/use-route-param";
+import { useHydrated, useRouteParam } from "@/lib/use-route-param";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -23,6 +23,7 @@ const GOTO: Record<string, string> = {
 
 export default function CaseLayout({ children }: { children: React.ReactNode }) {
   const caseId = useRouteParam("caseId", 1);
+  const hydrated = useHydrated();
   const router = useRouter();
   const [paletteOpen, setPaletteOpen] = useState(false);
 
@@ -59,6 +60,9 @@ export default function CaseLayout({ children }: { children: React.ReactNode }) 
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [caseId, router]);
+
+  // Until hydration ends, match the static shell exactly (it was rendered for the "_" case).
+  if (!hydrated) return <LoadingPanel label="Opening case…" />;
 
   return (
     <CaseProvider caseId={caseId} summary={summary.data}>

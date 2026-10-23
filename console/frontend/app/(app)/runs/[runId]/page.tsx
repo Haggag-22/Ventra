@@ -30,7 +30,7 @@ import { AlertCircle, Ban, ExternalLink, Play, RotateCcw } from "lucide-react";
 
 import Link from "next/link";
 
-import { useRouteParam } from "@/lib/use-route-param";
+import { useHydrated, useRouteParam } from "@/lib/use-route-param";
 
 import { useRouter } from "next/navigation";
 
@@ -41,6 +41,8 @@ import { useMemo, useRef, useState, useEffect } from "react";
 export default function RunDetailPage() {
 
   const runId = useRouteParam("runId", 1);
+
+  const hydrated = useHydrated();
 
   const router = useRouter();
 
@@ -183,7 +185,8 @@ export default function RunDetailPage() {
 
 
 
-  if (metaQ.isLoading && isLoading) {
+  // Until hydration ends, match the static shell exactly (it was rendered for the "_" run).
+  if (!hydrated || (metaQ.isLoading && isLoading)) {
 
     return (
 

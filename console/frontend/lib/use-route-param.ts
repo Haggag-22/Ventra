@@ -1,6 +1,7 @@
 "use client";
 
 import { useParams, usePathname } from "next/navigation";
+import { useSyncExternalStore } from "react";
 
 /** The `_` segment that lib/static-export-params.ts exports case/run shells under. That module
  * reads artifacts/ with node:fs at build time, so it must not be imported into client code. */
@@ -20,4 +21,20 @@ export function useRouteParam(name: string, segment: number): string {
   if (value && value !== STATIC_PLACEHOLDER) return decodeURIComponent(value);
   const fromUrl = (pathname ?? "").split("/").filter(Boolean)[segment];
   return fromUrl ? decodeURIComponent(fromUrl) : "";
+}
+
+const noopSubscribe = () => () => {};
+
+/**
+ * False while React hydrates the static-export HTML, true afterwards (and on client-side
+ * navigation). The "_" shells were pre-rendered with the placeholder, so a page that shows the
+ * real ID must render placeholder-free markup until this is true, or React reports a hydration
+ * mismatch (#418) and throws the static HTML away.
+ */
+export function useHydrated(): boolean {
+  return useSyncExternalStore(
+    noopSubscribe,
+    () => true,
+    () => false,
+  );
 }
