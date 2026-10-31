@@ -85,7 +85,7 @@ export function KitDownloadWizard({ open, kit, onClose, onConfirm, downloading, 
         <p className="text-sm text-fg-subtle">
           Choose the {providerLabel} connection to embed in the kit. The operator then runs{" "}
           <span className="mono text-fg">ventra run {entryScript} --out ./evidence</span>
-          {" "}(see README.md inside the kit). No re-auth until the kit expires: up to 7 days, or sooner when the cloud credential can't last that long.
+          {" "}(see README.md inside the kit). No re-auth until the kit expires: up to 7 days, or sooner when the cloud credential can&apos;t last that long.
         </p>
         <ProviderSelector
           platform={isAcquirePlatform(cloud) ? cloud : "aws"}
