@@ -18,6 +18,7 @@ from collector.lib.auth import azure_factory_kwargs, manifest_profile_overrides
 from collector.lib.base import Collector
 from collector.lib.models import (
     ArtifactRef,
+    AuthRef,
     AzureAuthOptions,
     CollectionContext,
     GapReason,
@@ -55,6 +56,17 @@ class AzureRunConfig:
     artifact_severities: dict[str, str] = field(default_factory=dict)
     pipeline_steps: list[str] = field(default_factory=list)
     azure_log_backend: dict[str, Any] = field(default_factory=dict)
+    auth_ref: AuthRef | None = None
+
+
+def _auth_ref(cfg: AzureRunConfig) -> AuthRef:
+    if cfg.auth_ref:
+        return cfg.auth_ref
+    if cfg.auth.client_certificate_path or cfg.auth.client_certificate_content:
+        return AuthRef(method="certificate")
+    if cfg.auth.client_secret:
+        return AuthRef(method="service_principal")
+    return AuthRef(method="default")
 
 
 def run_azure_collection(cfg: AzureRunConfig, *, factory: AzureClientFactory | None = None) -> PackageResult:
@@ -117,6 +129,7 @@ def run_azure_collection(cfg: AzureRunConfig, *, factory: AzureClientFactory | N
             host_environment="local",
             host_os=platform.platform(),
             host_runtime=f"python {platform.python_version()}",
+            auth=_auth_ref(cfg),
         )
         manifest.artifacts = cfg.artifact_refs or artifact_refs_for_collectors("azure", cfg.collectors)
 

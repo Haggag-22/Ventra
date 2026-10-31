@@ -54,7 +54,8 @@ Validated against `manifest.schema.json`. Required top-level fields:
 | `operator` | IAM principal ARN that ran the collector, user id, source IP. |
 | `started_at`, `completed_at` | RFC 3339 UTC bounds of the run. |
 | `time_window` | Incident window applied to event sources (`since`/`until`/`full_available`). |
-| `profile` | Always `{ "name": "all" }` — every registered collector ran. |
+| `profile` | Always `{ "name": "all" }` — every registered collector ran. This is the collection profile, not authentication. |
+| `auth` | Optional, non-secret. `name` is the saved connection (console runs and kits) or local profile / kube context (CLI); `method` is the auth method; `connection_id` when it came from a saved connection. Absent on older packages. |
 | `sources[]` | Per source: `name`, `path`, `record_count`, `bytes`, `sha256`, `status`, `notes`. |
 | `gaps[]` | Sources expected but unavailable, with a `reason`. **A gap is evidence.** |
 | `host` | `cloudshell` / `ec2` / `local`, OS, runtime. |
@@ -115,6 +116,7 @@ provider's own export without trusting Ventra's normalization.
   "completed_at": "2026-06-10T18:22:04Z",
   "time_window": { "since": "2026-05-11T00:00:00Z", "until": null, "mode": "window" },
   "profile": { "name": "all", "overrides": [] },
+  "auth": { "name": "Client IR role", "method": "assume_role", "connection_id": "6f1c…" },
   "sources": [
     { "name": "cloudtrail", "path": "sources/cloudtrail/events.jsonl.zst",
       "record_count": 48213, "bytes": 19283742,

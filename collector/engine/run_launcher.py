@@ -7,7 +7,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
-from ..lib.models import AzureAuthOptions, TimeWindow
+from ..lib.models import AuthRef, AzureAuthOptions, TimeWindow
 from .acquire_platform import collector_cloud_for_platform
 from .acquisition import (
     AcquisitionError,
@@ -57,6 +57,7 @@ class RunLaunchRequest:
     reporter: RunReporter | None = None
     artifacts_root: Path | None = None
     pipeline_steps: list[str] = field(default_factory=list)
+    auth_ref: AuthRef | None = None
 
 
 def _artifact_index(cloud: str, artifacts_root: Path) -> dict[str, dict[str, Any]]:
@@ -149,6 +150,7 @@ def launch_collection(req: RunLaunchRequest):
             plan_label=plan_label,
             artifact_labels=artifact_labels,
             artifact_severities=artifact_severities,
+            auth_ref=req.auth_ref,
             pipeline_steps=req.pipeline_steps,
         )
         return run_aws_collection(cfg)
@@ -178,6 +180,7 @@ def launch_collection(req: RunLaunchRequest):
             plan_label=plan_label,
             artifact_labels=artifact_labels,
             artifact_severities=artifact_severities,
+            auth_ref=req.auth_ref,
             pipeline_steps=req.pipeline_steps,
             azure_log_backend=(
                 dict(validate_azure_log_backend_dict(req.azure_log_backend)) if req.azure_log_backend else {}
@@ -211,6 +214,7 @@ def launch_collection(req: RunLaunchRequest):
             plan_label=plan_label,
             artifact_labels=artifact_labels,
             artifact_severities=artifact_severities,
+            auth_ref=req.auth_ref,
             pipeline_steps=req.pipeline_steps,
         )
         return run_gcp_collection(cfg)
@@ -237,6 +241,7 @@ def launch_collection(req: RunLaunchRequest):
             plan_label=plan_label,
             artifact_labels=artifact_labels,
             artifact_severities=artifact_severities,
+            auth_ref=req.auth_ref,
             pipeline_steps=req.pipeline_steps,
         )
         return run_kubernetes_collection(cfg)

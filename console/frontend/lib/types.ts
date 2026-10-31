@@ -77,7 +77,10 @@ export interface CaseSummary {
   cloud: string;
   regions: string[];
   operator: { principal_arn?: string; source_ip?: string };
+  /** Collection profile — always "all"; not authentication. */
   profile: { name?: string; overrides?: string[] };
+  /** Authentication the run recorded; absent on cases collected before it was recorded. */
+  auth?: { name?: string; method?: string; connection_id?: string };
   time_window: { since?: string | null; until?: string | null; mode?: string };
   started_at: string;
   completed_at: string;

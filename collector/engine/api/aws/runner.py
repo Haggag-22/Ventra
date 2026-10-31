@@ -21,6 +21,7 @@ from collector.lib.auth import manifest_profile_overrides
 from collector.lib.base import Collector
 from collector.lib.models import (
     ArtifactRef,
+    AuthRef,
     CollectionContext,
     GapReason,
     Manifest,
@@ -58,6 +59,17 @@ class AwsRunConfig:
     artifact_labels: dict[str, str] = field(default_factory=dict)
     artifact_severities: dict[str, str] = field(default_factory=dict)
     pipeline_steps: list[str] = field(default_factory=list)
+    auth_ref: AuthRef | None = None
+
+
+def _auth_ref(cfg: AwsRunConfig) -> AuthRef:
+    if cfg.auth_ref:
+        return cfg.auth_ref
+    if cfg.aws_profile:
+        return AuthRef(name=cfg.aws_profile, method="profile")
+    if cfg.aws_access_key_id:
+        return AuthRef(method="credentials")
+    return AuthRef(method="default")
 
 
 def _detect_environment() -> str:
@@ -138,6 +150,7 @@ def run_aws_collection(cfg: AwsRunConfig, *, factory: AwsClientFactory | None = 
             host_environment=_detect_environment(),
             host_os=platform.platform(),
             host_runtime=f"python {platform.python_version()}",
+            auth=_auth_ref(cfg),
         )
         manifest.artifacts = cfg.artifact_refs or artifact_refs_for_collectors("aws", cfg.collectors)
 

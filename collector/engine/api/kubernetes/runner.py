@@ -28,6 +28,7 @@ from collector.engine.run_common import RunReporter, parse_window
 from collector.lib.base import Collector
 from collector.lib.models import (
     ArtifactRef,
+    AuthRef,
     CollectionContext,
     GapReason,
     Manifest,
@@ -65,6 +66,15 @@ class KubernetesRunConfig:
     artifact_labels: dict[str, str] = field(default_factory=dict)
     artifact_severities: dict[str, str] = field(default_factory=dict)
     pipeline_steps: list[str] = field(default_factory=list)
+    auth_ref: AuthRef | None = None
+
+
+def _auth_ref(cfg: KubernetesRunConfig) -> AuthRef:
+    if cfg.auth_ref:
+        return cfg.auth_ref
+    if cfg.kubeconfig_content or cfg.kubeconfig_path or cfg.k8s_context:
+        return AuthRef(name=cfg.k8s_context, method="kubeconfig")
+    return AuthRef(method="default")
 
 
 def _detect_environment() -> str:
@@ -145,6 +155,7 @@ def run_kubernetes_collection(
             host_environment=_detect_environment(),
             host_os=platform.platform(),
             host_runtime=f"python {platform.python_version()}; runtime={runtime}",
+            auth=_auth_ref(cfg),
         )
         manifest.artifacts = cfg.artifact_refs or artifact_refs_for_collectors("kubernetes", cfg.collectors)
 

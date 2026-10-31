@@ -111,6 +111,22 @@
         }
       }
     },
+    "auth": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Non-secret record of the authentication the run used. Absent on packages from older collectors.",
+      "properties": {
+        "name": {
+          "type": "string",
+          "description": "Saved connection name (console runs and kits), or the local profile / context a CLI run used."
+        },
+        "method": {
+          "type": "string",
+          "description": "Auth method, e.g. profile, credentials, assume_role, service_account, adc, service_principal, kubeconfig."
+        },
+        "connection_id": { "type": "string", "description": "Console connection id, when the run came from a saved connection." }
+      }
+    },
     "sources": {
       "type": "array",
       "description": "One entry per collected source file.",

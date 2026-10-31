@@ -36,6 +36,7 @@ from collector.engine.registry import GCP_REGISTRY
 from collector.engine.run_common import RunReporter, parse_window
 from collector.lib.models import (
     ArtifactRef,
+    AuthRef,
     CollectionContext,
     GapReason,
     Manifest,
@@ -116,6 +117,15 @@ class GcpRunConfig:
     artifact_labels: dict[str, str] = field(default_factory=dict)
     artifact_severities: dict[str, str] = field(default_factory=dict)
     pipeline_steps: list[str] = field(default_factory=list)
+    auth_ref: AuthRef | None = None
+
+
+def _auth_ref(cfg: GcpRunConfig) -> AuthRef:
+    if cfg.auth_ref:
+        return cfg.auth_ref
+    if (cfg.gcp_service_account_json or "").strip() or cfg.credentials_path:
+        return AuthRef(method="service_account")
+    return AuthRef(method="adc")
 
 
 def run_gcp_collection(cfg: GcpRunConfig, *, factory: GcpClientFactory | None = None) -> PackageResult:
@@ -199,6 +209,7 @@ def run_gcp_collection(cfg: GcpRunConfig, *, factory: GcpClientFactory | None = 
             host_environment="local",
             host_os=platform.platform(),
             host_runtime=f"python {platform.python_version()}",
+            auth=_auth_ref(cfg),
         )
         manifest.artifacts = cfg.artifact_refs or artifact_refs_for_collectors("gcp", cfg.collectors)
 

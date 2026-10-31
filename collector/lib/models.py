@@ -127,6 +127,33 @@ class Operator:
 
 
 @dataclass
+class AuthRef:
+    """Which authentication a run used — non-secret, recorded in the manifest.
+
+    ``name`` is the saved connection name (console runs and kits) or the local profile/context
+    the CLI used; ``method`` is the auth method (``profile``, ``assume_role``, ``adc``, …).
+    """
+
+    name: str = ""
+    method: str = ""
+    connection_id: str = ""
+
+    @classmethod
+    def from_dict(cls, data: Any) -> AuthRef | None:
+        if not isinstance(data, dict):
+            return None
+        ref = cls(
+            name=str(data.get("name") or "").strip(),
+            method=str(data.get("method") or "").strip(),
+            connection_id=str(data.get("connection_id") or "").strip(),
+        )
+        return ref if ref.to_manifest() else None
+
+    def to_manifest(self) -> dict[str, str]:
+        return {k: v for k, v in dataclasses.asdict(self).items() if v}
+
+
+@dataclass
 class ArtifactRef:
     """Provenance for one artifact collected in a run — recorded in the manifest.
 
@@ -178,6 +205,7 @@ class Manifest:
     artifacts: list[ArtifactRef] = field(default_factory=list)
     host_os: str = ""
     host_runtime: str = ""
+    auth: AuthRef | None = None
 
     def add_source_result(self, result: SourceResult) -> None:
         for wf in result.files:
@@ -236,6 +264,8 @@ class Manifest:
                 "runtime": self.host_runtime,
             },
         }
+        if self.auth and self.auth.to_manifest():
+            out["auth"] = self.auth.to_manifest()
         if self.artifacts:
             out["artifacts"] = [a.to_manifest() for a in self.artifacts]
         for opt in ("tool_commit", "engagement_id", "account_alias", "org_id", "partition"):

@@ -426,10 +426,6 @@ export default function RunDetailPage() {
 
               onSelectCollector={handleSelectCollector}
 
-              complete={stats.complete}
-
-              total={stats.total}
-
               runCancelled={runCancelled}
 
             />

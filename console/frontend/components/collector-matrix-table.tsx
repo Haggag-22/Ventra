@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils";
 import {
   AlertCircle,
   CheckCircle2,
-  Clock,
   Database,
   Loader2,
   Minus,
@@ -21,11 +20,8 @@ import type { LucideIcon } from "lucide-react";
 import { useEffect, useRef } from "react";
 import { Tooltip } from "./ui";
 
-function fmtElapsed(ms?: number | null): string {
-  if (ms == null || ms < 0) return "";
-  if (ms < 1000) return `${ms}ms`;
-  return `${(ms / 1000).toFixed(1)}s`;
-}
+/** The collector's default progress text only restates the record count shown in the column. */
+const RECORD_COUNT_MSG = /^[\d,]+ records? collected\.?$/i;
 
 const STATUS_META: Record<
   string,
@@ -163,7 +159,7 @@ function AnimatedRecords({
     { scope: ref, dependencies: [value, rowName], revertOnUpdate: true },
   );
 
-  if (value == null) return null;
+  if (value == null) return <span className="mono text-fg-faint">—</span>;
   return (
     <span
       ref={ref}
@@ -193,7 +189,8 @@ function CollectorRowCard({
   const phase = rowPhase(displayStatus);
   const isRunning = phase === "running";
   const liveMsg = row.live_msg?.trim();
-  const showSubtext = isRunning && liveMsg ? liveMsg : undefined;
+  const showSubtext =
+    isRunning && liveMsg && !RECORD_COUNT_MSG.test(liveMsg) ? liveMsg : undefined;
 
   return (
     <article
@@ -240,7 +237,6 @@ function CollectorRowCard({
       <div className="collector-row-records">
         <AnimatedRecords value={row.records} rowName={row.name} live={isRunning && !runCancelled} />
       </div>
-      <div className="collector-row-time mono">{fmtElapsed(row.elapsed_ms)}</div>
     </article>
   );
 }
@@ -251,8 +247,6 @@ export function CollectorMatrixTable({
   activeCollector,
   selectedCollector,
   onSelectCollector,
-  complete,
-  total,
   runCancelled = false,
   className,
 }: {
@@ -261,16 +255,12 @@ export function CollectorMatrixTable({
   activeCollector?: string | null;
   selectedCollector?: string | null;
   onSelectCollector?: (name: string) => void;
-  complete?: number;
-  total?: number;
   runCancelled?: boolean;
   className?: string;
 }) {
   const iconCloud = artifactIconCloud(cloud);
   const containerRef = useRef<HTMLDivElement>(null);
   const activeRef = useRef<HTMLDivElement | null>(null);
-  const pct =
-    complete != null && total != null && total > 0 ? (complete / total) * 100 : null;
 
   useGSAP(
     () => {
@@ -324,34 +314,10 @@ export function CollectorMatrixTable({
     <div ref={containerRef} className={cn("collector-matrix-panel", className)}>
       <div className="collector-matrix-header">
         <h2 className="text-sm font-medium text-fg">Collectors</h2>
-        <div className="flex items-center gap-4">
-          <span className="collector-column-label">
-            <Database className="h-3 w-3" />
-            Records
-          </span>
-          <span className="collector-column-label">
-            <Clock className="h-3 w-3" />
-            Time
-          </span>
-          {pct != null && (
-            <div className="flex items-center gap-2">
-              <span className="text-2xs tabular-nums text-fg-subtle">
-                {complete}/{total}
-              </span>
-              <div
-                className="collector-progress-track"
-                role="progressbar"
-                aria-valuenow={complete}
-                aria-valuemax={total}
-              >
-                <div
-                  className="collector-progress-fill"
-                  style={{ width: `${Math.min(100, Math.max(0, pct))}%` }}
-                />
-              </div>
-            </div>
-          )}
-        </div>
+        <span className="collector-column-label">
+          <Database className="h-3 w-3" />
+          Records
+        </span>
       </div>
 
       <div className="collector-row-list">
