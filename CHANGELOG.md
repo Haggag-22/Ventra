@@ -6,6 +6,11 @@ All notable changes to Ventra are documented here. Format follows
 
 ## [Unreleased]
 
+## [1.0.1] - 2026-10-31
+
+Same code as the withdrawn 1.0 upload. PyPI will not accept those filenames again, so this is
+the release `uv` and `pip` install.
+
 ### Changed
 - Collection Kits stay runnable for up to 7 days (was 4 hours). Each cloud's embedded credential
   is minted for the longest lifetime it allows (AWS session tokens 36 hours, AWS roles up to their
@@ -131,5 +136,6 @@ GitHub; their notes are kept at the end of this file.
 - Demo case fixtures and an end-to-end collect → ingest → render path.
 - Terraform reference forensics environment for the analyst workstation.
 
-[Unreleased]: https://github.com/Haggag-22/Ventra/compare/v1.0.0...main
+[Unreleased]: https://github.com/Haggag-22/Ventra/compare/v1.0.1...main
+[1.0.1]: https://github.com/Haggag-22/Ventra/releases/tag/v1.0.1
 [1.0.0]: https://github.com/Haggag-22/Ventra/releases/tag/v1.0.0

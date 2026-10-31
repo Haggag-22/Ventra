@@ -6,7 +6,7 @@
 #   curl -fsSL https://raw.githubusercontent.com/Haggag-22/Ventra/main/bin/install.sh | bash
 #
 # Pin a release:
-#   VENTRA_INSTALL_SPEC='ventra==1.0.0' bash -c "$(curl -fsSL .../install.sh)"
+#   VENTRA_INSTALL_SPEC='ventra==1.0.1' bash -c "$(curl -fsSL .../install.sh)"
 #
 # Force the installer backend:
 #   VENTRA_INSTALLER=pipx bash -c "$(curl -fsSL .../install.sh)"
@@ -16,7 +16,7 @@
 #   VENTRA_INSTALL_SPEC='git+https://github.com/Haggag-22/Ventra.git@main' bash -c "$(curl -fsSL .../install.sh)"
 #
 # Install from a local wheel:
-#   VENTRA_INSTALL_SPEC='/path/to/ventra-1.0.0-py3-none-any.whl' bash install.sh
+#   VENTRA_INSTALL_SPEC='/path/to/ventra-1.0.1-py3-none-any.whl' bash install.sh
 set -euo pipefail
 
 INSTALL_SPEC="${VENTRA_INSTALL_SPEC:-ventra}"

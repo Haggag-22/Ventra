@@ -7,7 +7,7 @@
 #   curl -fsSL https://raw.githubusercontent.com/Haggag-22/Ventra/main/bin/install-cloudshell.sh | bash
 #
 # Knobs:
-#   VENTRA_INSTALL_SPEC='ventra==1.0.0'    pin to a specific released version
+#   VENTRA_INSTALL_SPEC='ventra==1.0.1'    pin to a specific released version
 #   VENTRA_INSTALL_SPEC='git+https://github.com/Haggag-22/Ventra.git@main'
 #   VENTRA_SKIP_UPGRADE=1                  skip upgrade when ventra already works
 set -euo pipefail
