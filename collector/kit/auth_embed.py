@@ -5,6 +5,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any
 
+from ..lib.models import AuthRef
 from .mint import mint_connection_credentials, write_minted_credentials
 
 CREDENTIALS_DIR = "credentials"
@@ -25,4 +26,13 @@ def embed_connection_auth(staging: Path, conn: dict[str, Any], acq: dict[str, An
         if key in ("project", "subscription") and str(acq.get(key) or "").strip():
             continue
         acq[key] = value
+    # Record the saved connection itself: minting may rewrite ``auth_method`` (e.g. to
+    # short-lived ``credentials``), but the case should name the connection the operator chose.
+    auth = AuthRef(
+        name=str(conn.get("name") or "").strip(),
+        method=str(conn.get("auth_method") or "").strip().lower(),
+        connection_id=str(conn.get("id") or "").strip(),
+    ).to_manifest()
+    if auth:
+        acq["auth"] = auth
     return minted.meta_dict()

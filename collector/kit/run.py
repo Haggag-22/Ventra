@@ -514,6 +514,7 @@ def _execute_collection(
             plan_label=f"{len(collectors)} artifacts from kit",
             artifact_labels=labels,
             artifact_severities=sevs,
+            auth_ref=spec.auth if spec else None,
         )
         package = run_aws_collection(cfg)
         reporter.finalize()
@@ -547,6 +548,7 @@ def _execute_collection(
             plan_label=f"{len(collectors)} artifacts from kit",
             artifact_labels=labels,
             artifact_severities=sevs,
+            auth_ref=spec.auth if spec else None,
         )
         package = run_gcp_collection(cfg)
         reporter.finalize()
@@ -587,6 +589,7 @@ def _execute_collection(
             plan_label=f"{len(collectors)} artifacts from kit",
             artifact_labels=labels,
             artifact_severities=sevs,
+            auth_ref=spec.auth if spec else None,
             azure_log_backend=dict(spec.azure_log_backend) if spec and spec.azure_log_backend else {},
         )
         package = run_azure_collection(cfg)
@@ -623,6 +626,7 @@ def _execute_collection(
             plan_label=f"{len(collectors)} artifacts from kit",
             artifact_labels=labels,
             artifact_severities=sevs,
+            auth_ref=spec.auth if spec else None,
         )
         package = run_kubernetes_collection(cfg)
         reporter.finalize()

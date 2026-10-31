@@ -12,7 +12,7 @@ import { Button, Card, EmptyState, LoadingPanel } from "@/components/ui";
 import { displayArtifactLabel } from "@/lib/artifact-icons";
 import { exportCasesBatch, ExportCancelledError, listExportableCases } from "@/lib/api";
 import { CASE_PLATFORM_LABELS, isPlatformVisibleInUi, type CasePlatform } from "@/lib/catalog";
-import { fmtBytes, fmtDateOnly, fmtNum } from "@/lib/format";
+import { fmtBytes, fmtNum } from "@/lib/format";
 import type { ExportableCase, ExportTarget } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery } from "@tanstack/react-query";
@@ -55,12 +55,6 @@ const TARGETS: {
     icon: Database,
   },
 ];
-
-function formatCaseDateRange(c: ExportableCase): string {
-  const { first, last } = c.date_range;
-  if (!first && !last) return "—";
-  return `${first ? fmtDateOnly(first) : "—"} → ${last ? fmtDateOnly(last) : "—"}`;
-}
 
 function formatCaseStorage(bytes: number | null | undefined): string {
   if (bytes != null && bytes > 0) return fmtBytes(bytes);
@@ -269,8 +263,6 @@ export default function ExportPage() {
                     <col className="w-10" />
                     <col />
                     <col className="w-28" />
-                    <col className="w-64" />
-                    <col className="w-52" />
                     <col className="w-44" />
                   </colgroup>
                   <thead>
@@ -278,8 +270,6 @@ export default function ExportPage() {
                       <th className="table-header-cell-center w-10" aria-label="Select" />
                       <th className="table-header-cell">Case</th>
                       <th className="table-header-cell-center">Platform</th>
-                      <th className="table-header-cell !px-12">Time range</th>
-                      <th className="table-header-cell-right !px-12">Events</th>
                       <th className="table-header-cell-right !px-12">Size</th>
                     </tr>
                   </thead>
@@ -314,19 +304,18 @@ export default function ExportPage() {
                               {isSelected && <span className="h-1.5 w-1.5 rounded-full bg-accent-fg" />}
                             </span>
                           </td>
-                          <td className="table-cell">
-                            <span className="mono truncate font-medium text-fg">{c.case_id}</span>
+                          <td className="table-cell max-w-0">
+                            <span
+                              className="mono block truncate font-medium text-fg"
+                              title={c.case_id}
+                            >
+                              {c.case_id}
+                            </span>
                           </td>
                           <td className="table-cell-center">
                             <span className="inline-flex justify-center" title={platformLabel}>
                               <CloudProviderIcon cloud={c.cloud} />
                             </span>
-                          </td>
-                          <td className="table-cell-muted mono whitespace-nowrap !px-12">
-                            {formatCaseDateRange(c)}
-                          </td>
-                          <td className="table-cell-muted !px-12 !text-right mono">
-                            {fmtNum(c.event_count)}
                           </td>
                           <td className="table-cell-muted !px-12 !text-right mono">
                             {formatCaseStorage(c.storage_bytes)}

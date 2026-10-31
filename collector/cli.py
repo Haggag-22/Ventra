@@ -1126,6 +1126,7 @@ def _run_aws(args) -> int:
         plan_label=plan_label,
         artifact_labels=artifact_labels,
         artifact_severities=artifact_severities,
+        auth_ref=spec.auth if spec else None,
     )
 
     try:
@@ -1266,6 +1267,7 @@ def _run_azure(args) -> int:
         artifact_labels=artifact_labels,
         artifact_severities=artifact_severities,
         azure_log_backend=dict(spec.azure_log_backend) if spec and spec.azure_log_backend else {},
+        auth_ref=spec.auth if spec else None,
     )
 
     try:
@@ -1421,6 +1423,7 @@ def _run_gcp(args) -> int:
         plan_label=plan_label,
         artifact_labels=artifact_labels,
         artifact_severities=artifact_severities,
+        auth_ref=spec.auth if spec else None,
     )
 
     try:
@@ -1651,6 +1654,7 @@ def _run_kubernetes(args) -> int:
         plan_label=plan_label,
         artifact_labels=artifact_labels,
         artifact_severities=artifact_severities,
+        auth_ref=spec.auth if spec else None,
     )
 
     try:

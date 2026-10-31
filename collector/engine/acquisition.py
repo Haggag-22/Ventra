@@ -15,7 +15,7 @@ from typing import Any
 
 import yaml
 
-from ..lib.models import ArtifactRef
+from ..lib.models import ArtifactRef, AuthRef
 from .loader import load_artifacts_dir
 from .registry import collector_order_for_cloud, registry_for_cloud
 
@@ -57,6 +57,8 @@ class AcquisitionSpec:
     node_root: str = ""
     # Where ``ventra run`` delivers the sealed package (``get_transport`` spec); empty = local.
     transport: str = ""
+    # Non-secret record of the saved connection a kit was built from (name / method / id).
+    auth: AuthRef | None = None
 
     def artifact_parameters(self) -> dict[str, dict[str, Any]]:
         """Per-collector parameter values, keyed by collector — for CollectionContext."""
@@ -126,6 +128,7 @@ def load_acquisition(path: Path) -> AcquisitionSpec:
         k8s_context=str(data.get("k8s_context") or "").strip(),
         node_root=str(data.get("node_root") or "").strip(),
         transport=str(data.get("transport") or "").strip(),
+        auth=AuthRef.from_dict(data.get("auth")),
     )
 
 

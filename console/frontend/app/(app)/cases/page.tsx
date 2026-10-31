@@ -144,7 +144,7 @@ export default function CasesPage() {
         ) : visible.length > 0 ? (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
             {visible.map((c) => (
-              <CaseCard key={c.case_id} c={c} authName={authByCaseId.get(c.case_id)} />
+              <CaseCard key={c.case_id} c={c} auth={authByCaseId.get(c.case_id)} />
             ))}
           </div>
         ) : tab !== "all" ? (
@@ -224,11 +224,38 @@ function runTimestamp(run: RunMeta): number {
   return Number.isFinite(ms) ? ms : 0;
 }
 
+const AUTH_METHOD_LABELS: Record<string, string> = {
+  profile: "AWS profile",
+  credentials: "Access keys",
+  assume_role: "IAM Role",
+  default: "Default credentials",
+  service_account: "Service Account Key",
+  adc: "Application Default Credentials",
+  service_principal: "Service principal",
+  certificate: "Service principal (certificate)",
+  kubeconfig: "Kubeconfig",
+};
+
+const UNKNOWN_AUTH = "Unknown";
+
+type CaseAuth = { label: string; named: boolean };
+
+/** AWS named profile recorded in the manifest's profile overrides by older collectors. */
+function legacyAwsProfile(c: CaseSummary): string | undefined {
+  const entry = c.profile?.overrides?.find((o) => o.startsWith("aws_profile="));
+  return entry?.slice("aws_profile=".length).trim() || undefined;
+}
+
+/**
+ * Name of the saved connection (or local profile) a case was collected with. Cases from
+ * older collectors carry no `auth` block, so fall back to the console run that produced
+ * them, then to the auth method; `profile.name` is the collection profile ("all"), not auth.
+ */
 function buildCaseAuthNames(
   caseSummaries: CaseSummary[],
   connections: { id: string; name: string }[],
   runs: RunMeta[],
-): Map<string, string> {
+): Map<string, CaseAuth> {
   const connectionNames = new Map(connections.map((c) => [c.id, c.name]));
   const byCase = new Map<string, { name: string; ts: number }>();
 
@@ -243,11 +270,19 @@ function buildCaseAuthNames(
     }
   }
 
-  const out = new Map<string, string>();
+  const out = new Map<string, CaseAuth>();
   for (const c of caseSummaries) {
-    const linked = byCase.get(c.case_id)?.name;
-    const profile = c.profile?.name?.trim();
-    out.set(c.case_id, linked ?? profile ?? "No authentication");
+    const recorded = c.auth?.name?.trim();
+    const named = recorded || byCase.get(c.case_id)?.name || legacyAwsProfile(c);
+    if (named) {
+      out.set(c.case_id, { label: named, named: true });
+      continue;
+    }
+    const method = c.auth?.method?.trim().toLowerCase();
+    out.set(c.case_id, {
+      label: (method && (AUTH_METHOD_LABELS[method] ?? method)) || UNKNOWN_AUTH,
+      named: false,
+    });
   }
   return out;
 }
@@ -276,7 +311,7 @@ function formatCaseStorage(c: CaseSummary): string {
   return "—";
 }
 
-function CaseCard({ c, authName }: { c: CaseSummary; authName?: string }) {
+function CaseCard({ c, auth }: { c: CaseSummary; auth?: CaseAuth }) {
   const queryClient = useQueryClient();
   const [confirming, setConfirming] = useState(false);
   const del = useMutation({
@@ -289,7 +324,7 @@ function CaseCard({ c, authName }: { c: CaseSummary; authName?: string }) {
     e.stopPropagation();
   };
 
-  const authentication = authName ?? "No authentication";
+  const authentication = auth?.label ?? UNKNOWN_AUTH;
   const timeRange = formatCaseTimeRange(c);
   const storage = formatCaseStorage(c);
 
@@ -329,7 +364,7 @@ function CaseCard({ c, authName }: { c: CaseSummary; authName?: string }) {
               icon={KeyRound}
               label="Authentication"
               value={authentication}
-              tone={authentication === "No authentication" ? "muted" : "default"}
+              tone={auth?.named ? "default" : "muted"}
             />
           </div>
 

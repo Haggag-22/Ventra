@@ -799,15 +799,7 @@ body > * {
   }
 
   .collector-matrix-header {
-    @apply flex items-center justify-between gap-4 border-b border-border/60 px-4 py-3;
-  }
-
-  .collector-progress-track {
-    @apply h-1.5 w-24 overflow-hidden rounded-full bg-surface-2;
-  }
-
-  .collector-progress-fill {
-    @apply h-full rounded-full bg-ok-green transition-[width] duration-500 ease-out;
+    @apply flex items-center justify-between gap-4 border-b border-border/60 py-3 pl-4 pr-7;
   }
 
   .collector-row-list {
@@ -816,7 +808,7 @@ body > * {
 
   .collector-row-grid {
     @apply grid w-full items-center gap-x-3;
-    grid-template-columns: 6rem 2rem minmax(0, 1fr) 4.5rem 4.5rem;
+    grid-template-columns: 6rem 2rem minmax(0, 1fr) 6.5rem;
   }
 
   .collector-row-columns-header {
@@ -896,9 +888,8 @@ body > * {
     @apply min-w-0;
   }
 
-  .collector-row-records,
-  .collector-row-time {
-    @apply text-right text-sm font-medium tabular-nums text-fg;
+  .collector-row-records {
+    @apply justify-self-end text-right text-sm font-medium tabular-nums text-fg;
   }
 
   .run-terminal {

@@ -11,6 +11,7 @@ from typing import Any
 from collector.engine.api_reporter import ApiReporter
 from collector.engine.matrix_state import DEFAULT_SEVERITY, MatrixState
 from collector.engine.run_launcher import RunLaunchRequest, launch_collection
+from collector.lib.models import AuthRef
 
 from .config import settings
 from .config_store import ConfigNotFound, config_store
@@ -254,6 +255,11 @@ def _apply_connection(req: RunLaunchRequest, connection_id: str | None) -> RunLa
         key_path=req.key_path,
         reporter=req.reporter,
         artifacts_root=req.artifacts_root,
+        auth_ref=AuthRef(
+            name=str(conn.get("name") or "").strip(),
+            method=auth_method,
+            connection_id=str(conn.get("id") or connection_id),
+        ),
     )
 
 
