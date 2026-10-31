@@ -771,7 +771,7 @@ def build_acquisition(
             status_code=400,
             detail=(
                 "Select an Authentication connection when downloading a kit so credentials "
-                "are embedded and `ventra run <kit>.kit` needs no extra flags."
+                "are embedded and `ventra run <kit>.kit --out <folder>` needs no login."
             ),
         )
     try:
@@ -1296,7 +1296,7 @@ def create_run(body: RunRequest, _: Role = Depends(_check("run_collection"))) ->
             status_code=400,
             detail=(
                 "Kubernetes live console runs are disabled. Download the collection kit, "
-                "run `ventra run <kit>.kit` from a terminal, then import with "
+                "run `ventra run <kit>.kit --out ./evidence` from a terminal, then import with "
                 "`ventra import` or Cases → Import package."
             ),
         )

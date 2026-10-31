@@ -381,8 +381,9 @@ def _add_run_parser(sub: argparse._SubParsersAction) -> None:
     run.add_argument("kit", help="Path to the .kit file (or extracted kit directory).")
     run.add_argument(
         "--out",
-        default="evidence",
-        help="Local output directory for the sealed evidence package (default: ./evidence).",
+        default="",
+        help="Folder for the sealed evidence package. Asked for interactively when omitted; "
+        "required when there is no terminal.",
     )
     run.add_argument(
         "--no-sudo",
@@ -1773,13 +1774,88 @@ def _kit_collectors(kit_path: Path) -> tuple[str, list[str]]:
         return "", []
 
 
+_RUN_OUT_REQUIRED = (
+    "error: choose an output folder for the evidence with --out, e.g.\n  ventra run {kit} --out ./evidence"
+)
+
+
+def _validate_out_dir(raw: str) -> tuple[Path | None, str]:
+    """Resolve an output folder; returns ``(path, "")`` or ``(None, reason)``."""
+    text = raw.strip()
+    if not text:
+        return None, "Enter a folder path."
+    path = Path(text).expanduser().resolve()
+    if path.exists() and not path.is_dir():
+        return None, f"{path} exists and is not a folder."
+    parent = path if path.exists() else next((p for p in path.parents if p.exists()), None)
+    if parent is None or not os.access(parent, os.W_OK):
+        return None, f"{path} is not writable."
+    return path, ""
+
+
+def _prompt_out_dir(
+    *,
+    input_fn=input,
+    print_fn=print,
+) -> Path | None:
+    """Ask for the output folder until a usable one is given; ``None`` if the user quits."""
+    while True:
+        try:
+            raw = input_fn("Output folder for the evidence: ")
+        except (EOFError, KeyboardInterrupt):
+            print_fn("")
+            return None
+        path, problem = _validate_out_dir(raw)
+        if path is None:
+            print_fn(f"  {problem}")
+            continue
+        if path.is_dir():
+            return path
+        try:
+            answer = input_fn(f"  {path} does not exist. Create it? [Y/n] ")
+        except (EOFError, KeyboardInterrupt):
+            print_fn("")
+            return None
+        if answer.strip().lower() not in ("", "y", "yes"):
+            continue
+        try:
+            path.mkdir(parents=True, exist_ok=True)
+        except OSError as exc:
+            print_fn(f"  Could not create {path}: {exc.strerror or exc}")
+            continue
+        return path
+
+
+def _resolve_run_out(args) -> Path | None:
+    """``--out`` when given; otherwise prompt on a terminal, or explain and fail without one."""
+    if (args.out or "").strip():
+        path, problem = _validate_out_dir(args.out)
+        if path is None:
+            print(f"error: --out: {problem}", file=sys.stderr)
+        return path
+    if not (sys.stdin.isatty() and sys.stdout.isatty()):
+        print(_RUN_OUT_REQUIRED.format(kit=args.kit), file=sys.stderr)
+        return None
+    path = _prompt_out_dir()
+    if path is None:
+        print("No output folder chosen; nothing was collected.", file=sys.stderr)
+    return path
+
+
 def _run_kit_file(args) -> int:
     from .kit.run import run_kit_file
 
+    out = _resolve_run_out(args)
+    if out is None:
+        return 2
+    if not (args.out or "").strip():
+        args.out = str(out)
+        # A sudo re-run must not ask again.
+        args._argv = [*getattr(args, "_argv", sys.argv[1:]), "--out", str(out)]
     cloud, collectors = _kit_collectors(Path(args.kit))
     if cloud == "kubernetes":
-        _elevate_for_node_plane(args, collectors, out=args.out)
-    result = run_kit_file(Path(args.kit), out_dir=Path(args.out))
+        _elevate_for_node_plane(args, collectors, out=str(out))
+    result = run_kit_file(Path(args.kit), out_dir=out)
     # A failed delivery is a failed run for scripts, even though the package is sealed.
     return 0 if result.success and not result.delivery_error else 1
 

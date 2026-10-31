@@ -44,6 +44,38 @@ def format_iso(dt: datetime) -> str:
     return dt.astimezone(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def _plural(n: int, unit: str) -> str:
+    return f"{n} {unit}" if n == 1 else f"{n} {unit}s"
+
+
+def human_duration(seconds: float) -> str:
+    """Configured lifetimes in words: ``7 days``, ``36 hours``, ``1 hour``, ``15 minutes``."""
+    total = max(0, int(seconds))
+    if total >= 2 * 86400 and total % 86400 == 0:
+        return _plural(total // 86400, "day")
+    if total >= 3600:
+        hours, rem = divmod(total, 3600)
+        if rem < 60:
+            return _plural(hours, "hour")
+        return f"{hours}h {rem // 60}m"
+    return _plural(max(1, total // 60), "minute")
+
+
+def short_remaining(seconds: float) -> str:
+    """Time left, compact: ``6d 23h``, ``11h 59m``, ``42m``, ``<1m``."""
+    total = int(seconds)
+    if total < 60:
+        return "<1m"
+    days, rem = divmod(total, 86400)
+    hours, rem = divmod(rem, 3600)
+    minutes = rem // 60
+    if days:
+        return f"{days}d {hours}h"
+    if hours:
+        return f"{hours}h {minutes}m"
+    return f"{minutes}m"
+
+
 @dataclass
 class KitCredentialMeta:
     provider: str
@@ -79,13 +111,36 @@ class KitManifest:
     def expiry(self) -> datetime:
         return _parse_iso(self.expires_at)
 
+    def effective_expiry(self) -> datetime:
+        """When the kit stops being runnable: the earlier of kit and credential expiry."""
+        exp = self.expiry()
+        if self.credential:
+            exp = min(exp, self.credential.expiry())
+        return exp
+
+    @property
+    def limited_by(self) -> str:
+        """``kit``, ``credential``, ``static_secret``, or ``""`` for kits built before this was recorded."""
+        if not self.credential:
+            return "kit"
+        return str(self.credential.details.get("limited_by") or "")
+
+    @property
+    def lifetime_note(self) -> str:
+        if not self.credential:
+            return ""
+        return str(self.credential.details.get("lifetime_note") or "")
+
+    @property
+    def kit_ttl_seconds(self) -> int | None:
+        raw = self.credential.details.get("kit_ttl_seconds") if self.credential else None
+        try:
+            return int(raw) if raw is not None else None
+        except (TypeError, ValueError):
+            return None
+
     def is_expired(self, *, now: datetime | None = None) -> bool:
-        now = now or utcnow()
-        if now >= self.expiry():
-            return True
-        if self.credential and self.credential.is_expired(now=now):
-            return True
-        return False
+        return (now or utcnow()) >= self.effective_expiry()
 
 
 @dataclass
@@ -176,15 +231,9 @@ def assert_kit_usable(manifest: KitManifest, *, now: datetime | None = None) -> 
     now = now or utcnow()
     if not manifest.is_expired(now=now):
         return
-    exp = manifest.expiry()
-    if manifest.credential:
-        cred_exp = manifest.credential.expiry()
-        if cred_exp < exp:
-            exp = cred_exp
     raise KitExpiredError(
-        f"Kit credential expired at {format_iso(exp)}. "
-        f"Download a fresh kit from Acquire (kit_id={manifest.kit_id}). "
-        "Refusing to start collection."
+        f"This kit expired at {manifest.effective_expiry():%Y-%m-%d %H:%M} UTC. "
+        "Download a fresh kit from Acquire in the Ventra console."
     )
 
 

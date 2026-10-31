@@ -92,16 +92,34 @@ the machine that should do the collection (your workstation, a cloud shell, or a
 control-plane node) and run:
 
 ```bash
-ventra run my-kit.kit
+ventra run my-kit.kit --out ./evidence
 ```
 
-This collects everything the kit lists and writes a sealed evidence package to `./evidence`
-(change it with `--out`). Bring the `.tar.zst` package back to your workstation and import it
-in the console with **Cases → Import package**.
+This collects everything the kit lists and writes a sealed evidence package to the `--out`
+folder. Leave `--out` off in a terminal and Ventra asks for the folder; scripts and other
+non-interactive runs must pass it. Bring the `.tar.zst` package back to your workstation and
+import it in the console with **Cases → Import package**.
 
 > **A `.kit` file contains working credentials.** Treat it like a password: don't email it,
 > don't commit it, and delete it when the collection is done. Kits expire, and `ventra run`
 > refuses to run an expired kit.
+
+A kit stays runnable for up to **7 days**, or until its embedded cloud credential expires if
+that comes first. `ventra run` prints the real expiry and says when the credential, not the
+7-day limit, is what ends it. What each cloud allows:
+
+| Cloud | Embedded credential | Kit runnable for |
+|-------|---------------------|------------------|
+| AWS, access keys | STS session token | 36 hours (1 hour for the root user) |
+| AWS, role | STS AssumeRole session | the role's maximum session, at most 12 hours (1 hour when chaining roles) |
+| GCP, service account | OAuth access token | 1 hour; 12 hours if the org policy `iam.allowServiceAccountCredentialLifetimeExtension` lists the account |
+| Azure, service principal | Resource Manager access token | 60–90 minutes (set by Microsoft Entra ID) |
+| Kubernetes, ServiceAccount token | the token in the kubeconfig | the token's own expiry, up to 7 days (`kubectl create token <sa> --duration=168h`) |
+| AWS profile / GCP ADC / kubeconfig auth plugin | none (uses the run host's login) | 7 days |
+
+Ventra never stretches a kit with a long-lived secret. If no short-lived credential can be
+minted and the kit has to carry one (an access key, service account key, client secret or
+certificate, or a token without an expiry), the kit is limited to 4 hours.
 
 On a Kubernetes node, `ventra run` re-runs itself with `sudo` so it can read root-only log
 files. Pass `--no-sudo` to skip that; those sources are then recorded as gaps.
@@ -110,7 +128,7 @@ To run a kit in **AWS CloudShell**, upload the `.kit` file, then install Ventra 
 
 ```bash
 curl -fsSL https://raw.githubusercontent.com/Haggag-22/Ventra/main/bin/install-cloudshell.sh | bash
-ventra run my-kit.kit
+ventra run my-kit.kit --out ./evidence
 ```
 
 ### 5. Investigate
@@ -161,7 +179,7 @@ exfiltration). Azure, GCP and Kubernetes generators live next to it in `tests/fi
 | Command | What it does |
 |---------|--------------|
 | `ventra gui` | Open the console (`--no-open` to skip opening a browser tab) |
-| `ventra run <kit>.kit` | Run a Collection Kit downloaded from Acquire (`--out`, `--no-sudo`) |
+| `ventra run <kit>.kit --out <folder>` | Run a Collection Kit downloaded from Acquire (`--no-sudo` to skip the sudo re-run) |
 | `ventra import <path>` | Import a package from a terminal into the console's case store (`--case-store <dir>` to use another one) |
 | `ventra-verify <package>` | Check a package's hashes and seal without importing it |
 | `ventra-export --case-dir <dir> --out <dir>` | Export a case's events as Elastic NDJSON |

@@ -48,11 +48,38 @@ In **Collection Kits**, click **Download Kit** and choose the connection to embe
 `.kit` file (named after the kit) to the machine that should do the collection and run:
 
 ```bash
-ventra run my-kit.kit
+ventra run my-kit.kit --out ./evidence
 ```
 
-The run prints live progress and writes a sealed package to `./evidence` (change it with
-`--out`):
+`--out` is the folder for the sealed package. Leave it off in a terminal and Ventra asks for
+the folder (and offers to create it); without a terminal (scripts, CI) the run stops and asks
+you to pass `--out`.
+
+The run prints a short header (case, cloud, output folder, expiry), then one row per collector
+with its record count and status:
+
+```
+Ventra · Prod IR
+  Case      CASE-2026-0042
+  Cloud     AWS
+  Output    /home/ir/evidence
+  Expires   2026-11-01 19:13 UTC (in 1d 11h)
+            Set by the AWS credential's lifetime; the kit itself allows 7 days.
+
+  Collector     Records   Status
+  ──────────────────────────────────
+  cloudtrail     48,213   Succeeded
+  guardduty          37   Succeeded
+  iam                 -   Failed
+  s3              1,204   Succeeded
+
+Done. 3 succeeded, 1 failed · 49,454 records
+  Evidence  /home/ir/evidence/case-CASE-2026-0042-123456789012-20260610T181530Z.tar.zst
+  Details   /home/ir/evidence/ventra-run.log
+```
+
+Error messages are not printed in the table; every collector's full message is in
+`ventra-run.log` in the output folder (and in `cli_run.json`). The folder then holds:
 
 ```
 ./evidence/case-CASE-2026-0042-123456789012-20260610T181530Z.tar.zst
@@ -65,6 +92,14 @@ The package's signed manifest (`manifest.json` + `manifest.json.sig`) is **insid
 > **A `.kit` file contains working credentials.** Treat it like a password: send it over a
 > secure channel, don't commit it, and delete it when the collection is done. Kits expire,
 > and `ventra run` refuses to run an expired kit.
+
+A kit is runnable for up to 7 days, or until its embedded cloud credential expires if that is
+sooner: 36 hours for AWS access keys, the role's maximum session (at most 12 hours) for an AWS
+role, 1 hour for a GCP service account (12 hours with the org's lifetime-extension policy), 60–90
+minutes for an Azure service principal, and the token's own expiry for a Kubernetes
+ServiceAccount token. The `Expires` line says when the credential is the limit. Ventra never
+uses a long-lived secret to make a kit last longer; a kit that has to carry one is limited to
+4 hours.
 
 On a Kubernetes node, `ventra run` re-runs itself with `sudo` so it can read root-only log
 files. Pass `--no-sudo` to skip that; those sources are then recorded as gaps.
@@ -81,7 +116,7 @@ curl -fsSL https://raw.githubusercontent.com/Haggag-22/Ventra/main/bin/install-c
 Upload the `.kit` file (**Actions → Upload file**), then run it:
 
 ```bash
-ventra run my-kit.kit
+ventra run my-kit.kit --out ./evidence
 ```
 
 When it finishes, download the `.tar.zst` from `./evidence` (**Actions → Download file**).

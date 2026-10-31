@@ -4,9 +4,12 @@ from __future__ import annotations
 
 import json
 import os
+import traceback
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
+
+from rich.console import Console
 
 from collector import __version__
 
@@ -19,6 +22,16 @@ from .format import (
     format_iso,
     open_kit,
     utcnow,
+)
+from .run_view import (
+    RUN_LOG_NAME,
+    KitRunView,
+    cloud_title,
+    make_console,
+    print_header,
+    print_summary,
+    status_text,
+    summary_counts,
 )
 
 
@@ -169,88 +182,130 @@ def _write_custody(staging_or_out: Path, payload: dict[str, Any]) -> Path:
     return path
 
 
-def _print_summary(result: KitRunResult) -> None:
-    print()
-    print("─" * 60)
-    print("Ventra kit run complete" if result.success else "Ventra kit run failed")
-    print("─" * 60)
-    print(f"  kit_id:     {result.kit_id}")
-    print(f"  case_id:    {result.case_id}")
-    print(f"  cloud:      {result.cloud}")
-    print(f"  operator:   {result.local_user} @ {result.completed_at}")
-    print(f"  started:    {result.started_at}")
-    print(f"  completed:  {result.completed_at}")
-    if result.per_collector:
-        print("  collectors:")
-        for row in result.per_collector:
-            status = row.get("status", "?")
-            name = row.get("collector", "?")
-            records = row.get("records")
-            extra = f"  records={records}" if records is not None else ""
-            print(f"    [{status:<9}] {name}{extra}")
-    elif result.collectors:
-        print(f"  collectors: {', '.join(result.collectors)}")
+def _write_run_log(
+    path: Path,
+    result: KitRunResult,
+    *,
+    kit_name: str = "",
+    detail: str = "",
+) -> Path:
+    """Full detail the terminal leaves out: run error, traceback, and every collector's message."""
+    lines = [
+        "Ventra kit run log",
+        f"kit:       {kit_name or '-'} ({result.kit_id or '-'})",
+        f"case:      {result.case_id or '-'}",
+        f"cloud:     {result.cloud or '-'}",
+        f"operator:  {result.local_user}",
+        f"started:   {result.started_at}",
+        f"completed: {result.completed_at}",
+        f"status:    {'succeeded' if result.success else 'failed'}",
+    ]
     if result.package_path:
-        print(f"  package:    {result.package_path}")
-    if result.delivered_to:
-        print(f"  delivered:  {result.delivered_to}")
-    elif result.delivery_error:
-        print(f"  delivery:   FAILED ({result.transport}): {result.delivery_error}")
-        print("              the sealed package above is intact; upload or hand-carry it")
-    print(f"  out:        {result.out_dir}")
+        lines.append(f"package:   {result.package_path}")
     if result.error:
-        print(f"  error:      {result.error}")
-    print("─" * 60)
+        lines += ["", "Run error:", f"  {result.error}"]
+    if detail:
+        lines += ["", "Detail:", *[f"  {line}" for line in detail.rstrip().splitlines()]]
+    if result.delivery_error:
+        lines += ["", f"Delivery to {result.transport} failed:", f"  {result.delivery_error}"]
+    if result.per_collector:
+        lines += ["", "Collectors:"]
+        for row in result.per_collector:
+            records = row.get("records")
+            count = (
+                f"{records:,} record{'' if records == 1 else 's'}"
+                if isinstance(records, int)
+                else "no records"
+            )
+            lines.append(
+                f"  {row.get('collector', '?')}: {status_text(str(row.get('status') or '?'))}, {count}"
+            )
+            message = str(row.get("detail") or "").strip()
+            if message:
+                lines += [f"      {part}" for part in message.splitlines()]
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+    return path
 
 
-def run_kit_file(kit_path: Path, *, out_dir: Path | None = None) -> KitRunResult:
+_REJECTED_CREDENTIAL_MARKERS = (
+    "InvalidClientTokenId",
+    "ExpiredToken",
+    "UnrecognizedClientException",
+    "SignatureDoesNotMatch",
+    "AuthFailure",
+    "invalid_grant",
+    "AADSTS",
+    "401 Unauthorized",
+)
+
+
+def _collection_error_summary(exc: Exception, cloud: str) -> str:
+    """One plain sentence for the terminal; the raw exception goes to the run log."""
+    if any(marker in str(exc) for marker in _REJECTED_CREDENTIAL_MARKERS):
+        return (
+            f"{cloud_title(cloud)} rejected the credentials in this kit. "
+            "Download a fresh kit from Acquire and run it again."
+        )
+    return "Collection stopped unexpectedly."
+
+
+def run_kit_file(kit_path: Path, *, out_dir: Path, console: Console | None = None) -> KitRunResult:
     """Load ``.kit``, refuse if expired, collect, seal locally, then deliver if the kit says so.
 
     Delivery uses the ``transport`` in the kit's acquisition.yaml (see :mod:`.deliver`); the
     sealed package is always written under ``out_dir`` first and kept there.
     """
+    console = console or make_console()
     started = utcnow()
     local_user = _local_user()
-    out = (out_dir or Path("evidence")).expanduser().resolve()
+    out = out_dir.expanduser().resolve()
     out.mkdir(parents=True, exist_ok=True)
+    log_path = out / RUN_LOG_NAME
+
+    def _fail(
+        error: str,
+        *,
+        kit: OpenKit | None = None,
+        cloud: str = "",
+        detail: str = "",
+        completed: str = "",
+    ) -> KitRunResult:
+        manifest = kit.manifest if kit is not None else None
+        result = KitRunResult(
+            case_id=manifest.case_id if manifest else "",
+            kit_id=manifest.kit_id if manifest else "",
+            cloud=cloud or (manifest.cloud if manifest else ""),
+            out_dir=out,
+            package_path=None,
+            started_at=format_iso(started),
+            completed_at=completed or format_iso(utcnow()),
+            local_user=local_user,
+            collectors=list(manifest.collectors) if manifest else [],
+            success=False,
+            error=error,
+        )
+        _write_run_log(log_path, result, kit_name=manifest.kit_name if manifest else "", detail=detail)
+        print_summary(
+            console,
+            success=False,
+            rows=[],
+            package_path=None,
+            error=error,
+            log_path=log_path if detail else None,
+        )
+        return result
 
     try:
         kit = open_kit(kit_path)
     except KitError as exc:
-        result = KitRunResult(
-            case_id="",
-            kit_id="",
-            cloud="",
-            out_dir=out,
-            package_path=None,
-            started_at=format_iso(started),
-            completed_at=format_iso(utcnow()),
-            local_user=local_user,
-            success=False,
-            error=str(exc),
-        )
-        _print_summary(result)
-        return result
+        return _fail(str(exc))
 
     with kit:
         try:
             assert_kit_usable(kit.manifest)
         except KitExpiredError as exc:
-            result = KitRunResult(
-                case_id=kit.manifest.case_id,
-                kit_id=kit.manifest.kit_id,
-                cloud=kit.manifest.cloud,
-                out_dir=out,
-                package_path=None,
-                started_at=format_iso(started),
-                completed_at=format_iso(utcnow()),
-                local_user=local_user,
-                collectors=list(kit.manifest.collectors),
-                success=False,
-                error=str(exc),
-            )
-            _print_summary(result)
-            return result
+            return _fail(str(exc), kit=kit)
 
         # Point artifact catalog at the kit copy when present.
         art_dir = kit.root / "artifacts"
@@ -272,57 +327,25 @@ def run_kit_file(kit_path: Path, *, out_dir: Path | None = None) -> KitRunResult
                 gcp_creds = _apply_gcp_credentials(kit)
             elif cloud == "azure":
                 azure_creds = _apply_azure_credentials(kit)
-                cloud = "azure"
             elif cloud == "kubernetes":
                 k8s_creds = _apply_kubernetes_credentials(kit)
             else:
                 raise KitError(f"unsupported cloud in kit: {cloud!r}")
         except KitError as exc:
-            result = KitRunResult(
-                case_id=kit.manifest.case_id,
-                kit_id=kit.manifest.kit_id,
-                cloud=kit.manifest.cloud,
-                out_dir=out,
-                package_path=None,
-                started_at=format_iso(started),
-                completed_at=format_iso(utcnow()),
-                local_user=local_user,
-                collectors=list(kit.manifest.collectors),
-                success=False,
-                error=str(exc),
-            )
-            _print_summary(result)
-            return result
+            return _fail(str(exc), kit=kit)
 
         # Re-check expiry immediately before collection (no partial runs).
         try:
             assert_kit_usable(kit.manifest)
         except KitExpiredError as exc:
-            result = KitRunResult(
-                case_id=kit.manifest.case_id,
-                kit_id=kit.manifest.kit_id,
-                cloud=kit.manifest.cloud,
-                out_dir=out,
-                package_path=None,
-                started_at=format_iso(started),
-                completed_at=format_iso(utcnow()),
-                local_user=local_user,
-                collectors=list(kit.manifest.collectors),
-                success=False,
-                error=str(exc),
-            )
-            _print_summary(result)
-            return result
+            return _fail(str(exc), kit=kit)
 
-        print(f"Running kit {kit.manifest.kit_name or kit.manifest.kit_id}")
-        print(f"  case:    {kit.manifest.case_id}")
-        print(f"  cloud:   {cloud}")
-        print(f"  version: kit={kit.manifest.ventra_version}  cli={__version__}")
-        print(f"  expires: {kit.manifest.expires_at}")
-        print(f"  out:     {out}")
-        if transport is not None:
-            print(f"  deliver: {redact_transport(transport_spec)}")
-        print()
+        print_header(
+            console,
+            kit.manifest,
+            out_dir=out,
+            deliver_to=redact_transport(transport_spec) if transport is not None else "",
+        )
 
         custody = {
             "kit_id": kit.manifest.kit_id,
@@ -339,6 +362,7 @@ def run_kit_file(kit_path: Path, *, out_dir: Path | None = None) -> KitRunResult
         }
         _write_custody(out, {**custody, "status": "running"})
 
+        view = KitRunView(console)
         try:
             package, per_collector = _execute_collection(
                 cloud=cloud,
@@ -348,40 +372,29 @@ def run_kit_file(kit_path: Path, *, out_dir: Path | None = None) -> KitRunResult
                 gcp_creds=gcp_creds if cloud == "gcp" else None,
                 azure_creds=azure_creds if cloud == "azure" else None,
                 k8s_creds=k8s_creds if cloud == "kubernetes" else None,
+                view=view,
             )
         except Exception as exc:  # noqa: BLE001
+            view.finalize()
             completed = format_iso(utcnow())
             _write_custody(
                 out,
                 {**custody, "completed_at": completed, "status": "failed", "error": str(exc)},
             )
-            result = KitRunResult(
-                case_id=kit.manifest.case_id,
-                kit_id=kit.manifest.kit_id,
+            return _fail(
+                _collection_error_summary(exc, cloud),
+                kit=kit,
                 cloud=cloud,
-                out_dir=out,
-                package_path=None,
-                started_at=format_iso(started),
-                completed_at=completed,
-                local_user=local_user,
-                collectors=list(kit.manifest.collectors),
-                success=False,
-                error=str(exc),
+                detail=traceback.format_exc(),
+                completed=completed,
             )
-            _print_summary(result)
-            return result
 
         delivery: Delivery | None = None
         if transport is not None and package and package.path:
-            print(f"Delivering sealed package to {redact_transport(transport_spec)} ...")
+            console.print(f"Uploading evidence to {redact_transport(transport_spec)} ...")
             delivery = deliver_package(
                 transport, transport_spec, Path(package.path), host_aws_env=host_aws_env
             )
-            if delivery.error:
-                print(f"Delivery failed: {delivery.error}")
-                print(f"Package remains at {package.path}")
-            else:
-                print(f"Delivered: {delivery.location}")
             custody["transport"] = {
                 "target": delivery.target,
                 "location": delivery.location or None,
@@ -428,7 +441,17 @@ def run_kit_file(kit_path: Path, *, out_dir: Path | None = None) -> KitRunResult
             delivered_to=delivery.location if delivery else "",
             delivery_error=delivery.error if delivery else "",
         )
-        _print_summary(result)
+        _write_run_log(log_path, result, kit_name=kit.manifest.kit_name)
+        _, failed, _ = summary_counts(per_collector)
+        print_summary(
+            console,
+            success=True,
+            rows=per_collector,
+            package_path=result.package_path,
+            delivered_to=result.delivered_to,
+            delivery_failed=bool(result.delivery_error),
+            log_path=log_path if (failed or result.delivery_error) else None,
+        )
         return result
 
 
@@ -441,12 +464,12 @@ def _execute_collection(
     gcp_creds: dict[str, str] | None,
     azure_creds: dict[str, str] | None,
     k8s_creds: dict[str, str] | None,
+    view: KitRunView | None = None,
 ) -> tuple[Any, list[dict[str, Any]]]:
     """Run collectors using the same engine path as ``ventra collect --acquisition``."""
     from collector.cli import (
         _artifact_matrix_meta,
         _artifacts_root_from_args,
-        _cli_reporter,
         _plan_collection,
         _regions_from_args,
         _window_from_args,
@@ -495,7 +518,7 @@ def _execute_collection(
             args, "aws", list(AWS_COLLECTOR_ORDER), AWS_REGISTRY
         )
         case_id = args.case or case_override
-        reporter, _console = _cli_reporter(quiet=False, json_mode=False, cloud="aws")
+        reporter = view or KitRunView()
         labels, sevs = _artifact_matrix_meta("aws", artifact_refs, _artifacts_root_from_args(args))
         cfg = AwsRunConfig(
             case_id=case_id,
@@ -517,7 +540,7 @@ def _execute_collection(
         )
         package = run_aws_collection(cfg)
         reporter.finalize()
-        return package, _collector_rows_from_reporter(reporter, collectors)
+        return package, reporter.rows()
 
     if cloud == "gcp":
         from collector.engine.api.gcp.runner import GcpRunConfig, run_gcp_collection
@@ -527,7 +550,7 @@ def _execute_collection(
             args, "gcp", list(GCP_COLLECTOR_ORDER), GCP_REGISTRY
         )
         case_id = args.case or case_override
-        reporter, _console = _cli_reporter(quiet=False, json_mode=False, cloud="gcp")
+        reporter = view or KitRunView()
         labels, sevs = _artifact_matrix_meta("gcp", artifact_refs, _artifacts_root_from_args(args))
         project = (gcp_creds or {}).get("project") or (spec.project if spec else "") or ""
         cred_path = (gcp_creds or {}).get("credentials_path") or ""
@@ -550,7 +573,7 @@ def _execute_collection(
         )
         package = run_gcp_collection(cfg)
         reporter.finalize()
-        return package, _collector_rows_from_reporter(reporter, collectors)
+        return package, reporter.rows()
 
     if cloud == "azure":
         from collector.engine.api.azure.runner import AzureRunConfig, run_azure_collection
@@ -561,7 +584,7 @@ def _execute_collection(
             args, "azure", list(AZURE_COLLECTOR_ORDER), AZURE_REGISTRY
         )
         case_id = args.case or case_override
-        reporter, _console = _cli_reporter(quiet=False, json_mode=False, cloud="azure")
+        reporter = view or KitRunView()
         labels, sevs = _artifact_matrix_meta("azure", artifact_refs, _artifacts_root_from_args(args))
         ac = azure_creds or {}
         auth = AzureAuthOptions(
@@ -591,7 +614,7 @@ def _execute_collection(
         )
         package = run_azure_collection(cfg)
         reporter.finalize()
-        return package, _collector_rows_from_reporter(reporter, collectors)
+        return package, reporter.rows()
 
     if cloud == "kubernetes":
         from collector.engine.api.kubernetes.runner import (
@@ -604,7 +627,7 @@ def _execute_collection(
             args, "kubernetes", list(KUBERNETES_COLLECTOR_ORDER), KUBERNETES_REGISTRY
         )
         case_id = args.case or case_override
-        reporter, _console = _cli_reporter(quiet=False, json_mode=False, cloud="kubernetes")
+        reporter = view or KitRunView()
         labels, sevs = _artifact_matrix_meta("kubernetes", artifact_refs, _artifacts_root_from_args(args))
         kc = k8s_creds or {}
         cfg = KubernetesRunConfig(
@@ -626,44 +649,6 @@ def _execute_collection(
         )
         package = run_kubernetes_collection(cfg)
         reporter.finalize()
-        return package, _collector_rows_from_reporter(reporter, collectors)
+        return package, reporter.rows()
 
     raise KitError(f"unsupported cloud: {cloud}")
-
-
-def _collector_rows_from_reporter(reporter: Any, collectors: list[str]) -> list[dict[str, Any]]:
-    rows: list[dict[str, Any]] = []
-    matrix = getattr(reporter, "_matrix", None)
-    matrix_rows = getattr(matrix, "rows", None) if matrix is not None else None
-    if isinstance(matrix_rows, dict) and matrix_rows:
-        for name in collectors:
-            row = matrix_rows.get(name)
-            if row is None:
-                rows.append({"collector": name, "status": "unknown"})
-                continue
-            status = getattr(row, "status", None) or "unknown"
-            records = getattr(row, "records", None)
-            rows.append({"collector": name, "status": str(status), "records": records})
-        return rows
-    finished = getattr(matrix, "finished_csv_rows", None) if matrix is not None else None
-    if isinstance(finished, list) and finished:
-        by_check = {str(r.get("check") or "").lower(): r for r in finished if isinstance(r, dict)}
-        for name in collectors:
-            r = by_check.get(name.lower()) or by_check.get(name.upper())
-            if not r:
-                rows.append({"collector": name, "status": "unknown"})
-                continue
-            label = str(r.get("label") or "unknown").lower()
-            status = "pass" if label == "pass" else ("fail" if label == "fail" else label)
-            tag = r.get("tag")
-            records = None
-            if isinstance(tag, str) and tag not in {"-", ""}:
-                try:
-                    records = int(tag.replace(",", ""))
-                except ValueError:
-                    records = None
-            rows.append({"collector": name, "status": status, "records": records})
-        return rows
-    for name in collectors:
-        rows.append({"collector": name, "status": "ran"})
-    return rows
