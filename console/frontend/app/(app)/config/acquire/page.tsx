@@ -995,7 +995,7 @@ function AcquireContent() {
                 {platform === "kubernetes" && (
                   <p className="text-xs leading-relaxed text-fg-subtle">
                     Kubernetes kits are download-only for now. Save the kit, download it from
-                    Collection Kits, run <span className="mono">ventra run &lt;kit&gt;.kit</span> on a host that
+                    Collection Kits, run <span className="mono">ventra run &lt;kit&gt;.kit --out ./evidence</span> on a host that
                     can reach the API (and nodes for log collectors), then import with{" "}
                     <span className="mono">ventra import</span> or Cases → Import. Live console scans
                     for Kubernetes are disabled until a later release.

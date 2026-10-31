@@ -154,7 +154,7 @@ main() {
   echo "Open the console (build and run Collection Kits, investigate cases):"
   echo "  ventra gui"
   echo "Run a downloaded kit:"
-  echo "  ventra run <your-kit>.kit"
+  echo "  ventra run <your-kit>.kit --out ./evidence"
   echo "Upgrade later:"
   if [ "$backend" = pipx ]; then
     echo "  pipx upgrade ventra"

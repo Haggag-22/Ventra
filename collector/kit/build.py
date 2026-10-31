@@ -1,7 +1,7 @@
 """Build a Ventra Collection Kit (``.kit``) or legacy operator zip.
 
 A ``.kit`` is a zip archive containing ``kit.json``, ``acquisition.yaml``, short-lived
-credentials, selected artifacts, and IAM references. It is run with ``ventra run file.kit``
+credentials, selected artifacts, and IAM references. It is run with ``ventra run file.kit --out <folder>``
 on any machine with Ventra installed — no re-authentication until the embedded credential
 expires.
 
@@ -26,7 +26,7 @@ from collector import __version__
 from collector.engine.acquire_platform import collector_cloud_for_platform
 from collector.engine.loader import load_artifacts_dir
 from collector.kit.auth_embed import embed_connection_auth
-from collector.kit.format import KIT_FORMAT, KIT_FORMAT_VERSION, format_iso, utcnow
+from collector.kit.format import KIT_FORMAT, KIT_FORMAT_VERSION, format_iso, human_duration, utcnow
 from collector.kit.mint import kit_ttl_seconds
 
 _KIT_ROOT = Path(__file__).resolve().parent
@@ -282,6 +282,7 @@ def build_kit(
             kit_slug=script_slug,
             cloud=collector_cloud,
             expires_at=expires_at,
+            credential=cred_meta,
         )
         notes = _PROFILE_TRADEOFFS.get(profile, f"profile: {profile}\n")
         notes = notes.replace("{{CLOUD}}", collector_cloud.upper())
@@ -337,6 +338,7 @@ def _write_kit_cli_readme(
     kit_slug: str,
     cloud: str,
     expires_at: str,
+    credential: dict[str, Any] | None = None,
 ) -> None:
     """Operator README for ``ventra run`` Collection Kits."""
     text = f"""# {kit_name}
@@ -347,17 +349,23 @@ Ventra Collection Kit (``.kit``) for **read-only** {cloud.upper()} evidence coll
 
 - Ventra CLI installed (`ventra --version`)
 - Network access to the target cloud / cluster APIs
-- This kit's embedded credential must not be expired (expires **{expires_at}**)
+- Run it before **{expires_at}** (see [Expiry](#expiry))
 
 ## Quick start
 
 ```bash
-ventra run {kit_slug}.kit
 ventra run {kit_slug}.kit --out ./evidence
 ```
 
+`--out` is the folder the sealed evidence package is written to. Run without it in a
+terminal and Ventra asks for the folder; in scripts (no terminal) `--out` is required.
+
 No login prompts. No Ventra backend calls during the run. Authentication is already
 baked into the kit until `{expires_at}`.
+
+## Expiry
+
+{_kit_expiry_readme(cloud, expires_at, credential)}
 
 ## After collection
 
@@ -392,6 +400,25 @@ collectors, start/end time, and the local OS username of whoever executed the ru
 """
     (staging / "README.md").write_text(text, encoding="utf-8")
     (staging / "README-operator.md").write_text(text, encoding="utf-8")
+
+
+def _kit_expiry_readme(cloud: str, expires_at: str, credential: dict[str, Any] | None) -> str:
+    kit_limit = human_duration(kit_ttl_seconds())
+    cred = credential or {}
+    limited_by = str(cred.get("limited_by") or "kit")
+    note = str(cred.get("lifetime_note") or "").strip()
+    lines = [f"This kit can be run until **{expires_at}**."]
+    if limited_by == "kit":
+        lines.append(f"That is Ventra's kit limit ({kit_limit}).")
+    else:
+        lines.append(
+            f"That is set by the embedded {cloud.upper()} credential's own lifetime; "
+            f"Ventra's kit limit ({kit_limit}) is longer."
+        )
+    if note:
+        lines.append(note)
+    lines.append("`ventra run` refuses to start once the kit has expired; download a fresh kit from Acquire.")
+    return "\n".join(lines)
 
 
 def _write_kit_requirements(staging: Path, cloud: str) -> None:

@@ -17,16 +17,16 @@ function standardSteps(cloud: string, kitName?: string): string[] {
   const kitFile = kitEntryScriptName(kitName || "");
   if (cloud.toLowerCase() === "kubernetes") {
     return [
-      "Download the .kit file (Authentication is baked in — short-lived credential).",
-      `On any machine with Ventra installed: ventra run ${kitFile} (optional: --out ./evidence). Open README.md in the kit for details.`,
+      "Download the .kit file (Authentication is baked in — short-lived credential, up to 7 days).",
+      `On any machine with Ventra installed: ventra run ${kitFile} --out ./evidence. Open README.md in the kit for details.`,
       "For node logs, SSH to each node (or use the DaemonSet) so /var/log and journals are local.",
       "Import with ventra import ./evidence (or Cases → Import package). Export works after import.",
     ];
   }
   const model = acquirePermissionModel(cloud);
   return [
-    "Download the .kit file (Authentication is baked in — short-lived credential).",
-    `On any machine with Ventra installed: ventra run ${kitFile} (optional: --out ./evidence). Read-only ${model} is already scoped in iam/.`,
+    "Download the .kit file (Authentication is baked in — short-lived credential, up to 7 days).",
+    `On any machine with Ventra installed: ventra run ${kitFile} --out ./evidence. Read-only ${model} is already scoped in iam/.`,
     "Import with ventra import ./evidence (or Cases → Import package). Export works after import.",
   ];
 }

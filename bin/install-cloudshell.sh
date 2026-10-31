@@ -114,7 +114,7 @@ main() {
     fi
     echo
     echo "Run a Collection Kit (upload the .kit from the console's Collection Kits page first):"
-    echo "  ventra run <your-kit>.kit"
+    echo "  ventra run <your-kit>.kit --out ./evidence"
   fi
 }
 

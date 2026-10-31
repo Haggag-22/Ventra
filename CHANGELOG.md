@@ -6,6 +6,19 @@ All notable changes to Ventra are documented here. Format follows
 
 ## [Unreleased]
 
+### Changed
+- Collection Kits stay runnable for up to 7 days (was 4 hours). Each cloud's embedded credential
+  is minted for the longest lifetime it allows (AWS session tokens 36 hours, AWS roles up to their
+  maximum session, GCP tokens 12 hours when the org policy permits), and the kit expires when that
+  credential does if it is sooner. Kits that can only carry a long-lived secret stay at 4 hours.
+- `ventra run` prints the real expiry and says when the cloud credential, not the 7-day limit, ends
+  the kit.
+- `ventra run` output is a short header (case, cloud, output folder, expiry) and one row per
+  collector with records and a plain status (Succeeded, Failed, Running, Pending). Error messages
+  go to `ventra-run.log` in the output folder; the summary points to it.
+- `ventra run` no longer defaults to `./evidence`. Without `--out` it asks for the folder in a
+  terminal (offering to create it) and stops with a hint to pass `--out` otherwise.
+
 ### Fixed
 - `ventra-verify` reports a missing or unreadable package as a one-line error (exit 2) instead
   of a Python traceback, and `--key` now says it isn't implemented rather than being ignored.
