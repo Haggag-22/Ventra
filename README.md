@@ -63,6 +63,8 @@ Use an identity with **read-only** permissions. Ready-made policies are in
 [`docs/iam-policies/`](docs/iam-policies/), and Terraform/CloudFormation templates are in
 [`docs/deployment/`](docs/deployment/).
 
+![Saved cloud connections on the Authentication page](docs/screenshots/Auth%20Sample.png)
+
 ### 3. Build a Collection Kit in Acquire
 
 Go to **Configuration → Acquire**:
@@ -75,15 +77,21 @@ Go to **Configuration → Acquire**:
 
 The kit now appears under **Collection Kits**.
 
+![Building a kit in Acquire](docs/screenshots/Acquire%20Sample.png)
+
 ### 4. Run the kit
 
 Go to **Collection Kits** and pick one of the two ways to run it.
+
+![Saved kits, with Run and Download Kit](docs/screenshots/Collection%20Kit%20Sample.png)
 
 **Option A: run it from the console** (AWS, Azure, GCP)
 
 Click **Run**, choose a new or existing case, and choose the connection to use. The console
 shows live progress, and the evidence is imported into the case automatically when the run
 finishes.
+
+![A collection in progress on Scans](docs/screenshots/Running%20Scan%20Sample.png)
 
 **Option B: run it from a terminal** (all clouds; the only option for Kubernetes)
 
@@ -135,6 +143,8 @@ ventra run my-kit.kit --out ./evidence
 
 Open the case under **Cases**. The panels follow the case's cloud:
 
+![Imported cases](docs/screenshots/Cases%20Sample.png)
+
 | Panel | What you see |
 |-------|--------------|
 | **Timeline** | Control-plane activity: CloudTrail, Azure Activity Log and Entra, GCP Cloud Audit Logs |
@@ -153,6 +163,8 @@ that in the package instead of silently skipping it.
 
 To send a case to a SIEM, use **Export** in the console (Elastic NDJSON), or see
 [`ingester/pipelines/elastic/`](ingester/pipelines/elastic/README.md).
+
+![Exporting a case](docs/screenshots/Export%20Sample.png)
 
 ---
 
