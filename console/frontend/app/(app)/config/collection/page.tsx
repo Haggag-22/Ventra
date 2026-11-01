@@ -14,7 +14,7 @@ import {
   caseHref,
   runHref,
 } from "@/lib/routes";
-import { readLastConnection } from "@/lib/provider-storage";
+import { useLastConnection } from "@/lib/use-last-connection";
 import type { RunMeta, RunStatus } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -155,7 +155,7 @@ function RunRowActions({ run }: { run: RunMeta }) {
 export default function CollectionPage() {
   const router = useRouter();
   const [filter, setFilter] = useState<StatusFilter>("all");
-  const newRunHref = acquireRunHref(readLastConnection());
+  const newRunHref = acquireRunHref(useLastConnection());
 
   // Clicking a row always opens that existing run — it never starts a new scan. Re-running is
   // an explicit per-row "Re-run" button (see RunRowActions).

@@ -60,10 +60,10 @@ investigating:
 | Kubernetes | A kubeconfig |
 
 Use an identity with **read-only** permissions. Ready-made policies are in
-[`docs/iam-policies/`](docs/iam-policies/), and Terraform/CloudFormation templates are in
-[`docs/deployment/`](docs/deployment/).
+[`docs/iam-policies/`](https://github.com/Haggag-22/Ventra/blob/main/docs/iam-policies/), and Terraform/CloudFormation templates are in
+[`docs/deployment/`](https://github.com/Haggag-22/Ventra/blob/main/docs/deployment/).
 
-![Saved cloud connections on the Authentication page](docs/screenshots/Auth%20Sample.png)
+![Saved cloud connections on the Authentication page](https://raw.githubusercontent.com/Haggag-22/Ventra/main/docs/screenshots/Auth%20Sample.png)
 
 ### 3. Build a Collection Kit in Acquire
 
@@ -71,19 +71,19 @@ Go to **Configuration → Acquire**:
 
 1. Pick the cloud.
 2. Add the log sources you want from the artifact library (CloudTrail, sign-in logs, flow logs,
-   and so on; see [`docs/collectors.md`](docs/collectors.md) for the full list).
+   and so on; see [`docs/collectors.md`](https://github.com/Haggag-22/Ventra/blob/main/docs/collectors.md) for the full list).
 3. Give the kit a name and set the time window (**Since** / **Until**).
 4. Click **Save kit**.
 
 The kit now appears under **Collection Kits**.
 
-![Building a kit in Acquire](docs/screenshots/Acquire%20Sample.png)
+![Building a kit in Acquire](https://raw.githubusercontent.com/Haggag-22/Ventra/main/docs/screenshots/Acquire%20Sample.png)
 
 ### 4. Run the kit
 
 Go to **Collection Kits** and pick one of the two ways to run it.
 
-![Saved kits, with Run and Download Kit](docs/screenshots/Collection%20Kit%20Sample.png)
+![Saved kits, with Run and Download Kit](https://raw.githubusercontent.com/Haggag-22/Ventra/main/docs/screenshots/Collection%20Kit%20Sample.png)
 
 **Option A: run it from the console** (AWS, Azure, GCP)
 
@@ -91,7 +91,7 @@ Click **Run**, choose a new or existing case, and choose the connection to use. 
 shows live progress, and the evidence is imported into the case automatically when the run
 finishes.
 
-![A collection in progress on Scans](docs/screenshots/Running%20Scan%20Sample.png)
+![A collection in progress on Scans](https://raw.githubusercontent.com/Haggag-22/Ventra/main/docs/screenshots/Running%20Scan%20Sample.png)
 
 **Option B: run it from a terminal** (all clouds; the only option for Kubernetes)
 
@@ -143,7 +143,7 @@ ventra run my-kit.kit --out ./evidence
 
 Open the case under **Cases**. The panels follow the case's cloud:
 
-![Imported cases](docs/screenshots/Cases%20Sample.png)
+![Imported cases](https://raw.githubusercontent.com/Haggag-22/Ventra/main/docs/screenshots/Cases%20Sample.png)
 
 | Panel | What you see |
 |-------|--------------|
@@ -162,9 +162,9 @@ Open the case under **Cases**. The panels follow the case's cloud:
 that in the package instead of silently skipping it.
 
 To send a case to a SIEM, use **Export** in the console (Elastic NDJSON), or see
-[`ingester/pipelines/elastic/`](ingester/pipelines/elastic/README.md).
+[`ingester/pipelines/elastic/`](https://github.com/Haggag-22/Ventra/blob/main/ingester/pipelines/elastic/README.md).
 
-![Exporting a case](docs/screenshots/Export%20Sample.png)
+![Exporting a case](https://raw.githubusercontent.com/Haggag-22/Ventra/main/docs/screenshots/Export%20Sample.png)
 
 ---
 
@@ -228,7 +228,7 @@ cases; remove the data folder above if you want them gone.
 - **Saved credentials stay private.** Connections are stored with owner-only file permissions
   and are masked in the console.
 
-Found a vulnerability? Please report it privately; see [SECURITY.md](SECURITY.md).
+Found a vulnerability? Please report it privately; see [SECURITY.md](https://github.com/Haggag-22/Ventra/blob/main/SECURITY.md).
 
 ---
 
@@ -245,15 +245,15 @@ Found a vulnerability? Please report it privately; see [SECURITY.md](SECURITY.md
 
 | Document | Contents |
 |----------|----------|
-| [`docs/collectors.md`](docs/collectors.md) | Every collector, per cloud |
-| [`docs/runbooks/operator.md`](docs/runbooks/operator.md) | Running a collection |
-| [`docs/runbooks/analyst.md`](docs/runbooks/analyst.md) | Investigating a case |
-| [`docs/runbooks/data-custodian.md`](docs/runbooks/data-custodian.md) | Receiving, storing and deleting evidence |
-| [`docs/architecture.md`](docs/architecture.md) | How the collector, ingester and console fit together |
-| [`docs/evidence-package-format.md`](docs/evidence-package-format.md) | The evidence package format |
-| [`docs/artifacts.md`](docs/artifacts.md) | The artifact catalog and packs |
-| [`docs/iam-policies/`](docs/iam-policies/) | Read-only permissions per cloud |
-| [`docs/threat-coverage.md`](docs/threat-coverage.md) | Which log sources cover which attacker techniques |
+| [`docs/collectors.md`](https://github.com/Haggag-22/Ventra/blob/main/docs/collectors.md) | Every collector, per cloud |
+| [`docs/runbooks/operator.md`](https://github.com/Haggag-22/Ventra/blob/main/docs/runbooks/operator.md) | Running a collection |
+| [`docs/runbooks/analyst.md`](https://github.com/Haggag-22/Ventra/blob/main/docs/runbooks/analyst.md) | Investigating a case |
+| [`docs/runbooks/data-custodian.md`](https://github.com/Haggag-22/Ventra/blob/main/docs/runbooks/data-custodian.md) | Receiving, storing and deleting evidence |
+| [`docs/architecture.md`](https://github.com/Haggag-22/Ventra/blob/main/docs/architecture.md) | How the collector, ingester and console fit together |
+| [`docs/evidence-package-format.md`](https://github.com/Haggag-22/Ventra/blob/main/docs/evidence-package-format.md) | The evidence package format |
+| [`docs/artifacts.md`](https://github.com/Haggag-22/Ventra/blob/main/docs/artifacts.md) | The artifact catalog and packs |
+| [`docs/iam-policies/`](https://github.com/Haggag-22/Ventra/blob/main/docs/iam-policies/) | Read-only permissions per cloud |
+| [`docs/threat-coverage.md`](https://github.com/Haggag-22/Ventra/blob/main/docs/threat-coverage.md) | Which log sources cover which attacker techniques |
 
 ---
 
@@ -266,9 +266,9 @@ uv sync          # creates .venv with all dependencies and dev tools
 uv run pytest    # run the test suite
 ```
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for the development setup, and
-[CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md). Changes are listed in [CHANGELOG.md](CHANGELOG.md).
+See [CONTRIBUTING.md](https://github.com/Haggag-22/Ventra/blob/main/CONTRIBUTING.md) for the development setup, and
+[CODE_OF_CONDUCT.md](https://github.com/Haggag-22/Ventra/blob/main/CODE_OF_CONDUCT.md). Changes are listed in [CHANGELOG.md](https://github.com/Haggag-22/Ventra/blob/main/CHANGELOG.md).
 
 ## License
 
-[Apache-2.0](LICENSE).
+[Apache-2.0](https://github.com/Haggag-22/Ventra/blob/main/LICENSE).

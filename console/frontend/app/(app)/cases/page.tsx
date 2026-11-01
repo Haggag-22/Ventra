@@ -15,7 +15,7 @@ import { api, deleteCase, listConnections, listRuns } from "@/lib/api";
 import { CASE_PLATFORM_LABELS, CASE_PLATFORMS, isPlatformVisibleInUi, type CasePlatform } from "@/lib/catalog";
 import { fmtBytes, fmtDateOnly, fmtNum } from "@/lib/format";
 import { caseHref, acquireRunHref } from "@/lib/routes";
-import { readLastConnection } from "@/lib/provider-storage";
+import { useLastConnection } from "@/lib/use-last-connection";
 import type { CaseSummary, RunMeta } from "@/lib/types";
 import { cn } from "@/lib/utils";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -53,6 +53,7 @@ export default function CasesPage() {
   const [s3ImportOpen, setS3ImportOpen] = useState(false);
   const [importCaseId, setImportCaseId] = useState("");
   const [tab, setTab] = useState<PlatformTab>("all");
+  const lastConnection = useLastConnection();
   const cases = useQuery({ queryKey: ["cases"], queryFn: api.cases });
   const connections = useQuery({
     queryKey: ["config", "connections"],
@@ -95,7 +96,7 @@ export default function CasesPage() {
           </h1>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Link href={acquireRunHref(readLastConnection())}>
+          <Link href={acquireRunHref(lastConnection)}>
             <Button variant="secondary" icon={Play}>
               Run collection
             </Button>

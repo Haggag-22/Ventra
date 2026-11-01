@@ -6,10 +6,22 @@ All notable changes to Ventra are documented here. Format follows
 
 ## [Unreleased]
 
+## [1.0.2] - 2026-11-01
+
+First public release. Includes everything listed under 1.0.1 and 1.0.0 below.
+
+### Changed
+- The README uses absolute links, so its screenshots and documentation links also work on the
+  PyPI project page.
+
+### Fixed
+- The console's **Run collection** links no longer cause a hydration mismatch when the browser
+  remembers a last-used connection.
+
 ## [1.0.1] - 2026-10-31
 
-Same code as the withdrawn 1.0 upload. PyPI will not accept those filenames again, so this is
-the release `uv` and `pip` install.
+Same code as the withdrawn 1.0 upload, republished because PyPI does not accept a deleted
+version's files again.
 
 ### Changed
 - Collection Kits stay runnable for up to 7 days (was 4 hours). Each cloud's embedded credential
@@ -30,10 +42,11 @@ the release `uv` and `pip` install.
 - `bin/install.sh` suggests the upgrade command for the installer it actually used
   (`uv tool upgrade ventra` or `pipx upgrade ventra`).
 
-## [1.0.0] - 2026-10-23
+## 1.0.0 - 2026-10-23 (withdrawn)
 
-First stable release. Earlier 0.x builds were previews and have been withdrawn from PyPI and
-GitHub; their notes are kept at the end of this file.
+Withdrawn from PyPI and GitHub before the public launch; its changes ship in 1.0.1 and later.
+Earlier 0.x builds were previews and have also been withdrawn; their notes are kept at the end
+of this file.
 
 ### Added
 - Acquire can choose where the Azure Activity Log comes from: the Monitor API or the
@@ -136,6 +149,6 @@ GitHub; their notes are kept at the end of this file.
 - Demo case fixtures and an end-to-end collect → ingest → render path.
 - Terraform reference forensics environment for the analyst workstation.
 
-[Unreleased]: https://github.com/Haggag-22/Ventra/compare/v1.0.1...main
+[Unreleased]: https://github.com/Haggag-22/Ventra/compare/v1.0.2...main
+[1.0.2]: https://github.com/Haggag-22/Ventra/releases/tag/v1.0.2
 [1.0.1]: https://github.com/Haggag-22/Ventra/releases/tag/v1.0.1
-[1.0.0]: https://github.com/Haggag-22/Ventra/releases/tag/v1.0.0
